@@ -7,89 +7,99 @@ import {
   Truck,
   CheckCircle2,
   MapPin,
-  Clock,
-  Phone,
+  Loader2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo-kompras-plus.png";
 
-interface OrderStatus {
-  orderNumber: string;
-  status: "confirmed" | "preparing" | "in_transit" | "delivered";
-  customerName: string;
-  address: string;
-  items: string[];
-  estimatedDelivery: string;
-  driverName?: string;
-  driverPhone?: string;
-  lastUpdate: string;
+interface Pedido {
+  id: number;
+  numero_guia: string | null;
+  cliente_nombre: string | null;
+  direccion_entrega: string | null;
+  estado: string | null;
+  corte_horario: string | null;
 }
-
-const mockOrderStatuses: Record<string, OrderStatus> = {
-  "KP-2024-001": {
-    orderNumber: "KP-2024-001",
-    status: "in_transit",
-    customerName: "María García",
-    address: "Calle 85 # 15-32, Chapinero",
-    items: ["Arroz x2", "Aceite x1", "Azúcar x3"],
-    estimatedDelivery: "10:30 AM - 11:00 AM",
-    driverName: "Juan Pérez",
-    driverPhone: "+57 300 555 1234",
-    lastUpdate: "Hace 5 minutos",
-  },
-  "KP-2024-002": {
-    orderNumber: "KP-2024-002",
-    status: "preparing",
-    customerName: "Carlos Rodríguez",
-    address: "Carrera 7 # 72-64, Bogotá",
-    items: ["Leche x4", "Pan x2", "Huevos x1", "Queso x2", "Jamón x1"],
-    estimatedDelivery: "11:00 AM - 11:30 AM",
-    lastUpdate: "Hace 15 minutos",
-  },
-  "KP-2024-004": {
-    orderNumber: "KP-2024-004",
-    status: "delivered",
-    customerName: "Pedro López",
-    address: "Calle 100 # 19-51, Usaquén",
-    items: ["Frutas surtidas", "Verduras", "Carnes", "Lácteos"],
-    estimatedDelivery: "Entregado",
-    lastUpdate: "Hace 2 horas",
-  },
-};
 
 const CustomerTracking = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [orderResult, setOrderResult] = useState<OrderStatus | null>(null);
+  const [orderResult, setOrderResult] = useState<Pedido | null>(null);
   const [error, setError] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!searchQuery.trim()) return;
+
     setError("");
     setIsSearching(true);
+    setOrderResult(null);
 
-    setTimeout(() => {
-      const order = mockOrderStatuses[searchQuery.toUpperCase()];
-      if (order) {
-        setOrderResult(order);
+    try {
+      const { data, error: fetchError } = await supabase
+        .from("pedidos")
+        .select("*")
+        .ilike("numero_guia", `%${searchQuery.trim()}%`)
+        .limit(1)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (data) {
+        setOrderResult(data);
       } else {
-        setError("No encontramos un pedido con ese número. Verifica e intenta de nuevo.");
-        setOrderResult(null);
+        setError(
+          "No encontramos un pedido con ese número de guía. Verifica e intenta de nuevo."
+        );
       }
+    } catch (err) {
+      console.error("Error searching:", err);
+      setError("Error al buscar el pedido. Por favor intenta de nuevo.");
+    } finally {
       setIsSearching(false);
-    }, 1000);
+    }
+  };
+
+  const getStatusInfo = (status: string | null) => {
+    const s = status?.toLowerCase();
+    switch (s) {
+      case "pendiente":
+        return {
+          label: "Pendiente",
+          description: "Tu pedido está siendo procesado",
+          color: "bg-secondary text-secondary-foreground",
+          step: 1,
+        };
+      case "en camino":
+        return {
+          label: "En Camino",
+          description: "Tu pedido está en ruta de entrega",
+          color: "bg-primary text-primary-foreground",
+          step: 2,
+        };
+      case "entregado":
+        return {
+          label: "Entregado",
+          description: "Tu pedido ha sido entregado exitosamente",
+          color: "bg-green-500 text-white",
+          step: 3,
+        };
+      default:
+        return {
+          label: status || "Desconocido",
+          description: "Estado del pedido",
+          color: "bg-muted text-muted-foreground",
+          step: 0,
+        };
+    }
   };
 
   const statusSteps = [
-    { key: "confirmed", label: "Confirmado", icon: CheckCircle2 },
-    { key: "preparing", label: "Preparando", icon: Package },
-    { key: "in_transit", label: "En camino", icon: Truck },
-    { key: "delivered", label: "Entregado", icon: MapPin },
+    { key: 1, label: "Pendiente", icon: Package },
+    { key: 2, label: "En Camino", icon: Truck },
+    { key: 3, label: "Entregado", icon: CheckCircle2 },
   ];
-
-  const getCurrentStepIndex = (status: string) => {
-    return statusSteps.findIndex((step) => step.key === status);
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -114,6 +124,16 @@ const CustomerTracking = () => {
       </header>
 
       <main className="container px-4 py-6">
+        {/* Warehouse Address */}
+        <motion.div
+          className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <MapPin className="h-4 w-4" />
+          <span>Bodega: Carrera 20 # 14-30 local 212, Bogotá</span>
+        </motion.div>
+
         {/* Search Section */}
         <motion.div
           className="mb-8"
@@ -124,7 +144,7 @@ const CustomerTracking = () => {
             Rastrea tu pedido
           </h1>
           <p className="mb-6 text-muted-foreground">
-            Ingresa el número de tu pedido para ver el estado
+            Ingresa el número de guía para ver el estado de tu pedido
           </p>
 
           <form onSubmit={handleSearch} className="flex gap-3">
@@ -132,7 +152,7 @@ const CustomerTracking = () => {
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
-                placeholder="Ej: KP-2024-001"
+                placeholder="Ej: GU-001"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full rounded-xl border border-input bg-card py-3 pl-12 pr-4 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
@@ -140,10 +160,14 @@ const CustomerTracking = () => {
             </div>
             <button
               type="submit"
-              disabled={!searchQuery || isSearching}
+              disabled={!searchQuery.trim() || isSearching}
               className="rounded-xl bg-accent px-6 py-3 font-semibold text-accent-foreground transition-transform hover:opacity-90 active:scale-95 disabled:opacity-50"
             >
-              {isSearching ? "..." : "Buscar"}
+              {isSearching ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                "Buscar"
+              )}
             </button>
           </form>
 
@@ -170,32 +194,33 @@ const CustomerTracking = () => {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-6"
             >
-              {/* Status Timeline */}
+              {/* Status Card */}
               <div className="rounded-2xl bg-card p-6 shadow-card">
                 <div className="mb-6 flex items-center justify-between">
                   <div>
                     <h2 className="text-lg font-bold text-foreground">
-                      {orderResult.orderNumber}
+                      {orderResult.numero_guia || `Pedido #${orderResult.id}`}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      Actualizado: {orderResult.lastUpdate}
+                      {orderResult.cliente_nombre || "Cliente"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 rounded-full bg-secondary px-3 py-1.5">
-                    <Clock className="h-4 w-4" />
-                    <span className="text-sm font-medium">
-                      {orderResult.estimatedDelivery}
-                    </span>
-                  </div>
+                  <span
+                    className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                      getStatusInfo(orderResult.estado).color
+                    }`}
+                  >
+                    {getStatusInfo(orderResult.estado).label}
+                  </span>
                 </div>
 
-                {/* Timeline */}
+                {/* Status Timeline */}
                 <div className="relative">
                   <div className="absolute left-6 top-0 h-full w-0.5 bg-border" />
-                  {statusSteps.map((step, index) => {
-                    const currentIndex = getCurrentStepIndex(orderResult.status);
-                    const isCompleted = index <= currentIndex;
-                    const isCurrent = index === currentIndex;
+                  {statusSteps.map((step) => {
+                    const currentStep = getStatusInfo(orderResult.estado).step;
+                    const isCompleted = step.key <= currentStep;
+                    const isCurrent = step.key === currentStep;
                     const Icon = step.icon;
 
                     return (
@@ -207,7 +232,7 @@ const CustomerTracking = () => {
                           className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full transition-all ${
                             isCompleted
                               ? isCurrent
-                                ? "bg-primary text-primary-foreground animate-pulse-glow"
+                                ? "bg-primary text-primary-foreground animate-pulse"
                                 : "bg-primary text-primary-foreground"
                               : "bg-muted text-muted-foreground"
                           }`}
@@ -225,7 +250,9 @@ const CustomerTracking = () => {
                             {step.label}
                           </p>
                           {isCurrent && (
-                            <p className="text-sm text-primary">Estado actual</p>
+                            <p className="text-sm text-primary">
+                              {getStatusInfo(orderResult.estado).description}
+                            </p>
                           )}
                         </div>
                         {isCompleted && !isCurrent && (
@@ -237,47 +264,12 @@ const CustomerTracking = () => {
                 </div>
               </div>
 
-              {/* Driver Info */}
-              {orderResult.status === "in_transit" && orderResult.driverName && (
-                <motion.div
-                  className="rounded-2xl bg-card p-6 shadow-card"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <h3 className="mb-4 font-bold text-foreground">
-                    Tu repartidor
-                  </h3>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-primary">
-                        <Truck className="h-6 w-6 text-primary-foreground" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-foreground">
-                          {orderResult.driverName}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          En camino a tu ubicación
-                        </p>
-                      </div>
-                    </div>
-                    <a
-                      href={`tel:${orderResult.driverPhone}`}
-                      className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground transition-transform active:scale-95"
-                    >
-                      <Phone className="h-5 w-5" />
-                    </a>
-                  </div>
-                </motion.div>
-              )}
-
               {/* Order Details */}
               <motion.div
                 className="rounded-2xl bg-card p-6 shadow-card"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3 }}
+                transition={{ delay: 0.2 }}
               >
                 <h3 className="mb-4 font-bold text-foreground">
                   Detalles del pedido
@@ -290,31 +282,31 @@ const CustomerTracking = () => {
                         Dirección de entrega
                       </p>
                       <p className="font-medium text-foreground">
-                        {orderResult.address}
+                        {orderResult.direccion_entrega || "Sin dirección registrada"}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <Package className="mt-0.5 h-5 w-5 text-muted-foreground" />
-                    <div>
-                      <p className="text-sm text-muted-foreground">Productos</p>
-                      <ul className="mt-1 space-y-1">
-                        {orderResult.items.map((item, i) => (
-                          <li key={i} className="text-foreground">
-                            • {item}
-                          </li>
-                        ))}
-                      </ul>
+                  {orderResult.corte_horario && (
+                    <div className="flex items-start gap-3">
+                      <Package className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">
+                          Corte de despacho
+                        </p>
+                        <p className="font-medium text-foreground">
+                          {orderResult.corte_horario}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Demo hint */}
-        {!orderResult && (
+        {/* Help hint */}
+        {!orderResult && !error && (
           <motion.div
             className="mt-8 rounded-xl bg-muted p-4 text-center"
             initial={{ opacity: 0 }}
@@ -322,7 +314,7 @@ const CustomerTracking = () => {
             transition={{ delay: 0.5 }}
           >
             <p className="text-sm text-muted-foreground">
-              💡 Prueba con: <strong>KP-2024-001</strong>, <strong>KP-2024-002</strong> o <strong>KP-2024-004</strong>
+              💡 Ingresa tu número de guía para rastrear tu pedido en tiempo real
             </p>
           </motion.div>
         )}

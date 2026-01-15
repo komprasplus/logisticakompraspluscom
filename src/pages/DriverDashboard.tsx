@@ -1,126 +1,116 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
   Package,
   MapPin,
-  Phone,
   Clock,
   CheckCircle2,
-  Navigation,
   User,
+  Filter,
+  Loader2,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
 
-interface Delivery {
-  id: string;
-  orderNumber: string;
-  customerName: string;
-  address: string;
-  phone: string;
-  items: number;
-  status: "pending" | "in_transit" | "delivered";
-  estimatedTime: string;
-  priority: "normal" | "urgent";
+interface Pedido {
+  id: number;
+  numero_guia: string | null;
+  cliente_nombre: string | null;
+  direccion_entrega: string | null;
+  estado: string | null;
+  corte_horario: string | null;
+  foto_evidencia: string | null;
 }
 
-const mockDeliveries: Delivery[] = [
-  {
-    id: "1",
-    orderNumber: "KP-2024-001",
-    customerName: "María García",
-    address: "Calle 85 # 15-32, Chapinero",
-    phone: "+57 300 123 4567",
-    items: 3,
-    status: "pending",
-    estimatedTime: "10:30 AM",
-    priority: "urgent",
-  },
-  {
-    id: "2",
-    orderNumber: "KP-2024-002",
-    customerName: "Carlos Rodríguez",
-    address: "Carrera 7 # 72-64, Bogotá",
-    phone: "+57 311 987 6543",
-    items: 5,
-    status: "in_transit",
-    estimatedTime: "11:00 AM",
-    priority: "normal",
-  },
-  {
-    id: "3",
-    orderNumber: "KP-2024-003",
-    customerName: "Ana Martínez",
-    address: "Av. El Dorado # 68B-85",
-    phone: "+57 320 456 7890",
-    items: 2,
-    status: "pending",
-    estimatedTime: "11:45 AM",
-    priority: "normal",
-  },
-  {
-    id: "4",
-    orderNumber: "KP-2024-004",
-    customerName: "Pedro López",
-    address: "Calle 100 # 19-51, Usaquén",
-    phone: "+57 315 234 5678",
-    items: 4,
-    status: "delivered",
-    estimatedTime: "09:15 AM",
-    priority: "normal",
-  },
-];
-
 const DriverDashboard = () => {
-  const [deliveries, setDeliveries] = useState<Delivery[]>(mockDeliveries);
-  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(
-    null
-  );
+  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
+  const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<string | null>(null);
 
-  const pendingCount = deliveries.filter((d) => d.status === "pending").length;
-  const inTransitCount = deliveries.filter(
-    (d) => d.status === "in_transit"
-  ).length;
-  const deliveredCount = deliveries.filter(
-    (d) => d.status === "delivered"
-  ).length;
+  useEffect(() => {
+    fetchPedidos();
+  }, []);
 
-  const updateStatus = (
-    id: string,
-    newStatus: "pending" | "in_transit" | "delivered"
-  ) => {
-    setDeliveries((prev) =>
-      prev.map((d) => (d.id === id ? { ...d, status: newStatus } : d))
-    );
-    setSelectedDelivery(null);
+  useEffect(() => {
+    if (activeFilter) {
+      setFilteredPedidos(pedidos.filter((p) => p.corte_horario === activeFilter));
+    } else {
+      setFilteredPedidos(pedidos);
+    }
+  }, [activeFilter, pedidos]);
+
+  const fetchPedidos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("pedidos")
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (error) throw error;
+      setPedidos(data || []);
+      setFilteredPedidos(data || []);
+    } catch (error) {
+      console.error("Error fetching pedidos:", error);
+      toast.error("Error al cargar los pedidos");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
+  const updateEstado = async (id: number, newEstado: string) => {
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ estado: newEstado })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setPedidos((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, estado: newEstado } : p))
+      );
+      setSelectedPedido(null);
+      toast.success(`Pedido marcado como ${newEstado}`);
+    } catch (error) {
+      console.error("Error updating estado:", error);
+      toast.error("Error al actualizar el estado");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const pendingCount = pedidos.filter(
+    (p) => p.estado?.toLowerCase() === "pendiente"
+  ).length;
+  const inTransitCount = pedidos.filter(
+    (p) => p.estado?.toLowerCase() === "en camino"
+  ).length;
+  const deliveredCount = pedidos.filter(
+    (p) => p.estado?.toLowerCase() === "entregado"
+  ).length;
+
+  const getStatusColor = (status: string | null) => {
+    const s = status?.toLowerCase();
+    switch (s) {
+      case "pendiente":
         return "bg-secondary text-secondary-foreground";
-      case "in_transit":
+      case "en camino":
         return "bg-primary text-primary-foreground";
-      case "delivered":
+      case "entregado":
         return "bg-green-500 text-white";
       default:
         return "bg-muted text-muted-foreground";
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "Pendiente";
-      case "in_transit":
-        return "En camino";
-      case "delivered":
-        return "Entregado";
-      default:
-        return status;
-    }
-  };
+  const cortes = ["Corte 1", "Corte 2", "Corte 3"];
 
   return (
     <div className="min-h-screen bg-background">
@@ -145,6 +135,16 @@ const DriverDashboard = () => {
       </header>
 
       <main className="container px-4 py-6">
+        {/* Warehouse Address */}
+        <motion.div
+          className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <MapPin className="h-4 w-4" />
+          <span>Bodega: Carrera 20 # 14-30 local 212, Bogotá</span>
+        </motion.div>
+
         {/* Stats */}
         <motion.div
           className="mb-6 grid grid-cols-3 gap-3"
@@ -167,76 +167,117 @@ const DriverDashboard = () => {
           </div>
         </motion.div>
 
-        {/* Deliveries List */}
+        {/* Filters */}
         <motion.div
-          className="space-y-4"
+          className="mb-4 flex flex-wrap items-center gap-2"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.1 }}
         >
-          <h2 className="text-lg font-bold text-foreground">Mis Entregas</h2>
-
-          {deliveries.map((delivery, index) => (
-            <motion.div
-              key={delivery.id}
-              className="rounded-2xl bg-card p-4 shadow-card"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              onClick={() => setSelectedDelivery(delivery)}
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <button
+            onClick={() => setActiveFilter(null)}
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeFilter === null
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            Todos
+          </button>
+          {cortes.map((corte) => (
+            <button
+              key={corte}
+              onClick={() => setActiveFilter(corte)}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+                activeFilter === corte
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-foreground">
-                      {delivery.orderNumber}
-                    </span>
-                    {delivery.priority === "urgent" && (
-                      <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                        Urgente
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-1 text-sm font-medium text-foreground">
-                    {delivery.customerName}
-                  </p>
-                  <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
-                    <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                    <span>{delivery.address}</span>
-                  </div>
-                  <div className="mt-1 flex items-center gap-4 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Package className="h-4 w-4" />
-                      <span>{delivery.items} items</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>{delivery.estimatedTime}</span>
-                    </div>
-                  </div>
-                </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(
-                    delivery.status
-                  )}`}
-                >
-                  {getStatusLabel(delivery.status)}
-                </span>
-              </div>
-            </motion.div>
+              {corte}
+            </button>
           ))}
         </motion.div>
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          /* Pedidos List */
+          <motion.div
+            className="space-y-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            <h2 className="text-lg font-bold text-foreground">
+              Mis Entregas ({filteredPedidos.length})
+            </h2>
+
+            {filteredPedidos.length === 0 ? (
+              <div className="rounded-2xl bg-card p-8 text-center shadow-card">
+                <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+                <p className="mt-4 text-muted-foreground">
+                  No hay pedidos {activeFilter ? `para ${activeFilter}` : "disponibles"}
+                </p>
+              </div>
+            ) : (
+              filteredPedidos.map((pedido, index) => (
+                <motion.div
+                  key={pedido.id}
+                  className="rounded-2xl bg-card p-4 shadow-card cursor-pointer hover:shadow-lg transition-shadow"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  onClick={() => setSelectedPedido(pedido)}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-foreground">
+                          {pedido.numero_guia || `#${pedido.id}`}
+                        </span>
+                        {pedido.corte_horario && (
+                          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                            {pedido.corte_horario}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-sm font-medium text-foreground">
+                        {pedido.cliente_nombre || "Cliente sin nombre"}
+                      </p>
+                      <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
+                        <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                        <span>{pedido.direccion_entrega || "Sin dirección"}</span>
+                      </div>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(
+                        pedido.estado
+                      )}`}
+                    >
+                      {pedido.estado || "Sin estado"}
+                    </span>
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </motion.div>
+        )}
       </main>
 
-      {/* Delivery Detail Modal */}
+      {/* Pedido Detail Modal */}
       <AnimatePresence>
-        {selectedDelivery && (
+        {selectedPedido && (
           <motion.div
             className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setSelectedDelivery(null)}
+            onClick={() => setSelectedPedido(null)}
           >
             <motion.div
               className="w-full max-w-lg rounded-t-3xl bg-card p-6"
@@ -249,7 +290,7 @@ const DriverDashboard = () => {
               <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-muted" />
 
               <h3 className="text-xl font-bold text-foreground">
-                {selectedDelivery.orderNumber}
+                {selectedPedido.numero_guia || `Pedido #${selectedPedido.id}`}
               </h3>
 
               <div className="mt-4 space-y-3">
@@ -259,7 +300,7 @@ const DriverDashboard = () => {
                   </div>
                   <div>
                     <p className="font-medium text-foreground">
-                      {selectedDelivery.customerName}
+                      {selectedPedido.cliente_nombre || "Cliente sin nombre"}
                     </p>
                     <p className="text-sm text-muted-foreground">Cliente</p>
                   </div>
@@ -271,55 +312,56 @@ const DriverDashboard = () => {
                   </div>
                   <div>
                     <p className="font-medium text-foreground">
-                      {selectedDelivery.address}
+                      {selectedPedido.direccion_entrega || "Sin dirección"}
                     </p>
                     <p className="text-sm text-muted-foreground">Dirección</p>
                   </div>
                 </div>
 
-                <a
-                  href={`tel:${selectedDelivery.phone}`}
-                  className="flex items-center gap-3"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary">
-                    <Phone className="h-5 w-5 text-primary-foreground" />
+                {selectedPedido.corte_horario && (
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                      <Clock className="h-5 w-5 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {selectedPedido.corte_horario}
+                      </p>
+                      <p className="text-sm text-muted-foreground">Corte de despacho</p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+                    <Package className="h-5 w-5 text-muted-foreground" />
                   </div>
                   <div>
                     <p className="font-medium text-foreground">
-                      {selectedDelivery.phone}
+                      {selectedPedido.estado || "Sin estado"}
                     </p>
-                    <p className="text-sm text-muted-foreground">
-                      Toca para llamar
-                    </p>
+                    <p className="text-sm text-muted-foreground">Estado actual</p>
                   </div>
-                </a>
+                </div>
               </div>
 
               <div className="mt-6 grid grid-cols-2 gap-3">
-                {selectedDelivery.status === "pending" && (
+                {selectedPedido.estado?.toLowerCase() !== "entregado" && (
                   <button
-                    onClick={() =>
-                      updateStatus(selectedDelivery.id, "in_transit")
-                    }
-                    className="flex items-center justify-center gap-2 rounded-xl bg-primary py-3 font-semibold text-primary-foreground transition-transform active:scale-95"
+                    onClick={() => updateEstado(selectedPedido.id, "Entregado")}
+                    disabled={updating}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-semibold text-white transition-transform active:scale-95 disabled:opacity-50"
                   >
-                    <Navigation className="h-5 w-5" />
-                    Iniciar Ruta
-                  </button>
-                )}
-                {selectedDelivery.status === "in_transit" && (
-                  <button
-                    onClick={() =>
-                      updateStatus(selectedDelivery.id, "delivered")
-                    }
-                    className="flex items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-semibold text-white transition-transform active:scale-95"
-                  >
-                    <CheckCircle2 className="h-5 w-5" />
-                    Confirmar Entrega
+                    {updating ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-5 w-5" />
+                    )}
+                    Marcar como Entregado
                   </button>
                 )}
                 <button
-                  onClick={() => setSelectedDelivery(null)}
+                  onClick={() => setSelectedPedido(null)}
                   className="rounded-xl bg-muted py-3 font-semibold text-muted-foreground transition-transform active:scale-95"
                 >
                   Cerrar
