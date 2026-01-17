@@ -400,29 +400,30 @@ const AdminDashboard = () => {
                 </div>
               </div>
             </div>
-            <div className="h-[500px]">
+            <div className="h-[500px] relative">
               <MapContainer
                 center={bogotaCenter}
                 zoom={12}
-                style={{ height: "100%", width: "100%" }}
+                scrollWheelZoom={true}
+                style={{ height: "100%", width: "100%", zIndex: 1 }}
               >
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
                 {pedidos
-                  .filter((p) => p.latitud && p.longitud)
+                  .filter((p) => p.latitud != null && p.longitud != null && !isNaN(Number(p.latitud)) && !isNaN(Number(p.longitud)))
                   .map((pedido) => (
                     <Marker
                       key={pedido.id}
-                      position={[pedido.latitud!, pedido.longitud!]}
+                      position={[Number(pedido.latitud), Number(pedido.longitud)]}
                       icon={getMarkerIcon(pedido.estado)}
                     >
                       <Popup>
                         <div className="text-sm">
                           <p className="font-bold">{pedido.numero_guia || `#${pedido.id}`}</p>
                           <p>{pedido.cliente_nombre}</p>
-                          <p className="text-muted-foreground">{pedido.direccion_entrega}</p>
+                          <p className="text-gray-600">{pedido.direccion_entrega}</p>
                           <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-xs ${getStatusColor(pedido.estado)}`}>
                             {pedido.estado}
                           </span>
