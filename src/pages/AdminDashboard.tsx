@@ -176,7 +176,12 @@ const AdminDashboard = () => {
         .select("user_id")
         .eq("role", "motorizado");
 
-      if (rolesError) throw rolesError;
+      if (rolesError) {
+        console.error("Error fetching motorizado roles:", rolesError);
+        throw rolesError;
+      }
+
+      console.log("Motorizado roles found:", roles);
 
       if (roles && roles.length > 0) {
         const motorizadoIds = roles.map((r) => r.user_id);
@@ -188,13 +193,20 @@ const AdminDashboard = () => {
           .in("user_id", motorizadoIds)
           .eq("status", "activo");
 
-        if (profilesError) throw profilesError;
+        if (profilesError) {
+          console.error("Error fetching motorizado profiles:", profilesError);
+          throw profilesError;
+        }
+
+        console.log("Motorizado profiles found:", profiles);
         setMotorizados(profiles || []);
       } else {
+        console.log("No motorizado roles found");
         setMotorizados([]);
       }
     } catch (error) {
       console.error("Error fetching motorizados:", error);
+      toast.error("Error al cargar motorizados");
     }
   };
 
@@ -257,7 +269,7 @@ const AdminDashboard = () => {
         .from("pedidos")
         .update({
           motorizado_asignado: motorizadoName,
-          estado: "En Ruta",
+          estado: "Asignado",
         })
         .eq("id", pedidoId);
 
@@ -267,7 +279,7 @@ const AdminDashboard = () => {
       setPedidos((prev) =>
         prev.map((p) =>
           p.id === pedidoId
-            ? { ...p, motorizado_asignado: motorizadoName, estado: "En Ruta" }
+            ? { ...p, motorizado_asignado: motorizadoName, estado: "Asignado" }
             : p
         )
       );
@@ -294,7 +306,7 @@ const AdminDashboard = () => {
         .from("pedidos")
         .update({
           motorizado_asignado: motorizadoName,
-          estado: "En Ruta",
+          estado: "Asignado",
         })
         .in("id", selectedForBulk);
 
@@ -304,7 +316,7 @@ const AdminDashboard = () => {
       setPedidos((prev) =>
         prev.map((p) =>
           selectedForBulk.includes(p.id)
-            ? { ...p, motorizado_asignado: motorizadoName, estado: "En Ruta" }
+            ? { ...p, motorizado_asignado: motorizadoName, estado: "Asignado" }
             : p
         )
       );
