@@ -36,55 +36,48 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
     setLoading(true);
 
     try {
-      // Create user using Supabase Auth admin API
-      // Note: This requires service_role key, so we'll use signUp for now
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
+      // Get current session token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
 
-      if (authError) throw authError;
-
-      if (authData.user) {
-        // Create profile
-        const { error: profileError } = await supabase.from("profiles").insert({
-          user_id: authData.user.id,
-          full_name: fullName,
-          email,
-          phone: phone || null,
-        });
-
-        if (profileError) {
-          console.error("Profile creation error:", profileError);
-        }
-
-        // Assign role
-        const { error: roleError } = await supabase.from("user_roles").insert({
-          user_id: authData.user.id,
-          role,
-        });
-
-        if (roleError) {
-          console.error("Role assignment error:", roleError);
-        }
-
-        toast.success(`Usuario ${fullName} creado exitosamente como ${role}`);
-        onUserCreated();
-        onClose();
-        resetForm();
+      if (!token) {
+        toast.error("No hay sesión activa");
+        setLoading(false);
+        return;
       }
+
+      // Call edge function to create user with admin API (bypasses email confirmation)
+      const response = await fetch(
+        `https://hhjygradtikonvfzarrn.supabase.co/functions/v1/create-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            fullName,
+            phone,
+            role,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Error al crear el usuario");
+      }
+
+      toast.success(`Usuario ${fullName} creado exitosamente como ${role}`);
+      onUserCreated();
+      onClose();
+      resetForm();
     } catch (error: any) {
       console.error("Error creating user:", error);
-      if (error.message?.includes("already registered")) {
-        toast.error("Este email ya está registrado");
-      } else {
-        toast.error("Error al crear el usuario: " + error.message);
-      }
+      toast.error(error.message || "Error al crear el usuario");
     } finally {
       setLoading(false);
     }
