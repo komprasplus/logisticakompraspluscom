@@ -562,6 +562,7 @@ const ClienteDashboard = () => {
         pedido={printingPedido}
         isOpen={!!printingPedido}
         onClose={() => setPrintingPedido(null)}
+        remitente={profile?.full_name}
       />
     </div>
   );
