@@ -8,6 +8,8 @@ import {
   CheckCircle2,
   MapPin,
   Loader2,
+  Phone,
+  Warehouse,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,6 +23,8 @@ interface Pedido {
   estado: string | null;
   corte_horario: string | null;
 }
+
+const SUPPORT_PHONE = "324 222 3825";
 
 const CustomerTracking = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -69,14 +73,14 @@ const CustomerTracking = () => {
         return {
           label: "Pedido Recibido",
           description: "Tu pedido ha sido recibido correctamente",
-          color: "bg-blue-500 text-white",
+          color: "bg-primary text-primary-foreground",
           step: 1,
         };
       case "en bodega":
       case "pendiente":
         return {
           label: "En Bodega",
-          description: "Tu pedido está en nuestra bodega listo para despacho",
+          description: "Tu paquete está siendo procesado en nuestra sede central de Bogotá",
           color: "bg-secondary text-secondary-foreground",
           step: 2,
         };
@@ -107,7 +111,7 @@ const CustomerTracking = () => {
 
   const statusSteps = [
     { key: 1, label: "Pedido Recibido", icon: Package, description: "Pedido confirmado" },
-    { key: 2, label: "En Bodega", icon: MapPin, description: "Preparando envío" },
+    { key: 2, label: "En Bodega", icon: Warehouse, description: "Preparando envío" },
     { key: 3, label: "En Ruta", icon: Truck, description: "En camino" },
     { key: 4, label: "Entregado", icon: CheckCircle2, description: "¡Completado!" },
   ];
@@ -125,9 +129,9 @@ const CustomerTracking = () => {
           </Link>
           <img src={logo} alt="Kompras Plus" className="h-10 w-auto" />
           <div className="flex-1" />
-          <div className="flex items-center gap-2 rounded-full bg-accent px-3 py-1.5">
-            <Package className="h-4 w-4 text-accent-foreground" />
-            <span className="text-sm font-medium text-accent-foreground">
+          <div className="flex items-center gap-2 rounded-full bg-primary px-3 py-1.5">
+            <Package className="h-4 w-4 text-primary-foreground" />
+            <span className="text-sm font-medium text-primary-foreground">
               Rastreo
             </span>
           </div>
@@ -143,6 +147,23 @@ const CustomerTracking = () => {
         >
           <MapPin className="h-4 w-4" />
           <span>Bodega: Carrera 20 # 14-30 local 212, Bogotá</span>
+        </motion.div>
+
+        {/* Support Phone - Always visible */}
+        <motion.div
+          className="mb-6 flex items-center gap-2 text-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Phone className="h-4 w-4 text-primary" />
+          <span className="text-muted-foreground">Soporte:</span>
+          <a 
+            href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`} 
+            className="text-primary font-semibold hover:underline"
+          >
+            {SUPPORT_PHONE}
+          </a>
         </motion.div>
 
         {/* Search Section */}
@@ -172,7 +193,7 @@ const CustomerTracking = () => {
             <button
               type="submit"
               disabled={!searchQuery.trim() || isSearching}
-              className="rounded-xl bg-accent px-6 py-3 font-semibold text-accent-foreground transition-transform hover:opacity-90 active:scale-95 disabled:opacity-50"
+              className="rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform hover:opacity-90 active:scale-95 disabled:opacity-50"
             >
               {isSearching ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -194,7 +215,7 @@ const CustomerTracking = () => {
                   {error}
                 </p>
                 <a 
-                  href="tel:3242223825" 
+                  href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
                   className="mt-2 inline-flex items-center gap-2 text-sm text-primary hover:underline"
                 >
                   📞 Llamar ahora
@@ -307,6 +328,30 @@ const CustomerTracking = () => {
                     })}
                   </div>
                 </div>
+
+                {/* Status Message for En Bodega */}
+                {(orderResult.estado?.toLowerCase() === "en bodega" || 
+                  orderResult.estado?.toLowerCase() === "pendiente") && (
+                  <motion.div
+                    className="mt-6 rounded-xl bg-secondary/20 p-4 border border-secondary/30"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Warehouse className="h-5 w-5 text-secondary-foreground mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold text-secondary-foreground">
+                          Tu paquete está siendo procesado
+                        </p>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Tu paquete está siendo procesado en nuestra sede central de Bogotá. 
+                          Pronto estará en camino hacia tu dirección.
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
               {/* Order Details */}
@@ -345,6 +390,24 @@ const CustomerTracking = () => {
                     </div>
                   )}
                 </div>
+              </motion.div>
+
+              {/* Need help banner */}
+              <motion.div
+                className="rounded-xl bg-primary/10 p-4 border border-primary/20"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                <p className="text-sm text-foreground font-medium text-center">
+                  ¿Necesitas ayuda? Llámanos al{" "}
+                  <a 
+                    href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
+                    className="text-primary font-bold hover:underline"
+                  >
+                    {SUPPORT_PHONE}
+                  </a>
+                </p>
               </motion.div>
             </motion.div>
           )}
