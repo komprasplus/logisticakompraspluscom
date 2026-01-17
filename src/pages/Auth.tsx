@@ -57,10 +57,17 @@ const Auth = () => {
     try {
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
-        if (signInError.message.includes("Invalid login credentials")) {
+        const msg = signInError.message || "";
+
+        // Never block visually on confirmation status; show a generic auth error instead.
+        if (
+          msg.includes("Invalid login credentials") ||
+          msg.toLowerCase().includes("email not confirmed") ||
+          msg.toLowerCase().includes("not confirmed")
+        ) {
           setError("Credenciales incorrectas. Verifica tu email y contraseña.");
         } else {
-          setError(signInError.message);
+          setError("No se pudo iniciar sesión. Verifica tus credenciales e intenta de nuevo.");
         }
       }
     } catch (err) {
