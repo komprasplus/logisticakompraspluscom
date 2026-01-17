@@ -15,7 +15,7 @@ import {
   AlertTriangle,
   Map,
   RefreshCw,
-  ExternalLink,
+  Share2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,6 +24,8 @@ import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/use
 import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
 import MotorizadoMap from "@/components/MotorizadoMap";
+import PedidoQuickActions from "@/components/PedidoQuickActions";
+import BodegaSupportButton from "@/components/BodegaSupportButton";
 
 interface Pedido {
   id: number;
@@ -335,12 +337,40 @@ const MotorizadoDashboard = () => {
     window.open(wazeUrl, "_blank");
   };
 
-  const openWhatsApp = (phone?: string | null) => {
-    const phoneNumber = phone?.replace(/\D/g, "") || "573242223825";
+  const openWhatsApp = (phone?: string | null, customMessage?: string) => {
+    const phoneNumber = phone?.replace(/\D/g, "") || "3242223825";
     const message = encodeURIComponent(
-      `Hola, soy el motorizado de Kompras Plus. Voy en camino con tu pedido.`
+      customMessage || `Hola, soy el motorizado de Kompras Plus, voy en camino con tu pedido.`
     );
-    window.open(`https://wa.me/${phoneNumber}?text=${message}`, "_blank");
+    window.open(`https://wa.me/57${phoneNumber}?text=${message}`, "_blank");
+  };
+
+  const callClient = (phone?: string | null) => {
+    const phoneNumber = phone?.replace(/\D/g, "") || "";
+    if (!phoneNumber) {
+      toast.error("Este cliente no tiene teléfono registrado");
+      return;
+    }
+    window.open(`tel:+57${phoneNumber}`, "_self");
+  };
+
+  const shareRoute = (pedido: Pedido) => {
+    const phoneNumber = pedido.client_phone?.replace(/\D/g, "") || "";
+    if (!phoneNumber) {
+      toast.error("Este cliente no tiene teléfono registrado");
+      return;
+    }
+
+    let message = `🚚 *Kompras Plus - Actualización de tu pedido*\n\n`;
+    message += `Hola ${pedido.cliente_nombre || ""}! Tu pedido está *en camino*.\n\n`;
+    
+    if (userLocation) {
+      message += `📍 Mi ubicación actual:\nhttps://www.google.com/maps?q=${userLocation.lat},${userLocation.lng}\n\n`;
+    }
+    
+    message += `¡Estaré llegando pronto! 🏍️`;
+
+    window.open(`https://wa.me/57${phoneNumber}?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const handleSignOut = async () => {
@@ -477,21 +507,14 @@ const MotorizadoDashboard = () => {
           <span>Bodega: {BODEGA_ADDRESS.split(",")[0]}, Bogotá</span>
         </motion.div>
 
-        {/* Support Phone */}
+        {/* Quick Support Button */}
         <motion.div
-          className="mb-4 flex items-center gap-2 text-sm"
+          className="mb-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          <Phone className="h-4 w-4 text-primary" />
-          <span className="text-muted-foreground">Soporte:</span>
-          <a
-            href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
-            className="text-primary font-semibold hover:underline"
-          >
-            {SUPPORT_PHONE}
-          </a>
+          <BodegaSupportButton />
         </motion.div>
 
         {/* Map View Toggle */}
@@ -604,13 +627,15 @@ const MotorizadoDashboard = () => {
                 return (
                   <motion.div
                     key={pedido.id}
-                    className="rounded-2xl bg-card p-4 shadow-card cursor-pointer hover:shadow-lg transition-shadow"
+                    className="rounded-2xl bg-card p-4 shadow-card"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
-                    onClick={() => setSelectedPedido(pedido)}
                   >
-                    <div className="flex items-start justify-between">
+                    <div 
+                      className="flex items-start justify-between cursor-pointer"
+                      onClick={() => setSelectedPedido(pedido)}
+                    >
                       <div className="flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
@@ -637,46 +662,6 @@ const MotorizadoDashboard = () => {
                           <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
                           <span>{pedido.direccion_entrega || "Sin dirección"}</span>
                         </div>
-
-                        {/* Action buttons in card */}
-                        <div className="mt-3 flex items-center gap-2 flex-wrap">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openGoogleMaps(pedido);
-                            }}
-                            className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-transform active:scale-95"
-                          >
-                            <Navigation className="h-3.5 w-3.5" />
-                            Maps
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openWaze(pedido);
-                            }}
-                            className="flex items-center gap-1 rounded-lg bg-[#33CCFF] px-2.5 py-1.5 text-xs font-medium text-white transition-transform active:scale-95"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Waze
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openWhatsApp(pedido.client_phone);
-                            }}
-                            className="flex items-center gap-1 rounded-lg bg-green-500 px-2.5 py-1.5 text-xs font-medium text-white transition-transform active:scale-95"
-                          >
-                            <svg
-                              className="h-3.5 w-3.5"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                            >
-                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                            </svg>
-                            WhatsApp
-                          </button>
-                        </div>
                       </div>
                       <span
                         className={`rounded-full px-2 py-1 text-[10px] font-medium whitespace-nowrap ${getStatusColor(
@@ -688,6 +673,9 @@ const MotorizadoDashboard = () => {
                           : pedido.estado || "Sin estado"}
                       </span>
                     </div>
+
+                    {/* Quick Actions - Large touch-friendly buttons */}
+                    <PedidoQuickActions pedido={pedido} userLocation={userLocation} />
                   </motion.div>
                 );
               })
@@ -763,14 +751,24 @@ const MotorizadoDashboard = () => {
                     </p>
                     <p className="text-sm text-muted-foreground">Cliente</p>
                   </div>
-                  <button
-                    onClick={() => openWhatsApp(selectedPedido.client_phone)}
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500 text-white transition-transform active:scale-95"
-                  >
-                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                    </svg>
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => callClient(selectedPedido.client_phone)}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF6B35] text-white transition-transform active:scale-95"
+                      aria-label="Llamar cliente"
+                    >
+                      <Phone className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => openWhatsApp(selectedPedido.client_phone)}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-[#25D366] text-white transition-transform active:scale-95"
+                      aria-label="WhatsApp"
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-start gap-3">
@@ -798,30 +796,43 @@ const MotorizadoDashboard = () => {
                 </div>
               </div>
 
-              {/* Navigation Buttons */}
+              {/* Navigation Buttons - Large & touch-friendly */}
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button
                   onClick={() => openGoogleMaps(selectedPedido)}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-primary py-3 font-bold text-primary-foreground transition-transform active:scale-95"
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl bg-[#4285F4] py-4 font-bold text-white transition-all active:scale-95 shadow-md"
                 >
-                  <Navigation className="h-5 w-5" />
-                  Google Maps
+                  <Navigation className="h-7 w-7" />
+                  <span>Google Maps</span>
                 </button>
                 <button
                   onClick={() => openWaze(selectedPedido)}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-[#33CCFF] py-3 font-bold text-white transition-transform active:scale-95"
+                  className="flex flex-col items-center justify-center gap-2 rounded-xl bg-[#33CCFF] py-4 font-bold text-white transition-all active:scale-95 shadow-md"
                 >
-                  <ExternalLink className="h-5 w-5" />
-                  Waze
+                  <svg className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.54 6.63A9.44 9.44 0 0012 2.5a9.44 9.44 0 00-8.54 4.13C1.57 9.19 2.06 12.6 4.5 15c1 1 1.5 2 1.5 3.5v1a1 1 0 001 1h2a1 1 0 001-1v-1c0-1.5.5-2.5 1.5-3.5a6.5 6.5 0 001.5-7 1 1 0 111.8.9 4.5 4.5 0 01-1 4.85c-1.32 1.32-1.8 2.75-1.8 4.75v1a1 1 0 001 1h2a1 1 0 001-1v-1c0-2 .48-3.43 1.8-4.75A7.5 7.5 0 0020.54 6.63z"/>
+                    <circle cx="9" cy="9" r="1.5"/>
+                    <circle cx="15" cy="9" r="1.5"/>
+                  </svg>
+                  <span>Waze</span>
                 </button>
               </div>
+
+              {/* Share Route Button */}
+              <button
+                onClick={() => shareRoute(selectedPedido)}
+                className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] py-3 font-bold text-white transition-all active:scale-95 shadow-md"
+              >
+                <Share2 className="h-5 w-5" />
+                Compartir mi ubicación con cliente
+              </button>
 
               {/* Action Buttons */}
               <div className="mt-3 grid grid-cols-2 gap-3">
                 <button
                   onClick={openNovedadModal}
                   disabled={selectedPedido.estado?.toLowerCase() === "entregado"}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 font-bold text-white transition-transform active:scale-95 disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-destructive py-3 font-bold text-destructive-foreground transition-all active:scale-95 disabled:opacity-50 shadow-md"
                 >
                   <AlertTriangle className="h-5 w-5" />
                   Novedad
@@ -829,7 +840,7 @@ const MotorizadoDashboard = () => {
                 <button
                   onClick={openPhotoCapture}
                   disabled={selectedPedido.estado?.toLowerCase() === "entregado"}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-bold text-white transition-transform active:scale-95 disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-bold text-white transition-all active:scale-95 disabled:opacity-50 shadow-md"
                 >
                   <Camera className="h-5 w-5" />
                   Entregar
