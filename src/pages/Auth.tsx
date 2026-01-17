@@ -59,6 +59,9 @@ const Auth = () => {
       if (signInError) {
         if (signInError.message.includes("Invalid login credentials")) {
           setError("Credenciales incorrectas. Verifica tu email y contraseña.");
+        } else if (signInError.message.includes("Email not confirmed")) {
+          // This should not happen with admin-created users, but handle gracefully
+          setError("Tu cuenta está pendiente de activación. Contacta al administrador.");
         } else {
           setError(signInError.message);
         }
