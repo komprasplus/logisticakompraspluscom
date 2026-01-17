@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Truck,
   Warehouse,
+  Plus,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
+import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 
 interface Pedido {
   id: number;
@@ -41,6 +43,7 @@ const ClienteDashboard = () => {
   const [trackingResult, setTrackingResult] = useState<Pedido | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [trackingError, setTrackingError] = useState("");
+  const [showNuevoPedido, setShowNuevoPedido] = useState(false);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -190,8 +193,8 @@ const ClienteDashboard = () => {
           </a>
         </motion.div>
 
-        {/* Tabs */}
-        <div className="mb-6 flex gap-2">
+        {/* Tabs + New Order Button */}
+        <div className="mb-6 flex flex-wrap items-center gap-2">
           <button
             onClick={() => setActiveTab("history")}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
@@ -213,6 +216,13 @@ const ClienteDashboard = () => {
           >
             <Search className="h-4 w-4" />
             Rastrear Pedido
+          </button>
+          <button
+            onClick={() => setShowNuevoPedido(true)}
+            className="ml-auto flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo Pedido
           </button>
         </div>
 
@@ -444,6 +454,14 @@ const ClienteDashboard = () => {
           </motion.div>
         )}
       </main>
+
+      {/* Nuevo Pedido Modal */}
+      <NuevoPedidoModal
+        isOpen={showNuevoPedido}
+        onClose={() => setShowNuevoPedido(false)}
+        onSuccess={fetchPedidos}
+        isAdmin={false}
+      />
     </div>
   );
 };

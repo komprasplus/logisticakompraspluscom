@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       pedidos: {
         Row: {
+          barrio: string | null
           client_phone: string | null
           client_user_id: string | null
           cliente_nombre: string | null
@@ -23,14 +24,19 @@ export type Database = {
           direccion_entrega: string | null
           estado: string | null
           fecha_creacion: string | null
+          fecha_entrega: string | null
           foto_evidencia: string | null
           id: number
           latitud: number | null
           longitud: number | null
+          metodo_pago: string | null
           motorizado_asignado: string | null
           numero_guia: string | null
+          producto_nombre: string | null
+          valor_recaudar: number | null
         }
         Insert: {
+          barrio?: string | null
           client_phone?: string | null
           client_user_id?: string | null
           cliente_nombre?: string | null
@@ -38,14 +44,19 @@ export type Database = {
           direccion_entrega?: string | null
           estado?: string | null
           fecha_creacion?: string | null
+          fecha_entrega?: string | null
           foto_evidencia?: string | null
           id?: number
           latitud?: number | null
           longitud?: number | null
+          metodo_pago?: string | null
           motorizado_asignado?: string | null
           numero_guia?: string | null
+          producto_nombre?: string | null
+          valor_recaudar?: number | null
         }
         Update: {
+          barrio?: string | null
           client_phone?: string | null
           client_user_id?: string | null
           cliente_nombre?: string | null
@@ -53,12 +64,16 @@ export type Database = {
           direccion_entrega?: string | null
           estado?: string | null
           fecha_creacion?: string | null
+          fecha_entrega?: string | null
           foto_evidencia?: string | null
           id?: number
           latitud?: number | null
           longitud?: number | null
+          metodo_pago?: string | null
           motorizado_asignado?: string | null
           numero_guia?: string | null
+          producto_nombre?: string | null
+          valor_recaudar?: number | null
         }
         Relationships: []
       }
