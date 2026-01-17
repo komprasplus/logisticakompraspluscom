@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
   Users,
@@ -16,6 +16,8 @@ import {
   Box,
   XCircle,
   Plus,
+  Bell,
+  Filter,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,6 +39,10 @@ interface Pedido {
   motorizado_asignado: string | null;
   latitud: number | null;
   longitud: number | null;
+  barrio: string | null;
+  metodo_pago: string | null;
+  producto_nombre: string | null;
+  valor_recaudar: number | null;
 }
 
 interface Profile {
@@ -45,6 +51,12 @@ interface Profile {
   full_name: string;
   phone: string | null;
   email: string | null;
+  status: string;
+}
+
+interface UserRole {
+  user_id: string;
+  role: string;
 }
 
 const AdminDashboard = () => {
@@ -53,22 +65,75 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"orders" | "map" | "users">("orders");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
+  const [barrioFilter, setBarrioFilter] = useState<string>("todos");
+  const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>("todos");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<Profile[]>([]);
+  const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const [assigningPedido, setAssigningPedido] = useState<number | null>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
+  // Fetch initial data
   useEffect(() => {
     fetchPedidos();
     fetchUsers();
+    fetchMotorizados();
   }, []);
 
+  // Real-time subscription for pedidos
+  useEffect(() => {
+    const channel = supabase
+      .channel('pedidos-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'pedidos',
+        },
+        (payload) => {
+          console.log('Realtime pedido change:', payload);
+          
+          if (payload.eventType === 'INSERT') {
+            const newPedido = payload.new as Pedido;
+            setPedidos((prev) => [newPedido, ...prev]);
+            setNewOrdersCount((c) => c + 1);
+            
+            // Show toast notification
+            toast.success(
+              `🔔 Nuevo pedido: ${newPedido.cliente_nombre || 'Cliente'}`,
+              {
+                description: newPedido.direccion_entrega || 'Sin dirección',
+                duration: 5000,
+              }
+            );
+          } else if (payload.eventType === 'UPDATE') {
+            const updatedPedido = payload.new as Pedido;
+            setPedidos((prev) =>
+              prev.map((p) => (p.id === updatedPedido.id ? updatedPedido : p))
+            );
+          } else if (payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as { id: number }).id;
+            setPedidos((prev) => prev.filter((p) => p.id !== deletedId));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Apply filters
   useEffect(() => {
     filterPedidos();
-  }, [statusFilter, dateFilter, searchQuery, pedidos]);
+  }, [statusFilter, barrioFilter, metodoPagoFilter, dateFilter, searchQuery, pedidos]);
 
   const fetchPedidos = async () => {
     try {
@@ -97,15 +162,59 @@ const AdminDashboard = () => {
     }
   };
 
+  const fetchMotorizados = async () => {
+    try {
+      // Get all user_roles with role = 'motorizado'
+      const { data: roles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "motorizado");
+
+      if (rolesError) throw rolesError;
+
+      if (roles && roles.length > 0) {
+        const motorizadoIds = roles.map((r) => r.user_id);
+        
+        // Get profiles for these users that are 'activo'
+        const { data: profiles, error: profilesError } = await supabase
+          .from("profiles")
+          .select("*")
+          .in("user_id", motorizadoIds)
+          .eq("status", "activo");
+
+        if (profilesError) throw profilesError;
+        setMotorizados(profiles || []);
+      } else {
+        setMotorizados([]);
+      }
+    } catch (error) {
+      console.error("Error fetching motorizados:", error);
+    }
+  };
+
   const filterPedidos = () => {
     let filtered = [...pedidos];
 
-    if (statusFilter !== "todos") {
+    // Status filter
+    if (statusFilter === "sin_asignar") {
+      filtered = filtered.filter((p) => !p.motorizado_asignado);
+    } else if (statusFilter !== "todos") {
       filtered = filtered.filter(
         (p) => p.estado?.toLowerCase() === statusFilter.toLowerCase()
       );
     }
 
+    // Barrio filter
+    if (barrioFilter !== "todos") {
+      filtered = filtered.filter((p) => p.barrio === barrioFilter);
+    }
+
+    // Método de pago filter
+    if (metodoPagoFilter !== "todos") {
+      filtered = filtered.filter((p) => p.metodo_pago === metodoPagoFilter);
+    }
+
+    // Date filter
     if (dateFilter) {
       filtered = filtered.filter((p) => {
         if (!p.fecha_creacion) return false;
@@ -114,17 +223,50 @@ const AdminDashboard = () => {
       });
     }
 
+    // Search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (p) =>
           p.numero_guia?.toLowerCase().includes(query) ||
           p.cliente_nombre?.toLowerCase().includes(query) ||
-          p.motorizado_asignado?.toLowerCase().includes(query)
+          p.motorizado_asignado?.toLowerCase().includes(query) ||
+          p.barrio?.toLowerCase().includes(query)
       );
     }
 
     setFilteredPedidos(filtered);
+  };
+
+  const assignMotorizado = async (pedidoId: number, motorizadoName: string) => {
+    setAssigningPedido(pedidoId);
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({
+          motorizado_asignado: motorizadoName,
+          estado: "En Ruta",
+        })
+        .eq("id", pedidoId);
+
+      if (error) throw error;
+
+      // Update local state
+      setPedidos((prev) =>
+        prev.map((p) =>
+          p.id === pedidoId
+            ? { ...p, motorizado_asignado: motorizadoName, estado: "En Ruta" }
+            : p
+        )
+      );
+
+      toast.success(`Pedido asignado a ${motorizadoName}`);
+    } catch (error) {
+      console.error("Error assigning motorizado:", error);
+      toast.error("Error al asignar motorizado");
+    } finally {
+      setAssigningPedido(null);
+    }
   };
 
   const confirmUserEmail = async (userId: string) => {
@@ -165,10 +307,17 @@ const AdminDashboard = () => {
     navigate("/auth");
   };
 
-  // Status badge with icon for mobile optimization
+  const clearNewOrdersNotification = () => {
+    setNewOrdersCount(0);
+  };
+
+  // Get unique barrios for filter
+  const uniqueBarrios = [...new Set(pedidos.map((p) => p.barrio).filter(Boolean))].sort();
+
+  // Status badge with icon
   const StatusBadge = ({ status }: { status: string | null }) => {
     const s = status?.toLowerCase();
-    
+
     const getConfig = () => {
       switch (s) {
         case "entregado":
@@ -212,15 +361,16 @@ const AdminDashboard = () => {
             label: "Cancelado",
             shortLabel: "Canc",
           };
-        case "novedad":
-          return {
-            icon: AlertTriangle,
-            bg: "bg-orange-500",
-            text: "text-white",
-            label: "Novedad",
-            shortLabel: "Nov",
-          };
         default:
+          if (s?.includes("novedad")) {
+            return {
+              icon: AlertTriangle,
+              bg: "bg-orange-500",
+              text: "text-white",
+              label: "Novedad",
+              shortLabel: "Nov",
+            };
+          }
           return {
             icon: Package,
             bg: "bg-muted",
@@ -248,8 +398,9 @@ const AdminDashboard = () => {
   const stats = {
     total: pedidos.length,
     pending: pedidos.filter(
-      (p) => p.estado?.toLowerCase() === "pendiente" || p.estado?.toLowerCase() === "en bodega"
+      (p) => !p.motorizado_asignado || p.estado?.toLowerCase() === "pendiente" || p.estado?.toLowerCase() === "en bodega"
     ).length,
+    unassigned: pedidos.filter((p) => !p.motorizado_asignado).length,
     inTransit: pedidos.filter(
       (p) => p.estado?.toLowerCase() === "en ruta" || p.estado?.toLowerCase() === "en camino"
     ).length,
@@ -268,6 +419,16 @@ const AdminDashboard = () => {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {/* New orders notification */}
+            {newOrdersCount > 0 && (
+              <button
+                onClick={clearNewOrdersNotification}
+                className="relative flex items-center gap-2 rounded-full bg-green-500 px-3 py-1.5 text-white animate-pulse"
+              >
+                <Bell className="h-4 w-4" />
+                <span className="text-sm font-bold">{newOrdersCount} nuevo(s)</span>
+              </button>
+            )}
             <span className="text-sm text-muted-foreground hidden sm:inline">
               {profile?.full_name}
             </span>
@@ -285,7 +446,7 @@ const AdminDashboard = () => {
       <main className="container px-4 py-6">
         {/* Stats Cards */}
         <motion.div
-          className="mb-6 grid grid-cols-2 sm:grid-cols-4 gap-3"
+          className="mb-6 grid grid-cols-2 sm:grid-cols-5 gap-3"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -295,6 +456,16 @@ const AdminDashboard = () => {
               <span className="text-sm text-muted-foreground">Total</span>
             </div>
             <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+          </div>
+          <div
+            className="rounded-xl bg-amber-500/20 p-4 shadow-card cursor-pointer hover:ring-2 ring-amber-500 transition-all"
+            onClick={() => setStatusFilter("sin_asignar")}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              <span className="text-sm text-muted-foreground">Sin Asignar</span>
+            </div>
+            <p className="text-2xl font-bold text-amber-600">{stats.unassigned}</p>
           </div>
           <div className="rounded-xl bg-secondary/20 p-4 shadow-card">
             <div className="flex items-center gap-2 mb-2">
@@ -343,10 +514,7 @@ const AdminDashboard = () => {
 
         {/* Orders Tab */}
         {activeTab === "orders" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             {/* Actions & Filters */}
             <div className="mb-4 flex flex-col gap-3">
               <button
@@ -356,37 +524,88 @@ const AdminDashboard = () => {
                 <Plus className="h-4 w-4" />
                 Nuevo Pedido
               </button>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Buscar por guía, cliente o motorizado..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+
+              {/* Search */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Buscar por guía, cliente, motorizado o barrio..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              {/* Filters Row */}
+              <div className="flex flex-wrap gap-2 items-center">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                
+                {/* Estado Filter */}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                >
+                  <option value="todos">Todos los estados</option>
+                  <option value="sin_asignar">⚠️ Sin Asignar</option>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en bodega">En Bodega</option>
+                  <option value="en ruta">En Ruta</option>
+                  <option value="entregado">Entregado</option>
+                  <option value="cancelado">Cancelado</option>
+                </select>
+
+                {/* Barrio Filter */}
+                <select
+                  value={barrioFilter}
+                  onChange={(e) => setBarrioFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                >
+                  <option value="todos">Todos los barrios</option>
+                  {uniqueBarrios.map((barrio) => (
+                    <option key={barrio} value={barrio!}>
+                      {barrio}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Método de Pago Filter */}
+                <select
+                  value={metodoPagoFilter}
+                  onChange={(e) => setMetodoPagoFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                >
+                  <option value="todos">Todos los pagos</option>
+                  <option value="efectivo">Contra Entrega</option>
+                  <option value="anticipado">Pago Anticipado</option>
+                </select>
+
+                {/* Date Filter */}
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                />
+
+                {/* Clear Filters */}
+                {(statusFilter !== "todos" ||
+                  barrioFilter !== "todos" ||
+                  metodoPagoFilter !== "todos" ||
+                  dateFilter) && (
+                  <button
+                    onClick={() => {
+                      setStatusFilter("todos");
+                      setBarrioFilter("todos");
+                      setMetodoPagoFilter("todos");
+                      setDateFilter("");
+                    }}
+                    className="text-sm text-primary hover:underline"
                   >
-                    <option value="todos">Todos los estados</option>
-                    <option value="pendiente">Pendiente</option>
-                    <option value="en bodega">En Bodega</option>
-                    <option value="en ruta">En Ruta</option>
-                    <option value="entregado">Entregado</option>
-                    <option value="cancelado">Cancelado</option>
-                  </select>
-                  <input
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                  />
-                </div>
+                    Limpiar filtros
+                  </button>
+                )}
               </div>
             </div>
 
@@ -401,39 +620,94 @@ const AdminDashboard = () => {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b border-border">
                       <tr>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Guía</th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Cliente</th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Dirección</th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Motorizado</th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Estado</th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Fecha</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
+                          Guía
+                        </th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
+                          Cliente
+                        </th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">
+                          Barrio
+                        </th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">
+                          Pago
+                        </th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
+                          Motorizado
+                        </th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
+                          Estado
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {filteredPedidos.map((pedido) => (
-                        <tr key={pedido.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-3 py-3 font-medium text-foreground text-xs sm:text-sm">
-                            {pedido.numero_guia || `#${pedido.id}`}
-                          </td>
-                          <td className="px-3 py-3 text-muted-foreground text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate">
-                            {pedido.cliente_nombre || "-"}
-                          </td>
-                          <td className="px-3 py-3 text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
-                            {pedido.direccion_entrega || "-"}
-                          </td>
-                          <td className="px-3 py-3 text-muted-foreground hidden sm:table-cell">
-                            {pedido.motorizado_asignado || "-"}
-                          </td>
-                          <td className="px-3 py-3">
-                            <StatusBadge status={pedido.estado} />
-                          </td>
-                          <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">
-                            {pedido.fecha_creacion
-                              ? new Date(pedido.fecha_creacion).toLocaleDateString("es-CO")
-                              : "-"}
-                          </td>
-                        </tr>
-                      ))}
+                      {filteredPedidos.map((pedido) => {
+                        const isPendingAssignment = !pedido.motorizado_asignado;
+                        return (
+                          <tr
+                            key={pedido.id}
+                            className={`hover:bg-muted/30 transition-colors ${
+                              isPendingAssignment ? "bg-amber-50 dark:bg-amber-950/20" : ""
+                            }`}
+                          >
+                            <td className="px-3 py-3 font-medium text-foreground text-xs sm:text-sm">
+                              <div className="flex items-center gap-2">
+                                {isPendingAssignment && (
+                                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                                )}
+                                {pedido.numero_guia || `#${pedido.id}`}
+                              </div>
+                            </td>
+                            <td className="px-3 py-3 text-muted-foreground text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate">
+                              {pedido.cliente_nombre || "-"}
+                            </td>
+                            <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">
+                              {pedido.barrio || "-"}
+                            </td>
+                            <td className="px-3 py-3 hidden md:table-cell">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                                  pedido.metodo_pago === "anticipado"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-blue-100 text-blue-700"
+                                }`}
+                              >
+                                {pedido.metodo_pago === "anticipado" ? "Anticipado" : "Contra Entrega"}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-xs sm:text-sm">
+                              {isPendingAssignment ? (
+                                <select
+                                  disabled={assigningPedido === pedido.id}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      assignMotorizado(pedido.id, e.target.value);
+                                    }
+                                  }}
+                                  className="w-full min-w-[120px] rounded-lg border-2 border-amber-400 bg-card px-2 py-1.5 text-xs font-medium focus:border-primary focus:outline-none"
+                                  defaultValue=""
+                                >
+                                  <option value="" disabled>
+                                    {assigningPedido === pedido.id ? "Asignando..." : "⚠️ Asignar"}
+                                  </option>
+                                  {motorizados.map((m) => (
+                                    <option key={m.id} value={m.full_name}>
+                                      {m.full_name}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  {pedido.motorizado_asignado}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-3 py-3">
+                              <StatusBadge status={pedido.estado} />
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -456,7 +730,11 @@ const AdminDashboard = () => {
           >
             <div className="p-4 border-b border-border">
               <h2 className="font-bold text-foreground">Mapa Logístico de Bogotá</h2>
-              <div className="flex gap-4 mt-2 text-xs">
+              <div className="flex flex-wrap gap-4 mt-2 text-xs">
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                  <span className="text-muted-foreground">Sin Asignar</span>
+                </div>
                 <div className="flex items-center gap-1">
                   <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                   <span className="text-muted-foreground">En Ruta</span>
@@ -479,10 +757,7 @@ const AdminDashboard = () => {
 
         {/* Users Tab */}
         {activeTab === "users" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="mb-4 flex justify-between items-center">
               <h2 className="font-bold text-foreground">Gestión de Usuarios</h2>
               <button
@@ -499,18 +774,32 @@ const AdminDashboard = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-b border-border">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">Nombre</th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">Email</th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Teléfono</th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">Acciones</th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">
+                        Nombre
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">
+                        Email
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">
+                        Teléfono
+                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {users.map((user) => (
                       <tr key={user.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium text-foreground">{user.full_name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{user.email || "-"}</td>
-                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{user.phone || "-"}</td>
+                        <td className="px-4 py-3 font-medium text-foreground">
+                          {user.full_name}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {user.email || "-"}
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                          {user.phone || "-"}
+                        </td>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => confirmUserEmail(user.user_id)}
