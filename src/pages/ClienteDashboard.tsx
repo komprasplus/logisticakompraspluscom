@@ -13,6 +13,12 @@ import {
   Truck,
   Warehouse,
   Plus,
+  Edit,
+  Printer,
+  Clock,
+  Box,
+  AlertTriangle,
+  XCircle,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -21,12 +27,22 @@ import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
+import EditPedidoModal from "@/components/EditPedidoModal";
+import PrintGuiaModal from "@/components/PrintGuiaModal";
+import { Button } from "@/components/ui/button";
 
 interface Pedido {
   id: number;
   numero_guia: string | null;
   cliente_nombre: string | null;
+  client_phone: string | null;
   direccion_entrega: string | null;
+  barrio: string | null;
+  zona: string | null;
+  producto_nombre: string | null;
+  valor_recaudar: number | null;
+  metodo_pago: string | null;
+  fecha_entrega: string | null;
   estado: string | null;
   corte_horario: string | null;
   fecha_creacion: string | null;
@@ -44,6 +60,8 @@ const ClienteDashboard = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [trackingError, setTrackingError] = useState("");
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
+  const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
+  const [printingPedido, setPrintingPedido] = useState<Pedido | null>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -112,18 +130,29 @@ const ClienteDashboard = () => {
     switch (s) {
       case "recibido":
       case "pedido recibido":
-        return { label: "Recibido", step: 1, color: "bg-primary text-primary-foreground" };
-      case "en bodega":
+      case "recibido en bodega":
+        return { label: "Recibido en Bodega", step: 2, color: "bg-blue-500 text-white", icon: Box };
       case "pendiente":
-        return { label: "En Bodega", step: 2, color: "bg-secondary text-secondary-foreground" };
+        return { label: "Pendiente", step: 1, color: "bg-amber-500 text-white", icon: Clock };
+      case "asignado":
+        return { label: "Asignado", step: 2, color: "bg-purple-500 text-white", icon: Truck };
       case "en ruta":
       case "en camino":
-        return { label: "En Ruta", step: 3, color: "bg-primary text-primary-foreground" };
+        return { label: "En Ruta", step: 3, color: "bg-primary text-primary-foreground", icon: Truck };
       case "entregado":
-        return { label: "Entregado", step: 4, color: "bg-green-500 text-white" };
+        return { label: "Entregado", step: 4, color: "bg-green-500 text-white", icon: CheckCircle2 };
+      case "cancelado":
+        return { label: "Cancelado", step: 0, color: "bg-destructive text-destructive-foreground", icon: XCircle };
+      case "novedad":
+        return { label: "Novedad", step: 0, color: "bg-orange-500 text-white", icon: AlertTriangle };
       default:
-        return { label: status || "Recibido", step: 1, color: "bg-muted text-muted-foreground" };
+        return { label: status || "Pendiente", step: 1, color: "bg-muted text-muted-foreground", icon: Package };
     }
+  };
+
+  // Check if order can be edited (only "Pendiente" status)
+  const canEditOrder = (status: string | null) => {
+    return status?.toLowerCase() === "pendiente";
   };
 
   const statusSteps = [
@@ -249,42 +278,99 @@ const ClienteDashboard = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {pedidos.map((pedido, index) => (
-                  <motion.div
-                    key={pedido.id}
-                    className="rounded-xl bg-card p-4 shadow-card"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-bold text-foreground">
+                {pedidos.map((pedido, index) => {
+                  const statusInfo = getStatusInfo(pedido.estado);
+                  const StatusIcon = statusInfo.icon;
+                  const isEditable = canEditOrder(pedido.estado);
+
+                  return (
+                    <motion.div
+                      key={pedido.id}
+                      className="rounded-xl bg-card border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                    >
+                      {/* Header with status indicator */}
+                      <div className={`px-4 py-2 flex items-center justify-between ${statusInfo.color}`}>
+                        <div className="flex items-center gap-2">
+                          <StatusIcon className="h-4 w-4" />
+                          <span className="text-xs font-bold uppercase">{statusInfo.label}</span>
+                        </div>
+                        <span className="text-xs font-medium opacity-90">
                           {pedido.numero_guia || `#${pedido.id}`}
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {pedido.direccion_entrega || "Sin dirección"}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {pedido.fecha_creacion
-                            ? new Date(pedido.fecha_creacion).toLocaleDateString("es-CO", {
-                                day: "numeric",
-                                month: "short",
-                                year: "numeric",
-                              })
-                            : "-"}
-                        </p>
+                        </span>
                       </div>
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-medium ${
-                          getStatusInfo(pedido.estado).color
-                        }`}
-                      >
-                        {getStatusInfo(pedido.estado).label}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
+
+                      {/* Content */}
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <p className="font-semibold text-foreground">
+                              {pedido.cliente_nombre || "Sin destinatario"}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
+                              {pedido.direccion_entrega || "Sin dirección"}
+                            </p>
+                            {pedido.barrio && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                📍 {pedido.barrio}
+                              </p>
+                            )}
+                          </div>
+                          {pedido.valor_recaudar && pedido.metodo_pago !== "anticipado" && (
+                            <div className="text-right ml-3">
+                              <p className="text-xs text-muted-foreground">A recaudar</p>
+                              <p className="text-sm font-bold text-green-600">
+                                ${pedido.valor_recaudar.toLocaleString("es-CO")}
+                              </p>
+                            </div>
+                          )}
+                          {pedido.metodo_pago === "anticipado" && (
+                            <div className="bg-primary/10 text-primary text-xs font-bold px-2 py-1 rounded ml-3">
+                              PAGADO
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Date & Actions */}
+                        <div className="flex items-center justify-between pt-3 border-t border-border">
+                          <p className="text-xs text-muted-foreground">
+                            {pedido.fecha_creacion
+                              ? new Date(pedido.fecha_creacion).toLocaleDateString("es-CO", {
+                                  day: "numeric",
+                                  month: "short",
+                                  year: "numeric",
+                                })
+                              : "-"}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            {isEditable && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-1"
+                                onClick={() => setEditingPedido(pedido)}
+                              >
+                                <Edit className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Editar</span>
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              className="h-8 gap-1"
+                              onClick={() => setPrintingPedido(pedido)}
+                            >
+                              <Printer className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Guía</span>
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             )}
           </motion.div>
@@ -461,6 +547,21 @@ const ClienteDashboard = () => {
         onClose={() => setShowNuevoPedido(false)}
         onSuccess={fetchPedidos}
         isAdmin={false}
+      />
+
+      {/* Edit Pedido Modal */}
+      <EditPedidoModal
+        pedido={editingPedido}
+        isOpen={!!editingPedido}
+        onClose={() => setEditingPedido(null)}
+        onSuccess={fetchPedidos}
+      />
+
+      {/* Print Guia Modal */}
+      <PrintGuiaModal
+        pedido={printingPedido}
+        isOpen={!!printingPedido}
+        onClose={() => setPrintingPedido(null)}
       />
     </div>
   );
