@@ -14,6 +14,7 @@ import {
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo-kompras-plus.png";
+import MotorcycleIcon from "@/components/MotorcycleIcon";
 
 interface Pedido {
   id: number;
@@ -25,6 +26,7 @@ interface Pedido {
 }
 
 const SUPPORT_PHONE = "324 222 3825";
+const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
 
 const CustomerTracking = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,7 +73,7 @@ const CustomerTracking = () => {
       case "recibido":
       case "pedido recibido":
         return {
-          label: "Pedido Recibido",
+          label: "Recibido",
           description: "Tu pedido ha sido recibido correctamente",
           color: "bg-primary text-primary-foreground",
           step: 1,
@@ -80,7 +82,7 @@ const CustomerTracking = () => {
       case "pendiente":
         return {
           label: "En Bodega",
-          description: "Tu paquete está siendo procesado en nuestra sede central de Bogotá",
+          description: `Tu pedido está siendo procesado en nuestra bodega central en ${WAREHOUSE_ADDRESS}`,
           color: "bg-secondary text-secondary-foreground",
           step: 2,
         };
@@ -110,76 +112,98 @@ const CustomerTracking = () => {
   };
 
   const statusSteps = [
-    { key: 1, label: "Pedido Recibido", icon: Package, description: "Pedido confirmado" },
-    { key: 2, label: "En Bodega", icon: Warehouse, description: "Preparando envío" },
-    { key: 3, label: "En Ruta", icon: Truck, description: "En camino" },
-    { key: 4, label: "Entregado", icon: CheckCircle2, description: "¡Completado!" },
+    { key: 1, label: "Recibido", icon: Package },
+    { key: 2, label: "En Bodega", icon: Warehouse },
+    { key: 3, label: "En Ruta", icon: Truck },
+    { key: 4, label: "Entregado", icon: CheckCircle2 },
   ];
 
+  // Calculate motorcycle position based on current step (0-100%)
+  const getMotorcyclePosition = (step: number) => {
+    switch (step) {
+      case 1:
+        return 0;
+      case 2:
+        return 16;
+      case 3:
+        return 50;
+      case 4:
+        return 100;
+      default:
+        return 0;
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-        <div className="container flex h-16 items-center gap-4 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background">
+      {/* Header with Logo */}
+      <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+        <div className="container flex h-20 items-center justify-between px-4">
           <Link
             to="/"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-muted hover:bg-muted/80 transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-5 w-5 text-primary" />
           </Link>
-          <img src={logo} alt="Kompras Plus" className="h-10 w-auto" />
-          <div className="flex-1" />
-          <div className="flex items-center gap-2 rounded-full bg-primary px-3 py-1.5">
+          
+          {/* Center Logo */}
+          <motion.div
+            className="absolute left-1/2 -translate-x-1/2"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <img src={logo} alt="Kompras Plus" className="h-14 w-auto" />
+          </motion.div>
+          
+          <div className="flex items-center gap-2 rounded-full bg-primary px-4 py-2">
             <Package className="h-4 w-4 text-primary-foreground" />
-            <span className="text-sm font-medium text-primary-foreground">
+            <span className="text-sm font-semibold text-primary-foreground">
               Rastreo
             </span>
           </div>
         </div>
       </header>
 
-      <main className="container px-4 py-6">
-        {/* Warehouse Address */}
+      <main className="container px-4 py-8">
+        {/* Support Info Bar */}
         <motion.div
-          className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-white p-4 shadow-sm border border-border"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
         >
-          <MapPin className="h-4 w-4" />
-          <span>Bodega: Carrera 20 # 14-30 local 212, Bogotá</span>
-        </motion.div>
-
-        {/* Support Phone - Always visible */}
-        <motion.div
-          className="mb-6 flex items-center gap-2 text-sm"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Phone className="h-4 w-4 text-primary" />
-          <span className="text-muted-foreground">Soporte:</span>
-          <a 
-            href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`} 
-            className="text-primary font-semibold hover:underline"
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <MapPin className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Bodega Central</p>
+              <p className="text-sm font-medium text-foreground">{WAREHOUSE_ADDRESS}</p>
+            </div>
+          </div>
+          <a
+            href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
+            className="flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity"
           >
+            <Phone className="h-4 w-4" />
             {SUPPORT_PHONE}
           </a>
         </motion.div>
 
         {/* Search Section */}
         <motion.div
-          className="mb-8"
+          className="mb-10"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
         >
-          <h1 className="mb-2 text-2xl font-bold text-foreground">
+          <h1 className="mb-2 text-3xl font-bold text-foreground text-center">
             Rastrea tu pedido
           </h1>
-          <p className="mb-6 text-muted-foreground">
+          <p className="mb-8 text-muted-foreground text-center">
             Ingresa el número de guía para ver el estado de tu pedido
           </p>
 
-          <form onSubmit={handleSearch} className="flex gap-3">
+          <form onSubmit={handleSearch} className="flex gap-3 max-w-xl mx-auto">
             <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
               <input
@@ -187,16 +211,16 @@ const CustomerTracking = () => {
                 placeholder="Ej: GU-001"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-input bg-card py-3 pl-12 pr-4 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                className="w-full rounded-2xl border-2 border-primary/20 bg-white py-4 pl-12 pr-4 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 text-lg"
               />
             </div>
             <button
               type="submit"
               disabled={!searchQuery.trim() || isSearching}
-              className="rounded-xl bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform hover:opacity-90 active:scale-95 disabled:opacity-50"
+              className="rounded-2xl bg-primary px-8 py-4 font-bold text-primary-foreground transition-all hover:opacity-90 hover:shadow-lg hover:shadow-primary/30 active:scale-95 disabled:opacity-50 disabled:shadow-none"
             >
               {isSearching ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2 className="h-6 w-6 animate-spin" />
               ) : (
                 "Buscar"
               )}
@@ -206,20 +230,23 @@ const CustomerTracking = () => {
           <AnimatePresence>
             {error && (
               <motion.div
-                className="mt-4 rounded-xl bg-destructive/10 border border-destructive/20 p-4"
+                className="mt-6 max-w-xl mx-auto rounded-2xl bg-destructive/10 border border-destructive/20 p-5"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
               >
-                <p className="text-sm text-destructive font-medium">
+                <p className="text-sm text-destructive font-medium text-center">
                   {error}
                 </p>
-                <a 
-                  href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
-                  className="mt-2 inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                >
-                  📞 Llamar ahora
-                </a>
+                <div className="mt-3 flex justify-center">
+                  <a 
+                    href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
+                    className="inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground hover:opacity-90"
+                  >
+                    <Phone className="h-4 w-4" />
+                    Llamar ahora
+                  </a>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -232,158 +259,178 @@ const CustomerTracking = () => {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
-              className="space-y-6"
+              className="space-y-6 max-w-4xl mx-auto"
             >
-              {/* Status Card */}
-              <div className="rounded-2xl bg-card p-6 shadow-card">
-                <div className="mb-6 flex items-center justify-between">
+              {/* Main Tracking Card */}
+              <div className="rounded-3xl bg-white p-8 shadow-lg border border-border overflow-hidden">
+                {/* Order Header */}
+                <div className="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-bold text-foreground">
+                    <h2 className="text-2xl font-bold text-foreground">
                       {orderResult.numero_guia || `Pedido #${orderResult.id}`}
                     </h2>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-muted-foreground">
                       {orderResult.cliente_nombre || "Cliente"}
                     </p>
                   </div>
-                  <span
-                    className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                  <motion.span
+                    className={`rounded-full px-5 py-2.5 text-sm font-bold ${
                       getStatusInfo(orderResult.estado).color
                     }`}
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", delay: 0.2 }}
                   >
                     {getStatusInfo(orderResult.estado).label}
-                  </span>
+                  </motion.span>
                 </div>
 
-                {/* Status Timeline - Horizontal */}
-                <div className="relative">
-                  {/* Progress Line */}
-                  <div className="absolute top-6 left-0 right-0 h-1 bg-muted rounded-full">
+                {/* Visual Timeline with Motorcycle */}
+                <div className="relative py-12">
+                  {/* Track Background */}
+                  <div className="absolute top-1/2 left-4 right-4 h-2 -translate-y-1/2 bg-muted rounded-full overflow-hidden">
                     <motion.div 
-                      className="h-full bg-primary rounded-full"
+                      className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full"
                       initial={{ width: 0 }}
                       animate={{ 
-                        width: `${((getStatusInfo(orderResult.estado).step - 1) / (statusSteps.length - 1)) * 100}%` 
+                        width: `${getMotorcyclePosition(getStatusInfo(orderResult.estado).step)}%` 
                       }}
-                      transition={{ duration: 0.8, ease: "easeOut" }}
+                      transition={{ duration: 1.2, ease: "easeOut" }}
                     />
                   </div>
                   
-                  {/* Steps */}
-                  <div className="relative flex justify-between">
+                  {/* Animated Motorcycle */}
+                  <motion.div
+                    className="absolute top-1/2 -translate-y-[70%] z-20"
+                    initial={{ left: "0%" }}
+                    animate={{ 
+                      left: `calc(${getMotorcyclePosition(getStatusInfo(orderResult.estado).step)}% - 32px)`
+                    }}
+                    transition={{ duration: 1.5, ease: "easeOut", delay: 0.3 }}
+                  >
+                    <motion.div
+                      animate={{ y: [0, -3, 0] }}
+                      transition={{ repeat: Infinity, duration: 0.6 }}
+                    >
+                      <MotorcycleIcon className="w-16 h-10" />
+                    </motion.div>
+                  </motion.div>
+                  
+                  {/* Step Nodes */}
+                  <div className="relative flex justify-between px-4">
                     {statusSteps.map((step, index) => {
                       const currentStep = getStatusInfo(orderResult.estado).step;
-                      const isCompleted = step.key <= currentStep;
+                      const isCompleted = step.key < currentStep;
                       const isCurrent = step.key === currentStep;
+                      const isPending = step.key > currentStep;
                       const Icon = step.icon;
 
                       return (
                         <motion.div
                           key={step.key}
                           className="flex flex-col items-center"
-                          initial={{ opacity: 0, y: 20 }}
+                          initial={{ opacity: 0, y: 30 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
+                          transition={{ delay: 0.4 + index * 0.15 }}
                         >
-                          <div
-                            className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-4 transition-all ${
+                          <motion.div
+                            className={`relative z-10 flex h-14 w-14 items-center justify-center rounded-full border-4 shadow-lg transition-all ${
                               isCompleted
-                                ? isCurrent
-                                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/30"
-                                  : "bg-green-500 text-white border-green-500"
-                                : "bg-muted text-muted-foreground border-muted"
+                                ? "bg-green-500 text-white border-green-400"
+                                : isCurrent
+                                ? "bg-primary text-primary-foreground border-primary ring-4 ring-primary/20"
+                                : "bg-white text-muted-foreground border-muted"
                             }`}
+                            whileHover={{ scale: 1.1 }}
                           >
-                            {isCompleted && !isCurrent ? (
-                              <CheckCircle2 className="h-6 w-6" />
+                            {isCompleted ? (
+                              <CheckCircle2 className="h-7 w-7" />
                             ) : (
-                              <Icon className="h-5 w-5" />
+                              <Icon className="h-6 w-6" />
                             )}
                             {isCurrent && (
                               <span className="absolute -top-1 -right-1 flex h-4 w-4">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                                <span className="relative inline-flex rounded-full h-4 w-4 bg-primary"></span>
+                                <span className="relative inline-flex rounded-full h-4 w-4 bg-primary border-2 border-white"></span>
                               </span>
                             )}
-                          </div>
+                          </motion.div>
                           <p
-                            className={`mt-3 text-xs font-semibold text-center max-w-[70px] ${
-                              isCompleted
+                            className={`mt-4 text-sm font-bold text-center ${
+                              isCompleted || isCurrent
                                 ? "text-foreground"
                                 : "text-muted-foreground"
                             }`}
                           >
                             {step.label}
                           </p>
-                          {isCurrent && (
-                            <motion.p 
-                              className="mt-1 text-[10px] text-primary text-center"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                            >
-                              {step.description}
-                            </motion.p>
-                          )}
                         </motion.div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Status Message for En Bodega */}
-                {(orderResult.estado?.toLowerCase() === "en bodega" || 
-                  orderResult.estado?.toLowerCase() === "pendiente") && (
-                  <motion.div
-                    className="mt-6 rounded-xl bg-secondary/20 p-4 border border-secondary/30"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                  >
-                    <div className="flex items-start gap-3">
-                      <Warehouse className="h-5 w-5 text-secondary-foreground mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-semibold text-secondary-foreground">
-                          Tu paquete está siendo procesado
-                        </p>
-                        <p className="text-sm text-muted-foreground mt-1">
-                          Tu paquete está siendo procesado en nuestra sede central de Bogotá. 
-                          Pronto estará en camino hacia tu dirección.
-                        </p>
-                      </div>
+                {/* Dynamic Status Message */}
+                <motion.div
+                  className="mt-6 rounded-2xl bg-gradient-to-r from-primary/10 to-primary/5 p-6 border border-primary/20"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.8 }}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/20 flex-shrink-0">
+                      {getStatusInfo(orderResult.estado).step === 2 ? (
+                        <Warehouse className="h-6 w-6 text-primary" />
+                      ) : getStatusInfo(orderResult.estado).step === 3 ? (
+                        <Truck className="h-6 w-6 text-primary" />
+                      ) : getStatusInfo(orderResult.estado).step === 4 ? (
+                        <CheckCircle2 className="h-6 w-6 text-primary" />
+                      ) : (
+                        <Package className="h-6 w-6 text-primary" />
+                      )}
                     </div>
-                  </motion.div>
-                )}
+                    <div>
+                      <p className="font-bold text-foreground text-lg">
+                        {getStatusInfo(orderResult.estado).label}
+                      </p>
+                      <p className="text-muted-foreground mt-1">
+                        {getStatusInfo(orderResult.estado).description}
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
               </div>
 
-              {/* Order Details */}
+              {/* Order Details Card */}
               <motion.div
-                className="rounded-2xl bg-card p-6 shadow-card"
+                className="rounded-2xl bg-white p-6 shadow-lg border border-border"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.2 }}
+                transition={{ delay: 0.3 }}
               >
-                <h3 className="mb-4 font-bold text-foreground">
+                <h3 className="mb-5 text-lg font-bold text-foreground">
                   Detalles del pedido
                 </h3>
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <MapPin className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                <div className="space-y-4">
+                  <div className="flex items-start gap-4 p-4 rounded-xl bg-muted/50">
+                    <MapPin className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm text-muted-foreground">
                         Dirección de entrega
                       </p>
-                      <p className="font-medium text-foreground">
+                      <p className="font-semibold text-foreground">
                         {orderResult.direccion_entrega || "Sin dirección registrada"}
                       </p>
                     </div>
                   </div>
                   {orderResult.corte_horario && (
-                    <div className="flex items-start gap-3">
-                      <Package className="mt-0.5 h-5 w-5 text-muted-foreground" />
+                    <div className="flex items-start gap-4 p-4 rounded-xl bg-muted/50">
+                      <Package className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                       <div>
                         <p className="text-sm text-muted-foreground">
                           Corte de despacho
                         </p>
-                        <p className="font-medium text-foreground">
+                        <p className="font-semibold text-foreground">
                           {orderResult.corte_horario}
                         </p>
                       </div>
@@ -392,37 +439,43 @@ const CustomerTracking = () => {
                 </div>
               </motion.div>
 
-              {/* Need help banner */}
+              {/* Help Banner */}
               <motion.div
-                className="rounded-xl bg-primary/10 p-4 border border-primary/20"
+                className="rounded-2xl bg-primary p-6"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.5 }}
               >
-                <p className="text-sm text-foreground font-medium text-center">
-                  ¿Necesitas ayuda? Llámanos al{" "}
+                <p className="text-primary-foreground font-medium text-center mb-3">
+                  ¿Necesitas ayuda con tu pedido?
+                </p>
+                <div className="flex justify-center">
                   <a 
                     href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
-                    className="text-primary font-bold hover:underline"
+                    className="inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-primary font-bold hover:bg-white/90 transition-colors"
                   >
-                    {SUPPORT_PHONE}
+                    <Phone className="h-5 w-5" />
+                    Llamar al {SUPPORT_PHONE}
                   </a>
-                </p>
+                </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Help hint */}
+        {/* Empty State */}
         {!orderResult && !error && (
           <motion.div
-            className="mt-8 rounded-xl bg-muted p-4 text-center"
+            className="mt-12 text-center"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.4 }}
           >
-            <p className="text-sm text-muted-foreground">
-              💡 Ingresa tu número de guía para rastrear tu pedido en tiempo real
+            <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-primary/10">
+              <Package className="h-12 w-12 text-primary" />
+            </div>
+            <p className="text-muted-foreground text-lg">
+              Ingresa tu número de guía para rastrear tu pedido en tiempo real
             </p>
           </motion.div>
         )}
