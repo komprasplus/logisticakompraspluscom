@@ -1,19 +1,14 @@
 import { motion } from "framer-motion";
-import { Truck, Package } from "lucide-react";
+import { Truck, Package, LogIn } from "lucide-react";
+import { Link } from "react-router-dom";
 import logo from "@/assets/logo-kompras-plus.png";
 
-interface RoleSelectorProps {
-  onSelectRole: (role: "driver" | "customer") => void;
-}
-
-const RoleSelector = ({ onSelectRole }: RoleSelectorProps) => {
+const RoleSelector = () => {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.2,
-      },
+      transition: { staggerChildren: 0.2 },
     },
   };
 
@@ -46,73 +41,67 @@ const RoleSelector = ({ onSelectRole }: RoleSelectorProps) => {
           </motion.div>
 
           <motion.div variants={itemVariants} className="space-y-4">
-            <motion.button
-              onClick={() => onSelectRole("driver")}
-              className="group flex w-full items-center gap-4 rounded-2xl bg-card p-6 shadow-card transition-all hover:shadow-elevated"
-              whileHover={{ scale: 1.02, y: -4 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-primary">
-                <Truck className="h-8 w-8 text-primary-foreground" />
-              </div>
-              <div className="flex-1 text-left">
-                <h2 className="text-lg font-bold text-foreground">
-                  Soy Repartidor
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Ver y gestionar mis entregas asignadas
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-secondary transition-colors">
-                <svg
-                  className="h-5 w-5 text-muted-foreground group-hover:text-secondary-foreground transition-colors"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </div>
-            </motion.button>
+            {/* Login Button */}
+            <Link to="/auth">
+              <motion.div
+                className="group flex w-full items-center gap-4 rounded-2xl bg-card p-6 shadow-card transition-all hover:shadow-elevated"
+                whileHover={{ scale: 1.02, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-primary">
+                  <LogIn className="h-8 w-8 text-primary-foreground" />
+                </div>
+                <div className="flex-1 text-left">
+                  <h2 className="text-lg font-bold text-foreground">
+                    Iniciar Sesión
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Motorizado, Cliente o Administrador
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-secondary transition-colors">
+                  <svg
+                    className="h-5 w-5 text-muted-foreground group-hover:text-secondary-foreground transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </motion.div>
+            </Link>
 
-            <motion.button
-              onClick={() => onSelectRole("customer")}
-              className="group flex w-full items-center gap-4 rounded-2xl bg-card p-6 shadow-card transition-all hover:shadow-elevated"
-              whileHover={{ scale: 1.02, y: -4 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-accent">
-                <Package className="h-8 w-8 text-accent-foreground" />
-              </div>
-              <div className="flex-1 text-left">
-                <h2 className="text-lg font-bold text-foreground">
-                  Soy Cliente
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Rastrear el estado de mi pedido
-                </p>
-              </div>
-              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-accent transition-colors">
-                <svg
-                  className="h-5 w-5 text-muted-foreground group-hover:text-accent-foreground transition-colors"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
-              </div>
-            </motion.button>
+            {/* Quick Tracking */}
+            <Link to="/rastreo">
+              <motion.div
+                className="group flex w-full items-center gap-4 rounded-2xl bg-card p-6 shadow-card transition-all hover:shadow-elevated"
+                whileHover={{ scale: 1.02, y: -4 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-accent">
+                  <Package className="h-8 w-8 text-accent-foreground" />
+                </div>
+                <div className="flex-1 text-left">
+                  <h2 className="text-lg font-bold text-foreground">
+                    Rastrear Pedido
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Sin necesidad de cuenta
+                  </p>
+                </div>
+                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-accent transition-colors">
+                  <svg
+                    className="h-5 w-5 text-muted-foreground group-hover:text-accent-foreground transition-colors"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </motion.div>
+            </Link>
           </motion.div>
 
           <motion.div
@@ -120,6 +109,7 @@ const RoleSelector = ({ onSelectRole }: RoleSelectorProps) => {
             className="mt-8 text-center text-xs text-muted-foreground"
           >
             <p>📍 Bodega: Carrera 20 # 14-30 Local 212, Bogotá</p>
+            <p className="mt-1">📞 Soporte: 324 222 3825</p>
           </motion.div>
         </motion.div>
       </div>
