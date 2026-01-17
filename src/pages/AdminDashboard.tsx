@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Package,
-  MapPin,
   Users,
-  Filter,
   Loader2,
-  Calendar,
   LogOut,
   UserPlus,
   Map,
@@ -15,37 +12,16 @@ import {
   Clock,
   AlertTriangle,
   Truck,
+  Box,
+  XCircle,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Fix for default markers in Leaflet with webpack/vite
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
-
-// Custom marker icons
-const createIcon = (color: string) => {
-  return L.divIcon({
-    className: "custom-marker",
-    html: `<div style="background-color: ${color}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>`,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
-  });
-};
-
-const blueIcon = createIcon("#3b82f6");
-const greenIcon = createIcon("#22c55e");
-const redIcon = createIcon("#ef4444");
+import AdminMap from "@/components/AdminMap";
+import CreateUserModal from "@/components/CreateUserModal";
 
 interface Pedido {
   id: number;
@@ -80,9 +56,6 @@ const AdminDashboard = () => {
   const [showCreateUser, setShowCreateUser] = useState(false);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
-
-  // Bogotá center coordinates
-  const bogotaCenter: [number, number] = [4.6097, -74.0817];
 
   useEffect(() => {
     fetchPedidos();
@@ -155,30 +128,84 @@ const AdminDashboard = () => {
     navigate("/auth");
   };
 
-  const getStatusColor = (status: string | null) => {
+  // Status badge with icon for mobile optimization
+  const StatusBadge = ({ status }: { status: string | null }) => {
     const s = status?.toLowerCase();
-    switch (s) {
-      case "entregado":
-        return "bg-green-500 text-white";
-      case "en ruta":
-      case "en camino":
-        return "bg-primary text-primary-foreground";
-      case "pendiente":
-      case "en bodega":
-        return "bg-secondary text-secondary-foreground";
-      case "cancelado":
-      case "novedad":
-        return "bg-destructive text-destructive-foreground";
-      default:
-        return "bg-muted text-muted-foreground";
-    }
-  };
+    
+    const getConfig = () => {
+      switch (s) {
+        case "entregado":
+          return {
+            icon: CheckCircle2,
+            bg: "bg-green-500",
+            text: "text-white",
+            label: "Entregado",
+            shortLabel: "OK",
+          };
+        case "en ruta":
+        case "en camino":
+          return {
+            icon: Truck,
+            bg: "bg-primary",
+            text: "text-primary-foreground",
+            label: "En Ruta",
+            shortLabel: "Ruta",
+          };
+        case "pendiente":
+          return {
+            icon: Clock,
+            bg: "bg-amber-500",
+            text: "text-white",
+            label: "Pendiente",
+            shortLabel: "Pend",
+          };
+        case "en bodega":
+          return {
+            icon: Box,
+            bg: "bg-secondary",
+            text: "text-secondary-foreground",
+            label: "En Bodega",
+            shortLabel: "Bod",
+          };
+        case "cancelado":
+          return {
+            icon: XCircle,
+            bg: "bg-destructive",
+            text: "text-destructive-foreground",
+            label: "Cancelado",
+            shortLabel: "Canc",
+          };
+        case "novedad":
+          return {
+            icon: AlertTriangle,
+            bg: "bg-orange-500",
+            text: "text-white",
+            label: "Novedad",
+            shortLabel: "Nov",
+          };
+        default:
+          return {
+            icon: Package,
+            bg: "bg-muted",
+            text: "text-muted-foreground",
+            label: status || "Sin estado",
+            shortLabel: "—",
+          };
+      }
+    };
 
-  const getMarkerIcon = (status: string | null) => {
-    const s = status?.toLowerCase();
-    if (s === "entregado") return greenIcon;
-    if (s === "cancelado" || s === "novedad") return redIcon;
-    return blueIcon;
+    const config = getConfig();
+    const Icon = config.icon;
+
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${config.bg} ${config.text}`}
+      >
+        <Icon className="h-3 w-3" />
+        <span className="hidden sm:inline">{config.label}</span>
+        <span className="sm:hidden">{config.shortLabel}</span>
+      </span>
+    );
   };
 
   const stats = {
@@ -328,35 +355,33 @@ const AdminDashboard = () => {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b border-border">
                       <tr>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground">Guía</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground">Cliente</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground hidden md:table-cell">Dirección</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground">Motorizado</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground">Estado</th>
-                        <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Fecha</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Guía</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Cliente</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Dirección</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Motorizado</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Estado</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Fecha</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {filteredPedidos.map((pedido) => (
                         <tr key={pedido.id} className="hover:bg-muted/30 transition-colors">
-                          <td className="px-4 py-3 font-medium text-foreground">
+                          <td className="px-3 py-3 font-medium text-foreground text-xs sm:text-sm">
                             {pedido.numero_guia || `#${pedido.id}`}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
+                          <td className="px-3 py-3 text-muted-foreground text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate">
                             {pedido.cliente_nombre || "-"}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
+                          <td className="px-3 py-3 text-muted-foreground hidden md:table-cell max-w-[200px] truncate">
                             {pedido.direccion_entrega || "-"}
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground">
+                          <td className="px-3 py-3 text-muted-foreground hidden sm:table-cell">
                             {pedido.motorizado_asignado || "-"}
                           </td>
-                          <td className="px-4 py-3">
-                            <span className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(pedido.estado)}`}>
-                              {pedido.estado || "Sin estado"}
-                            </span>
+                          <td className="px-3 py-3">
+                            <StatusBadge status={pedido.estado} />
                           </td>
-                          <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
+                          <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">
                             {pedido.fecha_creacion
                               ? new Date(pedido.fecha_creacion).toLocaleDateString("es-CO")
                               : "-"}
@@ -401,37 +426,7 @@ const AdminDashboard = () => {
               </div>
             </div>
             <div className="h-[500px] relative">
-              <MapContainer
-                center={bogotaCenter}
-                zoom={12}
-                scrollWheelZoom={true}
-                style={{ height: "100%", width: "100%", zIndex: 1 }}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                {pedidos
-                  .filter((p) => p.latitud != null && p.longitud != null && !isNaN(Number(p.latitud)) && !isNaN(Number(p.longitud)))
-                  .map((pedido) => (
-                    <Marker
-                      key={pedido.id}
-                      position={[Number(pedido.latitud), Number(pedido.longitud)]}
-                      icon={getMarkerIcon(pedido.estado)}
-                    >
-                      <Popup>
-                        <div className="text-sm">
-                          <p className="font-bold">{pedido.numero_guia || `#${pedido.id}`}</p>
-                          <p>{pedido.cliente_nombre}</p>
-                          <p className="text-gray-600">{pedido.direccion_entrega}</p>
-                          <span className={`inline-block mt-1 rounded-full px-2 py-0.5 text-xs ${getStatusColor(pedido.estado)}`}>
-                            {pedido.estado}
-                          </span>
-                        </div>
-                      </Popup>
-                    </Marker>
-                  ))}
-              </MapContainer>
+              <AdminMap pedidos={pedidos} />
             </div>
           </motion.div>
         )}
@@ -460,7 +455,7 @@ const AdminDashboard = () => {
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold text-foreground">Nombre</th>
                       <th className="px-4 py-3 text-left font-semibold text-foreground">Email</th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">Teléfono</th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Teléfono</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -468,7 +463,7 @@ const AdminDashboard = () => {
                       <tr key={user.id} className="hover:bg-muted/30 transition-colors">
                         <td className="px-4 py-3 font-medium text-foreground">{user.full_name}</td>
                         <td className="px-4 py-3 text-muted-foreground">{user.email || "-"}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{user.phone || "-"}</td>
+                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{user.phone || "-"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -480,13 +475,16 @@ const AdminDashboard = () => {
                 </div>
               )}
             </div>
-
-            <p className="mt-4 text-sm text-muted-foreground">
-              💡 Para crear usuarios, usa el panel de autenticación de Supabase y luego asigna roles desde la base de datos.
-            </p>
           </motion.div>
         )}
       </main>
+
+      {/* Create User Modal */}
+      <CreateUserModal
+        isOpen={showCreateUser}
+        onClose={() => setShowCreateUser(false)}
+        onUserCreated={fetchUsers}
+      />
     </div>
   );
 };
