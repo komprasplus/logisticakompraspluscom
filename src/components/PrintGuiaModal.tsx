@@ -25,7 +25,7 @@ interface PrintGuiaModalProps {
   pedido: Pedido | null;
   isOpen: boolean;
   onClose: () => void;
-  remitente?: string; // Business name of the sender (client)
+  remitente?: string;
 }
 
 const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalProps) => {
@@ -62,7 +62,7 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
             }
             @media print {
               body { margin: 0; }
-              .guia-label { border: none !important; }
+              .guia-container { border: none !important; }
             }
           </style>
         </head>
@@ -99,31 +99,16 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
     }
   };
 
-  // Determine city based on zone
-  const getCiudad = () => {
-    const zona = pedido.zona?.toUpperCase() || "";
-    if (zona.includes("SOACHA")) return "Soacha";
-    if (zona.includes("FUNZA")) return "Funza";
-    if (zona.includes("MOSQUERA")) return "Mosquera";
-    if (zona.includes("MADRID")) return "Madrid";
-    if (zona.includes("CHIA")) return "Chía";
-    if (zona.includes("COTA")) return "Cota";
-    if (zona.includes("CAJICA")) return "Cajicá";
-    if (zona.includes("ZIPAQUIRA")) return "Zipaquirá";
-    if (zona.includes("MUNI")) return "Municipios";
-    return "Bogotá D.C.";
-  };
-
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return new Date().toLocaleDateString("es-CO");
-    return new Date(dateStr).toLocaleDateString("es-CO", {
+  const formatDate = () => {
+    return new Date().toLocaleDateString("es-CO", {
       year: "numeric",
       month: "2-digit",
       day: "2-digit"
     });
   };
 
-  const ciudad = getCiudad();
+  const guiaNumero = pedido.numero_guia || `KP-${pedido.id}`;
+  const isPagado = pedido.metodo_pago === "anticipado";
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -136,230 +121,166 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
         <div className="flex justify-center bg-muted p-4 rounded-lg overflow-auto max-h-[70vh]">
           <div
             ref={guiaRef}
+            className="guia-container"
             style={{
               width: "10cm",
-              minHeight: "15cm",
-              padding: "8mm",
+              height: "15cm",
+              padding: "4mm",
               backgroundColor: "#ffffff",
               fontFamily: "Arial, Helvetica, sans-serif",
               border: "1px solid #000",
               boxSizing: "border-box",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            {/* Header - Logo, Guide Number, Date */}
+            {/* Fila 1: Header - Logo, Guía, Fecha */}
             <div style={{ 
               display: "flex", 
               justifyContent: "space-between", 
-              alignItems: "flex-start",
+              alignItems: "center",
               borderBottom: "2px solid #000",
-              paddingBottom: "3mm",
-              marginBottom: "3mm"
+              paddingBottom: "2mm",
+              marginBottom: "2mm"
             }}>
               <img 
                 src={logo} 
                 alt="Kompras Plus" 
-                style={{ height: "10mm", filter: "grayscale(100%)" }} 
+                style={{ height: "8mm", filter: "grayscale(100%)" }} 
               />
               <div style={{ textAlign: "right" }}>
                 <div style={{ 
-                  fontSize: "6pt", 
-                  color: "#666",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.5px"
-                }}>
-                  Guía N°
-                </div>
-                <div style={{ 
                   fontSize: "14pt", 
                   fontWeight: "bold",
-                  letterSpacing: "1px"
+                  lineHeight: "1.1"
                 }}>
-                  {pedido.numero_guia || `KP-${pedido.id}`}
+                  GUÍA N°: {guiaNumero}
                 </div>
-                <div style={{ fontSize: "7pt", color: "#444" }}>
-                  {formatDate(pedido.fecha_creacion)}
+                <div style={{ fontSize: "8pt", color: "#333" }}>
+                  FECHA: {formatDate()}
                 </div>
               </div>
             </div>
 
-            {/* QR Code - Centered, Large */}
+            {/* Fila 2: Zona y Barrio destacados */}
+            <div style={{ 
+              display: "flex", 
+              gap: "2mm", 
+              marginBottom: "2mm"
+            }}>
+              <div style={{ 
+                flex: 1, 
+                padding: "2mm", 
+                border: "2px solid #000",
+                textAlign: "center"
+              }}>
+                <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase" }}>
+                  ZONA
+                </div>
+                <div style={{ fontSize: "12pt", fontWeight: "bold" }}>
+                  {pedido.zona || "—"}
+                </div>
+              </div>
+              <div style={{ 
+                flex: 1, 
+                padding: "2mm", 
+                border: "2px solid #000",
+                textAlign: "center"
+              }}>
+                <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase" }}>
+                  BARRIO
+                </div>
+                <div style={{ fontSize: "10pt", fontWeight: "bold" }}>
+                  {pedido.barrio || "—"}
+                </div>
+              </div>
+            </div>
+
+            {/* Remitente */}
+            <div style={{ 
+              marginBottom: "2mm",
+              padding: "1.5mm 2mm",
+              borderBottom: "1px solid #999"
+            }}>
+              <span style={{ fontSize: "8pt", fontWeight: "bold" }}>REMITENTE: </span>
+              <span style={{ fontSize: "8pt" }}>{remitente || "Kompras Plus"}</span>
+            </div>
+
+            {/* QR Code - Centered, 4x4cm max */}
             <div style={{ 
               display: "flex", 
               justifyContent: "center", 
-              padding: "4mm 0",
-              borderBottom: "1px dashed #999",
-              marginBottom: "3mm"
+              padding: "2mm 0",
+              marginBottom: "2mm"
             }}>
               <QRCodeSVG
                 value={`PEDIDO:${pedido.id}`}
-                size={150}
+                size={113} // ~4cm at 72dpi (4 * 28.35 ≈ 113px)
                 level="H"
                 bgColor="#ffffff"
                 fgColor="#000000"
               />
             </div>
 
-            {/* Remitente (Sender) */}
+            {/* Destinatario */}
             <div style={{ 
-              marginBottom: "3mm",
-              padding: "2mm",
-              border: "1px solid #999"
-            }}>
-              <div style={{ 
-                fontSize: "6pt", 
-                color: "#666", 
-                textTransform: "uppercase",
-                marginBottom: "1mm"
-              }}>
-                Remitente
-              </div>
-              <div style={{ fontSize: "9pt", fontWeight: "bold" }}>
-                {remitente || "Kompras Plus"}
-              </div>
-            </div>
-
-            {/* Destinatario (Recipient) */}
-            <div style={{ 
-              marginBottom: "3mm",
+              marginBottom: "2mm",
               padding: "2mm",
               border: "2px solid #000"
             }}>
-              <div style={{ 
-                fontSize: "6pt", 
-                color: "#666", 
-                textTransform: "uppercase",
-                marginBottom: "1mm"
-              }}>
-                Destinatario
+              <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "1mm" }}>
+                DESTINATARIO
               </div>
               <div style={{ fontSize: "11pt", fontWeight: "bold", marginBottom: "1mm" }}>
                 {pedido.cliente_nombre || "—"}
               </div>
-              <div style={{ fontSize: "9pt", color: "#333" }}>
+              <div style={{ fontSize: "9pt", lineHeight: "1.3" }}>
+                {pedido.direccion_entrega || "—"}
+              </div>
+              <div style={{ fontSize: "10pt", fontWeight: "bold", marginTop: "1mm" }}>
                 Tel: {pedido.client_phone || "—"}
               </div>
             </div>
 
-            {/* Ubicación (Location) */}
+            {/* Detalles del Contenido */}
             <div style={{ 
-              marginBottom: "3mm",
-              padding: "2mm",
+              marginBottom: "2mm",
+              padding: "1.5mm 2mm",
               border: "1px solid #999"
             }}>
-              <div style={{ 
-                fontSize: "6pt", 
-                color: "#666", 
-                textTransform: "uppercase",
-                marginBottom: "1mm"
-              }}>
-                Dirección de Entrega
-              </div>
-              <div style={{ fontSize: "9pt", fontWeight: "600", lineHeight: "1.3" }}>
-                {pedido.direccion_entrega || "—"}
-              </div>
+              <span style={{ fontSize: "8pt", fontWeight: "bold" }}>DETALLES: </span>
+              <span style={{ fontSize: "8pt" }}>{pedido.producto_nombre || "Paquete estándar"}</span>
             </div>
 
-            {/* Barrio and Ciudad */}
+            {/* Valor a Recaudar - Destacado */}
             <div style={{ 
-              display: "flex", 
-              gap: "2mm", 
-              marginBottom: "3mm" 
-            }}>
-              <div style={{ 
-                flex: 1, 
-                padding: "2mm", 
-                border: "1px solid #999"
-              }}>
-                <div style={{ 
-                  fontSize: "6pt", 
-                  color: "#666", 
-                  textTransform: "uppercase",
-                  marginBottom: "1mm"
-                }}>
-                  Barrio
-                </div>
-                <div style={{ fontSize: "8pt", fontWeight: "600" }}>
-                  {pedido.barrio || "—"}
-                </div>
-              </div>
-              <div style={{ 
-                flex: 1, 
-                padding: "2mm", 
-                border: "1px solid #999"
-              }}>
-                <div style={{ 
-                  fontSize: "6pt", 
-                  color: "#666", 
-                  textTransform: "uppercase",
-                  marginBottom: "1mm"
-                }}>
-                  Ciudad
-                </div>
-                <div style={{ fontSize: "8pt", fontWeight: "600" }}>
-                  {ciudad}
-                </div>
-              </div>
-            </div>
-
-            {/* Detalles del Paquete (Package Details) */}
-            <div style={{ 
-              marginBottom: "3mm",
-              padding: "2mm",
-              border: "1px solid #999"
-            }}>
-              <div style={{ 
-                fontSize: "6pt", 
-                color: "#666", 
-                textTransform: "uppercase",
-                marginBottom: "1mm"
-              }}>
-                Detalles del Paquete
-              </div>
-              <div style={{ fontSize: "8pt", fontWeight: "500" }}>
-                {pedido.producto_nombre || "Paquete estándar"}
-              </div>
-            </div>
-
-            {/* Valor a Recaudar - Black border box, no fill */}
-            <div style={{ 
-              padding: "4mm",
+              padding: "3mm",
               border: "3px solid #000",
               textAlign: "center",
-              marginBottom: "3mm"
+              marginBottom: "2mm",
+              flex: "0 0 auto"
             }}>
-              <div style={{ 
-                fontSize: "7pt", 
-                color: "#444", 
-                textTransform: "uppercase",
-                marginBottom: "2mm",
-                fontWeight: "bold"
-              }}>
-                Valor a Recaudar
+              <div style={{ fontSize: "8pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "1mm" }}>
+                TOTAL A RECAUDAR
               </div>
               <div style={{ 
-                fontSize: "22pt", 
+                fontSize: "20pt", 
                 fontWeight: "bold",
                 letterSpacing: "1px"
               }}>
-                {pedido.metodo_pago === "anticipado" ? (
-                  "PAGADO"
-                ) : (
-                  `$${pedido.valor_recaudar?.toLocaleString("es-CO") || "0"}`
-                )}
+                {isPagado ? "PAGADO" : `$${pedido.valor_recaudar?.toLocaleString("es-CO") || "0"}`}
               </div>
             </div>
 
-            {/* Footer */}
+            {/* Pie de página */}
             <div style={{ 
-              borderTop: "1px dashed #999",
+              marginTop: "auto",
+              borderTop: "1px solid #999",
               paddingTop: "2mm",
               textAlign: "center"
             }}>
-              <div style={{ fontSize: "7pt", color: "#444", fontWeight: "500" }}>
-                Kompras Plus - Tu aliado de última milla
-              </div>
-              <div style={{ fontSize: "7pt", color: "#666" }}>
-                Tel: 324 222 3825 | www.komprasplus.com
+              <div style={{ fontSize: "7pt", fontWeight: "bold", color: "#333" }}>
+                Kompras Plus - Carrera 20 # 14-30 local 212 - Tel: 324 222 3825
               </div>
             </div>
           </div>
