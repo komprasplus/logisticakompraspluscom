@@ -24,103 +24,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { getZonaFromBarrio, ZONAS, type ZonaCodigo } from "@/lib/zonas";
-
-// Barrios de Bogotá más populares organizados por localidad
-const BARRIOS_BOGOTA = [
-  // Usaquén
-  "Usaquén Centro",
-  "Santa Bárbara",
-  "Cedritos",
-  "Country Club",
-  "La Carolina",
-  "Toberín",
-  "Barrancas",
-  // Chapinero
-  "Chapinero Alto",
-  "Chapinero Central",
-  "El Nogal",
-  "El Chicó",
-  "Rosales",
-  "La Cabrera",
-  // Suba
-  "Niza",
-  "Prado Veraniego",
-  "Suba Centro",
-  "Ciudad Jardín Norte",
-  "El Rincón",
-  "Tibabuyes",
-  "Casa Blanca Suba",
-  // Engativá
-  "Engativá Centro",
-  "Las Ferias",
-  "Minuto de Dios",
-  "Boyacá Real",
-  "Álamos Norte",
-  "Santa Helenita",
-  // Fontibón
-  "Fontibón Centro",
-  "Modelia",
-  "Hayuelos",
-  "Capellanía",
-  // Kennedy
-  "Kennedy Central",
-  "Patio Bonito",
-  "Timiza",
-  "Tintalá",
-  "Castilla",
-  "Marsella",
-  // Bosa
-  "Bosa Centro",
-  "El Recreo",
-  "San José de Bosa",
-  // Teusaquillo
-  "Teusaquillo Centro",
-  "Galerías",
-  "Palermo",
-  "La Esmeralda",
-  "La Soledad",
-  // Barrios Unidos
-  "Doce de Octubre",
-  "Siete de Agosto",
-  "Alcázares",
-  "San Fernando",
-  // Santa Fe
-  "La Candelaria",
-  "Las Nieves",
-  "La Macarena",
-  // Antonio Nariño
-  "Restrepo",
-  "Ciudad Jardín Sur",
-  // Puente Aranda
-  "Puente Aranda Centro",
-  "Galán",
-  "Muzú",
-  // Los Mártires
-  "Santa Isabel",
-  "El Listón",
-  "Ricaurte",
-  // Rafael Uribe Uribe
-  "Quiroga",
-  "Marco Fidel Suárez",
-  "Inglés",
-  // Ciudad Bolívar
-  "Ciudad Bolívar Centro",
-  "Candelaria La Nueva",
-  "El Tesoro",
-  // Tunjuelito
-  "Tunjuelito Centro",
-  "Venecia",
-  "San Carlos",
-  // Usme
-  "Usme Centro",
-  "Santa Librada",
-  "La Flora",
-  // San Cristóbal
-  "San Cristóbal Centro",
-  "20 de Julio",
-  "La Victoria",
-].sort();
+import { 
+  getZonaFromBarrio, 
+  ZONAS, 
+  searchBarrios,
+  type ZonaCodigo,
+  type BarrioInfo 
+} from "@/lib/zonas";
 
 interface Profile {
   id: string;
@@ -249,10 +159,8 @@ const NuevoPedidoModal = ({
     return `${prefix}${timestamp}${random}`;
   };
 
-  // Filter barrios based on search
-  const filteredBarrios = BARRIOS_BOGOTA.filter((b) =>
-    b.toLowerCase().includes(barrioSearch.toLowerCase())
-  );
+  // Filter barrios based on search using smart search
+  const filteredBarrios = searchBarrios(barrioSearch, 15);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -452,18 +360,19 @@ const NuevoPedidoModal = ({
                 {showBarrioDropdown && barrioSearch && (
                   <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
                     {filteredBarrios.length > 0 ? (
-                      filteredBarrios.slice(0, 10).map((b) => (
+                      filteredBarrios.map((b) => (
                         <button
-                          key={b}
+                          key={b.nombre}
                           type="button"
                           onClick={() => {
-                            setBarrio(b);
+                            setBarrio(b.nombre);
                             setBarrioSearch("");
                             setShowBarrioDropdown(false);
                           }}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-muted transition-colors"
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-muted transition-colors flex justify-between items-center"
                         >
-                          {b}
+                          <span>{b.nombre}</span>
+                          <span className="text-xs text-muted-foreground">{b.localidad}</span>
                         </button>
                       ))
                     ) : (
