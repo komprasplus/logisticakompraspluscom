@@ -50,7 +50,7 @@ const CustomerTracking = () => {
         setOrderResult(data);
       } else {
         setError(
-          "No encontramos un pedido con ese número de guía. Verifica e intenta de nuevo."
+          "No encontramos tu guía, por favor verifica el número o comunícate con Kompras Plus al 324 222 3825"
         );
       }
     } catch (err) {
@@ -64,41 +64,52 @@ const CustomerTracking = () => {
   const getStatusInfo = (status: string | null) => {
     const s = status?.toLowerCase();
     switch (s) {
-      case "pendiente":
+      case "recibido":
+      case "pedido recibido":
         return {
-          label: "Pendiente",
-          description: "Tu pedido está siendo procesado",
-          color: "bg-secondary text-secondary-foreground",
+          label: "Pedido Recibido",
+          description: "Tu pedido ha sido recibido correctamente",
+          color: "bg-blue-500 text-white",
           step: 1,
         };
+      case "en bodega":
+      case "pendiente":
+        return {
+          label: "En Bodega",
+          description: "Tu pedido está en nuestra bodega listo para despacho",
+          color: "bg-secondary text-secondary-foreground",
+          step: 2,
+        };
+      case "en ruta":
       case "en camino":
         return {
-          label: "En Camino",
-          description: "Tu pedido está en ruta de entrega",
+          label: "En Ruta",
+          description: "Tu pedido está en camino hacia tu dirección",
           color: "bg-primary text-primary-foreground",
-          step: 2,
+          step: 3,
         };
       case "entregado":
         return {
           label: "Entregado",
           description: "Tu pedido ha sido entregado exitosamente",
           color: "bg-green-500 text-white",
-          step: 3,
+          step: 4,
         };
       default:
         return {
-          label: status || "Desconocido",
-          description: "Estado del pedido",
+          label: status || "Recibido",
+          description: "Tu pedido está siendo procesado",
           color: "bg-muted text-muted-foreground",
-          step: 0,
+          step: 1,
         };
     }
   };
 
   const statusSteps = [
-    { key: 1, label: "Pendiente", icon: Package },
-    { key: 2, label: "En Camino", icon: Truck },
-    { key: 3, label: "Entregado", icon: CheckCircle2 },
+    { key: 1, label: "Pedido Recibido", icon: Package, description: "Pedido confirmado" },
+    { key: 2, label: "En Bodega", icon: MapPin, description: "Preparando envío" },
+    { key: 3, label: "En Ruta", icon: Truck, description: "En camino" },
+    { key: 4, label: "Entregado", icon: CheckCircle2, description: "¡Completado!" },
   ];
 
   return (
@@ -173,14 +184,22 @@ const CustomerTracking = () => {
 
           <AnimatePresence>
             {error && (
-              <motion.p
-                className="mt-3 text-sm text-destructive"
+              <motion.div
+                className="mt-4 rounded-xl bg-destructive/10 border border-destructive/20 p-4"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
               >
-                {error}
-              </motion.p>
+                <p className="text-sm text-destructive font-medium">
+                  {error}
+                </p>
+                <a 
+                  href="tel:3242223825" 
+                  className="mt-2 inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  📞 Llamar ahora
+                </a>
+              </motion.div>
             )}
           </AnimatePresence>
         </motion.div>
@@ -214,34 +233,59 @@ const CustomerTracking = () => {
                   </span>
                 </div>
 
-                {/* Status Timeline */}
+                {/* Status Timeline - Horizontal */}
                 <div className="relative">
-                  <div className="absolute left-6 top-0 h-full w-0.5 bg-border" />
-                  {statusSteps.map((step) => {
-                    const currentStep = getStatusInfo(orderResult.estado).step;
-                    const isCompleted = step.key <= currentStep;
-                    const isCurrent = step.key === currentStep;
-                    const Icon = step.icon;
+                  {/* Progress Line */}
+                  <div className="absolute top-6 left-0 right-0 h-1 bg-muted rounded-full">
+                    <motion.div 
+                      className="h-full bg-primary rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ 
+                        width: `${((getStatusInfo(orderResult.estado).step - 1) / (statusSteps.length - 1)) * 100}%` 
+                      }}
+                      transition={{ duration: 0.8, ease: "easeOut" }}
+                    />
+                  </div>
+                  
+                  {/* Steps */}
+                  <div className="relative flex justify-between">
+                    {statusSteps.map((step, index) => {
+                      const currentStep = getStatusInfo(orderResult.estado).step;
+                      const isCompleted = step.key <= currentStep;
+                      const isCurrent = step.key === currentStep;
+                      const Icon = step.icon;
 
-                    return (
-                      <div
-                        key={step.key}
-                        className="relative flex items-center gap-4 pb-6 last:pb-0"
-                      >
-                        <div
-                          className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full transition-all ${
-                            isCompleted
-                              ? isCurrent
-                                ? "bg-primary text-primary-foreground animate-pulse"
-                                : "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground"
-                          }`}
+                      return (
+                        <motion.div
+                          key={step.key}
+                          className="flex flex-col items-center"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
                         >
-                          <Icon className="h-6 w-6" />
-                        </div>
-                        <div className="flex-1">
+                          <div
+                            className={`relative z-10 flex h-12 w-12 items-center justify-center rounded-full border-4 transition-all ${
+                              isCompleted
+                                ? isCurrent
+                                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/30"
+                                  : "bg-green-500 text-white border-green-500"
+                                : "bg-muted text-muted-foreground border-muted"
+                            }`}
+                          >
+                            {isCompleted && !isCurrent ? (
+                              <CheckCircle2 className="h-6 w-6" />
+                            ) : (
+                              <Icon className="h-5 w-5" />
+                            )}
+                            {isCurrent && (
+                              <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-4 w-4 bg-primary"></span>
+                              </span>
+                            )}
+                          </div>
                           <p
-                            className={`font-semibold ${
+                            className={`mt-3 text-xs font-semibold text-center max-w-[70px] ${
                               isCompleted
                                 ? "text-foreground"
                                 : "text-muted-foreground"
@@ -250,17 +294,18 @@ const CustomerTracking = () => {
                             {step.label}
                           </p>
                           {isCurrent && (
-                            <p className="text-sm text-primary">
-                              {getStatusInfo(orderResult.estado).description}
-                            </p>
+                            <motion.p 
+                              className="mt-1 text-[10px] text-primary text-center"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                            >
+                              {step.description}
+                            </motion.p>
                           )}
-                        </div>
-                        {isCompleted && !isCurrent && (
-                          <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        )}
-                      </div>
-                    );
-                  })}
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
