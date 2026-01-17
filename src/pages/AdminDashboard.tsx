@@ -19,6 +19,7 @@ import {
   Bell,
   Filter,
   MapPinned,
+  ScanLine,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,7 +29,9 @@ import logo from "@/assets/logo-kompras-plus.png";
 import AdminMap from "@/components/AdminMap";
 import CreateUserModal from "@/components/CreateUserModal";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
+import QRScannerModal from "@/components/QRScannerModal";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
+import { Button } from "@/components/ui/button";
 
 interface Pedido {
   id: number;
@@ -77,6 +80,7 @@ const AdminDashboard = () => {
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [assigningPedido, setAssigningPedido] = useState<number | null>(null);
   const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -613,13 +617,23 @@ const AdminDashboard = () => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             {/* Actions & Filters */}
             <div className="mb-4 flex flex-col gap-3">
-              <button
-                onClick={() => setShowNuevoPedido(true)}
-                className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90 sm:w-auto sm:self-start"
-              >
-                <Plus className="h-4 w-4" />
-                Nuevo Pedido
-              </button>
+              <div className="flex gap-2 flex-wrap">
+                <button
+                  onClick={() => setShowNuevoPedido(true)}
+                  className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nuevo Pedido
+                </button>
+                <Button
+                  onClick={() => setShowQRScanner(true)}
+                  variant="secondary"
+                  className="gap-2"
+                >
+                  <ScanLine className="h-4 w-4" />
+                  Escanear QR
+                </Button>
+              </div>
 
               {/* Search */}
               <div className="relative">
@@ -1015,6 +1029,13 @@ const AdminDashboard = () => {
         onClose={() => setShowNuevoPedido(false)}
         onSuccess={fetchPedidos}
         isAdmin={true}
+      />
+
+      {/* QR Scanner Modal */}
+      <QRScannerModal
+        isOpen={showQRScanner}
+        onClose={() => setShowQRScanner(false)}
+        onSuccess={fetchPedidos}
       />
     </div>
   );
