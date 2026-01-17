@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
@@ -12,12 +12,18 @@ import {
   Camera,
   Phone,
   LogOut,
+  AlertTriangle,
+  Map,
+  RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
 import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
+import MotorizadoMap from "@/components/MotorizadoMap";
 
 interface Pedido {
   id: number;
@@ -28,10 +34,13 @@ interface Pedido {
   corte_horario: string | null;
   foto_evidencia: string | null;
   client_phone: string | null;
+  latitud: number | null;
+  longitud: number | null;
 }
 
 const BODEGA_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá, Colombia";
 const SUPPORT_PHONE = "324 222 3825";
+const GEOFENCE_RADIUS = 200; // 200 meters
 
 const MotorizadoDashboard = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -42,14 +51,31 @@ const MotorizadoDashboard = () => {
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showNovedadModal, setShowNovedadModal] = useState(false);
+  const [novedadReason, setNovedadReason] = useState("");
+  const [showMapView, setShowMapView] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
+
+  // Use geolocation with watch mode for real-time updates
+  const { latitude, longitude, error: geoError, loading: geoLoading, refreshLocation } = useGeolocation({
+    watch: true,
+    enableHighAccuracy: true,
+  });
+
+  const userLocation = useMemo(() => {
+    if (latitude && longitude) {
+      return { lat: latitude, lng: longitude };
+    }
+    return null;
+  }, [latitude, longitude]);
 
   useEffect(() => {
     fetchPedidos();
   }, []);
 
+  // Sort and filter pedidos - prioritize by proximity to current location
   useEffect(() => {
     let filtered = [...pedidos];
 
@@ -57,25 +83,68 @@ const MotorizadoDashboard = () => {
       filtered = filtered.filter((p) => p.corte_horario === activeFilter);
     }
 
-    // Sort by corte_horario priority
-    const corteOrder: { [key: string]: number } = {
-      "Corte 1": 1,
-      "Corte 2": 2,
-      "Corte 3": 3,
-    };
+    // Sort by proximity if user location is available
+    if (userLocation) {
+      filtered.sort((a, b) => {
+        // First, prioritize non-delivered orders
+        const aDelivered = a.estado?.toLowerCase() === "entregado";
+        const bDelivered = b.estado?.toLowerCase() === "entregado";
+        if (aDelivered && !bDelivered) return 1;
+        if (!aDelivered && bDelivered) return -1;
 
-    filtered.sort((a, b) => {
-      const orderA = corteOrder[a.corte_horario || ""] || 99;
-      const orderB = corteOrder[b.corte_horario || ""] || 99;
-      return orderA - orderB;
-    });
+        // If both have coordinates, sort by distance
+        const aHasCoords = a.latitud != null && a.longitud != null;
+        const bHasCoords = b.latitud != null && b.longitud != null;
+
+        if (aHasCoords && bHasCoords) {
+          const distA = calculateDistance(
+            userLocation.lat,
+            userLocation.lng,
+            a.latitud!,
+            a.longitud!
+          );
+          const distB = calculateDistance(
+            userLocation.lat,
+            userLocation.lng,
+            b.latitud!,
+            b.longitud!
+          );
+          return distA - distB;
+        }
+
+        // Orders with coordinates first
+        if (aHasCoords && !bHasCoords) return -1;
+        if (!aHasCoords && bHasCoords) return 1;
+
+        // Fallback to corte_horario
+        const corteOrder: { [key: string]: number } = {
+          "Corte 1": 1,
+          "Corte 2": 2,
+          "Corte 3": 3,
+        };
+        const orderA = corteOrder[a.corte_horario || ""] || 99;
+        const orderB = corteOrder[b.corte_horario || ""] || 99;
+        return orderA - orderB;
+      });
+    } else {
+      // Fallback sort by corte_horario
+      const corteOrder: { [key: string]: number } = {
+        "Corte 1": 1,
+        "Corte 2": 2,
+        "Corte 3": 3,
+      };
+      filtered.sort((a, b) => {
+        const orderA = corteOrder[a.corte_horario || ""] || 99;
+        const orderB = corteOrder[b.corte_horario || ""] || 99;
+        return orderA - orderB;
+      });
+    }
 
     setFilteredPedidos(filtered);
-  }, [activeFilter, pedidos]);
+  }, [activeFilter, pedidos, userLocation]);
 
   const fetchPedidos = async () => {
     try {
-      // Motorizados only see their assigned orders for today (RLS handles this)
       const { data, error } = await supabase
         .from("pedidos")
         .select("*")
@@ -104,8 +173,54 @@ const MotorizadoDashboard = () => {
   };
 
   const openPhotoCapture = () => {
+    if (!selectedPedido) return;
+
+    // Check geofence before allowing delivery
+    if (!validateGeofence(selectedPedido)) {
+      return;
+    }
+
     setShowPhotoModal(true);
     setCapturedPhoto(null);
+  };
+
+  const validateGeofence = (pedido: Pedido): boolean => {
+    // If pedido has no coordinates, allow the action (can't validate)
+    if (pedido.latitud == null || pedido.longitud == null) {
+      return true;
+    }
+
+    // If user location not available, show error
+    if (!userLocation) {
+      toast.error("No se puede obtener tu ubicación GPS. Por favor habilita el GPS y vuelve a intentar.", {
+        duration: 5000,
+      });
+      return false;
+    }
+
+    const withinGeofence = isWithinGeofence(
+      userLocation.lat,
+      userLocation.lng,
+      pedido.latitud,
+      pedido.longitud,
+      GEOFENCE_RADIUS
+    );
+
+    if (!withinGeofence) {
+      const distance = calculateDistance(
+        userLocation.lat,
+        userLocation.lng,
+        pedido.latitud,
+        pedido.longitud
+      );
+      toast.error(
+        `Debes estar en la ubicación del cliente para reportar la entrega o novedad. Estás a ${Math.round(distance)} metros del destino (máximo ${GEOFENCE_RADIUS}m).`,
+        { duration: 6000 }
+      );
+      return false;
+    }
+
+    return true;
   };
 
   const confirmDelivery = async () => {
@@ -146,11 +261,78 @@ const MotorizadoDashboard = () => {
     }
   };
 
-  const openGoogleMaps = (address: string) => {
+  const openNovedadModal = () => {
+    if (!selectedPedido) return;
+
+    // Check geofence before allowing novedad
+    if (!validateGeofence(selectedPedido)) {
+      return;
+    }
+
+    setShowNovedadModal(true);
+    setNovedadReason("");
+  };
+
+  const confirmNovedad = async () => {
+    if (!selectedPedido) return;
+
+    setUpdating(true);
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({
+          estado: `Novedad: ${novedadReason || "Sin especificar"}`,
+        })
+        .eq("id", selectedPedido.id);
+
+      if (error) throw error;
+
+      setPedidos((prev) =>
+        prev.map((p) =>
+          p.id === selectedPedido.id
+            ? { ...p, estado: `Novedad: ${novedadReason || "Sin especificar"}` }
+            : p
+        )
+      );
+
+      setSelectedPedido(null);
+      setShowNovedadModal(false);
+      setNovedadReason("");
+      toast.success("Novedad reportada correctamente");
+    } catch (error) {
+      console.error("Error updating estado:", error);
+      toast.error("Error al reportar novedad");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const openGoogleMaps = (pedido: Pedido) => {
     const encodedOrigin = encodeURIComponent(BODEGA_ADDRESS);
-    const encodedDestination = encodeURIComponent(address + ", Bogotá, Colombia");
-    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodedOrigin}&destination=${encodedDestination}&travelmode=driving`;
+    let destination: string;
+
+    // Use coordinates if available, otherwise use address
+    if (pedido.latitud != null && pedido.longitud != null) {
+      destination = `${pedido.latitud},${pedido.longitud}`;
+    } else {
+      destination = encodeURIComponent((pedido.direccion_entrega || "") + ", Bogotá, Colombia");
+    }
+
+    const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodedOrigin}&destination=${destination}&travelmode=driving`;
     window.open(mapsUrl, "_blank");
+  };
+
+  const openWaze = (pedido: Pedido) => {
+    let wazeUrl: string;
+
+    if (pedido.latitud != null && pedido.longitud != null) {
+      wazeUrl = `https://waze.com/ul?ll=${pedido.latitud},${pedido.longitud}&navigate=yes`;
+    } else {
+      const address = encodeURIComponent((pedido.direccion_entrega || "") + ", Bogotá, Colombia");
+      wazeUrl = `https://waze.com/ul?q=${address}&navigate=yes`;
+    }
+
+    window.open(wazeUrl, "_blank");
   };
 
   const openWhatsApp = (phone?: string | null) => {
@@ -164,6 +346,22 @@ const MotorizadoDashboard = () => {
   const handleSignOut = async () => {
     await signOut();
     navigate("/auth");
+  };
+
+  const getDistanceText = (pedido: Pedido): string | null => {
+    if (!userLocation || pedido.latitud == null || pedido.longitud == null) {
+      return null;
+    }
+    const distance = calculateDistance(
+      userLocation.lat,
+      userLocation.lng,
+      pedido.latitud,
+      pedido.longitud
+    );
+    if (distance < 1000) {
+      return `${Math.round(distance)}m`;
+    }
+    return `${(distance / 1000).toFixed(1)}km`;
   };
 
   const pendingCount = pedidos.filter(
@@ -192,6 +390,7 @@ const MotorizadoDashboard = () => {
       case "entregado":
         return "bg-green-500 text-white";
       default:
+        if (s?.includes("novedad")) return "bg-red-500 text-white";
         return "bg-muted text-muted-foreground";
     }
   };
@@ -206,10 +405,18 @@ const MotorizadoDashboard = () => {
           <div className="flex items-center gap-3">
             <img src={logo} alt="Kompras Plus" className="h-10 w-auto" />
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowMapView(!showMapView)}
+              className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
+                showMapView ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
+              }`}
+            >
+              <Map className="h-5 w-5" />
+            </button>
             <div className="flex items-center gap-2 rounded-full bg-primary px-3 py-1.5">
               <User className="h-4 w-4 text-primary-foreground" />
-              <span className="text-sm font-medium text-primary-foreground">
+              <span className="text-sm font-medium text-primary-foreground max-w-[100px] truncate">
                 {profile?.full_name || "Motorizado"}
               </span>
             </div>
@@ -224,6 +431,42 @@ const MotorizadoDashboard = () => {
       </header>
 
       <main className="container px-4 py-6">
+        {/* GPS Status */}
+        <motion.div
+          className={`mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${
+            geoError
+              ? "bg-red-50 text-red-600 border border-red-200"
+              : userLocation
+              ? "bg-green-50 text-green-600 border border-green-200"
+              : "bg-amber-50 text-amber-600 border border-amber-200"
+          }`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          {geoLoading ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Obteniendo ubicación GPS...</span>
+            </>
+          ) : geoError ? (
+            <>
+              <AlertTriangle className="h-4 w-4" />
+              <span className="flex-1">{geoError}</span>
+              <button onClick={refreshLocation} className="p-1 hover:bg-red-100 rounded">
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </>
+          ) : (
+            <>
+              <MapPin className="h-4 w-4" />
+              <span className="flex-1">GPS activo - Lista ordenada por cercanía</span>
+              <button onClick={refreshLocation} className="p-1 hover:bg-green-100 rounded">
+                <RefreshCw className="h-4 w-4" />
+              </button>
+            </>
+          )}
+        </motion.div>
+
         {/* Warehouse Address */}
         <motion.div
           className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"
@@ -250,6 +493,31 @@ const MotorizadoDashboard = () => {
             {SUPPORT_PHONE}
           </a>
         </motion.div>
+
+        {/* Map View Toggle */}
+        <AnimatePresence mode="wait">
+          {showMapView && (
+            <motion.div
+              className="mb-6"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <div className="rounded-2xl overflow-hidden shadow-card border border-border">
+                <div className="h-[300px]">
+                  <MotorizadoMap
+                    pedidos={pedidos}
+                    userLocation={userLocation}
+                    onPedidoClick={(pedido) => setSelectedPedido(pedido as Pedido)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                🏭 = Bodega | 📦 = Pedidos (ordenados por cercanía) | 📍 = Tu ubicación
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Stats */}
         <motion.div
@@ -331,77 +599,98 @@ const MotorizadoDashboard = () => {
                 </p>
               </div>
             ) : (
-              filteredPedidos.map((pedido, index) => (
-                <motion.div
-                  key={pedido.id}
-                  className="rounded-2xl bg-card p-4 shadow-card cursor-pointer hover:shadow-lg transition-shadow"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  onClick={() => setSelectedPedido(pedido)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-foreground">
-                          {pedido.numero_guia || `#${pedido.id}`}
-                        </span>
-                        {pedido.corte_horario && (
-                          <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                            {pedido.corte_horario}
+              filteredPedidos.map((pedido, index) => {
+                const distanceText = getDistanceText(pedido);
+                return (
+                  <motion.div
+                    key={pedido.id}
+                    className="rounded-2xl bg-card p-4 shadow-card cursor-pointer hover:shadow-lg transition-shadow"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    onClick={() => setSelectedPedido(pedido)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                            {index + 1}
                           </span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-sm font-medium text-foreground">
-                        {pedido.cliente_nombre || "Cliente sin nombre"}
-                      </p>
-                      <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
-                        <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                        <span>{pedido.direccion_entrega || "Sin dirección"}</span>
-                      </div>
+                          <span className="font-bold text-foreground">
+                            {pedido.numero_guia || `#${pedido.id}`}
+                          </span>
+                          {pedido.corte_horario && (
+                            <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                              {pedido.corte_horario}
+                            </span>
+                          )}
+                          {distanceText && (
+                            <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium">
+                              📍 {distanceText}
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm font-medium text-foreground">
+                          {pedido.cliente_nombre || "Cliente sin nombre"}
+                        </p>
+                        <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
+                          <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                          <span>{pedido.direccion_entrega || "Sin dirección"}</span>
+                        </div>
 
-                      {/* Action buttons in card */}
-                      <div className="mt-3 flex items-center gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (pedido.direccion_entrega) {
-                              openGoogleMaps(pedido.direccion_entrega);
-                            }
-                          }}
-                          className="flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-transform active:scale-95"
-                        >
-                          <Navigation className="h-3.5 w-3.5" />
-                          Ver ubicación
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openWhatsApp(pedido.client_phone);
-                          }}
-                          className="flex items-center gap-1 rounded-lg bg-green-500 px-3 py-1.5 text-xs font-medium text-white transition-transform active:scale-95"
-                        >
-                          <svg
-                            className="h-3.5 w-3.5"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
+                        {/* Action buttons in card */}
+                        <div className="mt-3 flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openGoogleMaps(pedido);
+                            }}
+                            className="flex items-center gap-1 rounded-lg bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground transition-transform active:scale-95"
                           >
-                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                          </svg>
-                          WhatsApp
-                        </button>
+                            <Navigation className="h-3.5 w-3.5" />
+                            Maps
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openWaze(pedido);
+                            }}
+                            className="flex items-center gap-1 rounded-lg bg-[#33CCFF] px-2.5 py-1.5 text-xs font-medium text-white transition-transform active:scale-95"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Waze
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openWhatsApp(pedido.client_phone);
+                            }}
+                            className="flex items-center gap-1 rounded-lg bg-green-500 px-2.5 py-1.5 text-xs font-medium text-white transition-transform active:scale-95"
+                          >
+                            <svg
+                              className="h-3.5 w-3.5"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                            >
+                              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                            </svg>
+                            WhatsApp
+                          </button>
+                        </div>
                       </div>
+                      <span
+                        className={`rounded-full px-2 py-1 text-[10px] font-medium whitespace-nowrap ${getStatusColor(
+                          pedido.estado
+                        )}`}
+                      >
+                        {pedido.estado?.includes("Novedad")
+                          ? "Novedad"
+                          : pedido.estado || "Sin estado"}
+                      </span>
                     </div>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-medium ${getStatusColor(
-                        pedido.estado
-                      )}`}
-                    >
-                      {pedido.estado || "Sin estado"}
-                    </span>
-                  </div>
-                </motion.div>
-              ))
+                  </motion.div>
+                );
+              })
             )}
           </motion.div>
         )}
@@ -409,7 +698,7 @@ const MotorizadoDashboard = () => {
 
       {/* Pedido Detail Modal */}
       <AnimatePresence>
-        {selectedPedido && !showPhotoModal && (
+        {selectedPedido && !showPhotoModal && !showNovedadModal && (
           <motion.div
             className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
             initial={{ opacity: 0 }}
@@ -418,7 +707,7 @@ const MotorizadoDashboard = () => {
             onClick={() => setSelectedPedido(null)}
           >
             <motion.div
-              className="w-full max-w-lg rounded-t-3xl bg-card p-6"
+              className="w-full max-w-lg rounded-t-3xl bg-card p-6 max-h-[80vh] overflow-y-auto"
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
@@ -430,6 +719,38 @@ const MotorizadoDashboard = () => {
               <h3 className="text-xl font-bold text-foreground">
                 {selectedPedido.numero_guia || `Pedido #${selectedPedido.id}`}
               </h3>
+
+              {/* Distance indicator */}
+              {userLocation && selectedPedido.latitud && selectedPedido.longitud && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                      isWithinGeofence(
+                        userLocation.lat,
+                        userLocation.lng,
+                        selectedPedido.latitud,
+                        selectedPedido.longitud,
+                        GEOFENCE_RADIUS
+                      )
+                        ? "bg-green-100 text-green-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}
+                  >
+                    📍 A {getDistanceText(selectedPedido)} del destino
+                  </span>
+                  {isWithinGeofence(
+                    userLocation.lat,
+                    userLocation.lng,
+                    selectedPedido.latitud,
+                    selectedPedido.longitud,
+                    GEOFENCE_RADIUS
+                  ) ? (
+                    <span className="text-xs text-green-600">✓ Dentro del rango</span>
+                  ) : (
+                    <span className="text-xs text-amber-600">⚠ Fuera del rango ({GEOFENCE_RADIUS}m)</span>
+                  )}
+                </div>
+              )}
 
               <div className="mt-4 space-y-3">
                 <div className="flex items-center gap-3">
@@ -446,11 +767,7 @@ const MotorizadoDashboard = () => {
                     onClick={() => openWhatsApp(selectedPedido.client_phone)}
                     className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500 text-white transition-transform active:scale-95"
                   >
-                    <svg
-                      className="h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
                     </svg>
                   </button>
@@ -481,17 +798,33 @@ const MotorizadoDashboard = () => {
                 </div>
               </div>
 
+              {/* Navigation Buttons */}
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => {
-                    if (selectedPedido.direccion_entrega) {
-                      openGoogleMaps(selectedPedido.direccion_entrega);
-                    }
-                  }}
+                  onClick={() => openGoogleMaps(selectedPedido)}
                   className="flex items-center justify-center gap-2 rounded-xl bg-primary py-3 font-bold text-primary-foreground transition-transform active:scale-95"
                 >
                   <Navigation className="h-5 w-5" />
-                  Navegar
+                  Google Maps
+                </button>
+                <button
+                  onClick={() => openWaze(selectedPedido)}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-[#33CCFF] py-3 font-bold text-white transition-transform active:scale-95"
+                >
+                  <ExternalLink className="h-5 w-5" />
+                  Waze
+                </button>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <button
+                  onClick={openNovedadModal}
+                  disabled={selectedPedido.estado?.toLowerCase() === "entregado"}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 font-bold text-white transition-transform active:scale-95 disabled:opacity-50"
+                >
+                  <AlertTriangle className="h-5 w-5" />
+                  Novedad
                 </button>
                 <button
                   onClick={openPhotoCapture}
@@ -590,6 +923,75 @@ const MotorizadoDashboard = () => {
                   <span className="font-medium">Tomar foto</span>
                 </button>
               )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Novedad Modal */}
+      <AnimatePresence>
+        {showNovedadModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              setShowNovedadModal(false);
+              setNovedadReason("");
+            }}
+          >
+            <motion.div
+              className="w-full max-w-sm rounded-3xl bg-card p-6"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-foreground mb-4">
+                Reportar Novedad
+              </h3>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-foreground">
+                    Motivo de la novedad
+                  </label>
+                  <textarea
+                    value={novedadReason}
+                    onChange={(e) => setNovedadReason(e.target.value)}
+                    placeholder="Ej: Cliente no se encontraba, dirección incorrecta, etc."
+                    className="mt-2 w-full rounded-xl border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none resize-none"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      setShowNovedadModal(false);
+                      setNovedadReason("");
+                    }}
+                    className="rounded-xl bg-muted py-3 font-medium text-muted-foreground"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmNovedad}
+                    disabled={updating}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 font-bold text-white disabled:opacity-50"
+                  >
+                    {updating ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        <AlertTriangle className="h-5 w-5" />
+                        Reportar
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
