@@ -160,3 +160,23 @@
     50% { box-shadow: 0 0 40px hsl(42 95% 55% / 0.6); }
   }
 }
+
+/* Leaflet Map Styles */
+.leaflet-container {
+  font-family: inherit;
+  z-index: 1;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 20px -4px hsl(222 60% 22% / 0.15);
+}
+
+.leaflet-popup-content {
+  margin: 0.75rem;
+}
+
+.custom-marker {
+  background: transparent !important;
+  border: none !important;
+}
