@@ -15,6 +15,7 @@ import {
   Truck,
   Box,
   XCircle,
+  Plus,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +24,7 @@ import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
 import AdminMap from "@/components/AdminMap";
 import CreateUserModal from "@/components/CreateUserModal";
+import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 
 interface Pedido {
   id: number;
@@ -55,6 +57,7 @@ const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<Profile[]>([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
+  const [showNuevoPedido, setShowNuevoPedido] = useState(false);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -344,37 +347,46 @@ const AdminDashboard = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           >
-            {/* Filters */}
-            <div className="mb-4 flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Buscar por guía, cliente o motorizado..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-              <div className="flex gap-2">
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
-                  <option value="todos">Todos los estados</option>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="en bodega">En Bodega</option>
-                  <option value="en ruta">En Ruta</option>
-                  <option value="entregado">Entregado</option>
-                  <option value="cancelado">Cancelado</option>
-                </select>
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                />
+            {/* Actions & Filters */}
+            <div className="mb-4 flex flex-col gap-3">
+              <button
+                onClick={() => setShowNuevoPedido(true)}
+                className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90 sm:w-auto sm:self-start"
+              >
+                <Plus className="h-4 w-4" />
+                Nuevo Pedido
+              </button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar por guía, cliente o motorizado..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  >
+                    <option value="todos">Todos los estados</option>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="en bodega">En Bodega</option>
+                    <option value="en ruta">En Ruta</option>
+                    <option value="entregado">Entregado</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                  />
+                </div>
               </div>
             </div>
 
@@ -529,6 +541,14 @@ const AdminDashboard = () => {
         isOpen={showCreateUser}
         onClose={() => setShowCreateUser(false)}
         onUserCreated={fetchUsers}
+      />
+
+      {/* Nuevo Pedido Modal */}
+      <NuevoPedidoModal
+        isOpen={showNuevoPedido}
+        onClose={() => setShowNuevoPedido(false)}
+        onSuccess={fetchPedidos}
+        isAdmin={true}
       />
     </div>
   );
