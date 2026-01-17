@@ -18,6 +18,7 @@ import {
   Plus,
   Bell,
   Filter,
+  MapPinned,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +28,7 @@ import logo from "@/assets/logo-kompras-plus.png";
 import AdminMap from "@/components/AdminMap";
 import CreateUserModal from "@/components/CreateUserModal";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
+import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
 
 interface Pedido {
   id: number;
@@ -43,6 +45,7 @@ interface Pedido {
   metodo_pago: string | null;
   producto_nombre: string | null;
   valor_recaudar: number | null;
+  zona: string | null;
 }
 
 interface Profile {
@@ -67,6 +70,7 @@ const AdminDashboard = () => {
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [barrioFilter, setBarrioFilter] = useState<string>("todos");
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>("todos");
+  const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<Profile[]>([]);
@@ -75,6 +79,8 @@ const AdminDashboard = () => {
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [assigningPedido, setAssigningPedido] = useState<number | null>(null);
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [selectedForBulk, setSelectedForBulk] = useState<number[]>([]);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -130,10 +136,10 @@ const AdminDashboard = () => {
     };
   }, []);
 
-  // Apply filters
+  // Apply filters  
   useEffect(() => {
     filterPedidos();
-  }, [statusFilter, barrioFilter, metodoPagoFilter, dateFilter, searchQuery, pedidos]);
+  }, [statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, dateFilter, searchQuery, pedidos]);
 
   const fetchPedidos = async () => {
     try {
@@ -214,6 +220,11 @@ const AdminDashboard = () => {
       filtered = filtered.filter((p) => p.metodo_pago === metodoPagoFilter);
     }
 
+    // Zona filter
+    if (zonaFilter !== "todos") {
+      filtered = filtered.filter((p) => p.zona === zonaFilter);
+    }
+
     // Date filter
     if (dateFilter) {
       filtered = filtered.filter((p) => {
@@ -231,7 +242,8 @@ const AdminDashboard = () => {
           p.numero_guia?.toLowerCase().includes(query) ||
           p.cliente_nombre?.toLowerCase().includes(query) ||
           p.motorizado_asignado?.toLowerCase().includes(query) ||
-          p.barrio?.toLowerCase().includes(query)
+          p.barrio?.toLowerCase().includes(query) ||
+          p.zona?.toLowerCase().includes(query)
       );
     }
 
@@ -267,6 +279,61 @@ const AdminDashboard = () => {
     } finally {
       setAssigningPedido(null);
     }
+  };
+
+  // Bulk assign motorizados to selected pedidos
+  const bulkAssignMotorizado = async (motorizadoName: string) => {
+    if (selectedForBulk.length === 0) {
+      toast.error("No hay pedidos seleccionados");
+      return;
+    }
+
+    setBulkAssigning(true);
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({
+          motorizado_asignado: motorizadoName,
+          estado: "En Ruta",
+        })
+        .in("id", selectedForBulk);
+
+      if (error) throw error;
+
+      // Update local state
+      setPedidos((prev) =>
+        prev.map((p) =>
+          selectedForBulk.includes(p.id)
+            ? { ...p, motorizado_asignado: motorizadoName, estado: "En Ruta" }
+            : p
+        )
+      );
+
+      toast.success(`${selectedForBulk.length} pedidos asignados a ${motorizadoName}`);
+      setSelectedForBulk([]);
+    } catch (error) {
+      console.error("Error bulk assigning:", error);
+      toast.error("Error al asignar pedidos");
+    } finally {
+      setBulkAssigning(false);
+    }
+  };
+
+  // Toggle selection for bulk assignment
+  const toggleBulkSelect = (pedidoId: number) => {
+    setSelectedForBulk((prev) =>
+      prev.includes(pedidoId)
+        ? prev.filter((id) => id !== pedidoId)
+        : [...prev, pedidoId]
+    );
+  };
+
+  // Select all unassigned in current filter
+  const selectAllUnassigned = () => {
+    const unassigned = filteredPedidos
+      .filter((p) => !p.motorizado_asignado)
+      .map((p) => p.id);
+    setSelectedForBulk(unassigned);
   };
 
   const confirmUserEmail = async (userId: string) => {
@@ -313,6 +380,23 @@ const AdminDashboard = () => {
 
   // Get unique barrios for filter
   const uniqueBarrios = [...new Set(pedidos.map((p) => p.barrio).filter(Boolean))].sort();
+
+  // Zona Badge component with colors
+  const ZonaBadge = ({ zona }: { zona: string | null }) => {
+    if (!zona) return <span className="text-muted-foreground">-</span>;
+
+    const config = ZONAS[zona as ZonaCodigo];
+    if (!config) return <span className="text-muted-foreground">{zona}</span>;
+
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${config.bgColor} ${config.textColor}`}
+      >
+        <MapPinned className="h-3 w-3" />
+        {config.codigo}
+      </span>
+    );
+  };
 
   // Status badge with icon
   const StatusBadge = ({ status }: { status: string | null }) => {
@@ -581,6 +665,20 @@ const AdminDashboard = () => {
                   <option value="anticipado">Pago Anticipado</option>
                 </select>
 
+                {/* Zona Filter */}
+                <select
+                  value={zonaFilter}
+                  onChange={(e) => setZonaFilter(e.target.value)}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                >
+                  <option value="todos">Todas las zonas</option>
+                  {getAllZonas().map((zona) => (
+                    <option key={zona} value={zona}>
+                      {zona} - {ZONAS[zona].nombre}
+                    </option>
+                  ))}
+                </select>
+
                 {/* Date Filter */}
                 <input
                   type="date"
@@ -593,12 +691,14 @@ const AdminDashboard = () => {
                 {(statusFilter !== "todos" ||
                   barrioFilter !== "todos" ||
                   metodoPagoFilter !== "todos" ||
+                  zonaFilter !== "todos" ||
                   dateFilter) && (
                   <button
                     onClick={() => {
                       setStatusFilter("todos");
                       setBarrioFilter("todos");
                       setMetodoPagoFilter("todos");
+                      setZonaFilter("todos");
                       setDateFilter("");
                     }}
                     className="text-sm text-primary hover:underline"
@@ -607,6 +707,51 @@ const AdminDashboard = () => {
                   </button>
                 )}
               </div>
+
+              {/* Bulk Assignment Bar */}
+              {selectedForBulk.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/30">
+                  <span className="text-sm font-medium text-foreground">
+                    {selectedForBulk.length} pedido(s) seleccionado(s)
+                  </span>
+                  <select
+                    disabled={bulkAssigning}
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        bulkAssignMotorizado(e.target.value);
+                      }
+                    }}
+                    className="rounded-lg border border-primary bg-card px-3 py-1.5 text-sm font-medium focus:outline-none"
+                    defaultValue=""
+                  >
+                    <option value="" disabled>
+                      {bulkAssigning ? "Asignando..." : "Asignar a..."}
+                    </option>
+                    {motorizados.map((m) => (
+                      <option key={m.id} value={m.full_name}>
+                        {m.full_name}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => setSelectedForBulk([])}
+                    className="text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+
+              {/* Select All Unassigned Button */}
+              {filteredPedidos.filter((p) => !p.motorizado_asignado).length > 0 &&
+                selectedForBulk.length === 0 && (
+                  <button
+                    onClick={selectAllUnassigned}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Seleccionar todos sin asignar ({filteredPedidos.filter((p) => !p.motorizado_asignado).length})
+                  </button>
+                )}
             </div>
 
             {/* Orders Table */}
@@ -620,11 +765,17 @@ const AdminDashboard = () => {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b border-border">
                       <tr>
+                        <th className="px-2 py-3 text-left w-8">
+                          <span className="sr-only">Seleccionar</span>
+                        </th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
                           Guía
                         </th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
                           Cliente
+                        </th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">
+                          Zona
                         </th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">
                           Barrio
@@ -643,13 +794,24 @@ const AdminDashboard = () => {
                     <tbody className="divide-y divide-border">
                       {filteredPedidos.map((pedido) => {
                         const isPendingAssignment = !pedido.motorizado_asignado;
+                        const isSelected = selectedForBulk.includes(pedido.id);
                         return (
                           <tr
                             key={pedido.id}
                             className={`hover:bg-muted/30 transition-colors ${
                               isPendingAssignment ? "bg-amber-50 dark:bg-amber-950/20" : ""
-                            }`}
+                            } ${isSelected ? "bg-primary/10" : ""}`}
                           >
+                            <td className="px-2 py-3">
+                              {isPendingAssignment && (
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleBulkSelect(pedido.id)}
+                                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                                />
+                              )}
+                            </td>
                             <td className="px-3 py-3 font-medium text-foreground text-xs sm:text-sm">
                               <div className="flex items-center gap-2">
                                 {isPendingAssignment && (
@@ -660,6 +822,9 @@ const AdminDashboard = () => {
                             </td>
                             <td className="px-3 py-3 text-muted-foreground text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate">
                               {pedido.cliente_nombre || "-"}
+                            </td>
+                            <td className="px-3 py-3 hidden sm:table-cell">
+                              <ZonaBadge zona={pedido.zona} />
                             </td>
                             <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">
                               {pedido.barrio || "-"}

@@ -27,6 +27,8 @@ import MotorizadoMap from "@/components/MotorizadoMap";
 import PedidoQuickActions from "@/components/PedidoQuickActions";
 import BodegaSupportButton from "@/components/BodegaSupportButton";
 
+import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
+
 interface Pedido {
   id: number;
   numero_guia: string | null;
@@ -39,6 +41,7 @@ interface Pedido {
   latitud: number | null;
   longitud: number | null;
   producto_nombre: string | null;
+  zona: string | null;
 }
 
 const BODEGA_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá, Colombia";
@@ -614,6 +617,7 @@ const MotorizadoDashboard = () => {
             <h2 className="text-lg font-bold text-foreground">
               Mis Entregas de Hoy ({filteredPedidos.length})
             </h2>
+            <p className="text-xs text-muted-foreground">Agrupadas por zona para optimizar tu ruta</p>
 
             {filteredPedidos.length === 0 ? (
               <div className="rounded-2xl bg-card p-8 text-center shadow-card">
@@ -623,61 +627,82 @@ const MotorizadoDashboard = () => {
                 </p>
               </div>
             ) : (
-              filteredPedidos.map((pedido, index) => {
-                const distanceText = getDistanceText(pedido);
+              // Group pedidos by zona
+              Object.entries(
+                filteredPedidos.reduce((acc, pedido) => {
+                  const zona = pedido.zona || "SIN_ZONA";
+                  if (!acc[zona]) acc[zona] = [];
+                  acc[zona].push(pedido);
+                  return acc;
+                }, {} as Record<string, Pedido[]>)
+              ).map(([zona, zonaPedidos]) => {
+                const zonaConfig = ZONAS[zona as ZonaCodigo];
                 return (
-                  <motion.div
-                    key={pedido.id}
-                    className="rounded-2xl bg-card p-4 shadow-card"
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <div 
-                      className="flex items-start justify-between cursor-pointer"
-                      onClick={() => setSelectedPedido(pedido)}
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                            {index + 1}
-                          </span>
-                          <span className="font-bold text-foreground">
-                            {pedido.numero_guia || `#${pedido.id}`}
-                          </span>
-                          {pedido.corte_horario && (
-                            <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                              {pedido.corte_horario}
-                            </span>
-                          )}
-                          {distanceText && (
-                            <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium">
-                              📍 {distanceText}
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1 text-sm font-medium text-foreground">
-                          {pedido.cliente_nombre || "Cliente sin nombre"}
-                        </p>
-                        <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
-                          <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                          <span>{pedido.direccion_entrega || "Sin dirección"}</span>
-                        </div>
-                      </div>
-                      <span
-                        className={`rounded-full px-2 py-1 text-[10px] font-medium whitespace-nowrap ${getStatusColor(
-                          pedido.estado
-                        )}`}
-                      >
-                        {pedido.estado?.includes("Novedad")
-                          ? "Novedad"
-                          : pedido.estado || "Sin estado"}
+                  <div key={zona} className="space-y-3">
+                    {/* Zona Header */}
+                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${zonaConfig ? zonaConfig.bgColor : "bg-muted"}`}>
+                      <span className={`text-sm font-bold ${zonaConfig ? zonaConfig.textColor : "text-muted-foreground"}`}>
+                        {zonaConfig ? `${zonaConfig.codigo} - ${zonaConfig.nombre}` : "Sin Zona"} ({zonaPedidos.length})
                       </span>
                     </div>
+                    
+                    {/* Zona Pedidos */}
+                    {zonaPedidos.map((pedido, index) => {
+                      const distanceText = getDistanceText(pedido);
+                      return (
+                        <motion.div
+                          key={pedido.id}
+                          className="rounded-2xl bg-card p-4 shadow-card ml-2 border-l-4"
+                          style={{ borderLeftColor: zonaConfig?.color || "#9ca3af" }}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                        >
+                          <div 
+                            className="flex items-start justify-between cursor-pointer"
+                            onClick={() => setSelectedPedido(pedido)}
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-foreground">
+                                  {pedido.numero_guia || `#${pedido.id}`}
+                                </span>
+                                {pedido.corte_horario && (
+                                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                                    {pedido.corte_horario}
+                                  </span>
+                                )}
+                                {distanceText && (
+                                  <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium">
+                                    📍 {distanceText}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="mt-1 text-sm font-medium text-foreground">
+                                {pedido.cliente_nombre || "Cliente sin nombre"}
+                              </p>
+                              <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
+                                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                                <span>{pedido.direccion_entrega || "Sin dirección"}</span>
+                              </div>
+                            </div>
+                            <span
+                              className={`rounded-full px-2 py-1 text-[10px] font-medium whitespace-nowrap ${getStatusColor(
+                                pedido.estado
+                              )}`}
+                            >
+                              {pedido.estado?.includes("Novedad")
+                                ? "Novedad"
+                                : pedido.estado || "Sin estado"}
+                            </span>
+                          </div>
 
-                    {/* Quick Actions - Large touch-friendly buttons */}
-                    <PedidoQuickActions pedido={pedido} userLocation={userLocation} />
-                  </motion.div>
+                          {/* Quick Actions */}
+                          <PedidoQuickActions pedido={pedido} userLocation={userLocation} />
+                        </motion.div>
+                      );
+                    })}
+                  </div>
                 );
               })
             )}

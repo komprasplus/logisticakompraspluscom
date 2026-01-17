@@ -24,6 +24,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { getZonaFromBarrio, ZONAS, type ZonaCodigo } from "@/lib/zonas";
 
 // Barrios de Bogotá más populares organizados por localidad
 const BARRIOS_BOGOTA = [
@@ -282,12 +283,16 @@ const NuevoPedidoModal = ({
       // Get current user for client orders
       const { data: { user } } = await supabase.auth.getUser();
 
+      // Get zone from barrio
+      const zona = getZonaFromBarrio(barrio);
+
       const pedidoData = {
         numero_guia: numeroGuia,
         cliente_nombre: clienteNombre.trim(),
         client_phone: clienteTelefono.replace(/[\s-]/g, ""),
         direccion_entrega: direccionCompleta,
         barrio: barrio,
+        zona: zona,
         producto_nombre: productoNombre.trim(),
         valor_recaudar: valorRecaudar ? parseFloat(valorRecaudar) : null,
         metodo_pago: metodoPago,

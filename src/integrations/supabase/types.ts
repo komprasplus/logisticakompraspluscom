@@ -34,6 +34,7 @@ export type Database = {
           numero_guia: string | null
           producto_nombre: string | null
           valor_recaudar: number | null
+          zona: string | null
         }
         Insert: {
           barrio?: string | null
@@ -54,6 +55,7 @@ export type Database = {
           numero_guia?: string | null
           producto_nombre?: string | null
           valor_recaudar?: number | null
+          zona?: string | null
         }
         Update: {
           barrio?: string | null
@@ -74,6 +76,7 @@ export type Database = {
           numero_guia?: string | null
           producto_nombre?: string | null
           valor_recaudar?: number | null
+          zona?: string | null
         }
         Relationships: []
       }
