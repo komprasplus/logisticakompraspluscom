@@ -1,19 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import { motion } from "framer-motion";
 import { MapPin, Check, X, Loader2, AlertTriangle, Navigation } from "lucide-react";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 
-// Custom marker icon
-const customIcon = new L.Icon({
-  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
-  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+// Default fallback location: Kompras Plus office
+const DEFAULT_LOCATION: [number, number] = [4.6097, -74.0817]; // Bogotá center
+const KOMPRAS_PLUS_LOCATION: [number, number] = [4.6051, -74.0906]; // Carrera 20 #14-30
 
 interface LocationPreviewMapProps {
   direccion: string;
@@ -21,56 +13,6 @@ interface LocationPreviewMapProps {
   localidad: string;
   onConfirm: (lat: number, lng: number) => void;
   onCancel: () => void;
-}
-
-// Component to handle map updates and draggable marker
-function DraggableMarker({
-  position,
-  onPositionChange,
-}: {
-  position: [number, number];
-  onPositionChange: (lat: number, lng: number) => void;
-}) {
-  const markerRef = useRef<L.Marker>(null);
-  const map = useMap();
-
-  useEffect(() => {
-    map.setView(position, map.getZoom());
-  }, [position, map]);
-
-  const eventHandlers = {
-    dragend() {
-      const marker = markerRef.current;
-      if (marker != null) {
-        const newPos = marker.getLatLng();
-        onPositionChange(newPos.lat, newPos.lng);
-      }
-    },
-  };
-
-  return (
-    <Marker
-      draggable={true}
-      eventHandlers={eventHandlers}
-      position={position}
-      ref={markerRef}
-      icon={customIcon}
-    />
-  );
-}
-
-// Component to handle map click for repositioning
-function MapClickHandler({
-  onPositionChange,
-}: {
-  onPositionChange: (lat: number, lng: number) => void;
-}) {
-  useMapEvents({
-    click: (e) => {
-      onPositionChange(e.latlng.lat, e.latlng.lng);
-    },
-  });
-  return null;
 }
 
 const LocationPreviewMap = ({
@@ -84,6 +26,12 @@ const LocationPreviewMap = ({
   const [error, setError] = useState<string | null>(null);
   const [position, setPosition] = useState<[number, number] | null>(null);
   const [markerMoved, setMarkerMoved] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
+  const [leafletLoaded, setLeafletLoaded] = useState(false);
+  
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
 
   // Build complete search query combining all fields
   const buildSearchQuery = useCallback(() => {
@@ -100,6 +48,7 @@ const LocationPreviewMap = ({
     }
     
     // Add Colombia context
+    parts.push("Bogotá");
     parts.push("Colombia");
     
     return parts.join(", ");
@@ -123,7 +72,7 @@ const LocationPreviewMap = ({
         setPosition([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
       } else {
         // Fallback: try with just barrio and localidad
-        const fallbackQuery = encodeURIComponent(`${barrio}, ${localidad}, Colombia`);
+        const fallbackQuery = encodeURIComponent(`${barrio}, ${localidad}, Bogotá, Colombia`);
         const fallbackResponse = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&q=${fallbackQuery}&limit=1&countrycodes=co`
         );
@@ -133,30 +82,152 @@ const LocationPreviewMap = ({
           setPosition([parseFloat(fallbackData[0].lat), parseFloat(fallbackData[0].lon)]);
           setError("No encontramos la dirección exacta. Mueve el marcador a la ubicación correcta.");
         } else {
-          // Ultimate fallback: center of Bogotá
-          setPosition([4.6097, -74.0817]);
-          setError("No pudimos ubicar la dirección. Por favor, mueve el marcador manualmente.");
+          // Try with just localidad
+          const localidadQuery = encodeURIComponent(`${localidad}, Bogotá, Colombia`);
+          const localidadResponse = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${localidadQuery}&limit=1&countrycodes=co`
+          );
+          const localidadData = await localidadResponse.json();
+
+          if (localidadData && localidadData.length > 0) {
+            setPosition([parseFloat(localidadData[0].lat), parseFloat(localidadData[0].lon)]);
+            setError("Solo encontramos la localidad. Arrastra el marcador a tu ubicación exacta.");
+          } else {
+            // Ultimate fallback: Kompras Plus office
+            setPosition(KOMPRAS_PLUS_LOCATION);
+            setError("No pudimos ubicar la dirección. El mapa muestra nuestra bodega. Arrastra el marcador a tu casa.");
+          }
         }
       }
     } catch (err) {
       console.error("Geocoding error:", err);
-      // Fallback to Bogotá center
-      setPosition([4.6097, -74.0817]);
-      setError("Error al buscar la ubicación. Por favor, mueve el marcador manualmente.");
+      // Fallback to Kompras Plus office
+      setPosition(KOMPRAS_PLUS_LOCATION);
+      setError("Error al buscar la ubicación. Arrastra el marcador manualmente a tu casa.");
     } finally {
       setLoading(false);
     }
   }, [buildSearchQuery, barrio, localidad]);
 
+  // Load Leaflet CSS dynamically
+  useEffect(() => {
+    const linkId = 'leaflet-css';
+    if (!document.getElementById(linkId)) {
+      const link = document.createElement('link');
+      link.id = linkId;
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      link.integrity = 'sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=';
+      link.crossOrigin = '';
+      document.head.appendChild(link);
+    }
+    
+    // Mark leaflet as loaded after a short delay to ensure CSS is applied
+    const timer = setTimeout(() => {
+      setLeafletLoaded(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Geocode on mount
   useEffect(() => {
     geocodeAddress();
   }, [geocodeAddress]);
 
-  const handlePositionChange = (lat: number, lng: number) => {
-    setPosition([lat, lng]);
-    setMarkerMoved(true);
-    setError(null);
-  };
+  // Initialize map when position is available and container is ready
+  useEffect(() => {
+    if (!position || !mapContainerRef.current || !leafletLoaded || mapInstanceRef.current) {
+      return;
+    }
+
+    // Small delay to ensure DOM is ready
+    const timer = setTimeout(() => {
+      if (!mapContainerRef.current) return;
+      
+      try {
+        // Create custom icon
+        const customIcon = new L.Icon({
+          iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+          shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          shadowSize: [41, 41],
+        });
+
+        // Create map
+        const map = L.map(mapContainerRef.current, {
+          center: position,
+          zoom: 17,
+          scrollWheelZoom: true,
+        });
+
+        // Add tile layer
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        }).addTo(map);
+
+        // Add draggable marker
+        const marker = L.marker(position, {
+          draggable: true,
+          icon: customIcon,
+        }).addTo(map);
+
+        // Handle marker drag
+        marker.on("dragend", () => {
+          const newPos = marker.getLatLng();
+          setPosition([newPos.lat, newPos.lng]);
+          setMarkerMoved(true);
+          setError(null);
+        });
+
+        // Handle map click
+        map.on("click", (e) => {
+          const newPos = e.latlng;
+          marker.setLatLng(newPos);
+          setPosition([newPos.lat, newPos.lng]);
+          setMarkerMoved(true);
+          setError(null);
+        });
+
+        mapInstanceRef.current = map;
+        markerRef.current = marker;
+        setMapReady(true);
+
+        // Force a resize to ensure proper rendering
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 100);
+      } catch (err) {
+        console.error("Error initializing map:", err);
+        setError("Error al cargar el mapa. Por favor, intenta de nuevo.");
+      }
+    }, 150);
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [position, leafletLoaded]);
+
+  // Update marker position when position changes
+  useEffect(() => {
+    if (mapInstanceRef.current && markerRef.current && position) {
+      markerRef.current.setLatLng(position);
+      mapInstanceRef.current.setView(position, mapInstanceRef.current.getZoom());
+    }
+  }, [position]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, []);
 
   const handleConfirm = () => {
     if (position) {
@@ -220,31 +291,30 @@ const LocationPreviewMap = ({
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="text-sm text-muted-foreground">Buscando ubicación...</p>
             </div>
-          ) : position ? (
-            <MapContainer
-              center={position}
-              zoom={17}
-              style={{ height: "100%", width: "100%" }}
-              scrollWheelZoom={true}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              />
-              <DraggableMarker
-                position={position}
-                onPositionChange={handlePositionChange}
-              />
-              <MapClickHandler onPositionChange={handlePositionChange} />
-            </MapContainer>
-          ) : null}
+          ) : (
+            <div 
+              ref={mapContainerRef} 
+              className="h-full w-full"
+              style={{ minHeight: "350px" }}
+            />
+          )}
+
+          {/* Loading overlay for map initialization */}
+          {!loading && !mapReady && position && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/50 gap-3 z-10">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Cargando mapa...</p>
+            </div>
+          )}
 
           {/* Instructions Overlay */}
-          <div className="absolute bottom-3 left-3 right-3 z-[1000]">
-            <div className="bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs text-center text-muted-foreground">
-              <span className="font-medium text-foreground">Arrastra el marcador</span> o <span className="font-medium text-foreground">toca el mapa</span> para ajustar la posición
+          {mapReady && (
+            <div className="absolute bottom-3 left-3 right-3 z-[1000]">
+              <div className="bg-background/90 backdrop-blur-sm rounded-lg px-3 py-2 text-xs text-center text-muted-foreground">
+                <span className="font-medium text-foreground">Arrastra el marcador</span> o <span className="font-medium text-foreground">toca el mapa</span> para ajustar la posición
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Error/Warning Message */}
@@ -252,6 +322,16 @@ const LocationPreviewMap = ({
           <div className="flex items-start gap-2 bg-amber-500/10 border-t border-amber-500/20 px-4 py-3">
             <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-amber-600 dark:text-amber-400">{error}</p>
+          </div>
+        )}
+
+        {/* Marker moved confirmation */}
+        {markerMoved && !error && (
+          <div className="flex items-start gap-2 bg-green-500/10 border-t border-green-500/20 px-4 py-3">
+            <Check className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-green-600 dark:text-green-400">
+              ¡Ubicación actualizada! Confirma si es correcta.
+            </p>
           </div>
         )}
 
@@ -266,7 +346,7 @@ const LocationPreviewMap = ({
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!position}
+            disabled={!position || !mapReady}
             className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-primary py-3 font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
           >
             <Check className="h-4 w-4" />
