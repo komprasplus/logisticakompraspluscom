@@ -20,8 +20,12 @@ export type Database = {
           corte_horario: string | null
           direccion_entrega: string | null
           estado: string | null
+          fecha_creacion: string | null
           foto_evidencia: string | null
           id: number
+          latitud: number | null
+          longitud: number | null
+          motorizado_asignado: string | null
           numero_guia: string | null
         }
         Insert: {
@@ -29,8 +33,12 @@ export type Database = {
           corte_horario?: string | null
           direccion_entrega?: string | null
           estado?: string | null
+          fecha_creacion?: string | null
           foto_evidencia?: string | null
           id?: number
+          latitud?: number | null
+          longitud?: number | null
+          motorizado_asignado?: string | null
           numero_guia?: string | null
         }
         Update: {
@@ -38,8 +46,12 @@ export type Database = {
           corte_horario?: string | null
           direccion_entrega?: string | null
           estado?: string | null
+          fecha_creacion?: string | null
           foto_evidencia?: string | null
           id?: number
+          latitud?: number | null
+          longitud?: number | null
+          motorizado_asignado?: string | null
           numero_guia?: string | null
         }
         Relationships: []
