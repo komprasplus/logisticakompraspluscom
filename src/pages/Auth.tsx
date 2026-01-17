@@ -7,7 +7,8 @@ import logo from "@/assets/logo-kompras-plus.png";
 import { z } from "zod";
 
 const loginSchema = z.object({
-  email: z.string().email("Email inválido"),
+  // No enforce email format to avoid blocking; Supabase will validate credentials server-side.
+  email: z.string().min(3, "Email requerido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
 });
 
@@ -130,10 +131,12 @@ const Auth = () => {
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <input
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
+                placeholder="correo@dominio.com"
                 className="w-full rounded-xl border-2 border-border bg-card py-3 pl-11 pr-4 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
                 required
               />
