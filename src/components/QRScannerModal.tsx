@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Camera, Loader2, CheckCircle2, XCircle, ScanLine, RefreshCw } from "lucide-react";
-import { Html5Qrcode } from "html5-qrcode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -17,24 +16,28 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
   const [processing, setProcessing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<{ success: boolean; message: string } | null>(null);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mountedRef = useRef(false);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const scannerRef = useRef<any>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animationRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const stopScanner = useCallback(async () => {
-    if (scannerRef.current) {
-      try {
-        const state = scannerRef.current.getState();
-        if (state === 2) { // SCANNING state
-          await scannerRef.current.stop();
-        }
-        scannerRef.current.clear();
-      } catch (e) {
-        console.log("Scanner cleanup:", e);
-      }
-      scannerRef.current = null;
+  const stopScanner = useCallback(() => {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
     }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    scannerRef.current = null;
     setScanning(false);
+    setIsInitializing(false);
   }, []);
 
   const handleQRCode = useCallback(async (qrData: string) => {
@@ -99,49 +102,63 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
   const startScanner = useCallback(async () => {
     setCameraError(null);
     setLastResult(null);
-
-    // Wait for the container to be in DOM
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    if (!containerRef.current || !mountedRef.current) {
-      console.log("Container not ready or component unmounted");
-      return;
-    }
+    setIsInitializing(true);
 
     try {
-      // Request camera permission first
+      // Request camera permission
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
+        video: { 
+          facingMode: "environment",
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        } 
       });
-      // Stop the test stream immediately
-      stream.getTracks().forEach(track => track.stop());
 
-      // Check if container still exists
-      if (!containerRef.current || !mountedRef.current) return;
+      streamRef.current = stream;
 
-      const scanner = new Html5Qrcode("qr-scanner-container");
-      scannerRef.current = scanner;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+        
+        // Dynamically import jsQR for QR detection
+        const jsQR = (await import("jsqr")).default;
+        
+        // Create canvas for frame processing
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        canvasRef.current = canvas;
 
-      await scanner.start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 220, height: 220 },
-          aspectRatio: 1,
-        },
-        async (decodedText) => {
-          console.log("QR Scanned:", decodedText);
-          await handleQRCode(decodedText);
-        },
-        () => {
-          // Ignore scan errors (they happen when no QR is in view)
-        }
-      );
+        const scanFrame = () => {
+          if (!videoRef.current || !ctx || !streamRef.current) return;
 
-      setScanning(true);
+          const video = videoRef.current;
+          if (video.readyState === video.HAVE_ENOUGH_DATA) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: "dontInvert",
+            });
+
+            if (code && code.data) {
+              console.log("QR Detected:", code.data);
+              handleQRCode(code.data);
+            }
+          }
+
+          animationRef.current = requestAnimationFrame(scanFrame);
+        };
+
+        setScanning(true);
+        setIsInitializing(false);
+        scanFrame();
+      }
     } catch (err: any) {
       console.error("Error starting scanner:", err);
       setScanning(false);
+      setIsInitializing(false);
       
       if (err.name === "NotAllowedError") {
         setCameraError("Permiso de cámara denegado. Por favor, permite el acceso a la cámara en la configuración del navegador.");
@@ -157,15 +174,21 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
 
   useEffect(() => {
     if (isOpen) {
-      mountedRef.current = true;
-      startScanner();
+      // Small delay to ensure modal is rendered
+      const timer = setTimeout(() => {
+        startScanner();
+      }, 100);
+      return () => clearTimeout(timer);
+    } else {
+      stopScanner();
     }
+  }, [isOpen, startScanner, stopScanner]);
 
+  useEffect(() => {
     return () => {
-      mountedRef.current = false;
       stopScanner();
     };
-  }, [isOpen, startScanner, stopScanner]);
+  }, [stopScanner]);
 
   const handleClose = () => {
     stopScanner();
@@ -173,9 +196,10 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
   };
 
   const handleRetry = () => {
-    stopScanner().then(() => {
+    stopScanner();
+    setTimeout(() => {
       startScanner();
-    });
+    }, 100);
   };
 
   return (
@@ -195,13 +219,15 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
 
           {/* Scanner Container */}
           <div className="relative rounded-lg overflow-hidden bg-black aspect-square">
-            <div 
-              id="qr-scanner-container" 
-              ref={containerRef}
-              className="w-full h-full"
+            <video 
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              playsInline
+              muted
+              autoPlay
             />
 
-            {!scanning && !cameraError && (
+            {isInitializing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/90">
                 <Loader2 className="h-10 w-10 animate-spin text-primary mb-2" />
                 <p className="text-sm text-muted-foreground">Iniciando cámara...</p>
@@ -227,13 +253,20 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
             )}
 
             {/* Scanning Frame Overlay */}
-            {scanning && !processing && (
+            {scanning && !processing && !cameraError && (
               <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                 <div className="w-56 h-56 border-2 border-primary rounded-lg relative">
                   <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl" />
                   <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr" />
                   <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl" />
                   <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br" />
+                  {/* Scanning line animation */}
+                  <div className="absolute inset-x-0 h-0.5 bg-primary animate-pulse" 
+                    style={{ 
+                      animation: "scanLine 2s ease-in-out infinite",
+                      top: "50%"
+                    }} 
+                  />
                 </div>
               </div>
             )}
@@ -264,6 +297,13 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
           </Button>
         </div>
       </DialogContent>
+
+      <style>{`
+        @keyframes scanLine {
+          0%, 100% { top: 10%; }
+          50% { top: 90%; }
+        }
+      `}</style>
     </Dialog>
   );
 };
