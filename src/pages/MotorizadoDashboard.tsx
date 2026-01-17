@@ -38,6 +38,7 @@ interface Pedido {
   client_phone: string | null;
   latitud: number | null;
   longitud: number | null;
+  producto_nombre: string | null;
 }
 
 const BODEGA_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá, Colombia";

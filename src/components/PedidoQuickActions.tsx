@@ -10,6 +10,8 @@ interface PedidoQuickActionsProps {
     latitud: number | null;
     longitud: number | null;
     cliente_nombre: string | null;
+    producto_nombre?: string | null;
+    estado?: string | null;
   };
   userLocation?: { lat: number; lng: number } | null;
 }
@@ -34,6 +36,9 @@ const WazeIcon = ({ className }: { className?: string }) => (
 
 const PedidoQuickActions = ({ pedido, userLocation }: PedidoQuickActionsProps) => {
   const [showNavSelector, setShowNavSelector] = useState(false);
+
+  // Only show actions when status is "En Ruta"
+  const isEnRuta = pedido.estado?.toLowerCase() === "en ruta";
 
   const openGoogleMaps = () => {
     const encodedOrigin = encodeURIComponent(BODEGA_ADDRESS);
@@ -68,8 +73,11 @@ const PedidoQuickActions = ({ pedido, userLocation }: PedidoQuickActionsProps) =
     const phoneNumber = pedido.client_phone?.replace(/\D/g, "") || "";
     if (!phoneNumber) return;
     
+    const clientName = pedido.cliente_nombre || "Cliente";
+    const productName = pedido.producto_nombre || "tu producto";
+    
     const message = encodeURIComponent(
-      `Hola, soy el motorizado de Kompras Plus, voy en camino con tu pedido.`
+      `Hola ${clientName}, soy el motorizado de Kompras Plus. Voy en camino con tu pedido de ${productName}. Por favor confirma que alguien puede recibirlo.`
     );
     window.open(`https://wa.me/57${phoneNumber}?text=${message}`, "_blank");
   };
@@ -98,9 +106,14 @@ const PedidoQuickActions = ({ pedido, userLocation }: PedidoQuickActionsProps) =
 
   const hasPhone = !!pedido.client_phone;
 
+  // Don't render actions if not "En Ruta"
+  if (!isEnRuta) {
+    return null;
+  }
+
   return (
     <>
-      {/* Quick Actions Grid - Large touch-friendly buttons */}
+      {/* Quick Actions Grid - Large touch-friendly buttons - Only visible when "En Ruta" */}
       <div className="grid grid-cols-4 gap-2 mt-3">
         {/* WhatsApp Button - Green */}
         <button
