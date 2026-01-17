@@ -408,25 +408,32 @@ const NuevoPedidoModal = ({
                 className="w-full rounded-lg border border-border bg-background py-2.5 px-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
 
-              {/* Map Preview Button */}
-              <button
-                type="button"
-                onClick={handleOpenMapPreview}
-                disabled={!barrio}
-                className={cn(
-                  "w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-sm font-medium transition-all",
-                  confirmedLat && confirmedLng
-                    ? "border-green-500 bg-green-500/10 text-green-600 dark:text-green-400"
-                    : barrio
-                    ? "border-primary/50 bg-primary/5 text-primary hover:bg-primary/10"
-                    : "border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
+              {/* Map Preview Button - REQUIRED */}
+              <div className="space-y-1">
+                <button
+                  type="button"
+                  onClick={handleOpenMapPreview}
+                  disabled={!barrio}
+                  className={cn(
+                    "w-full flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                    confirmedLat && confirmedLng
+                      ? "border-green-500 bg-green-500/10 text-green-600 dark:text-green-400"
+                      : barrio
+                      ? "border-dashed border-destructive/50 bg-destructive/5 text-destructive hover:bg-destructive/10 animate-pulse"
+                      : "border-dashed border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
+                  )}
+                >
+                  <Map className="h-4 w-4" />
+                  {confirmedLat && confirmedLng 
+                    ? "✓ Ubicación confirmada - Toca para cambiar" 
+                    : "⚠️ Confirmar ubicación en el mapa (OBLIGATORIO)"}
+                </button>
+                {barrio && !confirmedLat && (
+                  <p className="text-xs text-destructive text-center">
+                    Debes confirmar la ubicación antes de crear el pedido
+                  </p>
                 )}
-              >
-                <Map className="h-4 w-4" />
-                {confirmedLat && confirmedLng 
-                  ? "✓ Ubicación confirmada - Toca para cambiar" 
-                  : "Confirmar ubicación en el mapa"}
-              </button>
+              </div>
             </div>
 
             {/* Section: Package */}
@@ -562,13 +569,24 @@ const NuevoPedidoModal = ({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-primary py-3 font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50"
+              disabled={loading || !confirmedLat || !confirmedLng}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
+                confirmedLat && confirmedLng
+                  ? "bg-primary text-primary-foreground hover:opacity-90"
+                  : "bg-muted text-muted-foreground cursor-not-allowed",
+                "disabled:opacity-50"
+              )}
             >
               {loading ? (
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Creando pedido...
+                </>
+              ) : !confirmedLat || !confirmedLng ? (
+                <>
+                  <MapPin className="h-5 w-5" />
+                  Confirma la ubicación primero
                 </>
               ) : (
                 <>
