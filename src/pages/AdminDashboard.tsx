@@ -6,6 +6,7 @@ import {
   Loader2,
   LogOut,
   UserPlus,
+  UserCheck,
   Map,
   Search,
   CheckCircle2,
@@ -121,6 +122,39 @@ const AdminDashboard = () => {
     }
 
     setFilteredPedidos(filtered);
+  };
+
+  const confirmUserEmail = async (userId: string) => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      if (!token) {
+        toast.error("No hay sesión activa");
+        return;
+      }
+
+      const res = await fetch(
+        `https://hhjygradtikonvfzarrn.supabase.co/functions/v1/admin-confirm-user`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ userId }),
+        }
+      );
+
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || "No se pudo confirmar el usuario");
+      }
+
+      toast.success("Email confirmado. El usuario ya puede iniciar sesión.");
+    } catch (e: any) {
+      toast.error(e?.message || "No se pudo confirmar el usuario");
+    }
   };
 
   const handleSignOut = async () => {
@@ -456,6 +490,7 @@ const AdminDashboard = () => {
                       <th className="px-4 py-3 text-left font-semibold text-foreground">Nombre</th>
                       <th className="px-4 py-3 text-left font-semibold text-foreground">Email</th>
                       <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Teléfono</th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -464,6 +499,16 @@ const AdminDashboard = () => {
                         <td className="px-4 py-3 font-medium text-foreground">{user.full_name}</td>
                         <td className="px-4 py-3 text-muted-foreground">{user.email || "-"}</td>
                         <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{user.phone || "-"}</td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => confirmUserEmail(user.user_id)}
+                            className="inline-flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
+                            title="Confirmar email para permitir inicio de sesión inmediato"
+                          >
+                            <UserCheck className="h-4 w-4" />
+                            Confirmar
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
