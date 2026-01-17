@@ -12,6 +12,7 @@ import {
   Truck,
   Loader2,
   Search,
+  Map,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,11 +27,12 @@ import {
 import { cn } from "@/lib/utils";
 import { 
   getZonaFromBarrio, 
-  ZONAS, 
+  getBarrioInfo,
   searchBarrios,
   type ZonaCodigo,
   type BarrioInfo 
 } from "@/lib/zonas";
+import LocationPreviewMap from "./LocationPreviewMap";
 
 interface Profile {
   id: string;
@@ -63,12 +65,17 @@ const NuevoPedidoModal = ({
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(undefined);
   const [motorizadoAsignado, setMotorizadoAsignado] = useState("");
   
+  // Location state
+  const [confirmedLat, setConfirmedLat] = useState<number | null>(null);
+  const [confirmedLng, setConfirmedLng] = useState<number | null>(null);
+  const [showMapPreview, setShowMapPreview] = useState(false);
+  const [selectedBarrioInfo, setSelectedBarrioInfo] = useState<BarrioInfo | null>(null);
+  
   // UI state
   const [loading, setLoading] = useState(false);
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [showBarrioDropdown, setShowBarrioDropdown] = useState(false);
   const [phoneError, setPhoneError] = useState("");
-  const [fetchingCoords, setFetchingCoords] = useState(false);
 
   // Fetch motorizados for admin selector
   useEffect(() => {
@@ -126,37 +133,40 @@ const NuevoPedidoModal = ({
     return true;
   };
 
-  // Get coordinates from barrio using Nominatim
-  const getCoordinatesFromBarrio = async (barrioName: string): Promise<{ lat: number; lng: number } | null> => {
-    try {
-      setFetchingCoords(true);
-      const query = encodeURIComponent(`${barrioName}, Bogotá, Colombia`);
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`
-      );
-      const data = await response.json();
-      
-      if (data && data.length > 0) {
-        return {
-          lat: parseFloat(data[0].lat),
-          lng: parseFloat(data[0].lon),
-        };
-      }
-      return null;
-    } catch (error) {
-      console.error("Error fetching coordinates:", error);
-      return null;
-    } finally {
-      setFetchingCoords(false);
-    }
-  };
-
   // Generate guide number
   const generateGuideNumber = () => {
     const prefix = "KP";
     const timestamp = Date.now().toString().slice(-6);
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
     return `${prefix}${timestamp}${random}`;
+  };
+
+  // Handle barrio selection and show map preview
+  const handleBarrioSelect = (b: BarrioInfo) => {
+    setBarrio(b.nombre);
+    setSelectedBarrioInfo(b);
+    setBarrioSearch("");
+    setShowBarrioDropdown(false);
+    // Reset confirmed coordinates when barrio changes
+    setConfirmedLat(null);
+    setConfirmedLng(null);
+  };
+
+  // Open map preview for location confirmation
+  const handleOpenMapPreview = () => {
+    if (!barrio) {
+      toast.error("Primero selecciona un barrio");
+      return;
+    }
+    setShowMapPreview(true);
+  };
+
+  // Handle confirmed location from map
+  const handleLocationConfirm = (lat: number, lng: number) => {
+    setConfirmedLat(lat);
+    setConfirmedLng(lng);
+    setShowMapPreview(false);
+    toast.success("Ubicación confirmada correctamente");
   };
 
   // Filter barrios based on search using smart search
@@ -174,16 +184,21 @@ const NuevoPedidoModal = ({
       return;
     }
 
+    // Check if location is confirmed
+    if (!confirmedLat || !confirmedLng) {
+      toast.error("Por favor confirma la ubicación en el mapa antes de crear el pedido");
+      setShowMapPreview(true);
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Get coordinates from barrio
-      const coords = await getCoordinatesFromBarrio(barrio);
-      
-      // Build full address
-      const direccionCompleta = direccionDetalle
-        ? `${barrio}, ${direccionDetalle}, Bogotá`
-        : `${barrio}, Bogotá`;
+      // Build full address with localidad
+      const localidad = selectedBarrioInfo?.localidad || "";
+      const direccionCompleta = [direccionDetalle, barrio, localidad]
+        .filter(Boolean)
+        .join(", ");
 
       // Generate guide number
       const numeroGuia = generateGuideNumber();
@@ -206,8 +221,8 @@ const NuevoPedidoModal = ({
         metodo_pago: metodoPago,
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
         estado: "pendiente",
-        latitud: coords?.lat || null,
-        longitud: coords?.lng || null,
+        latitud: confirmedLat,
+        longitud: confirmedLng,
         motorizado_asignado: isAdmin && motorizadoAsignado ? motorizadoAsignado : null,
         client_user_id: !isAdmin ? user?.id : null,
       };
@@ -240,6 +255,9 @@ const NuevoPedidoModal = ({
     setFechaEntrega(undefined);
     setMotorizadoAsignado("");
     setPhoneError("");
+    setConfirmedLat(null);
+    setConfirmedLng(null);
+    setSelectedBarrioInfo(null);
   };
 
   if (!isOpen) return null;
@@ -346,15 +364,15 @@ const NuevoPedidoModal = ({
                   onChange={(e) => {
                     setBarrioSearch(e.target.value);
                     setBarrio("");
+                    setSelectedBarrioInfo(null);
+                    setConfirmedLat(null);
+                    setConfirmedLng(null);
                     setShowBarrioDropdown(true);
                   }}
                   onFocus={() => setShowBarrioDropdown(true)}
                   required
                   className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
-                {fetchingCoords && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
-                )}
                 
                 {/* Dropdown */}
                 {showBarrioDropdown && barrioSearch && (
@@ -364,11 +382,7 @@ const NuevoPedidoModal = ({
                         <button
                           key={b.nombre}
                           type="button"
-                          onClick={() => {
-                            setBarrio(b.nombre);
-                            setBarrioSearch("");
-                            setShowBarrioDropdown(false);
-                          }}
+                          onClick={() => handleBarrioSelect(b)}
                           className="w-full px-4 py-2 text-left text-sm hover:bg-muted transition-colors flex justify-between items-center"
                         >
                           <span>{b.nombre}</span>
@@ -393,6 +407,26 @@ const NuevoPedidoModal = ({
                 maxLength={200}
                 className="w-full rounded-lg border border-border bg-background py-2.5 px-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
+
+              {/* Map Preview Button */}
+              <button
+                type="button"
+                onClick={handleOpenMapPreview}
+                disabled={!barrio}
+                className={cn(
+                  "w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed p-3 text-sm font-medium transition-all",
+                  confirmedLat && confirmedLng
+                    ? "border-green-500 bg-green-500/10 text-green-600 dark:text-green-400"
+                    : barrio
+                    ? "border-primary/50 bg-primary/5 text-primary hover:bg-primary/10"
+                    : "border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
+                )}
+              >
+                <Map className="h-4 w-4" />
+                {confirmedLat && confirmedLng 
+                  ? "✓ Ubicación confirmada - Toca para cambiar" 
+                  : "Confirmar ubicación en el mapa"}
+              </button>
             </div>
 
             {/* Section: Package */}
@@ -546,6 +580,17 @@ const NuevoPedidoModal = ({
           </form>
         </motion.div>
       </div>
+
+      {/* Location Preview Map Modal */}
+      {showMapPreview && (
+        <LocationPreviewMap
+          direccion={direccionDetalle}
+          barrio={barrio}
+          localidad={selectedBarrioInfo?.localidad || "Bogotá"}
+          onConfirm={handleLocationConfirm}
+          onCancel={() => setShowMapPreview(false)}
+        />
+      )}
     </AnimatePresence>
   );
 };
