@@ -30,6 +30,8 @@ import BodegaSupportButton from "@/components/BodegaSupportButton";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import ConnectionToggle from "@/components/ConnectionToggle";
 import MotorizadoProfile from "@/components/MotorizadoProfile";
+import DateHeader from "@/components/DateHeader";
+import AdminNotesDisplay from "@/components/AdminNotesDisplay";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig } from "@/lib/orderStatuses";
 
@@ -614,6 +616,12 @@ const MotorizadoDashboard = () => {
       </header>
 
       <main className="container px-4 py-4">
+        {/* Date Header with Greeting */}
+        <DateHeader userName={profile?.full_name} />
+
+        {/* Admin Notes / Bulletin Board */}
+        <AdminNotesDisplay />
+
         {/* Connection Toggle */}
         {user?.id && (
           <motion.div
