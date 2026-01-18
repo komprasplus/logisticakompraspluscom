@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -15,6 +15,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/logo-kompras-plus.png";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
+import MotorizadoInfo from "@/components/MotorizadoInfo";
 
 interface Pedido {
   id: number;
@@ -23,6 +24,14 @@ interface Pedido {
   direccion_entrega: string | null;
   estado: string | null;
   corte_horario: string | null;
+  motorizado_asignado: string | null;
+}
+
+interface MotorizadoProfile {
+  full_name: string;
+  phone: string | null;
+  avatar_url: string | null;
+  vehicle_plate: string | null;
 }
 
 const SUPPORT_PHONE = "324 222 3825";
@@ -31,8 +40,42 @@ const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
 const CustomerTracking = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [orderResult, setOrderResult] = useState<Pedido | null>(null);
+  const [motorizadoProfile, setMotorizadoProfile] = useState<MotorizadoProfile | null>(null);
   const [error, setError] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+
+  // Fetch motorizado profile when order changes
+  useEffect(() => {
+    const fetchMotorizadoProfile = async () => {
+      if (!orderResult?.motorizado_asignado) {
+        setMotorizadoProfile(null);
+        return;
+      }
+
+      // Only fetch if order is En Ruta or later
+      const status = orderResult.estado?.toLowerCase();
+      if (status !== "en ruta" && status !== "en camino" && status !== "entregado") {
+        setMotorizadoProfile(null);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("full_name, phone, avatar_url, vehicle_plate")
+          .eq("full_name", orderResult.motorizado_asignado)
+          .maybeSingle();
+
+        if (error) throw error;
+        setMotorizadoProfile(data);
+      } catch (err) {
+        console.error("Error fetching motorizado profile:", err);
+        setMotorizadoProfile(null);
+      }
+    };
+
+    fetchMotorizadoProfile();
+  }, [orderResult?.motorizado_asignado, orderResult?.estado]);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +84,7 @@ const CustomerTracking = () => {
     setError("");
     setIsSearching(true);
     setOrderResult(null);
+    setMotorizadoProfile(null);
 
     try {
       const { data, error: fetchError } = await supabase
@@ -400,6 +444,25 @@ const CustomerTracking = () => {
                     </div>
                   </div>
                 </motion.div>
+
+                {/* Motorizado Info - Only show when En Ruta or Entregado */}
+                {motorizadoProfile && (
+                  getStatusInfo(orderResult.estado).step >= 3
+                ) && (
+                  <motion.div
+                    className="mt-4"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.9 }}
+                  >
+                    <MotorizadoInfo
+                      name={motorizadoProfile.full_name}
+                      phone={motorizadoProfile.phone}
+                      avatarUrl={motorizadoProfile.avatar_url}
+                      vehiclePlate={motorizadoProfile.vehicle_plate}
+                    />
+                  </motion.div>
+                )}
 
                 {/* Warehouse Info - Always visible */}
                 <motion.div

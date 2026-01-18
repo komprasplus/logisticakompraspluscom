@@ -28,6 +28,9 @@ import MotorizadoMap from "@/components/MotorizadoMap";
 import PedidoQuickActions from "@/components/PedidoQuickActions";
 import BodegaSupportButton from "@/components/BodegaSupportButton";
 import SignatureCanvas from "@/components/SignatureCanvas";
+import ConnectionToggle from "@/components/ConnectionToggle";
+import MotorizadoProfile from "@/components/MotorizadoProfile";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig } from "@/lib/orderStatuses";
 
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
@@ -48,6 +51,8 @@ interface Pedido {
   tipo_novedad?: string | null;
   firma_cliente?: string | null;
   foto_paquete?: string | null;
+  valor_recaudar?: number | null;
+  metodo_pago?: string | null;
 }
 
 // Warehouse coordinates for sorting
@@ -74,10 +79,12 @@ const MotorizadoDashboard = () => {
   const [novedadReason, setNovedadReason] = useState("");
   const [novedadPhoto, setNovedadPhoto] = useState<string | null>(null);
   const [showMapView, setShowMapView] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const novedadPhotoRef = useRef<HTMLInputElement>(null);
   const packagePhotoRef = useRef<HTMLInputElement>(null);
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, refreshProfile, user } = useAuth();
   const navigate = useNavigate();
 
   // Use geolocation with watch mode for real-time updates
@@ -514,10 +521,55 @@ const MotorizadoDashboard = () => {
 
   const cortes = ["Corte 1", "Corte 2", "Corte 3"];
 
+  // Calculate daily stats
+  const dailyStats = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const todayDelivered = pedidos.filter(
+      (p) => p.estado?.toLowerCase() === "entregado"
+    );
+    const collectedAmount = todayDelivered.reduce((sum, p) => {
+      if (p.metodo_pago?.toLowerCase() === "efectivo" && p.valor_recaudar) {
+        return sum + Number(p.valor_recaudar);
+      }
+      return sum;
+    }, 0);
+    return {
+      deliveredCount: todayDelivered.length,
+      collectedAmount,
+    };
+  }, [pedidos]);
+
+  // Get profile with extended data
+  const extendedProfile = profile ? {
+    id: user?.id || "",
+    user_id: user?.id || "",
+    full_name: profile.full_name,
+    phone: profile.phone,
+    email: profile.email,
+    avatar_url: profile.avatar_url,
+    vehicle_plate: profile.vehicle_plate,
+  } : null;
+
+  // Initialize isOnline from profile
+  useEffect(() => {
+    if (profile?.is_online !== undefined) {
+      setIsOnline(profile.is_online);
+    }
+  }, [profile?.is_online]);
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+      <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <img src={logo} alt="Kompras Plus" className="h-10 w-auto" />
@@ -531,12 +583,26 @@ const MotorizadoDashboard = () => {
             >
               <Map className="h-5 w-5" />
             </button>
-            <div className="flex items-center gap-2 rounded-full bg-primary px-3 py-1.5">
-              <User className="h-4 w-4 text-primary-foreground" />
-              <span className="text-sm font-medium text-primary-foreground max-w-[100px] truncate">
-                {profile?.full_name || "Motorizado"}
-              </span>
-            </div>
+            
+            {/* Profile Avatar Button */}
+            <button
+              onClick={() => setShowProfile(true)}
+              className="relative"
+            >
+              <Avatar className="h-10 w-10 border-2 border-primary/20">
+                <AvatarImage 
+                  src={profile?.avatar_url || undefined} 
+                  alt={profile?.full_name} 
+                />
+                <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold">
+                  {profile ? getInitials(profile.full_name) : "?"}
+                </AvatarFallback>
+              </Avatar>
+              {isOnline && (
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
+              )}
+            </button>
+            
             <button
               onClick={handleSignOut}
               className="flex h-10 w-10 items-center justify-center rounded-full bg-muted hover:bg-muted/80 transition-colors"
@@ -547,42 +613,60 @@ const MotorizadoDashboard = () => {
         </div>
       </header>
 
-      <main className="container px-4 py-6">
-        {/* GPS Status */}
-        <motion.div
-          className={`mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${
-            geoError
-              ? "bg-red-50 text-red-600 border border-red-200"
-              : userLocation
-              ? "bg-green-50 text-green-600 border border-green-200"
-              : "bg-amber-50 text-amber-600 border border-amber-200"
-          }`}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          {geoLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Obteniendo ubicación GPS...</span>
-            </>
-          ) : geoError ? (
-            <>
-              <AlertTriangle className="h-4 w-4" />
-              <span className="flex-1">{geoError}</span>
-              <button onClick={refreshLocation} className="p-1 hover:bg-red-100 rounded">
-                <RefreshCw className="h-4 w-4" />
-              </button>
-            </>
-          ) : (
-            <>
-              <MapPin className="h-4 w-4" />
-              <span className="flex-1">GPS activo - Lista ordenada por cercanía</span>
-              <button onClick={refreshLocation} className="p-1 hover:bg-green-100 rounded">
-                <RefreshCw className="h-4 w-4" />
-              </button>
-            </>
-          )}
-        </motion.div>
+      <main className="container px-4 py-4">
+        {/* Connection Toggle */}
+        {user?.id && (
+          <motion.div
+            className="mb-4"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <ConnectionToggle
+              userId={user.id}
+              isOnline={isOnline}
+              onStatusChange={setIsOnline}
+              userLocation={userLocation}
+            />
+          </motion.div>
+        )}
+
+        {/* GPS Status - Only show when online */}
+        {isOnline && (
+          <motion.div
+            className={`mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${
+              geoError
+                ? "bg-red-50 text-red-600 border border-red-200"
+                : userLocation
+                ? "bg-green-50 text-green-600 border border-green-200"
+                : "bg-amber-50 text-amber-600 border border-amber-200"
+            }`}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            {geoLoading ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Obteniendo ubicación GPS...</span>
+              </>
+            ) : geoError ? (
+              <>
+                <AlertTriangle className="h-4 w-4" />
+                <span className="flex-1">{geoError}</span>
+                <button onClick={refreshLocation} className="p-1 hover:bg-red-100 rounded">
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </>
+            ) : (
+              <>
+                <MapPin className="h-4 w-4" />
+                <span className="flex-1">GPS activo - Lista ordenada por cercanía</span>
+                <button onClick={refreshLocation} className="p-1 hover:bg-green-100 rounded">
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </motion.div>
+        )}
 
         {/* Warehouse Address */}
         <motion.div
@@ -1198,6 +1282,18 @@ const MotorizadoDashboard = () => {
         onChange={handlePackagePhotoCapture}
         className="hidden"
       />
+
+      {/* Profile Modal */}
+      <AnimatePresence>
+        {showProfile && extendedProfile && (
+          <MotorizadoProfile
+            profile={extendedProfile}
+            onProfileUpdate={refreshProfile}
+            dailyStats={dailyStats}
+            onClose={() => setShowProfile(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
