@@ -11,8 +11,8 @@ import {
   Calendar as CalendarIcon,
   Truck,
   Loader2,
-  Search,
   Map,
+  CheckCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -25,14 +25,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { 
-  getZonaFromBarrio, 
-  getBarrioInfo,
-  searchBarrios,
-  type ZonaCodigo,
-  type BarrioInfo 
-} from "@/lib/zonas";
+import { getZonaFromBarrio } from "@/lib/zonas";
 import LocationPreviewMap from "./LocationPreviewMap";
+import AddressAutocomplete from "./AddressAutocomplete";
 
 interface Profile {
   id: string;
@@ -56,9 +51,10 @@ const NuevoPedidoModal = ({
   // Form state
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
+  const [direccionCompleta, setDireccionCompleta] = useState("");
   const [barrio, setBarrio] = useState("");
-  const [barrioSearch, setBarrioSearch] = useState("");
-  const [direccionDetalle, setDireccionDetalle] = useState("");
+  const [localidad, setLocalidad] = useState("");
+  const [ciudad, setCiudad] = useState("");
   const [productoNombre, setProductoNombre] = useState("");
   const [valorRecaudar, setValorRecaudar] = useState("");
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
@@ -69,12 +65,11 @@ const NuevoPedidoModal = ({
   const [confirmedLat, setConfirmedLat] = useState<number | null>(null);
   const [confirmedLng, setConfirmedLng] = useState<number | null>(null);
   const [showMapPreview, setShowMapPreview] = useState(false);
-  const [selectedBarrioInfo, setSelectedBarrioInfo] = useState<BarrioInfo | null>(null);
+  const [addressSelected, setAddressSelected] = useState(false);
   
   // UI state
   const [loading, setLoading] = useState(false);
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
-  const [showBarrioDropdown, setShowBarrioDropdown] = useState(false);
   const [phoneError, setPhoneError] = useState("");
 
   // Fetch motorizados for admin selector
@@ -141,21 +136,29 @@ const NuevoPedidoModal = ({
     return `${prefix}${timestamp}${random}`;
   };
 
-  // Handle barrio selection and show map preview
-  const handleBarrioSelect = (b: BarrioInfo) => {
-    setBarrio(b.nombre);
-    setSelectedBarrioInfo(b);
-    setBarrioSearch("");
-    setShowBarrioDropdown(false);
-    // Reset confirmed coordinates when barrio changes
-    setConfirmedLat(null);
-    setConfirmedLng(null);
+  // Handle address selection from autocomplete
+  const handleAddressSelect = (result: {
+    direccion: string;
+    barrio: string;
+    localidad: string;
+    ciudad: string;
+    lat: number;
+    lng: number;
+  }) => {
+    setDireccionCompleta(result.direccion);
+    setBarrio(result.barrio);
+    setLocalidad(result.localidad);
+    setCiudad(result.ciudad);
+    setConfirmedLat(result.lat);
+    setConfirmedLng(result.lng);
+    setAddressSelected(true);
+    toast.success("Dirección seleccionada. Puedes confirmar o ajustar en el mapa.");
   };
 
   // Open map preview for location confirmation
   const handleOpenMapPreview = () => {
-    if (!barrio) {
-      toast.error("Primero selecciona un barrio");
+    if (!addressSelected && !direccionCompleta) {
+      toast.error("Primero busca y selecciona una dirección");
       return;
     }
     setShowMapPreview(true);
@@ -168,9 +171,6 @@ const NuevoPedidoModal = ({
     setShowMapPreview(false);
     toast.success("Ubicación confirmada correctamente");
   };
-
-  // Filter barrios based on search using smart search
-  const filteredBarrios = searchBarrios(barrioSearch, 15);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,12 +194,6 @@ const NuevoPedidoModal = ({
     setLoading(true);
 
     try {
-      // Build full address with localidad
-      const localidad = selectedBarrioInfo?.localidad || "";
-      const direccionCompleta = [direccionDetalle, barrio, localidad]
-        .filter(Boolean)
-        .join(", ");
-
       // Generate guide number
       const numeroGuia = generateGuideNumber();
 
@@ -246,9 +240,10 @@ const NuevoPedidoModal = ({
   const resetForm = () => {
     setClienteNombre("");
     setClienteTelefono("");
+    setDireccionCompleta("");
     setBarrio("");
-    setBarrioSearch("");
-    setDireccionDetalle("");
+    setLocalidad("");
+    setCiudad("");
     setProductoNombre("");
     setValorRecaudar("");
     setMetodoPago("efectivo");
@@ -257,7 +252,7 @@ const NuevoPedidoModal = ({
     setPhoneError("");
     setConfirmedLat(null);
     setConfirmedLng(null);
-    setSelectedBarrioInfo(null);
+    setAddressSelected(false);
   };
 
   if (!isOpen) return null;
@@ -354,83 +349,65 @@ const NuevoPedidoModal = ({
                 Dirección de Entrega
               </h3>
               
-              {/* Barrio Selector */}
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
-                <input
-                  type="text"
-                  placeholder="Buscar barrio de Bogotá *"
-                  value={barrio || barrioSearch}
-                  onChange={(e) => {
-                    setBarrioSearch(e.target.value);
-                    setBarrio("");
-                    setSelectedBarrioInfo(null);
-                    setConfirmedLat(null);
-                    setConfirmedLng(null);
-                    setShowBarrioDropdown(true);
-                  }}
-                  onFocus={() => setShowBarrioDropdown(true)}
-                  required
-                  className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-                
-                {/* Dropdown */}
-                {showBarrioDropdown && barrioSearch && (
-                  <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-card shadow-lg">
-                    {filteredBarrios.length > 0 ? (
-                      filteredBarrios.map((b) => (
-                        <button
-                          key={b.nombre}
-                          type="button"
-                          onClick={() => handleBarrioSelect(b)}
-                          className="w-full px-4 py-2 text-left text-sm hover:bg-muted transition-colors flex justify-between items-center"
-                        >
-                          <span>{b.nombre}</span>
-                          <span className="text-xs text-muted-foreground">{b.localidad}</span>
-                        </button>
-                      ))
-                    ) : (
-                      <p className="px-4 py-2 text-sm text-muted-foreground">
-                        No se encontró el barrio
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Detalle de dirección */}
-              <input
-                type="text"
-                placeholder="Detalle (Cra, Calle, Apto, Casa)"
-                value={direccionDetalle}
-                onChange={(e) => setDireccionDetalle(e.target.value)}
-                maxLength={200}
-                className="w-full rounded-lg border border-border bg-background py-2.5 px-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+              {/* Nominatim Address Autocomplete */}
+              <AddressAutocomplete
+                onSelect={handleAddressSelect}
+                placeholder="Buscar dirección, barrio o localidad..."
+                value={direccionCompleta}
               />
+
+              {/* Selected Address Info */}
+              {addressSelected && (
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                  <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-foreground">{direccionCompleta}</p>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {barrio && (
+                        <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                          Barrio: {barrio}
+                        </span>
+                      )}
+                      {localidad && (
+                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
+                          {localidad}
+                        </span>
+                      )}
+                      {ciudad && (
+                        <span className="text-xs text-muted-foreground">
+                          {ciudad}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Map Preview Button - REQUIRED */}
               <div className="space-y-1">
                 <button
                   type="button"
                   onClick={handleOpenMapPreview}
-                  disabled={!barrio}
+                  disabled={!addressSelected}
                   className={cn(
                     "w-full flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
                     confirmedLat && confirmedLng
                       ? "border-green-500 bg-green-500/10 text-green-600 dark:text-green-400"
-                      : barrio
-                      ? "border-dashed border-destructive/50 bg-destructive/5 text-destructive hover:bg-destructive/10 animate-pulse"
+                      : addressSelected
+                      ? "border-dashed border-primary/50 bg-primary/5 text-primary hover:bg-primary/10"
                       : "border-dashed border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
                   )}
                 >
                   <Map className="h-4 w-4" />
                   {confirmedLat && confirmedLng 
                     ? "✓ Ubicación confirmada - Toca para cambiar" 
-                    : "⚠️ Confirmar ubicación en el mapa (OBLIGATORIO)"}
+                    : addressSelected 
+                    ? "Verificar y confirmar en el mapa"
+                    : "Primero busca una dirección"}
                 </button>
-                {barrio && !confirmedLat && (
-                  <p className="text-xs text-destructive text-center">
-                    Debes confirmar la ubicación antes de crear el pedido
+                {addressSelected && !confirmedLat && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    La ubicación ya está preseleccionada del buscador. Puedes ajustarla en el mapa.
                   </p>
                 )}
               </div>
@@ -569,10 +546,10 @@ const NuevoPedidoModal = ({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !confirmedLat || !confirmedLng}
+              disabled={loading || !addressSelected || !confirmedLat || !confirmedLng}
               className={cn(
                 "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
-                confirmedLat && confirmedLng
+                addressSelected && confirmedLat && confirmedLng
                   ? "bg-primary text-primary-foreground hover:opacity-90"
                   : "bg-muted text-muted-foreground cursor-not-allowed",
                 "disabled:opacity-50"
@@ -583,10 +560,10 @@ const NuevoPedidoModal = ({
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Creando pedido...
                 </>
-              ) : !confirmedLat || !confirmedLng ? (
+              ) : !addressSelected ? (
                 <>
                   <MapPin className="h-5 w-5" />
-                  Confirma la ubicación primero
+                  Busca y selecciona una dirección
                 </>
               ) : (
                 <>
@@ -602,9 +579,9 @@ const NuevoPedidoModal = ({
       {/* Location Preview Map Modal */}
       {showMapPreview && (
         <LocationPreviewMap
-          direccion={direccionDetalle}
+          direccion={direccionCompleta}
           barrio={barrio}
-          localidad={selectedBarrioInfo?.localidad || "Bogotá"}
+          localidad={localidad || "Bogotá"}
           onConfirm={handleLocationConfirm}
           onCancel={() => setShowMapPreview(false)}
         />
