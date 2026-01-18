@@ -31,6 +31,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
 import AdminMap from "@/components/AdminMap";
+import AdminSidebar from "@/components/AdminSidebar";
+import NovedadesPanel from "@/components/NovedadesPanel";
 import CreateUserModal from "@/components/CreateUserModal";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import QRScannerModal from "@/components/QRScannerModal";
@@ -57,6 +59,11 @@ interface Pedido {
   tipo_novedad: string | null;
   firma_cliente: string | null;
   foto_paquete: string | null;
+  foto_evidencia: string | null;
+  fecha_actualizacion: string | null;
+  client_phone: string | null;
+  novedad_latitud?: number | null;
+  novedad_longitud?: number | null;
 }
 
 interface Profile {
@@ -77,7 +84,7 @@ const AdminDashboard = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"map" | "orders" | "users">("map");
+  const [activeSection, setActiveSection] = useState<string>("mapa");
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [barrioFilter, setBarrioFilter] = useState<string>("todos");
@@ -123,7 +130,6 @@ const AdminDashboard = () => {
             setPedidos((prev) => [newPedido, ...prev]);
             setNewOrdersCount((c) => c + 1);
             
-            // Show toast notification
             toast.success(
               `🔔 Nuevo pedido: ${newPedido.cliente_nombre || 'Cliente'}`,
               {
@@ -183,38 +189,26 @@ const AdminDashboard = () => {
 
   const fetchMotorizados = async () => {
     try {
-      // Get all user_roles with role = 'motorizado'
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id")
         .eq("role", "motorizado");
 
-      if (rolesError) {
-        console.error("Error fetching motorizado roles:", rolesError);
-        throw rolesError;
-      }
-
-      console.log("Motorizado roles found:", roles);
+      if (rolesError) throw rolesError;
 
       if (roles && roles.length > 0) {
         const motorizadoIds = roles.map((r) => r.user_id);
         
-        // Get profiles for these users that are 'activo'
         const { data: profiles, error: profilesError } = await supabase
           .from("profiles")
           .select("*")
           .in("user_id", motorizadoIds)
           .eq("status", "activo");
 
-        if (profilesError) {
-          console.error("Error fetching motorizado profiles:", profilesError);
-          throw profilesError;
-        }
+        if (profilesError) throw profilesError;
 
-        console.log("Motorizado profiles found:", profiles);
         setMotorizados(profiles || []);
       } else {
-        console.log("No motorizado roles found");
         setMotorizados([]);
       }
     } catch (error) {
@@ -226,7 +220,6 @@ const AdminDashboard = () => {
   const filterPedidos = () => {
     let filtered = [...pedidos];
 
-    // Status filter
     if (statusFilter === "sin_asignar") {
       filtered = filtered.filter((p) => !p.motorizado_asignado);
     } else if (statusFilter !== "todos") {
@@ -235,22 +228,18 @@ const AdminDashboard = () => {
       );
     }
 
-    // Barrio filter
     if (barrioFilter !== "todos") {
       filtered = filtered.filter((p) => p.barrio === barrioFilter);
     }
 
-    // Método de pago filter
     if (metodoPagoFilter !== "todos") {
       filtered = filtered.filter((p) => p.metodo_pago === metodoPagoFilter);
     }
 
-    // Zona filter
     if (zonaFilter !== "todos") {
       filtered = filtered.filter((p) => p.zona === zonaFilter);
     }
 
-    // Date filter
     if (dateFilter) {
       filtered = filtered.filter((p) => {
         if (!p.fecha_creacion) return false;
@@ -259,7 +248,6 @@ const AdminDashboard = () => {
       });
     }
 
-    // Search query
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -283,12 +271,12 @@ const AdminDashboard = () => {
         .update({
           motorizado_asignado: motorizadoName,
           estado: "Asignado",
+          fecha_actualizacion: new Date().toISOString(),
         })
         .eq("id", pedidoId);
 
       if (error) throw error;
 
-      // Update local state
       setPedidos((prev) =>
         prev.map((p) =>
           p.id === pedidoId
@@ -306,7 +294,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // Bulk assign motorizados to selected pedidos
   const bulkAssignMotorizado = async (motorizadoName: string) => {
     if (selectedForBulk.length === 0) {
       toast.error("No hay pedidos seleccionados");
@@ -320,12 +307,12 @@ const AdminDashboard = () => {
         .update({
           motorizado_asignado: motorizadoName,
           estado: "Asignado",
+          fecha_actualizacion: new Date().toISOString(),
         })
         .in("id", selectedForBulk);
 
       if (error) throw error;
 
-      // Update local state
       setPedidos((prev) =>
         prev.map((p) =>
           selectedForBulk.includes(p.id)
@@ -344,7 +331,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // Toggle selection for bulk assignment
   const toggleBulkSelect = (pedidoId: number) => {
     setSelectedForBulk((prev) =>
       prev.includes(pedidoId)
@@ -353,7 +339,6 @@ const AdminDashboard = () => {
     );
   };
 
-  // Select all unassigned in current filter
   const selectAllUnassigned = () => {
     const unassigned = filteredPedidos
       .filter((p) => !p.motorizado_asignado)
@@ -403,10 +388,8 @@ const AdminDashboard = () => {
     setNewOrdersCount(0);
   };
 
-  // Get unique barrios for filter
   const uniqueBarrios = [...new Set(pedidos.map((p) => p.barrio).filter(Boolean))].sort();
 
-  // Zona Badge component with colors
   const ZonaBadge = ({ zona }: { zona: string | null }) => {
     if (!zona) return <span className="text-muted-foreground">-</span>;
 
@@ -423,7 +406,6 @@ const AdminDashboard = () => {
     );
   };
 
-  // Status badge with icon - using centralized config
   const StatusBadge = ({ status }: { status: string | null }) => {
     const config = getStatusConfig(status);
 
@@ -471,121 +453,106 @@ const AdminDashboard = () => {
     liquidado: pedidos.filter((p) => p.estado?.toLowerCase() === "liquidado").length,
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
-        <div className="container flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="Kompras Plus" className="h-10 w-auto" />
-            <span className="hidden sm:inline-block text-sm font-medium text-muted-foreground">
-              Panel Admin
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* New orders notification */}
-            {newOrdersCount > 0 && (
-              <button
-                onClick={clearNewOrdersNotification}
-                className="relative flex items-center gap-2 rounded-full bg-green-500 px-3 py-1.5 text-white animate-pulse"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="text-sm font-bold">{newOrdersCount} nuevo(s)</span>
-              </button>
-            )}
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              {profile?.full_name}
-            </span>
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              <span className="hidden sm:inline">Salir</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <main className="container px-4 py-4">
-        {/* Stats Cards - More compact */}
-        <motion.div
-          className="mb-4 grid grid-cols-3 sm:grid-cols-6 gap-2"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="rounded-xl bg-card p-3 shadow-card">
-            <div className="flex items-center gap-1 mb-1">
-              <Package className="h-4 w-4 text-primary" />
-              <span className="text-xs text-muted-foreground">Total</span>
-            </div>
-            <p className="text-xl font-bold text-foreground">{stats.total}</p>
-          </div>
-          <div
-            className="rounded-xl bg-amber-500/20 p-3 shadow-card cursor-pointer hover:ring-2 ring-amber-500 transition-all"
-            onClick={() => setStatusFilter("sin_asignar")}
+  const renderMainContent = () => {
+    switch (activeSection) {
+      case "mapa":
+        return (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="h-full flex flex-col"
           >
-            <div className="flex items-center gap-1 mb-1">
-              <AlertTriangle className="h-4 w-4 text-amber-600" />
-              <span className="text-xs text-muted-foreground">Sin Asignar</span>
+            <div className="p-3 border-b border-border flex flex-wrap items-center justify-between gap-2 bg-card">
+              <h2 className="font-bold text-foreground text-lg">🗺️ Mapa Real-time</h2>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => setShowNuevoPedido(true)} className="gap-1">
+                  <Plus className="h-4 w-4" />
+                  Nuevo
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowQRScanner(true)} className="gap-1">
+                  <ScanLine className="h-4 w-4" />
+                  QR
+                </Button>
+              </div>
             </div>
-            <p className="text-xl font-bold text-amber-600">{stats.unassigned}</p>
-          </div>
-          <div className="rounded-xl bg-sky-500/20 p-3 shadow-card">
-            <div className="flex items-center gap-1 mb-1">
-              <Truck className="h-4 w-4 text-sky-600" />
-              <span className="text-xs text-muted-foreground">En Ruta</span>
+            
+            {/* Legend */}
+            <div className="px-3 py-2 bg-muted/30 border-b border-border flex flex-wrap gap-3 text-xs">
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-slate-800"></div><span>🏭 Bodega</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-gray-400"></div><span>Sin Asignar</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-indigo-500"></div><span>En Bodega</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span>Asignado</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-sky-500"></div><span>En Ruta</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-green-500"></div><span>Entregado</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-orange-500"></div><span>Novedad</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-red-500"></div><span>Rechazado</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-purple-500"></div><span>Devolución</span></div>
+              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-teal-500"></div><span>Liquidado</span></div>
             </div>
-            <p className="text-xl font-bold text-sky-600">{stats.inTransit}</p>
-          </div>
-          <div className="rounded-xl bg-green-500/20 p-3 shadow-card">
-            <div className="flex items-center gap-1 mb-1">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span className="text-xs text-muted-foreground">Entregado</span>
+            
+            {/* Map */}
+            <div className="flex-1 relative min-h-[500px]">
+              <AdminMap 
+                pedidos={filteredPedidos} 
+                onPedidoClick={(p) => setSelectedPedido(p as Pedido)}
+                selectedPedidoId={selectedPedido?.id}
+              />
             </div>
-            <p className="text-xl font-bold text-green-600">{stats.delivered}</p>
-          </div>
-          <div className="rounded-xl bg-orange-500/20 p-3 shadow-card">
-            <div className="flex items-center gap-1 mb-1">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              <span className="text-xs text-muted-foreground">Novedad</span>
-            </div>
-            <p className="text-xl font-bold text-orange-600">{stats.novedad}</p>
-          </div>
-          <div className="rounded-xl bg-teal-500/20 p-3 shadow-card">
-            <div className="flex items-center gap-1 mb-1">
-              <DollarSign className="h-4 w-4 text-teal-600" />
-              <span className="text-xs text-muted-foreground">Liquidado</span>
-            </div>
-            <p className="text-xl font-bold text-teal-600">{stats.liquidado}</p>
-          </div>
-        </motion.div>
 
-        {/* Tabs - Map first */}
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
-          {[
-            { key: "map", label: "Mapa", icon: Map },
-            { key: "orders", label: "Pedidos", icon: Package },
-            { key: "users", label: "Usuarios", icon: Users },
-          ].map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key as typeof activeTab)}
-              className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === tab.key
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              <tab.icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
+            {/* Selected Pedido Panel */}
+            <AnimatePresence>
+              {selectedPedido && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="absolute bottom-4 right-4 w-80 bg-card rounded-xl shadow-elevated p-4 border border-border"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-bold text-foreground">{selectedPedido.numero_guia || `#${selectedPedido.id}`}</p>
+                      <p className="text-sm text-muted-foreground">{selectedPedido.cliente_nombre}</p>
+                    </div>
+                    <button onClick={() => setSelectedPedido(null)} className="text-muted-foreground hover:text-foreground">
+                      <XCircle className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-2">📍 {selectedPedido.direccion_entrega}</p>
+                  <div className="flex items-center gap-2 mb-3">
+                    <StatusBadge status={selectedPedido.estado} />
+                    {selectedPedido.tipo_novedad && (
+                      <span className="text-xs text-orange-600">({selectedPedido.tipo_novedad})</span>
+                    )}
+                  </div>
+                  {!selectedPedido.motorizado_asignado ? (
+                    <select
+                      disabled={assigningPedido === selectedPedido.id}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          assignMotorizado(selectedPedido.id, e.target.value);
+                          setSelectedPedido(null);
+                        }
+                      }}
+                      className="w-full rounded-lg border-2 border-amber-400 bg-card px-3 py-2 text-sm font-medium focus:border-primary focus:outline-none"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>{assigningPedido === selectedPedido.id ? "Asignando..." : "⚠️ Asignar motorizado..."}</option>
+                      {motorizados.map((m) => (
+                        <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">🏍️ <span className="font-medium">{selectedPedido.motorizado_asignado}</span></div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        );
 
-        {/* Orders Tab */}
-        {activeTab === "orders" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      case "despacho":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
             {/* Actions & Filters */}
             <div className="mb-4 flex flex-col gap-3">
               <div className="flex gap-2 flex-wrap">
@@ -596,11 +563,7 @@ const AdminDashboard = () => {
                   <Plus className="h-4 w-4" />
                   Nuevo Pedido
                 </button>
-                <Button
-                  onClick={() => setShowQRScanner(true)}
-                  variant="secondary"
-                  className="gap-2"
-                >
+                <Button onClick={() => setShowQRScanner(true)} variant="secondary" className="gap-2">
                   <ScanLine className="h-4 w-4" />
                   Escanear QR
                 </Button>
@@ -621,85 +584,43 @@ const AdminDashboard = () => {
               {/* Filters Row */}
               <div className="flex flex-wrap gap-2 items-center">
                 <Filter className="h-4 w-4 text-muted-foreground" />
-                
-                {/* Estado Filter */}
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
+                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
                   <option value="todos">Todos los estados</option>
                   <option value="sin_asignar">⚠️ Sin Asignar</option>
-                  <option value="pendiente">Pendiente</option>
-                  <option value="en bodega">En Bodega</option>
+                  <option value="recibido en bodega">Recibido en Bodega</option>
+                  <option value="asignado">Asignado</option>
                   <option value="en ruta">En Ruta</option>
                   <option value="entregado">Entregado</option>
-                  <option value="cancelado">Cancelado</option>
+                  <option value="novedad">Novedad</option>
+                  <option value="rechazado">Rechazado</option>
+                  <option value="devolución">Devolución</option>
+                  <option value="liquidado">Liquidado</option>
                 </select>
 
-                {/* Barrio Filter */}
-                <select
-                  value={barrioFilter}
-                  onChange={(e) => setBarrioFilter(e.target.value)}
-                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
+                <select value={barrioFilter} onChange={(e) => setBarrioFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
                   <option value="todos">Todos los barrios</option>
                   {uniqueBarrios.map((barrio) => (
-                    <option key={barrio} value={barrio!}>
-                      {barrio}
-                    </option>
+                    <option key={barrio} value={barrio!}>{barrio}</option>
                   ))}
                 </select>
 
-                {/* Método de Pago Filter */}
-                <select
-                  value={metodoPagoFilter}
-                  onChange={(e) => setMetodoPagoFilter(e.target.value)}
-                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
+                <select value={metodoPagoFilter} onChange={(e) => setMetodoPagoFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
                   <option value="todos">Todos los pagos</option>
                   <option value="efectivo">Contra Entrega</option>
                   <option value="anticipado">Pago Anticipado</option>
                 </select>
 
-                {/* Zona Filter */}
-                <select
-                  value={zonaFilter}
-                  onChange={(e) => setZonaFilter(e.target.value)}
-                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                >
+                <select value={zonaFilter} onChange={(e) => setZonaFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
                   <option value="todos">Todas las zonas</option>
                   {getAllZonas().map((zona) => (
-                    <option key={zona} value={zona}>
-                      {zona} - {ZONAS[zona].nombre}
-                    </option>
+                    <option key={zona} value={zona}>{zona} - {ZONAS[zona].nombre}</option>
                   ))}
                 </select>
 
-                {/* Date Filter */}
-                <input
-                  type="date"
-                  value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                />
+                <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none" />
 
-                {/* Clear Filters */}
-                {(statusFilter !== "todos" ||
-                  barrioFilter !== "todos" ||
-                  metodoPagoFilter !== "todos" ||
-                  zonaFilter !== "todos" ||
-                  dateFilter) && (
-                  <button
-                    onClick={() => {
-                      setStatusFilter("todos");
-                      setBarrioFilter("todos");
-                      setMetodoPagoFilter("todos");
-                      setZonaFilter("todos");
-                      setDateFilter("");
-                    }}
-                    className="text-sm text-primary hover:underline"
-                  >
+                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || dateFilter) && (
+                  <button onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setDateFilter(""); }} className="text-sm text-primary hover:underline">
                     Limpiar filtros
                   </button>
                 )}
@@ -708,84 +629,46 @@ const AdminDashboard = () => {
               {/* Bulk Assignment Bar */}
               {selectedForBulk.length > 0 && (
                 <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/30">
-                  <span className="text-sm font-medium text-foreground">
-                    {selectedForBulk.length} pedido(s) seleccionado(s)
-                  </span>
+                  <span className="text-sm font-medium text-foreground">{selectedForBulk.length} pedido(s) seleccionado(s)</span>
                   <select
                     disabled={bulkAssigning}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        bulkAssignMotorizado(e.target.value);
-                      }
-                    }}
+                    onChange={(e) => { if (e.target.value) bulkAssignMotorizado(e.target.value); }}
                     className="rounded-lg border border-primary bg-card px-3 py-1.5 text-sm font-medium focus:outline-none"
                     defaultValue=""
                   >
-                    <option value="" disabled>
-                      {bulkAssigning ? "Asignando..." : "Asignar a..."}
-                    </option>
+                    <option value="" disabled>{bulkAssigning ? "Asignando..." : "Asignar a..."}</option>
                     {motorizados.map((m) => (
-                      <option key={m.id} value={m.full_name}>
-                        {m.full_name}
-                      </option>
+                      <option key={m.id} value={m.full_name}>{m.full_name}</option>
                     ))}
                   </select>
-                  <button
-                    onClick={() => setSelectedForBulk([])}
-                    className="text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    Cancelar
-                  </button>
+                  <button onClick={() => setSelectedForBulk([])} className="text-sm text-muted-foreground hover:text-foreground">Cancelar</button>
                 </div>
               )}
 
-              {/* Select All Unassigned Button */}
-              {filteredPedidos.filter((p) => !p.motorizado_asignado).length > 0 &&
-                selectedForBulk.length === 0 && (
-                  <button
-                    onClick={selectAllUnassigned}
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Seleccionar todos sin asignar ({filteredPedidos.filter((p) => !p.motorizado_asignado).length})
-                  </button>
-                )}
+              {filteredPedidos.filter((p) => !p.motorizado_asignado).length > 0 && selectedForBulk.length === 0 && (
+                <button onClick={selectAllUnassigned} className="text-sm text-primary hover:underline">
+                  Seleccionar todos sin asignar ({filteredPedidos.filter((p) => !p.motorizado_asignado).length})
+                </button>
+              )}
             </div>
 
             {/* Orders Table */}
             {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
+              <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : (
               <div className="rounded-xl bg-card shadow-card overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b border-border">
                       <tr>
-                        <th className="px-2 py-3 text-left w-8">
-                          <span className="sr-only">Seleccionar</span>
-                        </th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
-                          Guía
-                        </th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
-                          Cliente
-                        </th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">
-                          Zona
-                        </th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">
-                          Barrio
-                        </th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">
-                          Pago
-                        </th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
-                          Motorizado
-                        </th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">
-                          Estado
-                        </th>
+                        <th className="px-2 py-3 text-left w-8"><span className="sr-only">Seleccionar</span></th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Guía</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Cliente</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Zona</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Barrio</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Motorizado</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Estado</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -793,47 +676,23 @@ const AdminDashboard = () => {
                         const isPendingAssignment = !pedido.motorizado_asignado;
                         const isSelected = selectedForBulk.includes(pedido.id);
                         return (
-                          <tr
-                            key={pedido.id}
-                            className={`hover:bg-muted/30 transition-colors ${
-                              isPendingAssignment ? "bg-amber-50 dark:bg-amber-950/20" : ""
-                            } ${isSelected ? "bg-primary/10" : ""}`}
-                          >
+                          <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${isPendingAssignment ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""}`}>
                             <td className="px-2 py-3">
                               {isPendingAssignment && (
-                                <input
-                                  type="checkbox"
-                                  checked={isSelected}
-                                  onChange={() => toggleBulkSelect(pedido.id)}
-                                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                                />
+                                <input type="checkbox" checked={isSelected} onChange={() => toggleBulkSelect(pedido.id)} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
                               )}
                             </td>
                             <td className="px-3 py-3 font-medium text-foreground text-xs sm:text-sm">
                               <div className="flex items-center gap-2">
-                                {isPendingAssignment && (
-                                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                                )}
+                                {isPendingAssignment && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
                                 {pedido.numero_guia || `#${pedido.id}`}
                               </div>
                             </td>
-                            <td className="px-3 py-3 text-muted-foreground text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate">
-                              {pedido.cliente_nombre || "-"}
-                            </td>
-                            <td className="px-3 py-3 hidden sm:table-cell">
-                              <ZonaBadge zona={pedido.zona} />
-                            </td>
-                            <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">
-                              {pedido.barrio || "-"}
-                            </td>
+                            <td className="px-3 py-3 text-muted-foreground text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate">{pedido.cliente_nombre || "-"}</td>
+                            <td className="px-3 py-3 hidden sm:table-cell"><ZonaBadge zona={pedido.zona} /></td>
+                            <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">{pedido.barrio || "-"}</td>
                             <td className="px-3 py-3 hidden md:table-cell">
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                  pedido.metodo_pago === "anticipado"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-blue-100 text-blue-700"
-                                }`}
-                              >
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${pedido.metodo_pago === "anticipado" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
                                 {pedido.metodo_pago === "anticipado" ? "Anticipado" : "Contra Entrega"}
                               </span>
                             </td>
@@ -841,32 +700,18 @@ const AdminDashboard = () => {
                               {isPendingAssignment ? (
                                 <select
                                   disabled={assigningPedido === pedido.id}
-                                  onChange={(e) => {
-                                    if (e.target.value) {
-                                      assignMotorizado(pedido.id, e.target.value);
-                                    }
-                                  }}
+                                  onChange={(e) => { if (e.target.value) assignMotorizado(pedido.id, e.target.value); }}
                                   className="w-full min-w-[120px] rounded-lg border-2 border-amber-400 bg-card px-2 py-1.5 text-xs font-medium focus:border-primary focus:outline-none"
                                   defaultValue=""
                                 >
-                                  <option value="" disabled>
-                                    {assigningPedido === pedido.id ? "Asignando..." : "⚠️ Asignar"}
-                                  </option>
-                                  {motorizados.map((m) => (
-                                    <option key={m.id} value={m.full_name}>
-                                      {m.full_name}
-                                    </option>
-                                  ))}
+                                  <option value="" disabled>{assigningPedido === pedido.id ? "Asignando..." : "⚠️ Asignar"}</option>
+                                  {motorizados.map((m) => (<option key={m.id} value={m.full_name}>{m.full_name}</option>))}
                                 </select>
                               ) : (
-                                <span className="text-muted-foreground">
-                                  {pedido.motorizado_asignado}
-                                </span>
+                                <span className="text-muted-foreground">{pedido.motorizado_asignado}</span>
                               )}
                             </td>
-                            <td className="px-3 py-3">
-                              <StatusBadge status={pedido.estado} />
-                            </td>
+                            <td className="px-3 py-3"><StatusBadge status={pedido.estado} /></td>
                           </tr>
                         );
                       })}
@@ -874,171 +719,47 @@ const AdminDashboard = () => {
                   </table>
                 </div>
                 {filteredPedidos.length === 0 && (
-                  <div className="p-8 text-center text-muted-foreground">
-                    No se encontraron pedidos con los filtros seleccionados
-                  </div>
+                  <div className="p-8 text-center text-muted-foreground">No se encontraron pedidos con los filtros seleccionados</div>
                 )}
               </div>
             )}
           </motion.div>
-        )}
+        );
 
-        {/* Map Tab - Central Full Screen View */}
-        {activeTab === "map" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="rounded-xl bg-card shadow-card overflow-hidden"
-          >
-            <div className="p-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-bold text-foreground text-lg">🗺️ Centro de Control Logístico</h2>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => setShowNuevoPedido(true)}
-                  className="gap-1"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nuevo
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowQRScanner(true)}
-                  className="gap-1"
-                >
-                  <ScanLine className="h-4 w-4" />
-                  QR
-                </Button>
-              </div>
-            </div>
-            
-            {/* Legend */}
-            <div className="px-3 py-2 bg-muted/30 border-b border-border flex flex-wrap gap-3 text-xs">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded bg-slate-800"></div>
-                <span className="text-muted-foreground">🏭 Bodega</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                <span className="text-muted-foreground">Sin Asignar</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
-                <span className="text-muted-foreground">En Bodega</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                <span className="text-muted-foreground">Asignado</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-sky-500"></div>
-                <span className="text-muted-foreground">En Ruta</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                <span className="text-muted-foreground">Entregado</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                <span className="text-muted-foreground">Novedad</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                <span className="text-muted-foreground">Rechazado</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-                <span className="text-muted-foreground">Devolución</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 rounded-full bg-teal-500"></div>
-                <span className="text-muted-foreground">Liquidado</span>
-              </div>
-            </div>
-            
-            {/* Full height map */}
-            <div className="h-[calc(100vh-320px)] min-h-[400px] relative">
-              <AdminMap 
-                pedidos={filteredPedidos} 
-                onPedidoClick={(p) => setSelectedPedido(p as Pedido)}
-                selectedPedidoId={selectedPedido?.id}
-              />
-            </div>
-
-            {/* Selected Pedido Quick Panel */}
-            <AnimatePresence>
-              {selectedPedido && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-card rounded-xl shadow-elevated p-4 border border-border"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <p className="font-bold text-foreground">
-                        {selectedPedido.numero_guia || `#${selectedPedido.id}`}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {selectedPedido.cliente_nombre}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setSelectedPedido(null)}
-                      className="text-muted-foreground hover:text-foreground"
-                    >
-                      <XCircle className="h-5 w-5" />
-                    </button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mb-2">
-                    📍 {selectedPedido.direccion_entrega}
-                  </p>
-                  <div className="flex items-center gap-2 mb-3">
-                    <StatusBadge status={selectedPedido.estado} />
-                    {selectedPedido.tipo_novedad && (
-                      <span className="text-xs text-orange-600">
-                        ({selectedPedido.tipo_novedad})
-                      </span>
-                    )}
-                  </div>
-                  {!selectedPedido.motorizado_asignado ? (
-                    <select
-                      disabled={assigningPedido === selectedPedido.id}
-                      onChange={(e) => {
-                        if (e.target.value) {
-                          assignMotorizado(selectedPedido.id, e.target.value);
-                          setSelectedPedido(null);
-                        }
-                      }}
-                      className="w-full rounded-lg border-2 border-amber-400 bg-card px-3 py-2 text-sm font-medium focus:border-primary focus:outline-none"
-                      defaultValue=""
-                    >
-                      <option value="" disabled>
-                        {assigningPedido === selectedPedido.id ? "Asignando..." : "⚠️ Asignar motorizado..."}
-                      </option>
-                      {motorizados.map((m) => (
-                        <option key={m.id} value={m.full_name}>
-                          {m.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="text-sm text-muted-foreground">
-                      🏍️ <span className="font-medium">{selectedPedido.motorizado_asignado}</span>
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
+      case "novedades":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            <NovedadesPanel pedidos={pedidos} onPedidoClick={(p) => setSelectedPedido(p as Pedido)} />
           </motion.div>
-        )}
+        );
 
-        {/* Users Tab */}
-        {activeTab === "users" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      case "inventario":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Warehouse className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-bold text-foreground">Inventario de Bodega</h3>
+              <p className="text-muted-foreground mt-2">Módulo en desarrollo</p>
+            </div>
+          </motion.div>
+        );
+
+      case "liquidaciones":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <DollarSign className="h-16 w-16 text-muted-foreground mb-4" />
+              <h3 className="text-xl font-bold text-foreground">Liquidaciones</h3>
+              <p className="text-muted-foreground mt-2">Módulo en desarrollo</p>
+            </div>
+          </motion.div>
+        );
+
+      case "configuracion":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
             <div className="mb-4 flex justify-between items-center">
-              <h2 className="font-bold text-foreground">Gestión de Usuarios</h2>
+              <h2 className="font-bold text-foreground text-lg">Gestión de Usuarios</h2>
               <button
                 onClick={() => setShowCreateUser(true)}
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
@@ -1053,37 +774,23 @@ const AdminDashboard = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 border-b border-border">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">
-                        Nombre
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">
-                        Email
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">
-                        Teléfono
-                      </th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">
-                        Acciones
-                      </th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">Nombre</th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">Email</th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Teléfono</th>
+                      <th className="px-4 py-3 text-left font-semibold text-foreground">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {users.map((user) => (
                       <tr key={user.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium text-foreground">
-                          {user.full_name}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {user.email || "-"}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
-                          {user.phone || "-"}
-                        </td>
+                        <td className="px-4 py-3 font-medium text-foreground">{user.full_name}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{user.email || "-"}</td>
+                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{user.phone || "-"}</td>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => confirmUserEmail(user.user_id)}
                             className="inline-flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
-                            title="Confirmar email para permitir inicio de sesión inmediato"
+                            title="Confirmar email"
                           >
                             <UserCheck className="h-4 w-4" />
                             Confirmar
@@ -1095,36 +802,87 @@ const AdminDashboard = () => {
                 </table>
               </div>
               {users.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground">
-                  No hay usuarios registrados
-                </div>
+                <div className="p-8 text-center text-muted-foreground">No hay usuarios registrados</div>
               )}
             </div>
           </motion.div>
-        )}
-      </main>
+        );
 
-      {/* Create User Modal */}
-      <CreateUserModal
-        isOpen={showCreateUser}
-        onClose={() => setShowCreateUser(false)}
-        onUserCreated={fetchUsers}
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex bg-background">
+      {/* Sidebar */}
+      <AdminSidebar 
+        activeSection={activeSection} 
+        onSectionChange={setActiveSection}
+        novedadesCount={stats.novedad}
       />
 
-      {/* Nuevo Pedido Modal */}
-      <NuevoPedidoModal
-        isOpen={showNuevoPedido}
-        onClose={() => setShowNuevoPedido(false)}
-        onSuccess={fetchPedidos}
-        isAdmin={true}
-      />
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col min-h-screen overflow-hidden">
+        {/* Header */}
+        <header className="sticky top-0 z-40 border-b border-border bg-white">
+          <div className="flex h-16 items-center justify-between px-4">
+            {/* Stats Row */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-sm">
+                <Package className="h-4 w-4 text-primary" />
+                <span className="font-bold">{stats.total}</span>
+                <span className="text-muted-foreground hidden sm:inline">Total</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-amber-600">
+                <AlertTriangle className="h-4 w-4" />
+                <span className="font-bold">{stats.unassigned}</span>
+                <span className="hidden sm:inline">Sin Asignar</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-sky-600">
+                <Truck className="h-4 w-4" />
+                <span className="font-bold">{stats.inTransit}</span>
+                <span className="hidden sm:inline">En Ruta</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                <span className="font-bold">{stats.delivered}</span>
+                <span className="hidden sm:inline">Entregados</span>
+              </div>
+            </div>
 
-      {/* QR Scanner Modal */}
-      <QRScannerModal
-        isOpen={showQRScanner}
-        onClose={() => setShowQRScanner(false)}
-        onSuccess={fetchPedidos}
-      />
+            <div className="flex items-center gap-3">
+              {newOrdersCount > 0 && (
+                <button
+                  onClick={clearNewOrdersNotification}
+                  className="relative flex items-center gap-2 rounded-full bg-green-500 px-3 py-1.5 text-white animate-pulse"
+                >
+                  <Bell className="h-4 w-4" />
+                  <span className="text-sm font-bold">{newOrdersCount} nuevo(s)</span>
+                </button>
+              )}
+              <span className="text-sm text-muted-foreground hidden sm:inline">{profile?.full_name}</span>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Salir</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Area */}
+        <main className="flex-1 overflow-auto relative bg-muted/30">
+          {renderMainContent()}
+        </main>
+      </div>
+
+      {/* Modals */}
+      <CreateUserModal isOpen={showCreateUser} onClose={() => setShowCreateUser(false)} onUserCreated={fetchUsers} />
+      <NuevoPedidoModal isOpen={showNuevoPedido} onClose={() => setShowNuevoPedido(false)} onSuccess={fetchPedidos} isAdmin={true} />
+      <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} onSuccess={fetchPedidos} />
     </div>
   );
 };

@@ -37,8 +37,8 @@ const WazeIcon = ({ className }: { className?: string }) => (
 const PedidoQuickActions = ({ pedido, userLocation }: PedidoQuickActionsProps) => {
   const [showNavSelector, setShowNavSelector] = useState(false);
 
-  // Only show actions when status is "En Ruta"
-  const isEnRuta = pedido.estado?.toLowerCase() === "en ruta";
+  // Show actions for active statuses (not delivered or liquidado)
+  const isActiveStatus = !["entregado", "liquidado"].includes(pedido.estado?.toLowerCase() || "");
 
   const openGoogleMaps = () => {
     const encodedOrigin = encodeURIComponent(BODEGA_ADDRESS);
@@ -106,8 +106,8 @@ const PedidoQuickActions = ({ pedido, userLocation }: PedidoQuickActionsProps) =
 
   const hasPhone = !!pedido.client_phone;
 
-  // Don't render actions if not "En Ruta"
-  if (!isEnRuta) {
+  // Don't render actions if delivered or liquidado
+  if (!isActiveStatus) {
     return null;
   }
 
