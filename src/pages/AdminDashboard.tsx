@@ -39,6 +39,7 @@ import QRScannerModal from "@/components/QRScannerModal";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
 import { Button } from "@/components/ui/button";
 import { getStatusConfig, ALL_STATUSES } from "@/lib/orderStatuses";
+import AdminNotesInput from "@/components/AdminNotesInput";
 
 interface Pedido {
   id: number;
@@ -758,6 +759,12 @@ const AdminDashboard = () => {
       case "configuracion":
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            {/* Admin Notes Section */}
+            <div className="mb-8">
+              <h2 className="font-bold text-foreground text-lg mb-4">📢 Notas para Motorizados</h2>
+              <AdminNotesInput />
+            </div>
+
             <div className="mb-4 flex justify-between items-center">
               <h2 className="font-bold text-foreground text-lg">Gestión de Usuarios</h2>
               <button
