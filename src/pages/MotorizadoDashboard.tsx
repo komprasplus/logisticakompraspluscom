@@ -16,6 +16,7 @@ import {
   Map,
   RefreshCw,
   Share2,
+  Pen,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +27,8 @@ import logo from "@/assets/logo-kompras-plus.png";
 import MotorizadoMap from "@/components/MotorizadoMap";
 import PedidoQuickActions from "@/components/PedidoQuickActions";
 import BodegaSupportButton from "@/components/BodegaSupportButton";
+import SignatureCanvas from "@/components/SignatureCanvas";
+import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig } from "@/lib/orderStatuses";
 
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
 
@@ -42,8 +45,14 @@ interface Pedido {
   longitud: number | null;
   producto_nombre: string | null;
   zona: string | null;
+  tipo_novedad?: string | null;
+  firma_cliente?: string | null;
+  foto_paquete?: string | null;
 }
 
+// Warehouse coordinates for sorting
+const BODEGA_LAT = 4.6066;
+const BODEGA_LNG = -74.0747;
 const BODEGA_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá, Colombia";
 const SUPPORT_PHONE = "324 222 3825";
 const GEOFENCE_RADIUS = 200; // 200 meters
@@ -56,11 +65,18 @@ const MotorizadoDashboard = () => {
   const [updating, setUpdating] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
+  const [packagePhoto, setPackagePhoto] = useState<string | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showNovedadModal, setShowNovedadModal] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [selectedNovedadType, setSelectedNovedadType] = useState<NovedadType | null>(null);
   const [novedadReason, setNovedadReason] = useState("");
+  const [novedadPhoto, setNovedadPhoto] = useState<string | null>(null);
   const [showMapView, setShowMapView] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const novedadPhotoRef = useRef<HTMLInputElement>(null);
+  const packagePhotoRef = useRef<HTMLInputElement>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -81,7 +97,7 @@ const MotorizadoDashboard = () => {
     fetchPedidos();
   }, []);
 
-  // Sort and filter pedidos - prioritize by proximity to current location
+  // Sort and filter pedidos - prioritize by proximity to current location or bodega
   useEffect(() => {
     let filtered = [...pedidos];
 
@@ -89,62 +105,48 @@ const MotorizadoDashboard = () => {
       filtered = filtered.filter((p) => p.corte_horario === activeFilter);
     }
 
-    // Sort by proximity if user location is available
-    if (userLocation) {
-      filtered.sort((a, b) => {
-        // First, prioritize non-delivered orders
-        const aDelivered = a.estado?.toLowerCase() === "entregado";
-        const bDelivered = b.estado?.toLowerCase() === "entregado";
-        if (aDelivered && !bDelivered) return 1;
-        if (!aDelivered && bDelivered) return -1;
+    // Get reference point (user location or bodega)
+    const refLat = userLocation?.lat ?? BODEGA_LAT;
+    const refLng = userLocation?.lng ?? BODEGA_LNG;
 
-        // If both have coordinates, sort by distance
-        const aHasCoords = a.latitud != null && a.longitud != null;
-        const bHasCoords = b.latitud != null && b.longitud != null;
+    // Sort by proximity
+    filtered.sort((a, b) => {
+      // First, prioritize non-delivered orders
+      const aDelivered = a.estado?.toLowerCase() === "entregado";
+      const bDelivered = b.estado?.toLowerCase() === "entregado";
+      if (aDelivered && !bDelivered) return 1;
+      if (!aDelivered && bDelivered) return -1;
 
-        if (aHasCoords && bHasCoords) {
-          const distA = calculateDistance(
-            userLocation.lat,
-            userLocation.lng,
-            a.latitud!,
-            a.longitud!
-          );
-          const distB = calculateDistance(
-            userLocation.lat,
-            userLocation.lng,
-            b.latitud!,
-            b.longitud!
-          );
-          return distA - distB;
-        }
+      // Then prioritize non-novedad orders
+      const aNovedad = a.estado?.toLowerCase().includes("novedad");
+      const bNovedad = b.estado?.toLowerCase().includes("novedad");
+      if (aNovedad && !bNovedad) return 1;
+      if (!aNovedad && bNovedad) return -1;
 
-        // Orders with coordinates first
-        if (aHasCoords && !bHasCoords) return -1;
-        if (!aHasCoords && bHasCoords) return 1;
+      // If both have coordinates, sort by distance
+      const aHasCoords = a.latitud != null && a.longitud != null;
+      const bHasCoords = b.latitud != null && b.longitud != null;
 
-        // Fallback to corte_horario
-        const corteOrder: { [key: string]: number } = {
-          "Corte 1": 1,
-          "Corte 2": 2,
-          "Corte 3": 3,
-        };
-        const orderA = corteOrder[a.corte_horario || ""] || 99;
-        const orderB = corteOrder[b.corte_horario || ""] || 99;
-        return orderA - orderB;
-      });
-    } else {
-      // Fallback sort by corte_horario
+      if (aHasCoords && bHasCoords) {
+        const distA = calculateDistance(refLat, refLng, a.latitud!, a.longitud!);
+        const distB = calculateDistance(refLat, refLng, b.latitud!, b.longitud!);
+        return distA - distB;
+      }
+
+      // Orders with coordinates first
+      if (aHasCoords && !bHasCoords) return -1;
+      if (!aHasCoords && bHasCoords) return 1;
+
+      // Fallback to corte_horario
       const corteOrder: { [key: string]: number } = {
         "Corte 1": 1,
         "Corte 2": 2,
         "Corte 3": 3,
       };
-      filtered.sort((a, b) => {
-        const orderA = corteOrder[a.corte_horario || ""] || 99;
-        const orderB = corteOrder[b.corte_horario || ""] || 99;
-        return orderA - orderB;
-      });
-    }
+      const orderA = corteOrder[a.corte_horario || ""] || 99;
+      const orderB = corteOrder[b.corte_horario || ""] || 99;
+      return orderA - orderB;
+    });
 
     setFilteredPedidos(filtered);
   }, [activeFilter, pedidos, userLocation]);
@@ -230,7 +232,10 @@ const MotorizadoDashboard = () => {
   };
 
   const confirmDelivery = async () => {
-    if (!selectedPedido || !capturedPhoto) {
+    if (!selectedPedido) return;
+
+    // Check if we have at least the evidence photo
+    if (!capturedPhoto) {
       toast.error("Debes tomar una foto de evidencia");
       return;
     }
@@ -242,6 +247,9 @@ const MotorizadoDashboard = () => {
         .update({
           estado: "Entregado",
           foto_evidencia: capturedPhoto,
+          foto_paquete: packagePhoto || null,
+          firma_cliente: signature || null,
+          fecha_actualizacion: new Date().toISOString(),
         })
         .eq("id", selectedPedido.id);
 
@@ -250,15 +258,24 @@ const MotorizadoDashboard = () => {
       setPedidos((prev) =>
         prev.map((p) =>
           p.id === selectedPedido.id
-            ? { ...p, estado: "Entregado", foto_evidencia: capturedPhoto }
+            ? { 
+                ...p, 
+                estado: "Entregado", 
+                foto_evidencia: capturedPhoto,
+                foto_paquete: packagePhoto,
+                firma_cliente: signature,
+              }
             : p
         )
       );
 
       setSelectedPedido(null);
       setShowPhotoModal(false);
+      setShowSignatureModal(false);
       setCapturedPhoto(null);
-      toast.success("Pedido marcado como Entregado con evidencia");
+      setPackagePhoto(null);
+      setSignature(null);
+      toast.success("✅ Pedido entregado exitosamente con firma y evidencia");
     } catch (error) {
       console.error("Error updating estado:", error);
       toast.error("Error al actualizar el estado");
@@ -276,19 +293,68 @@ const MotorizadoDashboard = () => {
     }
 
     setShowNovedadModal(true);
+    setSelectedNovedadType(null);
     setNovedadReason("");
+    setNovedadPhoto(null);
+  };
+
+  const handleNovedadPhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNovedadPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handlePackagePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPackagePhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const confirmNovedad = async () => {
-    if (!selectedPedido) return;
+    if (!selectedPedido || !selectedNovedadType) {
+      toast.error("Selecciona el tipo de novedad");
+      return;
+    }
+
+    // Check if photo is required
+    const requiresPhoto = NOVEDADES_REQUIRE_PHOTO.includes(selectedNovedadType);
+    if (requiresPhoto && !novedadPhoto) {
+      toast.error("Esta novedad requiere foto de evidencia obligatoria");
+      return;
+    }
 
     setUpdating(true);
     try {
+      const updateData: any = {
+        estado: "Novedad",
+        tipo_novedad: selectedNovedadType,
+        fecha_actualizacion: new Date().toISOString(),
+      };
+
+      // Capture GPS coordinates
+      if (userLocation) {
+        updateData.novedad_latitud = userLocation.lat;
+        updateData.novedad_longitud = userLocation.lng;
+      }
+
+      // Add photo if provided
+      if (novedadPhoto) {
+        updateData.foto_evidencia = novedadPhoto;
+      }
+
       const { error } = await supabase
         .from("pedidos")
-        .update({
-          estado: `Novedad: ${novedadReason || "Sin especificar"}`,
-        })
+        .update(updateData)
         .eq("id", selectedPedido.id);
 
       if (error) throw error;
@@ -296,21 +362,38 @@ const MotorizadoDashboard = () => {
       setPedidos((prev) =>
         prev.map((p) =>
           p.id === selectedPedido.id
-            ? { ...p, estado: `Novedad: ${novedadReason || "Sin especificar"}` }
+            ? { 
+                ...p, 
+                estado: "Novedad",
+                tipo_novedad: selectedNovedadType,
+                foto_evidencia: novedadPhoto || p.foto_evidencia,
+              }
             : p
         )
       );
 
       setSelectedPedido(null);
       setShowNovedadModal(false);
+      setSelectedNovedadType(null);
       setNovedadReason("");
-      toast.success("Novedad reportada correctamente");
+      setNovedadPhoto(null);
+      toast.success("⚠️ Novedad reportada - Pin actualizado a naranja");
     } catch (error) {
       console.error("Error updating estado:", error);
       toast.error("Error al reportar novedad");
     } finally {
       setUpdating(false);
     }
+  };
+
+  const openSignatureModal = () => {
+    if (!selectedPedido) return;
+    setShowSignatureModal(true);
+  };
+
+  const handleSignatureSave = (signatureData: string) => {
+    setSignature(signatureData);
+    setShowSignatureModal(false);
   };
 
   const openGoogleMaps = (pedido: Pedido) => {
@@ -965,7 +1048,7 @@ const MotorizadoDashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Novedad Modal */}
+      {/* Novedad Modal - Updated with options */}
       <AnimatePresence>
         {showNovedadModal && (
           <motion.div
@@ -975,39 +1058,86 @@ const MotorizadoDashboard = () => {
             exit={{ opacity: 0 }}
             onClick={() => {
               setShowNovedadModal(false);
-              setNovedadReason("");
+              setSelectedNovedadType(null);
+              setNovedadPhoto(null);
             }}
           >
             <motion.div
-              className="w-full max-w-sm rounded-3xl bg-card p-6"
+              className="w-full max-w-sm rounded-3xl bg-card p-6 max-h-[90vh] overflow-y-auto"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-xl font-bold text-foreground mb-4">
-                Reportar Novedad
+                ⚠️ Reportar Novedad
               </h3>
 
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm font-medium text-foreground">
-                    Motivo de la novedad
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    Tipo de novedad
                   </label>
-                  <textarea
-                    value={novedadReason}
-                    onChange={(e) => setNovedadReason(e.target.value)}
-                    placeholder="Ej: Cliente no se encontraba, dirección incorrecta, etc."
-                    className="mt-2 w-full rounded-xl border border-border bg-background p-3 text-sm focus:border-primary focus:outline-none resize-none"
-                    rows={3}
-                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    {NOVEDAD_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => setSelectedNovedadType(option.value)}
+                        className={`p-3 rounded-xl text-sm font-medium transition-all ${
+                          selectedNovedadType === option.value
+                            ? "bg-orange-500 text-white"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                      >
+                        {option.label}
+                        {option.requiresPhoto && <span className="block text-xs opacity-75">📷 Requiere foto</span>}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {/* Photo for novedad */}
+                {selectedNovedadType && NOVEDADES_REQUIRE_PHOTO.includes(selectedNovedadType) && (
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">
+                      📷 Foto de evidencia (obligatoria)
+                    </label>
+                    <input
+                      ref={novedadPhotoRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleNovedadPhotoCapture}
+                      className="hidden"
+                    />
+                    {novedadPhoto ? (
+                      <div className="relative">
+                        <img src={novedadPhoto} alt="Evidencia" className="w-full h-32 object-cover rounded-xl" />
+                        <button
+                          onClick={() => novedadPhotoRef.current?.click()}
+                          className="absolute bottom-2 right-2 bg-white/80 px-2 py-1 rounded text-xs"
+                        >
+                          Cambiar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => novedadPhotoRef.current?.click()}
+                        className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-orange-400 py-6 text-orange-600"
+                      >
+                        <Camera className="h-6 w-6" />
+                        <span>Tomar foto de evidencia</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-2 gap-3 pt-2">
                   <button
                     onClick={() => {
                       setShowNovedadModal(false);
-                      setNovedadReason("");
+                      setSelectedNovedadType(null);
+                      setNovedadPhoto(null);
                     }}
                     className="rounded-xl bg-muted py-3 font-medium text-muted-foreground"
                   >
@@ -1015,8 +1145,8 @@ const MotorizadoDashboard = () => {
                   </button>
                   <button
                     onClick={confirmNovedad}
-                    disabled={updating}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-red-500 py-3 font-bold text-white disabled:opacity-50"
+                    disabled={updating || !selectedNovedadType}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-orange-500 py-3 font-bold text-white disabled:opacity-50"
                   >
                     {updating ? (
                       <Loader2 className="h-5 w-5 animate-spin" />
@@ -1033,6 +1163,41 @@ const MotorizadoDashboard = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Signature Modal */}
+      <AnimatePresence>
+        {showSignatureModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="w-full max-w-sm rounded-3xl bg-card p-6"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <SignatureCanvas
+                onSave={handleSignatureSave}
+                onCancel={() => setShowSignatureModal(false)}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hidden inputs for package photo */}
+      <input
+        ref={packagePhotoRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handlePackagePhotoCapture}
+        className="hidden"
+      />
     </div>
   );
 };

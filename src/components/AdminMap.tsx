@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { getMapMarkerColor, getStatusConfig } from "@/lib/orderStatuses";
 
 // Fix for default markers in Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -9,6 +10,9 @@ L.Icon.Default.mergeOptions({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
+
+// Warehouse coordinates
+const BODEGA_COORDS: L.LatLngExpression = [4.6066, -74.0747];
 
 interface Pedido {
   id: number;
@@ -19,35 +23,27 @@ interface Pedido {
   latitud: number | null;
   longitud: number | null;
   motorizado_asignado: string | null;
+  tipo_novedad?: string | null;
 }
 
 interface AdminMapProps {
   pedidos: Pedido[];
+  onPedidoClick?: (pedido: Pedido) => void;
+  selectedPedidoId?: number | null;
 }
 
-const AdminMap = ({ pedidos }: AdminMapProps) => {
+const AdminMap = ({ pedidos, onPedidoClick, selectedPedidoId }: AdminMapProps) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<L.Marker[]>([]);
+  const warehouseMarkerRef = useRef<L.Marker | null>(null);
 
   // Bogotá center coordinates
   const bogotaCenter: L.LatLngExpression = [4.6097, -74.0817];
 
   // Get marker color based on assignment and status
   const getMarkerColor = (pedido: Pedido): string => {
-    // Unassigned = gray
-    if (!pedido.motorizado_asignado) {
-      return "#9ca3af"; // gray-400
-    }
-
-    const s = pedido.estado?.toLowerCase();
-    
-    // Assigned - color by status
-    if (s === "entregado") return "#22c55e"; // green
-    if (s === "cancelado" || s?.includes("novedad")) return "#ef4444"; // red
-    if (s === "en ruta" || s === "en camino") return "#3b82f6"; // blue
-    
-    return "#f59e0b"; // amber for pending
+    return getMapMarkerColor(pedido.estado, !!pedido.motorizado_asignado);
   };
 
   const createIcon = (color: string, isUnassigned: boolean) => {
@@ -93,21 +89,21 @@ const AdminMap = ({ pedidos }: AdminMapProps) => {
       return "background: #9ca3af; color: white;";
     }
 
-    const s = pedido.estado?.toLowerCase();
-    switch (s) {
-      case "entregado":
-        return "background: #22c55e; color: white;";
-      case "en ruta":
-      case "en camino":
-        return "background: #3b82f6; color: white;";
-      case "cancelado":
-        return "background: #ef4444; color: white;";
-      default:
-        if (s?.includes("novedad")) {
-          return "background: #ef4444; color: white;";
-        }
-        return "background: #f59e0b; color: white;";
-    }
+    const config = getStatusConfig(pedido.estado);
+    return `background: ${config.color}; color: white;`;
+  };
+
+  const createWarehouseIcon = () => {
+    return L.divIcon({
+      className: "warehouse-icon",
+      html: `
+        <div style="background-color: #1e293b; width: 40px; height: 40px; border-radius: 8px; border: 3px solid white; box-shadow: 0 2px 12px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;">
+          <span style="font-size: 20px;">🏭</span>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+    });
   };
 
   useEffect(() => {
@@ -121,6 +117,19 @@ const AdminMap = ({ pedidos }: AdminMapProps) => {
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       }).addTo(mapRef.current);
+
+      // Add warehouse marker
+      warehouseMarkerRef.current = L.marker(BODEGA_COORDS, {
+        icon: createWarehouseIcon(),
+      })
+        .bindPopup(`
+          <div style="font-size: 12px; min-width: 140px;">
+            <p style="font-weight: bold; margin: 0 0 4px 0;">🏭 Bodega Principal</p>
+            <p style="margin: 0; color: #6b7280; font-size: 11px;">Carrera 20 # 14-30 Local 212</p>
+            <p style="margin: 4px 0 0 0; color: #3b82f6; font-size: 11px;">📞 324 222 3825</p>
+          </div>
+        `)
+        .addTo(mapRef.current);
     }
 
     return () => {
@@ -151,18 +160,25 @@ const AdminMap = ({ pedidos }: AdminMapProps) => {
     validPedidos.forEach((pedido) => {
       const isUnassigned = !pedido.motorizado_asignado;
       const color = getMarkerColor(pedido);
+      const isSelected = selectedPedidoId === pedido.id;
+      const statusConfig = getStatusConfig(pedido.estado);
 
       const marker = L.marker([Number(pedido.latitud), Number(pedido.longitud)], {
         icon: createIcon(color, isUnassigned),
+        zIndexOffset: isSelected ? 1000 : 0,
       });
 
       const statusLabel = isUnassigned
         ? "Sin Asignar"
-        : pedido.estado || "Sin estado";
+        : statusConfig.label;
+
+      const novedadInfo = pedido.tipo_novedad 
+        ? `<p style="margin: 4px 0 0 0; color: #f97316; font-size: 11px;">📋 ${pedido.tipo_novedad}</p>` 
+        : "";
 
       const popupContent = `
-        <div style="font-size: 12px; min-width: 180px;">
-          <p style="font-weight: bold; margin: 0 0 4px 0;">${pedido.numero_guia || `#${pedido.id}`}</p>
+        <div style="font-size: 12px; min-width: 200px;">
+          <p style="font-weight: bold; margin: 0 0 4px 0;">${statusConfig.icon} ${pedido.numero_guia || `#${pedido.id}`}</p>
           <p style="margin: 0 0 4px 0; color: #374151;">${pedido.cliente_nombre || "Sin nombre"}</p>
           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 11px;">${pedido.direccion_entrega || "Sin dirección"}</p>
           ${
@@ -170,23 +186,38 @@ const AdminMap = ({ pedidos }: AdminMapProps) => {
               ? `<p style="margin: 0 0 8px 0; color: #3b82f6; font-size: 11px;">🏍️ ${pedido.motorizado_asignado}</p>`
               : `<p style="margin: 0 0 8px 0; color: #f59e0b; font-size: 11px; font-weight: bold;">⚠️ Pendiente de asignación</p>`
           }
-          <span style="display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 10px; ${getStatusBadgeStyle(pedido)}">
+          <span style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 500; ${getStatusBadgeStyle(pedido)}">
             ${statusLabel}
           </span>
+          ${novedadInfo}
         </div>
       `;
 
       marker.bindPopup(popupContent);
+      
+      if (onPedidoClick) {
+        marker.on('click', () => onPedidoClick(pedido));
+      }
+
       marker.addTo(mapRef.current!);
       markersRef.current.push(marker);
     });
-  }, [pedidos]);
+
+    // Fit bounds to show all markers including warehouse
+    if (validPedidos.length > 0) {
+      const bounds = L.latLngBounds(
+        validPedidos.map((p) => [Number(p.latitud), Number(p.longitud)] as L.LatLngTuple)
+      );
+      bounds.extend(BODEGA_COORDS);
+      mapRef.current.fitBounds(bounds, { padding: [40, 40] });
+    }
+  }, [pedidos, selectedPedidoId, onPedidoClick]);
 
   return (
     <div
       ref={mapContainerRef}
-      className="h-full w-full"
-      style={{ minHeight: "500px" }}
+      className="h-full w-full rounded-xl"
+      style={{ minHeight: "100%" }}
     />
   );
 };

@@ -20,6 +20,10 @@ import {
   Filter,
   MapPinned,
   ScanLine,
+  RotateCcw,
+  ArrowLeftRight,
+  DollarSign,
+  Warehouse,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +36,7 @@ import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import QRScannerModal from "@/components/QRScannerModal";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
 import { Button } from "@/components/ui/button";
+import { getStatusConfig, ALL_STATUSES } from "@/lib/orderStatuses";
 
 interface Pedido {
   id: number;
@@ -49,6 +54,9 @@ interface Pedido {
   producto_nombre: string | null;
   valor_recaudar: number | null;
   zona: string | null;
+  tipo_novedad: string | null;
+  firma_cliente: string | null;
+  foto_paquete: string | null;
 }
 
 interface Profile {
@@ -69,7 +77,8 @@ const AdminDashboard = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"orders" | "map" | "users">("orders");
+  const [activeTab, setActiveTab] = useState<"map" | "orders" | "users">("map");
+  const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [barrioFilter, setBarrioFilter] = useState<string>("todos");
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>("todos");
@@ -414,83 +423,36 @@ const AdminDashboard = () => {
     );
   };
 
-  // Status badge with icon
+  // Status badge with icon - using centralized config
   const StatusBadge = ({ status }: { status: string | null }) => {
-    const s = status?.toLowerCase();
+    const config = getStatusConfig(status);
 
-    const getConfig = () => {
+    const getIcon = () => {
+      const s = status?.toLowerCase();
       switch (s) {
-        case "entregado":
-          return {
-            icon: CheckCircle2,
-            bg: "bg-green-500",
-            text: "text-white",
-            label: "Entregado",
-            shortLabel: "OK",
-          };
+        case "recibido en bodega": return Warehouse;
+        case "asignado": return CheckCircle2;
         case "en ruta":
-        case "en camino":
-          return {
-            icon: Truck,
-            bg: "bg-primary",
-            text: "text-primary-foreground",
-            label: "En Ruta",
-            shortLabel: "Ruta",
-          };
-        case "pendiente":
-          return {
-            icon: Clock,
-            bg: "bg-amber-500",
-            text: "text-white",
-            label: "Pendiente",
-            shortLabel: "Pend",
-          };
-        case "en bodega":
-          return {
-            icon: Box,
-            bg: "bg-secondary",
-            text: "text-secondary-foreground",
-            label: "En Bodega",
-            shortLabel: "Bod",
-          };
-        case "cancelado":
-          return {
-            icon: XCircle,
-            bg: "bg-destructive",
-            text: "text-destructive-foreground",
-            label: "Cancelado",
-            shortLabel: "Canc",
-          };
+        case "en camino": return Truck;
+        case "entregado": return CheckCircle2;
+        case "rechazado": return XCircle;
+        case "devolución": return RotateCcw;
+        case "liquidado": return DollarSign;
         default:
-          if (s?.includes("novedad")) {
-            return {
-              icon: AlertTriangle,
-              bg: "bg-orange-500",
-              text: "text-white",
-              label: "Novedad",
-              shortLabel: "Nov",
-            };
-          }
-          return {
-            icon: Package,
-            bg: "bg-muted",
-            text: "text-muted-foreground",
-            label: status || "Sin estado",
-            shortLabel: "—",
-          };
+          if (s?.includes("novedad")) return AlertTriangle;
+          return Package;
       }
     };
 
-    const config = getConfig();
-    const Icon = config.icon;
+    const Icon = getIcon();
 
     return (
       <span
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${config.bg} ${config.text}`}
+        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${config.bgColor} ${config.textColor}`}
       >
         <Icon className="h-3 w-3" />
         <span className="hidden sm:inline">{config.label}</span>
-        <span className="sm:hidden">{config.shortLabel}</span>
+        <span className="sm:hidden">{config.label.substring(0, 4)}</span>
       </span>
     );
   };
@@ -498,13 +460,15 @@ const AdminDashboard = () => {
   const stats = {
     total: pedidos.length,
     pending: pedidos.filter(
-      (p) => !p.motorizado_asignado || p.estado?.toLowerCase() === "pendiente" || p.estado?.toLowerCase() === "en bodega"
+      (p) => !p.motorizado_asignado || p.estado?.toLowerCase() === "recibido en bodega"
     ).length,
     unassigned: pedidos.filter((p) => !p.motorizado_asignado).length,
     inTransit: pedidos.filter(
       (p) => p.estado?.toLowerCase() === "en ruta" || p.estado?.toLowerCase() === "en camino"
     ).length,
     delivered: pedidos.filter((p) => p.estado?.toLowerCase() === "entregado").length,
+    novedad: pedidos.filter((p) => p.estado?.toLowerCase().includes("novedad")).length,
+    liquidado: pedidos.filter((p) => p.estado?.toLowerCase() === "liquidado").length,
   };
 
   return (
@@ -543,58 +507,65 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      <main className="container px-4 py-6">
-        {/* Stats Cards */}
+      <main className="container px-4 py-4">
+        {/* Stats Cards - More compact */}
         <motion.div
-          className="mb-6 grid grid-cols-2 sm:grid-cols-5 gap-3"
+          className="mb-4 grid grid-cols-3 sm:grid-cols-6 gap-2"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <div className="rounded-xl bg-card p-4 shadow-card">
-            <div className="flex items-center gap-2 mb-2">
-              <Package className="h-5 w-5 text-primary" />
-              <span className="text-sm text-muted-foreground">Total</span>
+          <div className="rounded-xl bg-card p-3 shadow-card">
+            <div className="flex items-center gap-1 mb-1">
+              <Package className="h-4 w-4 text-primary" />
+              <span className="text-xs text-muted-foreground">Total</span>
             </div>
-            <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+            <p className="text-xl font-bold text-foreground">{stats.total}</p>
           </div>
           <div
-            className="rounded-xl bg-amber-500/20 p-4 shadow-card cursor-pointer hover:ring-2 ring-amber-500 transition-all"
+            className="rounded-xl bg-amber-500/20 p-3 shadow-card cursor-pointer hover:ring-2 ring-amber-500 transition-all"
             onClick={() => setStatusFilter("sin_asignar")}
           >
-            <div className="flex items-center gap-2 mb-2">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
-              <span className="text-sm text-muted-foreground">Sin Asignar</span>
+            <div className="flex items-center gap-1 mb-1">
+              <AlertTriangle className="h-4 w-4 text-amber-600" />
+              <span className="text-xs text-muted-foreground">Sin Asignar</span>
             </div>
-            <p className="text-2xl font-bold text-amber-600">{stats.unassigned}</p>
+            <p className="text-xl font-bold text-amber-600">{stats.unassigned}</p>
           </div>
-          <div className="rounded-xl bg-secondary/20 p-4 shadow-card">
-            <div className="flex items-center gap-2 mb-2">
-              <Clock className="h-5 w-5 text-secondary-foreground" />
-              <span className="text-sm text-muted-foreground">Pendientes</span>
+          <div className="rounded-xl bg-sky-500/20 p-3 shadow-card">
+            <div className="flex items-center gap-1 mb-1">
+              <Truck className="h-4 w-4 text-sky-600" />
+              <span className="text-xs text-muted-foreground">En Ruta</span>
             </div>
-            <p className="text-2xl font-bold text-secondary-foreground">{stats.pending}</p>
+            <p className="text-xl font-bold text-sky-600">{stats.inTransit}</p>
           </div>
-          <div className="rounded-xl bg-primary/20 p-4 shadow-card">
-            <div className="flex items-center gap-2 mb-2">
-              <Truck className="h-5 w-5 text-primary" />
-              <span className="text-sm text-muted-foreground">En Ruta</span>
+          <div className="rounded-xl bg-green-500/20 p-3 shadow-card">
+            <div className="flex items-center gap-1 mb-1">
+              <CheckCircle2 className="h-4 w-4 text-green-600" />
+              <span className="text-xs text-muted-foreground">Entregado</span>
             </div>
-            <p className="text-2xl font-bold text-primary">{stats.inTransit}</p>
+            <p className="text-xl font-bold text-green-600">{stats.delivered}</p>
           </div>
-          <div className="rounded-xl bg-green-500/20 p-4 shadow-card">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle2 className="h-5 w-5 text-green-600" />
-              <span className="text-sm text-muted-foreground">Entregados</span>
+          <div className="rounded-xl bg-orange-500/20 p-3 shadow-card">
+            <div className="flex items-center gap-1 mb-1">
+              <AlertTriangle className="h-4 w-4 text-orange-600" />
+              <span className="text-xs text-muted-foreground">Novedad</span>
             </div>
-            <p className="text-2xl font-bold text-green-600">{stats.delivered}</p>
+            <p className="text-xl font-bold text-orange-600">{stats.novedad}</p>
+          </div>
+          <div className="rounded-xl bg-teal-500/20 p-3 shadow-card">
+            <div className="flex items-center gap-1 mb-1">
+              <DollarSign className="h-4 w-4 text-teal-600" />
+              <span className="text-xs text-muted-foreground">Liquidado</span>
+            </div>
+            <p className="text-xl font-bold text-teal-600">{stats.liquidado}</p>
           </div>
         </motion.div>
 
-        {/* Tabs */}
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-2">
+        {/* Tabs - Map first */}
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-2">
           {[
-            { key: "orders", label: "Pedidos", icon: Package },
             { key: "map", label: "Mapa", icon: Map },
+            { key: "orders", label: "Pedidos", icon: Package },
             { key: "users", label: "Usuarios", icon: Users },
           ].map((tab) => (
             <button
@@ -912,37 +883,154 @@ const AdminDashboard = () => {
           </motion.div>
         )}
 
-        {/* Map Tab */}
+        {/* Map Tab - Central Full Screen View */}
         {activeTab === "map" && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="rounded-xl bg-card shadow-card overflow-hidden"
           >
-            <div className="p-4 border-b border-border">
-              <h2 className="font-bold text-foreground">Mapa Logístico de Bogotá</h2>
-              <div className="flex flex-wrap gap-4 mt-2 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-gray-400"></div>
-                  <span className="text-muted-foreground">Sin Asignar</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                  <span className="text-muted-foreground">En Ruta</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                  <span className="text-muted-foreground">Entregado</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                  <span className="text-muted-foreground">Novedad</span>
-                </div>
+            <div className="p-3 border-b border-border flex flex-wrap items-center justify-between gap-2">
+              <h2 className="font-bold text-foreground text-lg">🗺️ Centro de Control Logístico</h2>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => setShowNuevoPedido(true)}
+                  className="gap-1"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nuevo
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowQRScanner(true)}
+                  className="gap-1"
+                >
+                  <ScanLine className="h-4 w-4" />
+                  QR
+                </Button>
               </div>
             </div>
-            <div className="h-[500px] relative">
-              <AdminMap pedidos={pedidos} />
+            
+            {/* Legend */}
+            <div className="px-3 py-2 bg-muted/30 border-b border-border flex flex-wrap gap-3 text-xs">
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded bg-slate-800"></div>
+                <span className="text-muted-foreground">🏭 Bodega</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-gray-400"></div>
+                <span className="text-muted-foreground">Sin Asignar</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-indigo-500"></div>
+                <span className="text-muted-foreground">En Bodega</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                <span className="text-muted-foreground">Asignado</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-sky-500"></div>
+                <span className="text-muted-foreground">En Ruta</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-muted-foreground">Entregado</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                <span className="text-muted-foreground">Novedad</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                <span className="text-muted-foreground">Rechazado</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                <span className="text-muted-foreground">Devolución</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-3 rounded-full bg-teal-500"></div>
+                <span className="text-muted-foreground">Liquidado</span>
+              </div>
             </div>
+            
+            {/* Full height map */}
+            <div className="h-[calc(100vh-320px)] min-h-[400px] relative">
+              <AdminMap 
+                pedidos={filteredPedidos} 
+                onPedidoClick={(p) => setSelectedPedido(p as Pedido)}
+                selectedPedidoId={selectedPedido?.id}
+              />
+            </div>
+
+            {/* Selected Pedido Quick Panel */}
+            <AnimatePresence>
+              {selectedPedido && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  className="absolute bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:w-80 bg-card rounded-xl shadow-elevated p-4 border border-border"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="font-bold text-foreground">
+                        {selectedPedido.numero_guia || `#${selectedPedido.id}`}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedPedido.cliente_nombre}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setSelectedPedido(null)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <XCircle className="h-5 w-5" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    📍 {selectedPedido.direccion_entrega}
+                  </p>
+                  <div className="flex items-center gap-2 mb-3">
+                    <StatusBadge status={selectedPedido.estado} />
+                    {selectedPedido.tipo_novedad && (
+                      <span className="text-xs text-orange-600">
+                        ({selectedPedido.tipo_novedad})
+                      </span>
+                    )}
+                  </div>
+                  {!selectedPedido.motorizado_asignado ? (
+                    <select
+                      disabled={assigningPedido === selectedPedido.id}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          assignMotorizado(selectedPedido.id, e.target.value);
+                          setSelectedPedido(null);
+                        }
+                      }}
+                      className="w-full rounded-lg border-2 border-amber-400 bg-card px-3 py-2 text-sm font-medium focus:border-primary focus:outline-none"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>
+                        {assigningPedido === selectedPedido.id ? "Asignando..." : "⚠️ Asignar motorizado..."}
+                      </option>
+                      {motorizados.map((m) => (
+                        <option key={m.id} value={m.full_name}>
+                          {m.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">
+                      🏍️ <span className="font-medium">{selectedPedido.motorizado_asignado}</span>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 

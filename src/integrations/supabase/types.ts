@@ -23,16 +23,22 @@ export type Database = {
           corte_horario: string | null
           direccion_entrega: string | null
           estado: string | null
+          fecha_actualizacion: string | null
           fecha_creacion: string | null
           fecha_entrega: string | null
+          firma_cliente: string | null
           foto_evidencia: string | null
+          foto_paquete: string | null
           id: number
           latitud: number | null
           longitud: number | null
           metodo_pago: string | null
           motorizado_asignado: string | null
+          novedad_latitud: number | null
+          novedad_longitud: number | null
           numero_guia: string | null
           producto_nombre: string | null
+          tipo_novedad: string | null
           valor_recaudar: number | null
           zona: string | null
         }
@@ -44,16 +50,22 @@ export type Database = {
           corte_horario?: string | null
           direccion_entrega?: string | null
           estado?: string | null
+          fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           fecha_entrega?: string | null
+          firma_cliente?: string | null
           foto_evidencia?: string | null
+          foto_paquete?: string | null
           id?: number
           latitud?: number | null
           longitud?: number | null
           metodo_pago?: string | null
           motorizado_asignado?: string | null
+          novedad_latitud?: number | null
+          novedad_longitud?: number | null
           numero_guia?: string | null
           producto_nombre?: string | null
+          tipo_novedad?: string | null
           valor_recaudar?: number | null
           zona?: string | null
         }
@@ -65,16 +77,22 @@ export type Database = {
           corte_horario?: string | null
           direccion_entrega?: string | null
           estado?: string | null
+          fecha_actualizacion?: string | null
           fecha_creacion?: string | null
           fecha_entrega?: string | null
+          firma_cliente?: string | null
           foto_evidencia?: string | null
+          foto_paquete?: string | null
           id?: number
           latitud?: number | null
           longitud?: number | null
           metodo_pago?: string | null
           motorizado_asignado?: string | null
+          novedad_latitud?: number | null
+          novedad_longitud?: number | null
           numero_guia?: string | null
           producto_nombre?: string | null
+          tipo_novedad?: string | null
           valor_recaudar?: number | null
           zona?: string | null
         }
