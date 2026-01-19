@@ -11,8 +11,8 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-// Warehouse coordinates
-const BODEGA_COORDS: L.LatLngExpression = [4.6066, -74.0747];
+// Warehouse coordinates - Carrera 20 # 14-30, Bogotá (Exact)
+const BODEGA_COORDS: L.LatLngExpression = [4.60922, -74.08463];
 
 interface Pedido {
   id: number;
@@ -97,21 +97,35 @@ const AdminMap = ({ pedidos, onPedidoClick, selectedPedidoId }: AdminMapProps) =
     return L.divIcon({
       className: "warehouse-icon",
       html: `
-        <div style="background-color: #1e293b; width: 40px; height: 40px; border-radius: 8px; border: 3px solid white; box-shadow: 0 2px 12px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;">
-          <span style="font-size: 20px;">🏭</span>
+        <div style="position: relative;">
+          <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(30,41,59,0.5) 0%, transparent 100%); border-radius: 14px; transform: translateY(5px); filter: blur(8px);"></div>
+          <div style="
+            position: relative;
+            background: linear-gradient(145deg, #334155 0%, #1e293b 100%);
+            width: 48px;
+            height: 48px;
+            border-radius: 14px;
+            border: 3px solid white;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), inset 0 2px 6px rgba(255,255,255,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            <span style="font-size: 24px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.4));">🏬</span>
+          </div>
         </div>
       `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
     });
   };
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Initialize map only once
+    // Initialize map only once - centered on warehouse
     if (!mapRef.current) {
-      mapRef.current = L.map(mapContainerRef.current).setView(bogotaCenter, 12);
+      mapRef.current = L.map(mapContainerRef.current).setView(BODEGA_COORDS, 14);
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution:
@@ -121,12 +135,13 @@ const AdminMap = ({ pedidos, onPedidoClick, selectedPedidoId }: AdminMapProps) =
       // Add warehouse marker
       warehouseMarkerRef.current = L.marker(BODEGA_COORDS, {
         icon: createWarehouseIcon(),
+        zIndexOffset: 1000, // Always on top
       })
         .bindPopup(`
-          <div style="font-size: 12px; min-width: 140px;">
-            <p style="font-weight: bold; margin: 0 0 4px 0;">🏭 Bodega Principal</p>
-            <p style="margin: 0; color: #6b7280; font-size: 11px;">Carrera 20 # 14-30 Local 212</p>
-            <p style="margin: 4px 0 0 0; color: #3b82f6; font-size: 11px;">📞 324 222 3825</p>
+          <div style="font-size: 13px; min-width: 180px; padding: 6px;">
+            <p style="font-weight: bold; margin: 0 0 8px 0; font-size: 15px;">🏬 Bodega Kompras Plus</p>
+            <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px;">📍 Carrera 20 # 14-30 Local 212</p>
+            <p style="margin: 0; color: #3b82f6; font-size: 12px;">📞 324 222 3825</p>
           </div>
         `)
         .addTo(mapRef.current);

@@ -113,61 +113,76 @@ const PedidoQuickActions = ({ pedido, userLocation }: PedidoQuickActionsProps) =
 
   return (
     <>
-      {/* Quick Actions Grid - Large touch-friendly buttons - Only visible when "En Ruta" */}
-      <div className="grid grid-cols-4 gap-2 mt-3">
-        {/* WhatsApp Button - Green */}
+      {/* Quick Actions Grid - Large touch-friendly buttons with 3D effect */}
+      <div className="grid grid-cols-4 gap-3 mt-4">
+        {/* WhatsApp Button - Green 3D */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             openWhatsApp();
           }}
           disabled={!hasPhone}
-          className="flex flex-col items-center justify-center gap-1 rounded-xl bg-[#25D366] p-3 text-white transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-md hover:shadow-lg min-h-[72px]"
+          className="group relative flex flex-col items-center justify-center gap-1.5 rounded-2xl p-3 text-white transition-all duration-200 active:scale-95 active:translate-y-1 disabled:opacity-40 disabled:cursor-not-allowed min-h-[80px]"
           aria-label="Enviar WhatsApp"
         >
-          <WhatsAppIcon className="h-7 w-7" />
-          <span className="text-[10px] font-bold">WhatsApp</span>
+          {/* Shadow layer */}
+          <div className="absolute inset-0 rounded-2xl bg-[#1a9b4a] translate-y-1.5 group-active:translate-y-0.5 transition-transform" />
+          {/* Main button with gradient */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-[#25D366] to-[#20bd5a] shadow-lg shadow-green-500/30" />
+          {/* Inner highlight */}
+          <div className="absolute inset-x-2 top-1 h-[40%] rounded-t-xl bg-gradient-to-b from-white/25 to-transparent" />
+          <WhatsAppIcon className="relative h-8 w-8 drop-shadow-md" />
+          <span className="relative text-[10px] font-bold drop-shadow-sm">WhatsApp</span>
         </button>
 
-        {/* Navigate Button - Blue */}
+        {/* Navigate Button - Blue 3D */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             setShowNavSelector(true);
           }}
-          className="flex flex-col items-center justify-center gap-1 rounded-xl bg-[#4285F4] p-3 text-white transition-all active:scale-95 shadow-md hover:shadow-lg min-h-[72px]"
+          className="group relative flex flex-col items-center justify-center gap-1.5 rounded-2xl p-3 text-white transition-all duration-200 active:scale-95 active:translate-y-1 min-h-[80px]"
           aria-label="Navegar"
         >
-          <Navigation className="h-7 w-7" />
-          <span className="text-[10px] font-bold">Navegar</span>
+          <div className="absolute inset-0 rounded-2xl bg-[#2563eb] translate-y-1.5 group-active:translate-y-0.5 transition-transform" />
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-[#4285F4] to-[#3b7ae8] shadow-lg shadow-blue-500/30" />
+          <div className="absolute inset-x-2 top-1 h-[40%] rounded-t-xl bg-gradient-to-b from-white/25 to-transparent" />
+          <Navigation className="relative h-8 w-8 drop-shadow-md" />
+          <span className="relative text-[10px] font-bold drop-shadow-sm">Navegar</span>
         </button>
 
-        {/* Call Button - Orange */}
+        {/* Call Button - Orange 3D */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             callClient();
           }}
           disabled={!hasPhone}
-          className="flex flex-col items-center justify-center gap-1 rounded-xl bg-[#FF6B35] p-3 text-white transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-md hover:shadow-lg min-h-[72px]"
+          className="group relative flex flex-col items-center justify-center gap-1.5 rounded-2xl p-3 text-white transition-all duration-200 active:scale-95 active:translate-y-1 disabled:opacity-40 disabled:cursor-not-allowed min-h-[80px]"
           aria-label="Llamar cliente"
         >
-          <Phone className="h-7 w-7" />
-          <span className="text-[10px] font-bold">Llamar</span>
+          <div className="absolute inset-0 rounded-2xl bg-[#d45520] translate-y-1.5 group-active:translate-y-0.5 transition-transform" />
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-[#FF6B35] to-[#f55d28] shadow-lg shadow-orange-500/30" />
+          <div className="absolute inset-x-2 top-1 h-[40%] rounded-t-xl bg-gradient-to-b from-white/25 to-transparent" />
+          <Phone className="relative h-8 w-8 drop-shadow-md" />
+          <span className="relative text-[10px] font-bold drop-shadow-sm">Llamar</span>
         </button>
 
-        {/* Share Route Button - Purple */}
+        {/* Share Route Button - Purple 3D */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             shareRoute();
           }}
           disabled={!hasPhone}
-          className="flex flex-col items-center justify-center gap-1 rounded-xl bg-[#7C3AED] p-3 text-white transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-md hover:shadow-lg min-h-[72px]"
+          className="group relative flex flex-col items-center justify-center gap-1.5 rounded-2xl p-3 text-white transition-all duration-200 active:scale-95 active:translate-y-1 disabled:opacity-40 disabled:cursor-not-allowed min-h-[80px]"
           aria-label="Compartir ruta"
         >
-          <Share2 className="h-7 w-7" />
-          <span className="text-[10px] font-bold leading-tight">Compartir</span>
+          <div className="absolute inset-0 rounded-2xl bg-[#5b21b6] translate-y-1.5 group-active:translate-y-0.5 transition-transform" />
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-[#7C3AED] to-[#6d28d9] shadow-lg shadow-purple-500/30" />
+          <div className="absolute inset-x-2 top-1 h-[40%] rounded-t-xl bg-gradient-to-b from-white/25 to-transparent" />
+          <Share2 className="relative h-8 w-8 drop-shadow-md" />
+          <span className="relative text-[10px] font-bold drop-shadow-sm leading-tight">Compartir</span>
         </button>
       </div>
 

@@ -26,8 +26,8 @@ interface MotorizadoMapProps {
   onPedidoClick?: (pedido: Pedido) => void;
 }
 
-// Warehouse coordinates (approximate for Carrera 20 # 14-30)
-const BODEGA_COORDS: L.LatLngExpression = [4.6066, -74.0747];
+// Warehouse coordinates - Carrera 20 # 14-30, Bogotá (Exact)
+const BODEGA_COORDS: L.LatLngExpression = [4.60922, -74.08463];
 
 const MotorizadoMap = ({ pedidos, userLocation, onPedidoClick }: MotorizadoMapProps) => {
   const mapRef = useRef<L.Map | null>(null);
@@ -80,12 +80,26 @@ const MotorizadoMap = ({ pedidos, userLocation, onPedidoClick }: MotorizadoMapPr
     return L.divIcon({
       className: "warehouse-icon",
       html: `
-        <div style="background-color: #1e293b; width: 36px; height: 36px; border-radius: 8px; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
-          <span style="font-size: 18px;">🏭</span>
+        <div style="position: relative;">
+          <div style="position: absolute; inset: 0; background: linear-gradient(180deg, rgba(30,41,59,0.4) 0%, transparent 100%); border-radius: 12px; transform: translateY(4px); filter: blur(6px);"></div>
+          <div style="
+            position: relative;
+            background: linear-gradient(145deg, #334155 0%, #1e293b 100%);
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            border: 3px solid white;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4), inset 0 2px 4px rgba(255,255,255,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            <span style="font-size: 22px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.3));">🏬</span>
+          </div>
         </div>
       `,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18],
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
     });
   };
 
@@ -104,9 +118,9 @@ const MotorizadoMap = ({ pedidos, userLocation, onPedidoClick }: MotorizadoMapPr
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Initialize map only once
+    // Initialize map only once - centered on warehouse with optimal zoom
     if (!mapRef.current) {
-      mapRef.current = L.map(mapContainerRef.current).setView(bogotaCenter, 12);
+      mapRef.current = L.map(mapContainerRef.current).setView(BODEGA_COORDS, 14);
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -115,11 +129,13 @@ const MotorizadoMap = ({ pedidos, userLocation, onPedidoClick }: MotorizadoMapPr
       // Add warehouse marker
       warehouseMarkerRef.current = L.marker(BODEGA_COORDS, {
         icon: createWarehouseIcon(),
+        zIndexOffset: 1000, // Always on top
       })
         .bindPopup(`
-          <div style="font-size: 12px; min-width: 120px;">
-            <p style="font-weight: bold; margin: 0 0 4px 0;">🏭 Bodega Principal</p>
-            <p style="margin: 0; color: #6b7280; font-size: 11px;">Carrera 20 # 14-30 Local 212</p>
+          <div style="font-size: 13px; min-width: 160px; padding: 4px;">
+            <p style="font-weight: bold; margin: 0 0 6px 0; font-size: 14px;">🏬 Bodega Kompras Plus</p>
+            <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px;">Carrera 20 # 14-30 Local 212</p>
+            <p style="margin: 0; color: #3b82f6; font-size: 12px;">📞 324 222 3825</p>
           </div>
         `)
         .addTo(mapRef.current);
