@@ -1,0 +1,270 @@
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { FileSpreadsheet, Store, Calendar, Download, Loader2, Filter } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import * as XLSX from "xlsx";
+
+interface Tienda {
+  user_id: string;
+  store_name: string | null;
+  full_name: string;
+}
+
+interface Pedido {
+  id: number;
+  numero_guia: string | null;
+  cliente_nombre: string | null;
+  direccion_entrega: string | null;
+  barrio: string | null;
+  zona: string | null;
+  valor_recaudar: number | null;
+  estado: string | null;
+  tipo_novedad: string | null;
+  metodo_pago: string | null;
+  fecha_creacion: string | null;
+  motorizado_asignado: string | null;
+  client_user_id: string | null;
+}
+
+const AdminReportesPanel = () => {
+  const [tiendas, setTiendas] = useState<Tienda[]>([]);
+  const [selectedTienda, setSelectedTienda] = useState<string>("todas");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [loadingTiendas, setLoadingTiendas] = useState(true);
+
+  useEffect(() => {
+    fetchTiendas();
+    // Set default date range to current month
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+    setStartDate(firstDay.toISOString().split("T")[0]);
+    setEndDate(now.toISOString().split("T")[0]);
+  }, []);
+
+  const fetchTiendas = async () => {
+    try {
+      // Get all clients (users with cliente role)
+      const { data: roles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "cliente");
+
+      if (rolesError) throw rolesError;
+
+      if (roles && roles.length > 0) {
+        const clienteIds = roles.map((r) => r.user_id);
+        
+        const { data: profiles, error: profilesError } = await supabase
+          .from("profiles")
+          .select("user_id, store_name, full_name")
+          .in("user_id", clienteIds);
+
+        if (profilesError) throw profilesError;
+        setTiendas(profiles || []);
+      }
+    } catch (error) {
+      console.error("Error fetching tiendas:", error);
+      toast.error("Error al cargar las tiendas");
+    } finally {
+      setLoadingTiendas(false);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    if (!startDate || !endDate) {
+      toast.error("Selecciona un rango de fechas");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      let query = supabase
+        .from("pedidos")
+        .select("*")
+        .gte("fecha_creacion", `${startDate}T00:00:00`)
+        .lte("fecha_creacion", `${endDate}T23:59:59`)
+        .order("fecha_creacion", { ascending: false });
+
+      // Filter by tienda if selected
+      if (selectedTienda !== "todas") {
+        query = query.eq("client_user_id", selectedTienda);
+      }
+
+      const { data: pedidos, error } = await query;
+
+      if (error) throw error;
+
+      if (!pedidos || pedidos.length === 0) {
+        toast.error("No hay pedidos en el rango seleccionado");
+        setLoading(false);
+        return;
+      }
+
+      // Find the tienda name for the report
+      const tiendaNombre = selectedTienda === "todas" 
+        ? "Todas las Tiendas"
+        : tiendas.find((t) => t.user_id === selectedTienda)?.store_name || 
+          tiendas.find((t) => t.user_id === selectedTienda)?.full_name ||
+          "Tienda";
+
+      // Prepare Excel data
+      const excelData = pedidos.map((p: Pedido) => ({
+        "Fecha": p.fecha_creacion 
+          ? new Date(p.fecha_creacion).toLocaleDateString("es-CO") 
+          : "-",
+        "N° Guía": p.numero_guia || `#${p.id}`,
+        "Cliente Final": p.cliente_nombre || "-",
+        "Ciudad/Zona": p.zona || "-",
+        "Barrio": p.barrio || "-",
+        "Dirección": p.direccion_entrega || "-",
+        "Método Pago": p.metodo_pago === "anticipado" ? "Anticipado" : "Contra Entrega",
+        "Valor Recaudo": p.valor_recaudar || 0,
+        "Estado": p.estado || "-",
+        "Motivo Novedad": p.tipo_novedad || "-",
+        "Motorizado": p.motorizado_asignado || "-",
+      }));
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // Set column widths
+      ws["!cols"] = [
+        { wch: 12 }, // Fecha
+        { wch: 15 }, // Guía
+        { wch: 25 }, // Cliente
+        { wch: 12 }, // Zona
+        { wch: 20 }, // Barrio
+        { wch: 35 }, // Dirección
+        { wch: 15 }, // Método Pago
+        { wch: 15 }, // Valor
+        { wch: 15 }, // Estado
+        { wch: 20 }, // Motivo
+        { wch: 20 }, // Motorizado
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, "Pedidos");
+
+      // Download
+      const fileName = `Reporte_${tiendaNombre.replace(/\s+/g, "_")}_${startDate}_${endDate}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+
+      toast.success(`Reporte descargado: ${pedidos.length} pedidos`);
+    } catch (error) {
+      console.error("Error generating report:", error);
+      toast.error("Error al generar el reporte");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <div className="p-3 bg-primary/10 rounded-xl">
+          <FileSpreadsheet className="h-6 w-6 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Informes por Tienda</h2>
+          <p className="text-sm text-muted-foreground">Genera reportes detallados en Excel</p>
+        </div>
+      </div>
+
+      {/* Filters Card */}
+      <div className="rounded-xl bg-card p-6 shadow-card border border-border">
+        <div className="flex items-center gap-2 mb-4">
+          <Filter className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold text-foreground">Filtros del Reporte</h3>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Tienda Selector */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              <Store className="inline h-4 w-4 mr-1" />
+              Tienda
+            </label>
+            <select
+              value={selectedTienda}
+              onChange={(e) => setSelectedTienda(e.target.value)}
+              disabled={loadingTiendas}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            >
+              <option value="todas">Todas las tiendas</option>
+              {tiendas.map((tienda) => (
+                <option key={tienda.user_id} value={tienda.user_id}>
+                  {tienda.store_name || tienda.full_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Start Date */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              <Calendar className="inline h-4 w-4 mr-1" />
+              Fecha Inicio
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          {/* End Date */}
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              <Calendar className="inline h-4 w-4 mr-1" />
+              Fecha Fin
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+          </div>
+
+          {/* Download Button */}
+          <div className="flex items-end">
+            <Button
+              onClick={handleDownloadExcel}
+              disabled={loading || !startDate || !endDate}
+              className="w-full gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Generando...
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4" />
+                  Descargar Excel
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Info Card */}
+      <div className="rounded-xl bg-muted/50 p-4 border border-border">
+        <p className="text-sm text-muted-foreground">
+          <strong>Columnas del reporte:</strong> Fecha, N° Guía, Cliente Final, Ciudad/Zona, 
+          Barrio, Dirección, Método de Pago, Valor Recaudo, Estado, Motivo de Novedad, Motorizado.
+        </p>
+      </div>
+    </motion.div>
+  );
+};
+
+export default AdminReportesPanel;
