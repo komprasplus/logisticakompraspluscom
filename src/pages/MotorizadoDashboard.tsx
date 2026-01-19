@@ -33,7 +33,7 @@ import MotorizadoProfile from "@/components/MotorizadoProfile";
 import DateHeader from "@/components/DateHeader";
 import AdminNotesDisplay from "@/components/AdminNotesDisplay";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig } from "@/lib/orderStatuses";
+import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
 
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
 
@@ -168,8 +168,10 @@ const MotorizadoDashboard = () => {
         .order("id", { ascending: true });
 
       if (error) throw error;
-      setPedidos(data || []);
-      setFilteredPedidos(data || []);
+      // Filter out cancelled orders from motorizado view
+      const operationalPedidos = (data || []).filter(p => isOperationalStatus(p.estado));
+      setPedidos(operationalPedidos);
+      setFilteredPedidos(operationalPedidos);
     } catch (error) {
       console.error("Error fetching pedidos:", error);
       toast.error("Error al cargar los pedidos");

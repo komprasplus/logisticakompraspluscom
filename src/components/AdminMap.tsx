@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { getMapMarkerColor, getStatusConfig } from "@/lib/orderStatuses";
+import { getMapMarkerColor, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
 
 // Fix for default markers in Leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -148,13 +148,14 @@ const AdminMap = ({ pedidos, onPedidoClick, selectedPedidoId }: AdminMapProps) =
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    // Add new markers
+    // Add new markers - filter out cancelled orders from map display
     const validPedidos = pedidos.filter(
       (p) =>
         p.latitud != null &&
         p.longitud != null &&
         !isNaN(Number(p.latitud)) &&
-        !isNaN(Number(p.longitud))
+        !isNaN(Number(p.longitud)) &&
+        isOperationalStatus(p.estado) // Exclude cancelled orders from map
     );
 
     validPedidos.forEach((pedido) => {

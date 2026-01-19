@@ -25,6 +25,7 @@ import {
   DollarSign,
   Warehouse,
   Key,
+  Ban,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,11 +37,12 @@ import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
 import CreateUserModal from "@/components/CreateUserModal";
 import ResetUserPasswordModal from "@/components/ResetUserPasswordModal";
+import CancelOrderModal from "@/components/CancelOrderModal";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import QRScannerModal from "@/components/QRScannerModal";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
 import { Button } from "@/components/ui/button";
-import { getStatusConfig, ALL_STATUSES } from "@/lib/orderStatuses";
+import { getStatusConfig, ALL_STATUSES, isOperationalStatus } from "@/lib/orderStatuses";
 import AdminNotesInput from "@/components/AdminNotesInput";
 
 interface Pedido {
@@ -102,6 +104,8 @@ const AdminDashboard = () => {
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
   const [selectedUserForReset, setSelectedUserForReset] = useState<Profile | null>(null);
+  const [showCancelOrder, setShowCancelOrder] = useState(false);
+  const [selectedPedidoForCancel, setSelectedPedidoForCancel] = useState<Pedido | null>(null);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [assigningPedido, setAssigningPedido] = useState<number | null>(null);
   const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -225,12 +229,19 @@ const AdminDashboard = () => {
   const filterPedidos = () => {
     let filtered = [...pedidos];
 
+    // For operational views (map, table), exclude cancelled orders unless specifically filtering for them
     if (statusFilter === "sin_asignar") {
-      filtered = filtered.filter((p) => !p.motorizado_asignado);
+      filtered = filtered.filter((p) => !p.motorizado_asignado && isOperationalStatus(p.estado));
+    } else if (statusFilter === "anulado") {
+      // Show only cancelled orders
+      filtered = filtered.filter((p) => p.estado?.toLowerCase() === "anulado");
     } else if (statusFilter !== "todos") {
       filtered = filtered.filter(
         (p) => p.estado?.toLowerCase() === statusFilter.toLowerCase()
       );
+    } else {
+      // "todos" filter - exclude cancelled orders from default view
+      filtered = filtered.filter((p) => isOperationalStatus(p.estado));
     }
 
     if (barrioFilter !== "todos") {
@@ -393,6 +404,55 @@ const AdminDashboard = () => {
     setNewOrdersCount(0);
   };
 
+  // Cancel order function
+  const cancelOrder = async (pedidoId: number) => {
+    try {
+      const pedido = pedidos.find(p => p.id === pedidoId);
+      
+      const { error } = await supabase
+        .from("pedidos")
+        .update({
+          estado: "Anulado",
+          fecha_actualizacion: new Date().toISOString(),
+        })
+        .eq("id", pedidoId);
+
+      if (error) throw error;
+
+      // Update local state
+      setPedidos((prev) =>
+        prev.map((p) =>
+          p.id === pedidoId
+            ? { ...p, estado: "Anulado" }
+            : p
+        )
+      );
+
+      // Notify the client via toast (in-app notification)
+      toast.success(
+        `Pedido ${pedido?.numero_guia || `#${pedidoId}`} anulado exitosamente`,
+        {
+          description: "Se ha notificado al cliente",
+          duration: 5000,
+        }
+      );
+
+      // If client has phone, we could send WhatsApp notification
+      if (pedido?.client_phone) {
+        const phoneNumber = pedido.client_phone.replace(/\D/g, "");
+        const message = encodeURIComponent(
+          `🚫 *Kompras Plus*\n\nTu pedido con número de guía ${pedido.numero_guia || `#${pedidoId}`} ha sido anulado por el administrador.\n\nSi tienes preguntas, contáctanos al 324 222 3825.`
+        );
+        // Open WhatsApp in new tab to send notification
+        window.open(`https://wa.me/57${phoneNumber}?text=${message}`, "_blank");
+      }
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      toast.error("Error al anular el pedido");
+      throw error;
+    }
+  };
+
   const uniqueBarrios = [...new Set(pedidos.map((p) => p.barrio).filter(Boolean))].sort();
 
   const ZonaBadge = ({ zona }: { zona: string | null }) => {
@@ -444,18 +504,23 @@ const AdminDashboard = () => {
     );
   };
 
+  // Filter out cancelled orders from operational metrics
+  const operationalPedidos = pedidos.filter(p => isOperationalStatus(p.estado));
+  const cancelledCount = pedidos.filter(p => p.estado?.toLowerCase() === "anulado").length;
+
   const stats = {
-    total: pedidos.length,
-    pending: pedidos.filter(
+    total: operationalPedidos.length,
+    pending: operationalPedidos.filter(
       (p) => !p.motorizado_asignado || p.estado?.toLowerCase() === "recibido en bodega"
     ).length,
-    unassigned: pedidos.filter((p) => !p.motorizado_asignado).length,
-    inTransit: pedidos.filter(
+    unassigned: operationalPedidos.filter((p) => !p.motorizado_asignado).length,
+    inTransit: operationalPedidos.filter(
       (p) => p.estado?.toLowerCase() === "en ruta" || p.estado?.toLowerCase() === "en camino"
     ).length,
-    delivered: pedidos.filter((p) => p.estado?.toLowerCase() === "entregado").length,
-    novedad: pedidos.filter((p) => p.estado?.toLowerCase().includes("novedad")).length,
-    liquidado: pedidos.filter((p) => p.estado?.toLowerCase() === "liquidado").length,
+    delivered: operationalPedidos.filter((p) => p.estado?.toLowerCase() === "entregado").length,
+    novedad: operationalPedidos.filter((p) => p.estado?.toLowerCase().includes("novedad")).length,
+    liquidado: operationalPedidos.filter((p) => p.estado?.toLowerCase() === "liquidado").length,
+    cancelled: cancelledCount,
   };
 
   const renderMainContent = () => {
@@ -600,6 +665,7 @@ const AdminDashboard = () => {
                   <option value="rechazado">Rechazado</option>
                   <option value="devolución">Devolución</option>
                   <option value="liquidado">Liquidado</option>
+                  <option value="anulado">🚫 Anulados ({stats.cancelled})</option>
                 </select>
 
                 <select value={barrioFilter} onChange={(e) => setBarrioFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
@@ -674,22 +740,26 @@ const AdminDashboard = () => {
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Motorizado</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Estado</th>
+                        <th className="px-2 py-3 text-center font-semibold text-foreground text-xs sm:text-sm w-16">Acción</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
                       {filteredPedidos.map((pedido) => {
                         const isPendingAssignment = !pedido.motorizado_asignado;
                         const isSelected = selectedForBulk.includes(pedido.id);
+                        const isCancelled = pedido.estado?.toLowerCase() === "anulado";
+                        const canCancel = !isCancelled && pedido.estado?.toLowerCase() !== "entregado" && pedido.estado?.toLowerCase() !== "liquidado";
+                        
                         return (
-                          <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${isPendingAssignment ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""}`}>
+                          <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${isPendingAssignment && !isCancelled ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""} ${isCancelled ? "opacity-60" : ""}`}>
                             <td className="px-2 py-3">
-                              {isPendingAssignment && (
+                              {isPendingAssignment && !isCancelled && (
                                 <input type="checkbox" checked={isSelected} onChange={() => toggleBulkSelect(pedido.id)} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
                               )}
                             </td>
                             <td className="px-3 py-3 font-medium text-foreground text-xs sm:text-sm">
                               <div className="flex items-center gap-2">
-                                {isPendingAssignment && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
+                                {isPendingAssignment && !isCancelled && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
                                 {pedido.numero_guia || `#${pedido.id}`}
                               </div>
                             </td>
@@ -702,7 +772,9 @@ const AdminDashboard = () => {
                               </span>
                             </td>
                             <td className="px-3 py-3 text-xs sm:text-sm">
-                              {isPendingAssignment ? (
+                              {isCancelled ? (
+                                <span className="text-muted-foreground">-</span>
+                              ) : isPendingAssignment ? (
                                 <select
                                   disabled={assigningPedido === pedido.id}
                                   onChange={(e) => { if (e.target.value) assignMotorizado(pedido.id, e.target.value); }}
@@ -717,6 +789,23 @@ const AdminDashboard = () => {
                               )}
                             </td>
                             <td className="px-3 py-3"><StatusBadge status={pedido.estado} /></td>
+                            <td className="px-2 py-3 text-center">
+                              {canCancel && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedPedidoForCancel(pedido);
+                                    setShowCancelOrder(true);
+                                  }}
+                                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                                  title="Anular pedido"
+                                >
+                                  <Ban className="h-4 w-4" />
+                                </button>
+                              )}
+                              {isCancelled && (
+                                <span className="text-xs text-muted-foreground">Anulado</span>
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
@@ -915,6 +1004,15 @@ const AdminDashboard = () => {
       />
       <NuevoPedidoModal isOpen={showNuevoPedido} onClose={() => setShowNuevoPedido(false)} onSuccess={fetchPedidos} isAdmin={true} />
       <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} onSuccess={fetchPedidos} />
+      <CancelOrderModal 
+        isOpen={showCancelOrder} 
+        onClose={() => {
+          setShowCancelOrder(false);
+          setSelectedPedidoForCancel(null);
+        }} 
+        pedido={selectedPedidoForCancel}
+        onConfirm={cancelOrder}
+      />
     </div>
   );
 };
