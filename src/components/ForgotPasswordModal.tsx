@@ -23,8 +23,8 @@ const ForgotPasswordModal = ({ isOpen, onClose }: ForgotPasswordModalProps) => {
 
     setLoading(true);
     try {
-      // Use the custom domain for redirect
-      const redirectUrl = window.location.origin + "/auth";
+      // Use the production domain for redirect to the reset password page
+      const redirectUrl = "https://logistica.komprasplus.com/reset-password";
       
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: redirectUrl,
