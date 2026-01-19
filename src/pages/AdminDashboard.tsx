@@ -24,6 +24,7 @@ import {
   ArrowLeftRight,
   DollarSign,
   Warehouse,
+  Key,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,6 +35,7 @@ import AdminMap from "@/components/AdminMap";
 import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
 import CreateUserModal from "@/components/CreateUserModal";
+import ResetUserPasswordModal from "@/components/ResetUserPasswordModal";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import QRScannerModal from "@/components/QRScannerModal";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
@@ -98,6 +100,8 @@ const AdminDashboard = () => {
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [selectedUserForReset, setSelectedUserForReset] = useState<Profile | null>(null);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [assigningPedido, setAssigningPedido] = useState<number | null>(null);
   const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -794,14 +798,27 @@ const AdminDashboard = () => {
                         <td className="px-4 py-3 text-muted-foreground">{user.email || "-"}</td>
                         <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{user.phone || "-"}</td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => confirmUserEmail(user.user_id)}
-                            className="inline-flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
-                            title="Confirmar email"
-                          >
-                            <UserCheck className="h-4 w-4" />
-                            Confirmar
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedUserForReset(user);
+                                setShowResetPassword(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-200 transition-colors"
+                              title="Restablecer contraseña"
+                            >
+                              <Key className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Credenciales</span>
+                            </button>
+                            <button
+                              onClick={() => confirmUserEmail(user.user_id)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
+                              title="Confirmar email"
+                            >
+                              <UserCheck className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Confirmar</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -888,6 +905,14 @@ const AdminDashboard = () => {
 
       {/* Modals */}
       <CreateUserModal isOpen={showCreateUser} onClose={() => setShowCreateUser(false)} onUserCreated={fetchUsers} />
+      <ResetUserPasswordModal 
+        isOpen={showResetPassword} 
+        onClose={() => {
+          setShowResetPassword(false);
+          setSelectedUserForReset(null);
+        }} 
+        user={selectedUserForReset} 
+      />
       <NuevoPedidoModal isOpen={showNuevoPedido} onClose={() => setShowNuevoPedido(false)} onSuccess={fetchPedidos} isAdmin={true} />
       <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} onSuccess={fetchPedidos} />
     </div>
