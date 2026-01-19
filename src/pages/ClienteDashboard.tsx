@@ -19,6 +19,7 @@ import {
   Box,
   AlertTriangle,
   XCircle,
+  Shield,
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -29,6 +30,7 @@ import MotorcycleIcon from "@/components/MotorcycleIcon";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import EditPedidoModal from "@/components/EditPedidoModal";
 import PrintGuiaModal from "@/components/PrintGuiaModal";
+import SecuritySettings from "@/components/SecuritySettings";
 import { Button } from "@/components/ui/button";
 
 interface Pedido {
@@ -54,7 +56,7 @@ const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
 const ClienteDashboard = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"history" | "tracking">("history");
+  const [activeTab, setActiveTab] = useState<"history" | "tracking" | "security">("history");
   const [searchQuery, setSearchQuery] = useState("");
   const [trackingResult, setTrackingResult] = useState<Pedido | null>(null);
   const [isSearching, setIsSearching] = useState(false);
@@ -245,6 +247,17 @@ const ClienteDashboard = () => {
           >
             <Search className="h-4 w-4" />
             Rastrear Pedido
+          </button>
+          <button
+            onClick={() => setActiveTab("security")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+              activeTab === "security"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            <Shield className="h-4 w-4" />
+            Seguridad
           </button>
           <button
             onClick={() => setShowNuevoPedido(true)}
@@ -537,6 +550,17 @@ const ClienteDashboard = () => {
                 </motion.div>
               )}
             </AnimatePresence>
+          </motion.div>
+        )}
+
+        {/* Security Tab */}
+        {activeTab === "security" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="max-w-md"
+          >
+            <SecuritySettings />
           </motion.div>
         )}
       </main>

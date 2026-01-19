@@ -5,6 +5,7 @@ import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import logo from "@/assets/logo-kompras-plus.png";
 import { z } from "zod";
+import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 
 const loginSchema = z.object({
   // No enforce email format to avoid blocking; Supabase will validate credentials server-side.
@@ -17,6 +18,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const { signIn, user, role, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -158,6 +160,16 @@ const Auth = () => {
             </div>
           </div>
 
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => setShowForgotPassword(true)}
+              className="text-sm text-primary hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </button>
+          </div>
+
           <button
             type="submit"
             disabled={loading}
@@ -204,6 +216,12 @@ const Auth = () => {
           📞 324 222 3825
         </motion.p>
       </motion.div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal 
+        isOpen={showForgotPassword} 
+        onClose={() => setShowForgotPassword(false)} 
+      />
     </div>
   );
 };
