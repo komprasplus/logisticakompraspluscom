@@ -138,6 +138,7 @@ export type Database = {
           last_location_updated_at: string | null
           phone: string | null
           status: string
+          store_name: string | null
           updated_at: string
           user_id: string
           vehicle_plate: string | null
@@ -154,6 +155,7 @@ export type Database = {
           last_location_updated_at?: string | null
           phone?: string | null
           status?: string
+          store_name?: string | null
           updated_at?: string
           user_id: string
           vehicle_plate?: string | null
@@ -170,6 +172,7 @@ export type Database = {
           last_location_updated_at?: string | null
           phone?: string | null
           status?: string
+          store_name?: string | null
           updated_at?: string
           user_id?: string
           vehicle_plate?: string | null

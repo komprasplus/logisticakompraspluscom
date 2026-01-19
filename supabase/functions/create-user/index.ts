@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     }
 
     // Parse request body
-    const { email, password, fullName, phone, role } = await req.json();
+    const { email, password, fullName, phone, role, storeName } = await req.json();
 
     if (!email || !password || !fullName || !role) {
       return new Response(
@@ -75,6 +75,14 @@ Deno.serve(async (req) => {
     if (!validRoles.includes(role)) {
       return new Response(
         JSON.stringify({ error: "Rol inválido" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Validate store name for clients
+    if (role === "cliente" && !storeName) {
+      return new Response(
+        JSON.stringify({ error: "El nombre de la tienda es obligatorio para clientes" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -110,12 +118,13 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create profile
+    // Create profile with store name for clients
     const { error: profileError } = await adminClient.from("profiles").insert({
       user_id: newUser.user.id,
       full_name: fullName,
       email,
       phone: phone || null,
+      store_name: role === "cliente" ? storeName : null,
     });
 
     if (profileError) {

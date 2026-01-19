@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Loader2, UserPlus, Mail, Lock, User, Shield } from "lucide-react";
+import { X, Loader2, UserPlus, Mail, Lock, User, Shield, Store } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -18,6 +18,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState<AppRole>("motorizado");
+  const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,6 +31,12 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
 
     if (password.length < 6) {
       toast.error("La contraseña debe tener al menos 6 caracteres");
+      return;
+    }
+
+    // Validate store name for clients
+    if (role === "cliente" && !storeName.trim()) {
+      toast.error("El nombre de la tienda es obligatorio para clientes");
       return;
     }
 
@@ -61,6 +68,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
             fullName,
             phone,
             role,
+            storeName: role === "cliente" ? storeName.trim() : null,
           }),
         }
       );
@@ -89,6 +97,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
     setFullName("");
     setPhone("");
     setRole("motorizado");
+    setStoreName("");
   };
 
   return (
@@ -105,7 +114,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl"
+            className="w-full max-w-md rounded-2xl bg-card p-6 shadow-xl max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
@@ -205,6 +214,33 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
                   </select>
                 </div>
               </div>
+
+              {/* Store Name Field - Only for Clients */}
+              {role === "cliente" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                >
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Nombre de la Tienda *
+                  </label>
+                  <div className="relative">
+                    <Store className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      value={storeName}
+                      onChange={(e) => setStoreName(e.target.value)}
+                      placeholder="Mi Tienda Online"
+                      className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      required={role === "cliente"}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Este nombre aparecerá como remitente en las guías
+                  </p>
+                </motion.div>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button

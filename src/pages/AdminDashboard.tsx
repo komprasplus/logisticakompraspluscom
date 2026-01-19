@@ -26,6 +26,7 @@ import {
   Warehouse,
   Key,
   Ban,
+  Eye,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,9 @@ import ResetUserPasswordModal from "@/components/ResetUserPasswordModal";
 import CancelOrderModal from "@/components/CancelOrderModal";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import QRScannerModal from "@/components/QRScannerModal";
+import PedidoDetailModal from "@/components/PedidoDetailModal";
+import LiquidacionesPanel from "@/components/LiquidacionesPanel";
+import AdminReportesPanel from "@/components/AdminReportesPanel";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
 import { Button } from "@/components/ui/button";
 import { getStatusConfig, ALL_STATUSES, isOperationalStatus } from "@/lib/orderStatuses";
@@ -106,6 +110,9 @@ const AdminDashboard = () => {
   const [selectedUserForReset, setSelectedUserForReset] = useState<Profile | null>(null);
   const [showCancelOrder, setShowCancelOrder] = useState(false);
   const [selectedPedidoForCancel, setSelectedPedidoForCancel] = useState<Pedido | null>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedPedidoForDetail, setSelectedPedidoForDetail] = useState<Pedido | null>(null);
+  const [clientProfiles, setClientProfiles] = useState<Record<string, { store_name: string | null; full_name: string }>>({});
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [assigningPedido, setAssigningPedido] = useState<number | null>(null);
   const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -118,7 +125,34 @@ const AdminDashboard = () => {
     fetchPedidos();
     fetchUsers();
     fetchMotorizados();
+    fetchClientProfiles();
   }, []);
+
+  const fetchClientProfiles = async () => {
+    try {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "cliente");
+
+      if (roles && roles.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, store_name, full_name")
+          .in("user_id", roles.map(r => r.user_id));
+
+        if (profiles) {
+          const profileMap: Record<string, { store_name: string | null; full_name: string }> = {};
+          profiles.forEach(p => {
+            profileMap[p.user_id] = { store_name: p.store_name, full_name: p.full_name };
+          });
+          setClientProfiles(profileMap);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching client profiles:", error);
+    }
+  };
 
   // Real-time subscription for pedidos
   useEffect(() => {
@@ -790,21 +824,34 @@ const AdminDashboard = () => {
                             </td>
                             <td className="px-3 py-3"><StatusBadge status={pedido.estado} /></td>
                             <td className="px-2 py-3 text-center">
-                              {canCancel && (
+                              <div className="flex items-center justify-center gap-1">
+                                {/* Detail Button */}
                                 <button
                                   onClick={() => {
-                                    setSelectedPedidoForCancel(pedido);
-                                    setShowCancelOrder(true);
+                                    setSelectedPedidoForDetail(pedido);
+                                    setShowDetailModal(true);
                                   }}
-                                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
-                                  title="Anular pedido"
+                                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                                  title="Ver detalle"
                                 >
-                                  <Ban className="h-4 w-4" />
+                                  <Eye className="h-4 w-4" />
                                 </button>
-                              )}
-                              {isCancelled && (
-                                <span className="text-xs text-muted-foreground">Anulado</span>
-                              )}
+                                {canCancel && (
+                                  <button
+                                    onClick={() => {
+                                      setSelectedPedidoForCancel(pedido);
+                                      setShowCancelOrder(true);
+                                    }}
+                                    className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                                    title="Anular pedido"
+                                  >
+                                    <Ban className="h-4 w-4" />
+                                  </button>
+                                )}
+                                {isCancelled && (
+                                  <span className="text-xs text-muted-foreground">Anulado</span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -841,11 +888,15 @@ const AdminDashboard = () => {
       case "liquidaciones":
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <DollarSign className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-bold text-foreground">Liquidaciones</h3>
-              <p className="text-muted-foreground mt-2">Módulo en desarrollo</p>
-            </div>
+            <h2 className="font-bold text-foreground text-xl mb-4">💰 Liquidaciones</h2>
+            <LiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
+          </motion.div>
+        );
+
+      case "informes":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            <AdminReportesPanel />
           </motion.div>
         );
 
@@ -1012,6 +1063,18 @@ const AdminDashboard = () => {
         }} 
         pedido={selectedPedidoForCancel}
         onConfirm={cancelOrder}
+      />
+      <PedidoDetailModal
+        isOpen={showDetailModal}
+        onClose={() => {
+          setShowDetailModal(false);
+          setSelectedPedidoForDetail(null);
+        }}
+        pedido={selectedPedidoForDetail}
+        remitente={selectedPedidoForDetail?.client_user_id 
+          ? clientProfiles[selectedPedidoForDetail.client_user_id]?.store_name || 
+            clientProfiles[selectedPedidoForDetail.client_user_id]?.full_name 
+          : undefined}
       />
     </div>
   );
