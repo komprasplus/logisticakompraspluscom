@@ -7,7 +7,8 @@ export type OrderStatus =
   | "Novedad"
   | "Rechazado"
   | "Devolución"
-  | "Liquidado";
+  | "Liquidado"
+  | "Anulado";
 
 export type NovedadType =
   | "Cliente Ausente"
@@ -101,6 +102,14 @@ export const ORDER_STATUS_CONFIG: Record<string, {
     icon: "💰",
     label: "Liquidado",
   },
+  "anulado": {
+    color: "#6b7280",
+    bgColor: "bg-gray-500",
+    textColor: "text-white",
+    mapColor: "#6b7280",
+    icon: "🚫",
+    label: "Anulado",
+  },
 };
 
 export const NOVEDAD_OPTIONS: { value: NovedadType; label: string; requiresPhoto: boolean }[] = [
@@ -155,4 +164,15 @@ export const ALL_STATUSES: OrderStatus[] = [
   "Rechazado",
   "Devolución",
   "Liquidado",
+  "Anulado",
 ];
+
+// Statuses that should be excluded from operational views (map, motorizado list, metrics)
+export const EXCLUDED_FROM_OPERATIONS: OrderStatus[] = ["Anulado"];
+
+// Check if a status is operational (not cancelled/excluded)
+export const isOperationalStatus = (status: string | null): boolean => {
+  if (!status) return true;
+  const normalizedStatus = status.toLowerCase();
+  return !EXCLUDED_FROM_OPERATIONS.some(s => s.toLowerCase() === normalizedStatus);
+};
