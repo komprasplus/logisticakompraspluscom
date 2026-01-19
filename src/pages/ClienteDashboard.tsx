@@ -78,18 +78,23 @@ const ClienteDashboard = () => {
   const [filterNovedades, setFilterNovedades] = useState(false);
   const [instructionsPedido, setInstructionsPedido] = useState<Pedido | null>(null);
   const [evidencePhoto, setEvidencePhoto] = useState<string | null>(null);
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchPedidos();
-  }, []);
+    if (user?.id) {
+      fetchPedidos();
+    }
+  }, [user?.id]);
 
   const fetchPedidos = async () => {
+    if (!user?.id) return;
+    
     try {
       const { data, error } = await supabase
         .from("pedidos")
         .select("*")
+        .eq("client_user_id", user.id)
         .order("fecha_creacion", { ascending: false });
 
       if (error) throw error;
