@@ -71,6 +71,7 @@ interface Pedido {
   foto_evidencia: string | null;
   fecha_actualizacion: string | null;
   client_phone: string | null;
+  client_user_id: string | null;
   novedad_latitud?: number | null;
   novedad_longitud?: number | null;
 }
