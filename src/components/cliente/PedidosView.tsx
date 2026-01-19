@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
+import { formatCOP } from "@/lib/tarifas";
 
 interface Pedido {
   id: number;
@@ -27,8 +28,12 @@ interface Pedido {
   direccion_entrega: string | null;
   barrio: string | null;
   zona: string | null;
+  municipio?: string | null;
   producto_nombre: string | null;
   valor_recaudar: number | null;
+  valor_producto?: number | null;
+  valor_flete?: number | null;
+  utilidad?: number | null;
   metodo_pago: string | null;
   fecha_entrega: string | null;
   estado: string | null;
@@ -47,7 +52,7 @@ interface PedidosViewProps {
   onViewEvidence: (url: string) => void;
 }
 
-const FLETE_COSTO = 3500;
+// Removed old FLETE_COSTO constant - now using dynamic tarifas
 
 const PedidosView = ({
   pedidos,
@@ -89,10 +94,26 @@ const PedidosView = ({
   };
 
   const canEditOrder = (status: string | null) => status?.toLowerCase() === "pendiente";
-  
+  // Use stored utilidad or calculate from flete
   const getNetProfit = (pedido: Pedido) => {
     if (pedido.metodo_pago === "anticipado") return 0;
-    return (pedido.valor_recaudar || 0) - FLETE_COSTO;
+    // Prefer stored utilidad, fallback to recaudo - flete
+    if (pedido.utilidad !== null && pedido.utilidad !== undefined) {
+      return pedido.utilidad;
+    }
+    const flete = pedido.valor_flete || 12000; // Default Bogotá flete
+    return (pedido.valor_recaudar || 0) - flete;
+  };
+
+  // Get flete label for display
+  const getFleteLabel = (pedido: Pedido) => {
+    if (!pedido.municipio) return "Flete Bogotá";
+    const municipio = pedido.municipio.toLowerCase();
+    if (municipio.includes("soacha")) return "Flete Soacha";
+    if (municipio.includes("madrid") || municipio.includes("funza") || municipio.includes("mosquera")) {
+      return "Flete Zona Especial";
+    }
+    return "Flete Bogotá";
   };
 
   const getDeliveryAttempts = (pedido: Pedido) => {
@@ -259,19 +280,27 @@ const PedidosView = ({
                         </div>
                       </div>
 
-                      {/* Stats */}
-                      <div className="flex items-center gap-4 text-xs">
+                      {/* Stats with Flete Info */}
+                      <div className="flex flex-wrap items-center gap-3 text-xs">
                         <div className="flex items-center gap-1">
                           <RotateCcw className="h-3 w-3 text-muted-foreground" />
                           <span className="text-muted-foreground">Intentos:</span>
                           <span className="font-semibold">{attempts}</span>
                         </div>
                         
+                        {/* Flete indicator */}
+                        {pedido.valor_flete && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-muted-foreground">{getFleteLabel(pedido)}:</span>
+                            <span className="font-medium text-foreground">{formatCOP(pedido.valor_flete)}</span>
+                          </div>
+                        )}
+                        
                         {pedido.metodo_pago !== "anticipado" && (
                           <div className="flex items-center gap-1">
-                            <span className="text-muted-foreground">Ganancia:</span>
-                            <span className={`font-bold ${netProfit > 0 ? "text-green-600" : "text-muted-foreground"}`}>
-                              ${netProfit.toLocaleString("es-CO")}
+                            <span className="text-muted-foreground">Utilidad:</span>
+                            <span className={`font-bold ${netProfit > 0 ? "text-green-600" : "text-destructive"}`}>
+                              {formatCOP(netProfit)}
                             </span>
                           </div>
                         )}
