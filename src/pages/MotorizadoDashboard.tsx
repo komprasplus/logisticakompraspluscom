@@ -103,8 +103,10 @@ const MotorizadoDashboard = () => {
   }, [latitude, longitude]);
 
   useEffect(() => {
-    fetchPedidos();
-  }, []);
+    if (profile?.full_name) {
+      fetchPedidos();
+    }
+  }, [profile?.full_name]);
 
   // Sort and filter pedidos - prioritize by proximity to current location or bodega
   useEffect(() => {
@@ -161,10 +163,17 @@ const MotorizadoDashboard = () => {
   }, [activeFilter, pedidos, userLocation]);
 
   const fetchPedidos = async () => {
+    if (!profile?.full_name) {
+      setLoading(false);
+      return;
+    }
+    
     try {
+      // Filter by motorizado's name - RLS also enforces this at database level
       const { data, error } = await supabase
         .from("pedidos")
         .select("*")
+        .eq("motorizado_asignado", profile.full_name)
         .order("id", { ascending: true });
 
       if (error) throw error;
