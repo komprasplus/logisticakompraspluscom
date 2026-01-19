@@ -3,10 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Package, User, MapPin, CreditCard, Truck, Calendar, 
-  Phone, Store, Camera, FileText, Clock 
+  Phone, Store, Camera, FileText, Clock, Calculator, DollarSign 
 } from "lucide-react";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
+import { formatCOP } from "@/lib/tarifas";
 
 interface Pedido {
   id: number;
@@ -16,7 +17,11 @@ interface Pedido {
   direccion_entrega: string | null;
   barrio: string | null;
   zona: string | null;
+  municipio?: string | null;
   valor_recaudar: number | null;
+  valor_producto?: number | null;
+  valor_flete?: number | null;
+  utilidad?: number | null;
   metodo_pago: string | null;
   producto_nombre: string | null;
   fecha_creacion: string | null;
@@ -122,25 +127,69 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente }: PedidoDetailM
               </div>
             </div>
 
-            {/* Método de Pago y Valores */}
+            {/* Método de Pago y Valores - Desglose Completo */}
             <div className="rounded-lg border border-border p-4">
               <div className="flex items-center gap-2 mb-3">
                 <CreditCard className="h-4 w-4 text-primary" />
-                <h3 className="font-semibold text-foreground">Información de Pago</h3>
+                <h3 className="font-semibold text-foreground">Información Financiera</h3>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Método de Pago</p>
-                  <Badge variant={isPagado ? "default" : "secondary"} className="mt-1">
+              
+              <div className="space-y-4">
+                {/* Método de Pago */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Método de Pago</span>
+                  <Badge variant={isPagado ? "default" : "secondary"}>
                     {isPagado ? "Pago Anticipado" : "Contra Entrega"}
                   </Badge>
                 </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Valor a Recaudar</p>
-                  <p className="text-xl font-bold text-foreground">
-                    {isPagado ? "PAGADO" : `$${pedido.valor_recaudar?.toLocaleString("es-CO") || "0"}`}
-                  </p>
+
+                {/* Desglose de Valores */}
+                <div className="border-t border-border pt-3 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <DollarSign className="h-3 w-3" />
+                      Valor a Recaudar:
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {isPagado ? "PAGADO" : formatCOP(pedido.valor_recaudar)}
+                    </span>
+                  </div>
+                  
+                  {pedido.valor_producto !== undefined && pedido.valor_producto !== null && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Costo Producto:</span>
+                      <span className="font-medium text-foreground">{formatCOP(pedido.valor_producto)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Truck className="h-3 w-3" />
+                      Flete ({pedido.municipio || "Bogotá"}):
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {formatCOP(pedido.valor_flete || 12000)}
+                    </span>
+                  </div>
                 </div>
+
+                {/* Utilidad */}
+                {pedido.utilidad !== undefined && pedido.utilidad !== null && (
+                  <div className="border-t border-border pt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-muted-foreground flex items-center gap-1">
+                        <Calculator className="h-3 w-3" />
+                        Utilidad Tienda:
+                      </span>
+                      <span className={`text-lg font-bold ${pedido.utilidad >= 0 ? "text-green-600" : "text-destructive"}`}>
+                        {formatCOP(pedido.utilidad)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      = Recaudo - Costo Producto - Flete
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
 

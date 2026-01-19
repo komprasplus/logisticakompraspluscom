@@ -61,11 +61,15 @@ export type Database = {
           longitud: number | null
           metodo_pago: string | null
           motorizado_asignado: string | null
+          municipio: string | null
           novedad_latitud: number | null
           novedad_longitud: number | null
           numero_guia: string | null
           producto_nombre: string | null
           tipo_novedad: string | null
+          utilidad: number | null
+          valor_flete: number | null
+          valor_producto: number | null
           valor_recaudar: number | null
           zona: string | null
         }
@@ -88,11 +92,15 @@ export type Database = {
           longitud?: number | null
           metodo_pago?: string | null
           motorizado_asignado?: string | null
+          municipio?: string | null
           novedad_latitud?: number | null
           novedad_longitud?: number | null
           numero_guia?: string | null
           producto_nombre?: string | null
           tipo_novedad?: string | null
+          utilidad?: number | null
+          valor_flete?: number | null
+          valor_producto?: number | null
           valor_recaudar?: number | null
           zona?: string | null
         }
@@ -115,11 +123,15 @@ export type Database = {
           longitud?: number | null
           metodo_pago?: string | null
           motorizado_asignado?: string | null
+          municipio?: string | null
           novedad_latitud?: number | null
           novedad_longitud?: number | null
           numero_guia?: string | null
           producto_nombre?: string | null
           tipo_novedad?: string | null
+          utilidad?: number | null
+          valor_flete?: number | null
+          valor_producto?: number | null
           valor_recaudar?: number | null
           zona?: string | null
         }

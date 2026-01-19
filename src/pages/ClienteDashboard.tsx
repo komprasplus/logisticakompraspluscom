@@ -41,8 +41,12 @@ interface Pedido {
   direccion_entrega: string | null;
   barrio: string | null;
   zona: string | null;
+  municipio?: string | null;
   producto_nombre: string | null;
   valor_recaudar: number | null;
+  valor_producto?: number | null;
+  valor_flete?: number | null;
+  utilidad?: number | null;
   metodo_pago: string | null;
   fecha_entrega: string | null;
   estado: string | null;
@@ -54,7 +58,6 @@ interface Pedido {
 
 const SUPPORT_PHONE = "324 222 3825";
 const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
-const FLETE_COSTO = 3500;
 
 const ClienteDashboard = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
@@ -102,7 +105,7 @@ const ClienteDashboard = () => {
     }
   };
 
-  // Calculate stats
+  // Calculate stats - Wallet only shows liquidated orders
   const stats = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
@@ -119,11 +122,29 @@ const ClienteDashboard = () => {
       (p) => p.estado?.toLowerCase() === "entregado" || p.estado?.toLowerCase() === "liquidado"
     ).length;
 
+    // Saldo Disponible: Only liquidated orders count as available balance
+    const availableBalance = pedidos
+      .filter((p) => p.estado?.toLowerCase() === "liquidado" && p.metodo_pago !== "anticipado")
+      .reduce((sum, p) => {
+        // Use stored utilidad or calculate from flete
+        const utilidad = p.utilidad ?? ((p.valor_recaudar || 0) - (p.valor_flete || 12000));
+        return sum + utilidad;
+      }, 0);
+
+    // Saldo Pendiente: Entregado but not yet liquidated
     const pendingBalance = pedidos
       .filter((p) => p.estado?.toLowerCase() === "entregado" && p.metodo_pago !== "anticipado")
-      .reduce((sum, p) => sum + (p.valor_recaudar || 0) - FLETE_COSTO, 0);
+      .reduce((sum, p) => {
+        const utilidad = p.utilidad ?? ((p.valor_recaudar || 0) - (p.valor_flete || 12000));
+        return sum + utilidad;
+      }, 0);
 
-    return { totalMonth, deliveredCount, pendingBalance: Math.max(0, pendingBalance) };
+    return { 
+      totalMonth, 
+      deliveredCount, 
+      pendingBalance: Math.max(0, pendingBalance),
+      availableBalance: Math.max(0, availableBalance)
+    };
   }, [pedidos]);
 
   const novedadesCount = useMemo(() => {

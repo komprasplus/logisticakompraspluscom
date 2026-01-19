@@ -64,6 +64,10 @@ interface Pedido {
   metodo_pago: string | null;
   producto_nombre: string | null;
   valor_recaudar: number | null;
+  valor_producto?: number | null;
+  valor_flete?: number | null;
+  utilidad?: number | null;
+  municipio?: string | null;
   zona: string | null;
   tipo_novedad: string | null;
   firma_cliente: string | null;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -13,6 +13,7 @@ import {
   Loader2,
   Map,
   CheckCircle,
+  Calculator,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { getZonaFromBarrio } from "@/lib/zonas";
+import { getTarifaEnvio, calcularUtilidad, formatCOP } from "@/lib/tarifas";
 import LocationPreviewMap from "./LocationPreviewMap";
 import AddressAutocomplete from "./AddressAutocomplete";
 
@@ -57,6 +59,7 @@ const NuevoPedidoModal = ({
   const [ciudad, setCiudad] = useState("");
   const [productoNombre, setProductoNombre] = useState("");
   const [valorRecaudar, setValorRecaudar] = useState("");
+  const [valorProducto, setValorProducto] = useState("");
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(undefined);
   const [motorizadoAsignado, setMotorizadoAsignado] = useState("");
@@ -71,6 +74,15 @@ const NuevoPedidoModal = ({
   const [loading, setLoading] = useState(false);
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [phoneError, setPhoneError] = useState("");
+
+  // Calculate flete and utility based on localidad
+  const tarifaInfo = useMemo(() => getTarifaEnvio(localidad), [localidad]);
+  
+  const utilidadCalculada = useMemo(() => {
+    const recaudo = valorRecaudar ? parseFloat(valorRecaudar) : 0;
+    const producto = valorProducto ? parseFloat(valorProducto) : 0;
+    return calcularUtilidad(recaudo, producto, tarifaInfo.valor);
+  }, [valorRecaudar, valorProducto, tarifaInfo.valor]);
 
   // Fetch motorizados for admin selector
   useEffect(() => {
@@ -210,8 +222,12 @@ const NuevoPedidoModal = ({
         direccion_entrega: direccionCompleta,
         barrio: barrio,
         zona: zona,
+        municipio: localidad || "Bogotá",
         producto_nombre: productoNombre.trim(),
         valor_recaudar: valorRecaudar ? parseFloat(valorRecaudar) : null,
+        valor_producto: valorProducto ? parseFloat(valorProducto) : null,
+        valor_flete: tarifaInfo.valor,
+        utilidad: utilidadCalculada,
         metodo_pago: metodoPago,
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
         estado: "pendiente",
@@ -246,6 +262,7 @@ const NuevoPedidoModal = ({
     setCiudad("");
     setProductoNombre("");
     setValorRecaudar("");
+    setValorProducto("");
     setMetodoPago("efectivo");
     setFechaEntrega(undefined);
     setMotorizadoAsignado("");
@@ -446,6 +463,53 @@ const NuevoPedidoModal = ({
                   className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
+
+              {/* Costo del producto (opcional) */}
+              <div className="relative">
+                <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="number"
+                  placeholder="Costo Producto / Proveeduría (opcional)"
+                  value={valorProducto}
+                  onChange={(e) => setValorProducto(e.target.value)}
+                  min="0"
+                  step="100"
+                  className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              {/* Tarifa y cálculo automático */}
+              {addressSelected && (
+                <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Calculator className="h-4 w-4 text-primary" />
+                    <span className="font-medium text-foreground">Cálculo Automático</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Flete:</span>
+                      <span className="font-medium text-foreground">{formatCOP(tarifaInfo.valor)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Zona:</span>
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{tarifaInfo.etiqueta}</span>
+                    </div>
+                  </div>
+                  {(valorRecaudar || valorProducto) && (
+                    <div className="pt-2 border-t border-border">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Utilidad estimada:</span>
+                        <span className={cn(
+                          "font-bold",
+                          utilidadCalculada >= 0 ? "text-green-600" : "text-destructive"
+                        )}>
+                          {formatCOP(utilidadCalculada)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Section: Payment Method */}
