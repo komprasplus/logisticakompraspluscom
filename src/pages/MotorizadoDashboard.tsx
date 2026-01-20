@@ -17,6 +17,7 @@ import {
   RefreshCw,
   Share2,
   Pen,
+  ScanLine,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,6 +33,7 @@ import ConnectionToggle from "@/components/ConnectionToggle";
 import MotorizadoProfile from "@/components/MotorizadoProfile";
 import DateHeader from "@/components/DateHeader";
 import AdminNotesDisplay from "@/components/AdminNotesDisplay";
+import MotorizadoQRScanner from "@/components/MotorizadoQRScanner";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
 
@@ -83,6 +85,7 @@ const MotorizadoDashboard = () => {
   const [showMapView, setShowMapView] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const novedadPhotoRef = useRef<HTMLInputElement>(null);
   const packagePhotoRef = useRef<HTMLInputElement>(null);
@@ -1315,6 +1318,41 @@ const MotorizadoDashboard = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* QR Scanner Modal */}
+      {user?.id && (
+        <MotorizadoQRScanner
+          isOpen={showQRScanner}
+          onClose={() => setShowQRScanner(false)}
+          onStartDelivery={(scannedPedido) => {
+            // Update local state with the started delivery
+            setPedidos((prev) =>
+              prev.map((p) =>
+                p.id === scannedPedido.id ? { ...p, estado: "En Ruta" } : p
+              )
+            );
+            // Find the full pedido in local state to select it
+            const fullPedido = pedidos.find(p => p.id === scannedPedido.id);
+            if (fullPedido) {
+              setSelectedPedido({ ...fullPedido, estado: "En Ruta" });
+            }
+          }}
+          motorizadoId={user.id}
+        />
+      )}
+
+      {/* Floating QR Scanner Button */}
+      <motion.button
+        onClick={() => setShowQRScanner(true)}
+        className="fixed bottom-24 right-4 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        title="Escanear Pedido"
+      >
+        <ScanLine className="h-7 w-7" />
+      </motion.button>
     </div>
   );
 };
