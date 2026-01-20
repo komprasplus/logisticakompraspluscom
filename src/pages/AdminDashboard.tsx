@@ -1238,6 +1238,9 @@ const AdminDashboard = () => {
           ? clientProfiles[selectedPedidoForDetail.client_user_id]?.store_name || 
             clientProfiles[selectedPedidoForDetail.client_user_id]?.full_name 
           : undefined}
+        onStatusChange={() => {
+          fetchPedidos();
+        }}
       />
       <PrintGuiaModal
         isOpen={showPrintGuia}
