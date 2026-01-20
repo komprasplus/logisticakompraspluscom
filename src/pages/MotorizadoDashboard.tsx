@@ -34,6 +34,7 @@ import MotorizadoProfile from "@/components/MotorizadoProfile";
 import DateHeader from "@/components/DateHeader";
 import AdminNotesDisplay from "@/components/AdminNotesDisplay";
 import MotorizadoQRScanner from "@/components/MotorizadoQRScanner";
+import WeatherWidget from "@/components/WeatherWidget";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
 
@@ -634,6 +635,11 @@ const MotorizadoDashboard = () => {
       <main className="container px-4 py-4">
         {/* Date Header with Greeting */}
         <DateHeader userName={profile?.full_name} />
+
+        {/* Weather Widget */}
+        <div className="mb-4">
+          <WeatherWidget />
+        </div>
 
         {/* Admin Notes / Bulletin Board */}
         <AdminNotesDisplay />
