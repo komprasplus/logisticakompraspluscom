@@ -190,6 +190,8 @@ export type Database = {
           last_location_lat: number | null
           last_location_lng: number | null
           last_location_updated_at: string | null
+          logo_url: string | null
+          nit_rut: string | null
           phone: string | null
           status: string
           store_name: string | null
@@ -207,6 +209,8 @@ export type Database = {
           last_location_lat?: number | null
           last_location_lng?: number | null
           last_location_updated_at?: string | null
+          logo_url?: string | null
+          nit_rut?: string | null
           phone?: string | null
           status?: string
           store_name?: string | null
@@ -224,6 +228,8 @@ export type Database = {
           last_location_lat?: number | null
           last_location_lng?: number | null
           last_location_updated_at?: string | null
+          logo_url?: string | null
+          nit_rut?: string | null
           phone?: string | null
           status?: string
           store_name?: string | null

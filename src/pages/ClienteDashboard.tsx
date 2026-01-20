@@ -1,36 +1,23 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import {
-  LogOut,
-  User,
-  MapPin,
-  Phone,
-  Plus,
-  Shield,
-  Search,
-  Loader2,
-  Package,
-  Warehouse,
-  Truck,
-  CheckCircle2,
-} from "lucide-react";
+import { Plus, MapPin } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import logo from "@/assets/logo-kompras-plus.png";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import EditPedidoModal from "@/components/EditPedidoModal";
 import PrintGuiaModal from "@/components/PrintGuiaModal";
-import SecuritySettings from "@/components/SecuritySettings";
 import ClientOrderInstructions from "@/components/ClientOrderInstructions";
 import EvidencePhotoModal from "@/components/EvidencePhotoModal";
-import MotorcycleIcon from "@/components/MotorcycleIcon";
 import ClienteSidebar, { ClienteView } from "@/components/cliente/ClienteSidebar";
+import ClienteHeader from "@/components/cliente/ClienteHeader";
 import DashboardView from "@/components/cliente/DashboardView";
 import PedidosView from "@/components/cliente/PedidosView";
 import NovedadesView from "@/components/cliente/NovedadesView";
 import ReportesView from "@/components/cliente/ReportesView";
+import MiTiendaView from "@/components/cliente/MiTiendaView";
+import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
 import { AnimatePresence } from "framer-motion";
 
 interface Pedido {
@@ -69,15 +56,18 @@ const ClienteDashboard = () => {
   const [printingPedido, setPrintingPedido] = useState<Pedido | null>(null);
   const [instructionsPedido, setInstructionsPedido] = useState<Pedido | null>(null);
   const [evidencePhoto, setEvidencePhoto] = useState<string | null>(null);
-  
-  // Tracking state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [trackingResult, setTrackingResult] = useState<Pedido | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [trackingError, setTrackingError] = useState("");
-  
+  const [isWarehouseOpen, setIsWarehouseOpen] = useState(checkWarehouseOpen());
+
   const { signOut, profile, user } = useAuth();
   const navigate = useNavigate();
+
+  // Check warehouse status every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsWarehouseOpen(checkWarehouseOpen());
+    }, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (user?.id) {
@@ -156,109 +146,20 @@ const ClienteDashboard = () => {
     navigate("/auth");
   };
 
-  const handleTracking = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-
-    setTrackingError("");
-    setIsSearching(true);
-    setTrackingResult(null);
-
-    try {
-      const { data, error } = await supabase
-        .from("pedidos")
-        .select("*")
-        .ilike("numero_guia", `%${searchQuery.trim()}%`)
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        setTrackingResult(data);
-      } else {
-        setTrackingError(
-          "No encontramos tu guía, por favor verifica el número o comunícate con Kompras Plus al 324 222 3825"
-        );
-      }
-    } catch (err) {
-      console.error("Error searching:", err);
-      setTrackingError("Error al buscar el pedido. Por favor intenta de nuevo.");
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  const getStatusInfo = (status: string | null) => {
-    const s = status?.toLowerCase();
-    switch (s) {
-      case "recibido":
-      case "pedido recibido":
-      case "recibido en bodega":
-        return { label: "Recibido en Bodega", step: 2 };
-      case "pendiente":
-        return { label: "Pendiente", step: 1 };
-      case "asignado":
-        return { label: "Asignado", step: 2 };
-      case "en ruta":
-      case "en camino":
-        return { label: "En Ruta", step: 3 };
-      case "entregado":
-      case "liquidado":
-        return { label: "Entregado", step: 4 };
-      default:
-        return { label: status || "Pendiente", step: 1 };
-    }
-  };
-
-  const statusSteps = [
-    { key: 1, label: "Recibido", icon: Package },
-    { key: 2, label: "En Bodega", icon: Warehouse },
-    { key: 3, label: "En Ruta", icon: Truck },
-    { key: 4, label: "Entregado", icon: CheckCircle2 },
-  ];
-
-  const getMotorcyclePosition = (step: number) => {
-    switch (step) {
-      case 1: return 0;
-      case 2: return 33;
-      case 3: return 66;
-      case 4: return 100;
-      default: return 0;
-    }
-  };
+  // Get store info from profile
+  const storeName = profile?.store_name || profile?.full_name || "Mi Tienda";
+  const logoUrl = (profile as { logo_url?: string })?.logo_url || null;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-white shadow-sm h-16">
-        <div className="flex h-full items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <img src={logo} alt="Kompras Plus" className="h-10 w-auto" />
-          </div>
-          <div className="flex items-center gap-3">
-            <a
-              href={`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`}
-              className="hidden sm:flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20 transition-colors"
-            >
-              <Phone className="h-4 w-4" />
-              {SUPPORT_PHONE}
-            </a>
-            <div className="flex items-center gap-2 rounded-full bg-muted px-3 py-1.5">
-              <User className="h-4 w-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">
-                {profile?.full_name || "Cliente"}
-              </span>
-            </div>
-            <button
-              onClick={handleSignOut}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted hover:bg-muted/80 transition-colors"
-            >
-              <LogOut className="h-5 w-5 text-muted-foreground" />
-            </button>
-          </div>
-        </div>
-      </header>
+      {/* Custom Header with Store Branding */}
+      <ClienteHeader
+        storeName={storeName}
+        logoUrl={logoUrl}
+        supportPhone={SUPPORT_PHONE}
+        onSignOut={handleSignOut}
+        isWarehouseOpen={isWarehouseOpen}
+      />
 
       {/* Sidebar */}
       <ClienteSidebar
@@ -271,29 +172,19 @@ const ClienteDashboard = () => {
 
       {/* Main Content */}
       <main
-        className={`pt-16 transition-all duration-300 ${
+        className={`pt-[104px] transition-all duration-300 ${
           sidebarCollapsed ? "ml-16" : "ml-56"
         }`}
       >
-        <div className="p-6 max-w-5xl mx-auto">
-          {/* Support Info Banner */}
-          <motion.div
-            className="mb-6 flex items-center justify-between rounded-xl bg-white border border-border p-4 shadow-sm"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                <MapPin className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Bodega Central</p>
-                <p className="text-sm font-medium text-foreground">{WAREHOUSE_ADDRESS}</p>
-              </div>
+        <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+          {/* Warehouse Status + New Order Button */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <WarehouseStatus isOpen={isWarehouseOpen} address={WAREHOUSE_ADDRESS} />
             </div>
             <motion.button
               onClick={() => setShowNuevoPedido(true)}
-              className="relative group flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white overflow-hidden"
+              className="relative group flex items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-bold text-white overflow-hidden sm:w-auto w-full"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
@@ -301,11 +192,11 @@ const ClienteDashboard = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-xl" />
               <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-700 rounded-b-xl" />
               <div className="relative flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Nuevo Pedido</span>
+                <Plus className="h-5 w-5" />
+                <span>Nuevo Pedido</span>
               </div>
             </motion.button>
-          </motion.div>
+          </div>
 
           {/* Views */}
           <AnimatePresence mode="wait">
@@ -346,10 +237,11 @@ const ClienteDashboard = () => {
             {activeView === "reportes" && (
               <ReportesView key="reportes" pedidos={pedidos} />
             )}
-          </AnimatePresence>
 
-          {/* Security Section - Accessible from sidebar could be added or integrated */}
-          {/* For now, security is accessible via profile or a dedicated section */}
+            {activeView === "tienda" && (
+              <MiTiendaView key="tienda" />
+            )}
+          </AnimatePresence>
         </div>
       </main>
 
@@ -372,7 +264,7 @@ const ClienteDashboard = () => {
         pedido={printingPedido}
         isOpen={!!printingPedido}
         onClose={() => setPrintingPedido(null)}
-        remitente={profile?.full_name}
+        remitente={storeName}
       />
 
       <ClientOrderInstructions

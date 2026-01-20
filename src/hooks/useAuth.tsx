@@ -11,6 +11,9 @@ interface ProfileData {
   avatar_url?: string | null;
   vehicle_plate?: string | null;
   is_online?: boolean;
+  store_name?: string | null;
+  logo_url?: string | null;
+  nit_rut?: string | null;
 }
 
 interface AuthContextType {
@@ -38,7 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Fetch profile
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, phone, email, avatar_url, vehicle_plate, is_online")
+        .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut")
         .eq("user_id", userId)
         .maybeSingle();
 
