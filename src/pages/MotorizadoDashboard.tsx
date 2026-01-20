@@ -1044,25 +1044,41 @@ const MotorizadoDashboard = () => {
                 Compartir mi ubicación con cliente
               </button>
 
-              {/* Action Buttons */}
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <button
-                  onClick={openNovedadModal}
-                  disabled={selectedPedido.estado?.toLowerCase() === "entregado"}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-destructive py-3 font-bold text-destructive-foreground transition-all active:scale-95 disabled:opacity-50 shadow-md"
-                >
-                  <AlertTriangle className="h-5 w-5" />
-                  Novedad
-                </button>
-                <button
-                  onClick={openPhotoCapture}
-                  disabled={selectedPedido.estado?.toLowerCase() === "entregado"}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-bold text-white transition-all active:scale-95 disabled:opacity-50 shadow-md"
-                >
-                  <Camera className="h-5 w-5" />
-                  Entregar
-                </button>
-              </div>
+              {/* Action Buttons - Only show if order is in "En Ruta" status */}
+              {selectedPedido.estado?.toLowerCase() === "en ruta" && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <button
+                    onClick={openNovedadModal}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-destructive py-3 font-bold text-destructive-foreground transition-all active:scale-95 shadow-md"
+                  >
+                    <AlertTriangle className="h-5 w-5" />
+                    Novedad
+                  </button>
+                  <button
+                    onClick={openPhotoCapture}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-bold text-white transition-all active:scale-95 shadow-md"
+                  >
+                    <Camera className="h-5 w-5" />
+                    Entregar
+                  </button>
+                </div>
+              )}
+
+              {/* Show status message for non-actionable orders */}
+              {selectedPedido.estado?.toLowerCase() !== "en ruta" && (
+                <div className="mt-3 rounded-xl bg-muted p-3 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    {selectedPedido.estado?.toLowerCase() === "entregado" 
+                      ? "✅ Este pedido ya fue entregado"
+                      : selectedPedido.estado?.toLowerCase() === "novedad"
+                      ? "⚠️ Este pedido tiene novedad reportada"
+                      : selectedPedido.estado?.toLowerCase() === "asignado"
+                      ? "📦 Usa el escáner QR para iniciar la entrega"
+                      : `Estado actual: ${selectedPedido.estado}`
+                    }
+                  </p>
+                </div>
+              )}
 
               {selectedPedido.foto_evidencia && (
                 <div className="mt-4">

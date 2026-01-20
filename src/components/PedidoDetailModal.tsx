@@ -8,6 +8,9 @@ import {
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
 import { formatCOP } from "@/lib/tarifas";
+import { useAuth } from "@/hooks/useAuth";
+import AdminStatusEditor from "./AdminStatusEditor";
+import PedidoStatusHistory from "./PedidoStatusHistory";
 
 interface Pedido {
   id: number;
@@ -39,9 +42,12 @@ interface PedidoDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   remitente?: string;
+  onStatusChange?: () => void;
 }
 
-const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente }: PedidoDetailModalProps) => {
+const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange }: PedidoDetailModalProps) => {
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   if (!pedido) return null;
 
   const statusConfig = getStatusConfig(pedido.estado);
@@ -217,7 +223,7 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente }: PedidoDetailM
             <div className="rounded-lg border border-border p-4">
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="h-4 w-4 text-primary" />
-                <h3 className="font-semibold text-foreground">Historial</h3>
+                <h3 className="font-semibold text-foreground">Fechas</h3>
               </div>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
@@ -231,7 +237,20 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente }: PedidoDetailM
               </div>
             </div>
 
-            {/* Evidencias Fotográficas */}
+            {/* Admin Status Editor */}
+            {isAdmin && (
+              <AdminStatusEditor 
+                pedidoId={pedido.id}
+                currentStatus={pedido.estado}
+                onStatusChange={() => {
+                  onStatusChange?.();
+                  onClose();
+                }}
+              />
+            )}
+
+            {/* Status Change History */}
+            <PedidoStatusHistory pedidoId={pedido.id} />
             {(pedido.foto_paquete || pedido.foto_evidencia || pedido.firma_cliente) && (
               <div className="rounded-lg border border-border p-4">
                 <div className="flex items-center gap-2 mb-3">
