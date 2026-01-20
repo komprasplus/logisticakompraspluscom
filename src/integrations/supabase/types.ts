@@ -41,6 +41,36 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_logs: {
+        Row: {
+          created_at: string
+          destinatario: string
+          estado: string | null
+          id: string
+          mensaje: string
+          pedido_id: number
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          destinatario: string
+          estado?: string | null
+          id?: string
+          mensaje: string
+          pedido_id: number
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          destinatario?: string
+          estado?: string | null
+          id?: string
+          mensaje?: string
+          pedido_id?: number
+          tipo?: string
+        }
+        Relationships: []
+      }
       pedido_status_logs: {
         Row: {
           created_at: string
@@ -81,6 +111,8 @@ export type Database = {
           client_user_id: string | null
           cliente_nombre: string | null
           corte_horario: string | null
+          costo_devolucion: number | null
+          devolucion_cobrada: boolean | null
           direccion_entrega: string | null
           estado: string | null
           fecha_actualizacion: string | null
@@ -92,6 +124,7 @@ export type Database = {
           guia_impresa: boolean | null
           guia_impresa_at: string | null
           id: number
+          intentos_entrega: number | null
           latitud: number | null
           longitud: number | null
           metodo_pago: string | null
@@ -101,6 +134,7 @@ export type Database = {
           novedad_latitud: number | null
           novedad_longitud: number | null
           numero_guia: string | null
+          observaciones: string | null
           producto_nombre: string | null
           tipo_novedad: string | null
           utilidad: number | null
@@ -115,6 +149,8 @@ export type Database = {
           client_user_id?: string | null
           cliente_nombre?: string | null
           corte_horario?: string | null
+          costo_devolucion?: number | null
+          devolucion_cobrada?: boolean | null
           direccion_entrega?: string | null
           estado?: string | null
           fecha_actualizacion?: string | null
@@ -126,6 +162,7 @@ export type Database = {
           guia_impresa?: boolean | null
           guia_impresa_at?: string | null
           id?: number
+          intentos_entrega?: number | null
           latitud?: number | null
           longitud?: number | null
           metodo_pago?: string | null
@@ -135,6 +172,7 @@ export type Database = {
           novedad_latitud?: number | null
           novedad_longitud?: number | null
           numero_guia?: string | null
+          observaciones?: string | null
           producto_nombre?: string | null
           tipo_novedad?: string | null
           utilidad?: number | null
@@ -149,6 +187,8 @@ export type Database = {
           client_user_id?: string | null
           cliente_nombre?: string | null
           corte_horario?: string | null
+          costo_devolucion?: number | null
+          devolucion_cobrada?: boolean | null
           direccion_entrega?: string | null
           estado?: string | null
           fecha_actualizacion?: string | null
@@ -160,6 +200,7 @@ export type Database = {
           guia_impresa?: boolean | null
           guia_impresa_at?: string | null
           id?: number
+          intentos_entrega?: number | null
           latitud?: number | null
           longitud?: number | null
           metodo_pago?: string | null
@@ -169,6 +210,7 @@ export type Database = {
           novedad_latitud?: number | null
           novedad_longitud?: number | null
           numero_guia?: string | null
+          observaciones?: string | null
           producto_nombre?: string | null
           tipo_novedad?: string | null
           utilidad?: number | null

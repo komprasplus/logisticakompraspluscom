@@ -19,6 +19,7 @@ interface Pedido {
   metodo_pago: string | null;
   producto_nombre: string | null;
   fecha_creacion: string | null;
+  observaciones?: string | null;
 }
 
 interface PrintGuiaModalProps {
@@ -251,6 +252,23 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
               <span style={{ fontSize: "8pt", fontWeight: "bold" }}>DETALLES: </span>
               <span style={{ fontSize: "8pt" }}>{pedido.producto_nombre || "Paquete estándar"}</span>
             </div>
+
+            {/* Observaciones - Highlighted */}
+            {pedido.observaciones && (
+              <div style={{ 
+                marginBottom: "2mm",
+                padding: "2mm",
+                border: "2px solid #000",
+                backgroundColor: "#f0f0f0"
+              }}>
+                <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "1mm" }}>
+                  ⚠️ OBSERVACIONES
+                </div>
+                <div style={{ fontSize: "9pt", fontWeight: "bold" }}>
+                  {pedido.observaciones}
+                </div>
+              </div>
+            )}
 
             {/* Valor a Recaudar - Destacado */}
             <div style={{ 

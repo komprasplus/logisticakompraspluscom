@@ -6,11 +6,12 @@ import {
   FileSpreadsheet,
   ChevronLeft,
   ChevronRight,
-  Store
+  Store,
+  RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ClienteView = "dashboard" | "pedidos" | "novedades" | "reportes" | "tienda";
+export type ClienteView = "dashboard" | "pedidos" | "novedades" | "devoluciones" | "reportes" | "tienda";
 
 interface ClienteSidebarProps {
   activeView: ClienteView;
@@ -41,6 +42,13 @@ const navItems = [
     icon: AlertTriangle,
     gradient: "from-orange-500 to-orange-600",
     shadow: "shadow-orange-500/30",
+  },
+  {
+    key: "devoluciones" as ClienteView,
+    label: "Devoluciones",
+    icon: RotateCcw,
+    gradient: "from-red-500 to-red-600",
+    shadow: "shadow-red-500/30",
   },
   {
     key: "reportes" as ClienteView,
