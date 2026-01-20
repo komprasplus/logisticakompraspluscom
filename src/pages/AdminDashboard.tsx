@@ -27,6 +27,8 @@ import {
   Key,
   Ban,
   Eye,
+  Printer,
+  FileCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +44,8 @@ import CancelOrderModal from "@/components/CancelOrderModal";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import QRScannerModal from "@/components/QRScannerModal";
 import PedidoDetailModal from "@/components/PedidoDetailModal";
+import PrintGuiaModal from "@/components/PrintGuiaModal";
+import BulkPrintGuiasModal from "@/components/BulkPrintGuiasModal";
 import LiquidacionesPanel from "@/components/LiquidacionesPanel";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
@@ -79,6 +83,8 @@ interface Pedido {
   client_user_id: string | null;
   novedad_latitud?: number | null;
   novedad_longitud?: number | null;
+  guia_impresa?: boolean | null;
+  guia_impresa_at?: string | null;
 }
 
 interface Profile {
@@ -123,6 +129,10 @@ const AdminDashboard = () => {
   const [assigningPedido, setAssigningPedido] = useState<number | null>(null);
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [selectedForBulk, setSelectedForBulk] = useState<number[]>([]);
+  const [showPrintGuia, setShowPrintGuia] = useState(false);
+  const [selectedPedidoForPrint, setSelectedPedidoForPrint] = useState<Pedido | null>(null);
+  const [showBulkPrint, setShowBulkPrint] = useState(false);
+  const [selectedForPrint, setSelectedForPrint] = useState<number[]>([]);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -416,6 +426,88 @@ const AdminDashboard = () => {
       .filter((p) => !p.motorizado_asignado)
       .map((p) => p.id);
     setSelectedForBulk(unassigned);
+  };
+
+  // Toggle select for bulk printing
+  const togglePrintSelect = (pedidoId: number) => {
+    setSelectedForPrint((prev) =>
+      prev.includes(pedidoId)
+        ? prev.filter((id) => id !== pedidoId)
+        : [...prev, pedidoId]
+    );
+  };
+
+  // Check if order can have guide printed (only 'Recibido en Bodega' or 'Asignado')
+  const canPrintGuia = (pedido: Pedido) => {
+    const estado = pedido.estado?.toLowerCase();
+    return estado === "recibido en bodega" || estado === "asignado";
+  };
+
+  // Mark guides as printed in the database
+  const markGuiasAsPrinted = async (pedidoIds: number[]) => {
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({
+          guia_impresa: true,
+          guia_impresa_at: new Date().toISOString(),
+        })
+        .in("id", pedidoIds);
+
+      if (error) throw error;
+
+      // Update local state
+      setPedidos((prev) =>
+        prev.map((p) =>
+          pedidoIds.includes(p.id)
+            ? { ...p, guia_impresa: true, guia_impresa_at: new Date().toISOString() }
+            : p
+        )
+      );
+
+      toast.success(`${pedidoIds.length} guía(s) marcada(s) como impresa(s)`);
+    } catch (error) {
+      console.error("Error marking guides as printed:", error);
+      toast.error("Error al marcar guías como impresas");
+    }
+  };
+
+  // Handle individual print
+  const handlePrintGuia = (pedido: Pedido) => {
+    setSelectedPedidoForPrint(pedido);
+    setShowPrintGuia(true);
+  };
+
+  // Handle individual print completion
+  const handlePrintComplete = async (pedidoIds: number[]) => {
+    await markGuiasAsPrinted(pedidoIds);
+    setShowPrintGuia(false);
+    setSelectedPedidoForPrint(null);
+  };
+
+  // Handle bulk print
+  const handleBulkPrint = () => {
+    if (selectedForPrint.length < 2) {
+      toast.error("Selecciona al menos 2 pedidos para impresión masiva");
+      return;
+    }
+    setShowBulkPrint(true);
+  };
+
+  // Handle bulk print completion
+  const handleBulkPrintComplete = async (pedidoIds: number[]) => {
+    await markGuiasAsPrinted(pedidoIds);
+    setShowBulkPrint(false);
+    setSelectedForPrint([]);
+  };
+
+  // Get client remitentes map for bulk print
+  const getClientRemitentes = () => {
+    const remitentes: Record<string, string> = {};
+    Object.entries(clientProfiles).forEach(([userId, profile]) => {
+      remitentes[userId] = profile.store_name || profile.full_name;
+    });
+    return remitentes;
   };
 
   const confirmUserEmail = async (userId: string) => {
@@ -777,6 +869,19 @@ const AdminDashboard = () => {
                   Seleccionar todos sin asignar ({filteredPedidos.filter((p) => !p.motorizado_asignado).length})
                 </button>
               )}
+
+              {/* Bulk Print Bar */}
+              {selectedForPrint.length >= 2 && (
+                <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-700">
+                  <Printer className="h-4 w-4 text-emerald-600" />
+                  <span className="text-sm font-medium text-foreground">{selectedForPrint.length} guía(s) seleccionada(s)</span>
+                  <Button size="sm" onClick={handleBulkPrint} className="gap-1">
+                    <Printer className="h-4 w-4" />
+                    Generar Guías Masivas
+                  </Button>
+                  <button onClick={() => setSelectedForPrint([])} className="text-sm text-muted-foreground hover:text-foreground">Cancelar</button>
+                </div>
+              )}
             </div>
 
             {/* Orders Table */}
@@ -788,7 +893,8 @@ const AdminDashboard = () => {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b border-border">
                       <tr>
-                        <th className="px-2 py-3 text-left w-8"><span className="sr-only">Seleccionar</span></th>
+                        <th className="px-2 py-3 text-left w-8"><span className="sr-only">Seleccionar Asig.</span></th>
+                        <th className="px-2 py-3 text-left w-8"><span className="sr-only">Seleccionar Guía</span></th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Guía</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Cliente</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Zona</th>
@@ -796,7 +902,7 @@ const AdminDashboard = () => {
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Motorizado</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Estado</th>
-                        <th className="px-2 py-3 text-center font-semibold text-foreground text-xs sm:text-sm w-16">Acción</th>
+                        <th className="px-2 py-3 text-center font-semibold text-foreground text-xs sm:text-sm w-24">Acciones</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
@@ -805,17 +911,38 @@ const AdminDashboard = () => {
                         const isSelected = selectedForBulk.includes(pedido.id);
                         const isCancelled = pedido.estado?.toLowerCase() === "anulado";
                         const canCancel = !isCancelled && pedido.estado?.toLowerCase() !== "entregado" && pedido.estado?.toLowerCase() !== "liquidado";
+                        const isPrintable = canPrintGuia(pedido);
+                        const isPrintSelected = selectedForPrint.includes(pedido.id);
+                        const isGuiaImpresa = pedido.guia_impresa;
                         
                         return (
-                          <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${isPendingAssignment && !isCancelled ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""} ${isCancelled ? "opacity-60" : ""}`}>
+                          <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${isPendingAssignment && !isCancelled ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""} ${isPrintSelected ? "bg-emerald-50 dark:bg-emerald-950/20" : ""} ${isCancelled ? "opacity-60" : ""}`}>
+                            {/* Bulk assignment checkbox */}
                             <td className="px-2 py-3">
                               {isPendingAssignment && !isCancelled && (
                                 <input type="checkbox" checked={isSelected} onChange={() => toggleBulkSelect(pedido.id)} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
                               )}
                             </td>
+                            {/* Bulk print checkbox */}
+                            <td className="px-2 py-3">
+                              {isPrintable && !isCancelled && (
+                                <input 
+                                  type="checkbox" 
+                                  checked={isPrintSelected} 
+                                  onChange={() => togglePrintSelect(pedido.id)} 
+                                  className="h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500" 
+                                  title="Seleccionar para impresión masiva"
+                                />
+                              )}
+                            </td>
                             <td className="px-3 py-3 font-medium text-foreground text-xs sm:text-sm">
                               <div className="flex items-center gap-2">
                                 {isPendingAssignment && !isCancelled && <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />}
+                                {isGuiaImpresa && (
+                                  <span className="inline-flex items-center gap-0.5 text-emerald-600" title="Guía Impresa">
+                                    <FileCheck className="h-3.5 w-3.5" />
+                                  </span>
+                                )}
                                 {pedido.numero_guia || `#${pedido.id}`}
                               </div>
                             </td>
@@ -823,7 +950,7 @@ const AdminDashboard = () => {
                             <td className="px-3 py-3 hidden sm:table-cell"><ZonaBadge zona={pedido.zona} /></td>
                             <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">{pedido.barrio || "-"}</td>
                             <td className="px-3 py-3 hidden md:table-cell">
-                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${pedido.metodo_pago === "anticipado" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${pedido.metodo_pago === "anticipado" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}`}>
                                 {pedido.metodo_pago === "anticipado" ? "Anticipado" : "Contra Entrega"}
                               </span>
                             </td>
@@ -847,6 +974,20 @@ const AdminDashboard = () => {
                             <td className="px-3 py-3"><StatusBadge status={pedido.estado} /></td>
                             <td className="px-2 py-3 text-center">
                               <div className="flex items-center justify-center gap-1">
+                                {/* Print Button */}
+                                {isPrintable && !isCancelled && (
+                                  <button
+                                    onClick={() => handlePrintGuia(pedido)}
+                                    className={`inline-flex items-center justify-center h-8 w-8 rounded-lg transition-colors ${
+                                      isGuiaImpresa 
+                                        ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400" 
+                                        : "bg-muted text-muted-foreground hover:bg-emerald-100 hover:text-emerald-600"
+                                    }`}
+                                    title={isGuiaImpresa ? "Reimprimir guía" : "Imprimir guía"}
+                                  >
+                                    <Printer className="h-4 w-4" />
+                                  </button>
+                                )}
                                 {/* Detail Button */}
                                 <button
                                   onClick={() => {
@@ -1097,6 +1238,27 @@ const AdminDashboard = () => {
           ? clientProfiles[selectedPedidoForDetail.client_user_id]?.store_name || 
             clientProfiles[selectedPedidoForDetail.client_user_id]?.full_name 
           : undefined}
+      />
+      <PrintGuiaModal
+        isOpen={showPrintGuia}
+        onClose={() => {
+          handlePrintComplete(selectedPedidoForPrint ? [selectedPedidoForPrint.id] : []);
+        }}
+        pedido={selectedPedidoForPrint}
+        remitente={selectedPedidoForPrint?.client_user_id 
+          ? clientProfiles[selectedPedidoForPrint.client_user_id]?.store_name || 
+            clientProfiles[selectedPedidoForPrint.client_user_id]?.full_name 
+          : undefined}
+      />
+      <BulkPrintGuiasModal
+        isOpen={showBulkPrint}
+        onClose={() => {
+          setShowBulkPrint(false);
+          setSelectedForPrint([]);
+        }}
+        pedidos={filteredPedidos.filter(p => selectedForPrint.includes(p.id))}
+        remitentes={getClientRemitentes()}
+        onPrintComplete={handleBulkPrintComplete}
       />
     </div>
   );
