@@ -29,6 +29,7 @@ import {
   Eye,
   Printer,
   FileCheck,
+  Store,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,7 @@ import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
 import CreateUserModal from "@/components/CreateUserModal";
 import ResetUserPasswordModal from "@/components/ResetUserPasswordModal";
+import DeleteUserModal from "@/components/DeleteUserModal";
 import CancelOrderModal from "@/components/CancelOrderModal";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import QRScannerModal from "@/components/QRScannerModal";
@@ -47,9 +49,14 @@ import PedidoDetailModal from "@/components/PedidoDetailModal";
 import PrintGuiaModal from "@/components/PrintGuiaModal";
 import BulkPrintGuiasModal from "@/components/BulkPrintGuiasModal";
 import LiquidacionesPanel from "@/components/LiquidacionesPanel";
+import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
+import UserCardsGrid from "@/components/UserCardsGrid";
+import PaginationControls from "@/components/PaginationControls";
+import { usePagination } from "@/hooks/usePagination";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getStatusConfig, ALL_STATUSES, isOperationalStatus } from "@/lib/orderStatuses";
 import AdminNotesInput from "@/components/AdminNotesInput";
 
@@ -94,6 +101,9 @@ interface Profile {
   phone: string | null;
   email: string | null;
   status: string;
+  store_name?: string | null;
+  avatar_url?: string | null;
+  is_online?: boolean;
 }
 
 interface UserRole {
@@ -133,8 +143,14 @@ const AdminDashboard = () => {
   const [selectedPedidoForPrint, setSelectedPedidoForPrint] = useState<Pedido | null>(null);
   const [showBulkPrint, setShowBulkPrint] = useState(false);
   const [selectedForPrint, setSelectedForPrint] = useState<number[]>([]);
+  const [showDeleteUser, setShowDeleteUser] = useState(false);
+  const [selectedUserForDelete, setSelectedUserForDelete] = useState<Profile | null>(null);
+  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
+
+  // Pagination for despacho table
+  const despachoPageState = usePagination({ items: filteredPedidos, itemsPerPage: 10 });
 
   // Fetch initial data
   useEffect(() => {
@@ -142,7 +158,18 @@ const AdminDashboard = () => {
     fetchUsers();
     fetchMotorizados();
     fetchClientProfiles();
+    fetchUserRoles();
   }, []);
+
+  const fetchUserRoles = async () => {
+    try {
+      const { data, error } = await supabase.from("user_roles").select("user_id, role");
+      if (error) throw error;
+      setUserRoles(data || []);
+    } catch (error) {
+      console.error("Error fetching user roles:", error);
+    }
+  };
 
   const fetchClientProfiles = async () => {
     try {
@@ -1052,7 +1079,24 @@ const AdminDashboard = () => {
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
             <h2 className="font-bold text-foreground text-xl mb-4">💰 Liquidaciones</h2>
-            <LiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
+            <Tabs defaultValue="motorizados" className="w-full">
+              <TabsList className="mb-4">
+                <TabsTrigger value="motorizados" className="gap-2">
+                  <Truck className="h-4 w-4" />
+                  Motorizados
+                </TabsTrigger>
+                <TabsTrigger value="tiendas" className="gap-2">
+                  <Store className="h-4 w-4" />
+                  Tiendas
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="motorizados">
+                <LiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
+              </TabsContent>
+              <TabsContent value="tiendas">
+                <StoreLiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
+              </TabsContent>
+            </Tabs>
           </motion.div>
         );
 
@@ -1083,55 +1127,20 @@ const AdminDashboard = () => {
               </button>
             </div>
 
-            <div className="rounded-xl bg-card shadow-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/50 border-b border-border">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">Nombre</th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">Email</th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Teléfono</th>
-                      <th className="px-4 py-3 text-left font-semibold text-foreground">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {users.map((user) => (
-                      <tr key={user.id} className="hover:bg-muted/30 transition-colors">
-                        <td className="px-4 py-3 font-medium text-foreground">{user.full_name}</td>
-                        <td className="px-4 py-3 text-muted-foreground">{user.email || "-"}</td>
-                        <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">{user.phone || "-"}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => {
-                                setSelectedUserForReset(user);
-                                setShowResetPassword(true);
-                              }}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-amber-100 px-3 py-2 text-xs font-medium text-amber-700 hover:bg-amber-200 transition-colors"
-                              title="Restablecer contraseña"
-                            >
-                              <Key className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Credenciales</span>
-                            </button>
-                            <button
-                              onClick={() => confirmUserEmail(user.user_id)}
-                              className="inline-flex items-center gap-1.5 rounded-lg bg-muted px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
-                              title="Confirmar email"
-                            >
-                              <UserCheck className="h-3.5 w-3.5" />
-                              <span className="hidden sm:inline">Confirmar</span>
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {users.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground">No hay usuarios registrados</div>
-              )}
-            </div>
+            {/* User Cards Grid */}
+            <UserCardsGrid
+              users={users}
+              userRoles={userRoles}
+              onResetPassword={(user) => {
+                setSelectedUserForReset(user);
+                setShowResetPassword(true);
+              }}
+              onConfirmEmail={confirmUserEmail}
+              onDeleteUser={(user) => {
+                setSelectedUserForDelete(user);
+                setShowDeleteUser(true);
+              }}
+            />
           </motion.div>
         );
 
@@ -1207,7 +1216,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Modals */}
-      <CreateUserModal isOpen={showCreateUser} onClose={() => setShowCreateUser(false)} onUserCreated={fetchUsers} />
+      <CreateUserModal isOpen={showCreateUser} onClose={() => setShowCreateUser(false)} onUserCreated={() => { fetchUsers(); fetchUserRoles(); }} />
       <ResetUserPasswordModal 
         isOpen={showResetPassword} 
         onClose={() => {
@@ -1215,6 +1224,15 @@ const AdminDashboard = () => {
           setSelectedUserForReset(null);
         }} 
         user={selectedUserForReset} 
+      />
+      <DeleteUserModal
+        isOpen={showDeleteUser}
+        onClose={() => {
+          setShowDeleteUser(false);
+          setSelectedUserForDelete(null);
+        }}
+        user={selectedUserForDelete}
+        onUserDeleted={() => { fetchUsers(); fetchUserRoles(); }}
       />
       <NuevoPedidoModal isOpen={showNuevoPedido} onClose={() => setShowNuevoPedido(false)} onSuccess={fetchPedidos} isAdmin={true} />
       <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} onSuccess={fetchPedidos} />
