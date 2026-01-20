@@ -3,17 +3,53 @@ import { Cloud, CloudRain, Droplets, RefreshCw, Sun, Thermometer, Wind } from "l
 import { useWeather } from "@/hooks/useWeather";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const WeatherWidget = () => {
+interface WeatherWidgetProps {
+  compact?: boolean;
+}
+
+const WeatherWidget = ({ compact = false }: WeatherWidgetProps) => {
   const { weather, loading, error, refresh } = useWeather();
 
-  const getWeatherIcon = (iconCode: string) => {
-    if (iconCode.includes("01")) return <Sun className="w-8 h-8 text-yellow-400" />;
+  const getWeatherIcon = (iconCode: string, size = "w-8 h-8") => {
+    if (iconCode.includes("01")) return <Sun className={`${size} text-yellow-400`} />;
     if (iconCode.includes("02") || iconCode.includes("03") || iconCode.includes("04")) 
-      return <Cloud className="w-8 h-8 text-gray-400" />;
+      return <Cloud className={`${size} text-gray-400`} />;
     if (iconCode.includes("09") || iconCode.includes("10") || iconCode.includes("11")) 
-      return <CloudRain className="w-8 h-8 text-blue-400" />;
-    return <Cloud className="w-8 h-8 text-gray-400" />;
+      return <CloudRain className={`${size} text-blue-400`} />;
+    return <Cloud className={`${size} text-gray-400`} />;
   };
+
+  // Compact mode for header
+  if (compact) {
+    if (loading || error || !weather) {
+      return (
+        <div className="flex items-center gap-2 text-muted-foreground text-xs">
+          <Cloud className="w-4 h-4" />
+          <span>--°C</span>
+        </div>
+      );
+    }
+
+    const isRainy = weather.rainProbability > 50;
+
+    return (
+      <div className="flex items-center gap-3 text-sm">
+        <div className="flex items-center gap-1.5">
+          {getWeatherIcon(weather.icon, "w-5 h-5")}
+          <span className="font-semibold text-foreground">{weather.temperature}°C</span>
+        </div>
+        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+          isRainy ? "bg-blue-500/20 text-blue-600" : "bg-blue-500/10 text-blue-500"
+        }`}>
+          <Droplets className="w-3 h-3" />
+          <span>{weather.rainProbability}%</span>
+        </div>
+        {isRainy && (
+          <span className="text-xs text-blue-600 hidden lg:inline">⚠️ Lluvia</span>
+        )}
+      </div>
+    );
+  }
 
   if (loading) {
     return (

@@ -5,11 +5,12 @@ import {
   AlertTriangle, 
   FileSpreadsheet,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Store
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ClienteView = "dashboard" | "pedidos" | "novedades" | "reportes";
+export type ClienteView = "dashboard" | "pedidos" | "novedades" | "reportes" | "tienda";
 
 interface ClienteSidebarProps {
   activeView: ClienteView;
@@ -48,6 +49,13 @@ const navItems = [
     gradient: "from-emerald-500 to-emerald-600",
     shadow: "shadow-emerald-500/30",
   },
+  {
+    key: "tienda" as ClienteView,
+    label: "Mi Tienda",
+    icon: Store,
+    gradient: "from-purple-500 to-purple-600",
+    shadow: "shadow-purple-500/30",
+  },
 ];
 
 const ClienteSidebar = ({ 
@@ -60,7 +68,7 @@ const ClienteSidebar = ({
   return (
     <motion.aside
       className={cn(
-        "fixed left-0 top-16 h-[calc(100vh-4rem)] bg-white border-r border-border z-30 flex flex-col transition-all duration-300",
+        "fixed left-0 top-[104px] h-[calc(100vh-104px)] bg-white border-r border-border z-30 flex flex-col transition-all duration-300",
         collapsed ? "w-16" : "w-56"
       )}
       initial={{ x: -100 }}
