@@ -56,6 +56,8 @@ export type Database = {
           firma_cliente: string | null
           foto_evidencia: string | null
           foto_paquete: string | null
+          guia_impresa: boolean | null
+          guia_impresa_at: string | null
           id: number
           latitud: number | null
           longitud: number | null
@@ -88,6 +90,8 @@ export type Database = {
           firma_cliente?: string | null
           foto_evidencia?: string | null
           foto_paquete?: string | null
+          guia_impresa?: boolean | null
+          guia_impresa_at?: string | null
           id?: number
           latitud?: number | null
           longitud?: number | null
@@ -120,6 +124,8 @@ export type Database = {
           firma_cliente?: string | null
           foto_evidencia?: string | null
           foto_paquete?: string | null
+          guia_impresa?: boolean | null
+          guia_impresa_at?: string | null
           id?: number
           latitud?: number | null
           longitud?: number | null
