@@ -11,6 +11,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import MotorizadoDashboard from "./pages/MotorizadoDashboard";
 import ClienteDashboard from "./pages/ClienteDashboard";
 import CustomerTracking from "./pages/CustomerTracking";
+import PublicTracking from "./pages/PublicTracking";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -49,6 +50,7 @@ const AppRoutes = () => {
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/rastreo" element={<CustomerTracking />} />
+      <Route path="/rastreo/:id_guia" element={<PublicTracking />} />
       
       {/* Protected Routes */}
       <Route

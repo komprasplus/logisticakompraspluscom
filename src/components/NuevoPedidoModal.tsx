@@ -61,6 +61,7 @@ const NuevoPedidoModal = ({
   const [valorRecaudar, setValorRecaudar] = useState("");
   const [valorProducto, setValorProducto] = useState("");
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
+  const [observaciones, setObservaciones] = useState("");
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(undefined);
   const [motorizadoAsignado, setMotorizadoAsignado] = useState("");
   
@@ -230,6 +231,7 @@ const NuevoPedidoModal = ({
         utilidad: utilidadCalculada,
         metodo_pago: metodoPago,
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
+        observaciones: observaciones.trim() || null,
         estado: "pendiente",
         latitud: confirmedLat,
         longitud: confirmedLng,
@@ -265,6 +267,7 @@ const NuevoPedidoModal = ({
     setValorProducto("");
     setMetodoPago("efectivo");
     setFechaEntrega(undefined);
+    setObservaciones("");
     setMotorizadoAsignado("");
     setPhoneError("");
     setConfirmedLat(null);
@@ -580,6 +583,21 @@ const NuevoPedidoModal = ({
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+
+            {/* Section: Observaciones */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Observaciones (Opcional)
+              </h3>
+              <textarea
+                placeholder="Instrucciones especiales para la entrega (ej: llamar antes, timbre dañado, etc.)"
+                value={observaciones}
+                onChange={(e) => setObservaciones(e.target.value)}
+                maxLength={500}
+                rows={3}
+                className="w-full rounded-lg border border-border bg-background py-2.5 px-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+              />
             </div>
 
             {/* Section: Assignment (Admin Only) */}
