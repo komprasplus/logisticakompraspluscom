@@ -58,6 +58,7 @@ interface Pedido {
   corte_horario: string | null;
   fecha_creacion: string | null;
   motorizado_asignado: string | null;
+  motorizado_id: string | null;
   latitud: number | null;
   longitud: number | null;
   barrio: string | null;
@@ -318,13 +319,21 @@ const AdminDashboard = () => {
     setFilteredPedidos(filtered);
   };
 
-  const assignMotorizado = async (pedidoId: number, motorizadoName: string) => {
+  const assignMotorizado = async (pedidoId: number, motorizadoUserId: string) => {
+    // Find the motorizado by user_id to get both name and id
+    const motorizado = motorizados.find(m => m.user_id === motorizadoUserId);
+    if (!motorizado) {
+      toast.error("Motorizado no encontrado");
+      return;
+    }
+
     setAssigningPedido(pedidoId);
     try {
       const { error } = await supabase
         .from("pedidos")
         .update({
-          motorizado_asignado: motorizadoName,
+          motorizado_asignado: motorizado.full_name,
+          motorizado_id: motorizadoUserId,
           estado: "Asignado",
           fecha_actualizacion: new Date().toISOString(),
         })
@@ -335,12 +344,12 @@ const AdminDashboard = () => {
       setPedidos((prev) =>
         prev.map((p) =>
           p.id === pedidoId
-            ? { ...p, motorizado_asignado: motorizadoName, estado: "Asignado" }
+            ? { ...p, motorizado_asignado: motorizado.full_name, motorizado_id: motorizadoUserId, estado: "Asignado" }
             : p
         )
       );
 
-      toast.success(`Pedido asignado a ${motorizadoName}`);
+      toast.success(`Pedido asignado a ${motorizado.full_name}`);
     } catch (error) {
       console.error("Error assigning motorizado:", error);
       toast.error("Error al asignar motorizado");
@@ -349,9 +358,16 @@ const AdminDashboard = () => {
     }
   };
 
-  const bulkAssignMotorizado = async (motorizadoName: string) => {
+  const bulkAssignMotorizado = async (motorizadoUserId: string) => {
     if (selectedForBulk.length === 0) {
       toast.error("No hay pedidos seleccionados");
+      return;
+    }
+
+    // Find the motorizado by user_id
+    const motorizado = motorizados.find(m => m.user_id === motorizadoUserId);
+    if (!motorizado) {
+      toast.error("Motorizado no encontrado");
       return;
     }
 
@@ -360,7 +376,8 @@ const AdminDashboard = () => {
       const { error } = await supabase
         .from("pedidos")
         .update({
-          motorizado_asignado: motorizadoName,
+          motorizado_asignado: motorizado.full_name,
+          motorizado_id: motorizadoUserId,
           estado: "Asignado",
           fecha_actualizacion: new Date().toISOString(),
         })
@@ -371,12 +388,12 @@ const AdminDashboard = () => {
       setPedidos((prev) =>
         prev.map((p) =>
           selectedForBulk.includes(p.id)
-            ? { ...p, motorizado_asignado: motorizadoName, estado: "Asignado" }
+            ? { ...p, motorizado_asignado: motorizado.full_name, motorizado_id: motorizadoUserId, estado: "Asignado" }
             : p
         )
       );
 
-      toast.success(`${selectedForBulk.length} pedidos asignados a ${motorizadoName}`);
+      toast.success(`${selectedForBulk.length} pedidos asignados a ${motorizado.full_name}`);
       setSelectedForBulk([]);
     } catch (error) {
       console.error("Error bulk assigning:", error);
@@ -748,7 +765,7 @@ const AdminDashboard = () => {
                   >
                     <option value="" disabled>{bulkAssigning ? "Asignando..." : "Asignar a..."}</option>
                     {motorizados.map((m) => (
-                      <option key={m.id} value={m.full_name}>{m.full_name}</option>
+                      <option key={m.id} value={m.user_id}>{m.full_name}</option>
                     ))}
                   </select>
                   <button onClick={() => setSelectedForBulk([])} className="text-sm text-muted-foreground hover:text-foreground">Cancelar</button>
@@ -821,7 +838,7 @@ const AdminDashboard = () => {
                                   defaultValue=""
                                 >
                                   <option value="" disabled>{assigningPedido === pedido.id ? "Asignando..." : "⚠️ Asignar"}</option>
-                                  {motorizados.map((m) => (<option key={m.id} value={m.full_name}>{m.full_name}</option>))}
+                                  {motorizados.map((m) => (<option key={m.id} value={m.user_id}>{m.full_name}</option>))}
                                 </select>
                               ) : (
                                 <span className="text-muted-foreground">{pedido.motorizado_asignado}</span>

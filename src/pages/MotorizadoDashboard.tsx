@@ -103,10 +103,10 @@ const MotorizadoDashboard = () => {
   }, [latitude, longitude]);
 
   useEffect(() => {
-    if (profile?.full_name) {
+    if (user?.id) {
       fetchPedidos();
     }
-  }, [profile?.full_name]);
+  }, [user?.id]);
 
   // Sort and filter pedidos - prioritize by proximity to current location or bodega
   useEffect(() => {
@@ -163,17 +163,19 @@ const MotorizadoDashboard = () => {
   }, [activeFilter, pedidos, userLocation]);
 
   const fetchPedidos = async () => {
-    if (!profile?.full_name) {
+    if (!user?.id) {
       setLoading(false);
       return;
     }
     
     try {
-      // Filter by motorizado's name - RLS also enforces this at database level
+      // Filter by motorizado_id (UUID) - RLS enforces this at database level
+      // No date filter - show all pending orders including from previous days
       const { data, error } = await supabase
         .from("pedidos")
         .select("*")
-        .eq("motorizado_asignado", profile.full_name)
+        .eq("motorizado_id", user.id)
+        .in("estado", ["Asignado", "En Ruta", "Novedad"])
         .order("id", { ascending: true });
 
       if (error) throw error;

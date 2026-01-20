@@ -61,6 +61,7 @@ export type Database = {
           longitud: number | null
           metodo_pago: string | null
           motorizado_asignado: string | null
+          motorizado_id: string | null
           municipio: string | null
           novedad_latitud: number | null
           novedad_longitud: number | null
@@ -92,6 +93,7 @@ export type Database = {
           longitud?: number | null
           metodo_pago?: string | null
           motorizado_asignado?: string | null
+          motorizado_id?: string | null
           municipio?: string | null
           novedad_latitud?: number | null
           novedad_longitud?: number | null
@@ -123,6 +125,7 @@ export type Database = {
           longitud?: number | null
           metodo_pago?: string | null
           motorizado_asignado?: string | null
+          motorizado_id?: string | null
           municipio?: string | null
           novedad_latitud?: number | null
           novedad_longitud?: number | null
