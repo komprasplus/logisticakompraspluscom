@@ -84,6 +84,7 @@ export const handleEnRutaNotification = async (
 
 /**
  * Handles delivery attempt increment and automatic return logic
+ * Business Rule: 2 failed attempts trigger automatic return with freight charge
  * Returns updated attempt count and whether the order should be marked as return
  */
 export const handleDeliveryAttempt = async (
@@ -96,14 +97,15 @@ export const handleDeliveryAttempt = async (
   message: string;
 }> => {
   const newAttempts = currentAttempts + 1;
-  const shouldMarkAsReturn = newAttempts >= 3;
+  // UPDATED: Return after 2nd failed attempt (not 3rd)
+  const shouldMarkAsReturn = newAttempts >= 2;
 
   try {
     const updateData: Record<string, unknown> = {
       intentos_entrega: newAttempts,
     };
 
-    // If 3rd failed attempt, mark as return and apply charge
+    // If 2nd failed attempt, mark as return and apply freight charge
     if (shouldMarkAsReturn) {
       updateData.estado = "devolución";
       updateData.costo_devolucion = valorFlete;
@@ -122,14 +124,14 @@ export const handleDeliveryAttempt = async (
       return {
         newAttempts,
         shouldMarkAsReturn: true,
-        message: `Tercer intento fallido. Pedido marcado como Devolución. Se descontará ${formatCOP(valorFlete)} del saldo de la tienda.`,
+        message: `Segundo intento fallido. Pedido marcado como Devolución. Se descontará ${formatCOP(valorFlete)} del saldo de la tienda.`,
       };
     }
 
     return {
       newAttempts,
       shouldMarkAsReturn: false,
-      message: `Intento ${newAttempts} de 3 registrado. ${3 - newAttempts} intento(s) restante(s) antes de devolución.`,
+      message: `Intento ${newAttempts} de 2 registrado. ${2 - newAttempts} intento(s) restante(s) antes de devolución.`,
     };
   } catch (err) {
     console.error("Error handling delivery attempt:", err);

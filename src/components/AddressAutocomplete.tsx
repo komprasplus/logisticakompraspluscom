@@ -9,10 +9,13 @@ const COVERED_AREAS = [
   "Funza",
   "Madrid",
   "Mosquera",
+  "Chía",
+  "Cota",
+  "Sibaté",
 ];
 
 // Bounding box for Bogotá and surrounding areas
-const BOGOTA_VIEWBOX = "-74.25,4.45,-73.95,4.85"; // left,bottom,right,top
+const BOGOTA_VIEWBOX = "-74.35,4.35,-73.85,5.05"; // left,bottom,right,top (expanded for surrounding municipalities)
 
 interface NominatimResult {
   place_id: number;
@@ -58,6 +61,7 @@ interface AddressAutocompleteProps {
   placeholder?: string;
   value?: string;
   className?: string;
+  municipio?: string; // NEW: Filter results by municipality
 }
 
 const AddressAutocomplete = ({
@@ -65,6 +69,7 @@ const AddressAutocomplete = ({
   placeholder = "Buscar dirección, barrio o localidad...",
   value = "",
   className,
+  municipio,
 }: AddressAutocompleteProps) => {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<AddressResult[]>([]);
@@ -119,6 +124,25 @@ const AddressAutocomplete = ({
     };
   };
 
+  // Check if a result matches the selected municipality
+  const matchesMunicipio = (result: AddressResult): boolean => {
+    if (!municipio) return true; // No filter applied
+    
+    const municipioLower = municipio.toLowerCase();
+    const ciudadLower = result.ciudad.toLowerCase();
+    const localidadLower = result.localidad.toLowerCase();
+    
+    // Special case for Bogotá (city contains "bogotá" or "bogota")
+    if (municipioLower === "bogotá" || municipioLower === "bogota") {
+      return ciudadLower.includes("bogotá") || ciudadLower.includes("bogota");
+    }
+    
+    // Check if ciudad or localidad matches the selected municipio
+    return ciudadLower.includes(municipioLower) || 
+           localidadLower.includes(municipioLower) ||
+           municipioLower.includes(ciudadLower);
+  };
+
   // Search using Nominatim
   const searchAddress = useCallback(async (searchQuery: string) => {
     if (searchQuery.length < 3) {
@@ -129,13 +153,19 @@ const AddressAutocomplete = ({
     setLoading(true);
 
     try {
-      // Add Colombia context to query
-      const enhancedQuery = `${searchQuery}, Colombia`;
+      // Build query with municipality context if provided
+      let enhancedQuery = searchQuery;
+      if (municipio) {
+        enhancedQuery = `${searchQuery}, ${municipio}, Colombia`;
+      } else {
+        enhancedQuery = `${searchQuery}, Colombia`;
+      }
+      
       const encodedQuery = encodeURIComponent(enhancedQuery);
       
       // Use Nominatim with structured query and viewbox for better results
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&q=${encodedQuery}&viewbox=${BOGOTA_VIEWBOX}&bounded=0&limit=8&countrycodes=co`,
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&q=${encodedQuery}&viewbox=${BOGOTA_VIEWBOX}&bounded=0&limit=10&countrycodes=co`,
         {
           headers: {
             "Accept-Language": "es",
@@ -147,17 +177,24 @@ const AddressAutocomplete = ({
       
       const data: NominatimResult[] = await response.json();
       
-      // Filter results to only show covered areas
+      // Filter results to only show covered areas AND match selected municipality
       const filteredResults = data
         .map(parseNominatimResult)
         .filter((result) => {
           const ciudad = result.ciudad.toLowerCase();
           const localidad = result.localidad.toLowerCase();
-          return COVERED_AREAS.some(
+          
+          // First check if it's in covered areas
+          const inCoveredArea = COVERED_AREAS.some(
             (area) =>
               ciudad.includes(area.toLowerCase()) ||
               localidad.includes(area.toLowerCase())
           );
+          
+          if (!inCoveredArea) return false;
+          
+          // Then check if it matches the selected municipality
+          return matchesMunicipio(result);
         });
 
       setResults(filteredResults);
@@ -168,7 +205,7 @@ const AddressAutocomplete = ({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [municipio]);
 
   // Debounced search
   useEffect(() => {
@@ -274,7 +311,9 @@ const AddressAutocomplete = ({
 
       {/* Hint Text */}
       <p className="mt-1 text-xs text-muted-foreground">
-        Escribe dirección, barrio o localidad (Bogotá, Soacha, Funza, Madrid, Mosquera)
+        {municipio 
+          ? `Escribe dirección o barrio en ${municipio}`
+          : "Escribe dirección, barrio o localidad (Bogotá, Soacha, Funza, Madrid, Mosquera)"}
       </p>
 
       {/* Results Dropdown */}
@@ -283,7 +322,7 @@ const AddressAutocomplete = ({
           {loading && results.length === 0 ? (
             <div className="flex items-center justify-center gap-2 px-4 py-3">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              <span className="text-sm text-muted-foreground">Buscando...</span>
+              <span className="text-sm text-muted-foreground">Buscando en {municipio || "Colombia"}...</span>
             </div>
           ) : results.length > 0 ? (
             results.map((result, index) => (
@@ -333,7 +372,7 @@ const AddressAutocomplete = ({
           ) : query.length >= 3 && !loading ? (
             <div className="px-4 py-3 text-center">
               <p className="text-sm text-muted-foreground">
-                No se encontraron resultados
+                No se encontraron resultados {municipio ? `en ${municipio}` : ""}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
                 Intenta con otro término o escribe la dirección completa
