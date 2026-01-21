@@ -772,15 +772,13 @@ const NuevoPedidoModal = ({
               </div>
             )}
 
-            {/* Submit Button */}
+            {/* Submit Button - Always enabled, validation handled on submit */}
             <button
               type="submit"
               disabled={loading}
               className={cn(
                 "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
-                municipioSeleccionado && direccionManual.trim() && confirmedLat && confirmedLng
-                  ? "bg-primary text-primary-foreground hover:opacity-90"
-                  : "bg-muted text-muted-foreground",
+                "bg-primary text-primary-foreground hover:opacity-90",
                 loading && "opacity-50 cursor-not-allowed"
               )}
             >
@@ -788,21 +786,6 @@ const NuevoPedidoModal = ({
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Creando pedido...
-                </>
-              ) : !municipioSeleccionado ? (
-                <>
-                  <Building2 className="h-5 w-5" />
-                  Selecciona ciudad primero
-                </>
-              ) : !confirmedLat || !confirmedLng ? (
-                <>
-                  <MapPin className="h-5 w-5" />
-                  Busca un punto en el mapa (paso B)
-                </>
-              ) : !direccionManual.trim() ? (
-                <>
-                  <MapPin className="h-5 w-5" />
-                  Escribe la dirección exacta (paso C)
                 </>
               ) : (
                 <>

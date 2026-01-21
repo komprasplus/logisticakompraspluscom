@@ -16,6 +16,10 @@ import {
   MapPin,
   DollarSign,
   TrendingUp,
+  Calendar,
+  Filter,
+  X,
+  Camera,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +27,15 @@ import { useState, useMemo } from "react";
 import { formatCOP } from "@/lib/tarifas";
 import { usePagination } from "@/hooks/usePagination";
 import PaginationControls from "@/components/PaginationControls";
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { es } from "date-fns/locale";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 interface Pedido {
   id: number;
@@ -66,6 +79,14 @@ const PedidosView = ({
 }: PedidosViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  
+  // Advanced filters
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
+  const [minValue, setMinValue] = useState("");
+  const [maxValue, setMaxValue] = useState("");
+  const [recipientFilter, setRecipientFilter] = useState("");
 
   const getStatusInfo = (status: string | null) => {
     const s = status?.toLowerCase();
@@ -90,12 +111,16 @@ const PedidosView = ({
         return { label: "Novedad", color: "bg-orange-500", textColor: "text-white", icon: AlertTriangle };
       case "liquidado":
         return { label: "Liquidado", color: "bg-emerald-600", textColor: "text-white", icon: CheckCircle2 };
+      case "devolución":
+      case "devolucion":
+        return { label: "Devolución", color: "bg-red-500", textColor: "text-white", icon: XCircle };
       default:
         return { label: status || "Pendiente", color: "bg-muted", textColor: "text-muted-foreground", icon: Package };
     }
   };
 
   const canEditOrder = (status: string | null) => status?.toLowerCase() === "pendiente";
+  const isDelivered = (status: string | null) => status?.toLowerCase() === "entregado" || status?.toLowerCase() === "liquidado";
   
   const getNetProfit = (pedido: Pedido) => {
     if (pedido.metodo_pago === "anticipado") return 0;
@@ -106,9 +131,30 @@ const PedidosView = ({
     return (pedido.valor_recaudar || 0) - flete;
   };
 
+  // Count active filters
+  const activeFiltersCount = useMemo(() => {
+    let count = 0;
+    if (dateFrom) count++;
+    if (dateTo) count++;
+    if (minValue) count++;
+    if (maxValue) count++;
+    if (recipientFilter.trim()) count++;
+    return count;
+  }, [dateFrom, dateTo, minValue, maxValue, recipientFilter]);
+
+  // Clear all advanced filters
+  const clearAdvancedFilters = () => {
+    setDateFrom(undefined);
+    setDateTo(undefined);
+    setMinValue("");
+    setMaxValue("");
+    setRecipientFilter("");
+  };
+
   const filteredPedidos = useMemo(() => {
     let result = pedidos;
     
+    // Basic search (guía, nombre, dirección)
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -119,12 +165,51 @@ const PedidosView = ({
       );
     }
 
+    // Status filter
     if (statusFilter) {
       result = result.filter((p) => p.estado?.toLowerCase() === statusFilter);
     }
 
+    // Date range filter
+    if (dateFrom || dateTo) {
+      result = result.filter((p) => {
+        if (!p.fecha_creacion) return false;
+        const orderDate = parseISO(p.fecha_creacion);
+        
+        if (dateFrom && dateTo) {
+          return isWithinInterval(orderDate, {
+            start: startOfDay(dateFrom),
+            end: endOfDay(dateTo)
+          });
+        } else if (dateFrom) {
+          return orderDate >= startOfDay(dateFrom);
+        } else if (dateTo) {
+          return orderDate <= endOfDay(dateTo);
+        }
+        return true;
+      });
+    }
+
+    // Value range filter
+    if (minValue || maxValue) {
+      const min = minValue ? parseFloat(minValue) : 0;
+      const max = maxValue ? parseFloat(maxValue) : Infinity;
+      result = result.filter((p) => {
+        const valor = p.valor_recaudar || 0;
+        return valor >= min && valor <= max;
+      });
+    }
+
+    // Recipient name filter
+    if (recipientFilter.trim()) {
+      const q = recipientFilter.toLowerCase();
+      result = result.filter((p) => 
+        p.cliente_nombre?.toLowerCase().includes(q)
+      );
+    }
+
     return result;
-  }, [pedidos, searchQuery, statusFilter]);
+  }, [pedidos, searchQuery, statusFilter, dateFrom, dateTo, minValue, maxValue, recipientFilter]);
 
   // Pagination
   const {
@@ -146,6 +231,7 @@ const PedidosView = ({
     { value: "en ruta", label: "En Ruta" },
     { value: "entregado", label: "Entregado" },
     { value: "novedad", label: "Novedad" },
+    { value: "devolución", label: "Devolución" },
     { value: "liquidado", label: "Liquidado" },
   ];
 
@@ -167,16 +253,35 @@ const PedidosView = ({
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por guía, cliente o dirección..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
+      <div className="space-y-3">
+        {/* Main search + toggle filters */}
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por guía, cliente o dirección..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <Button
+            variant={showAdvancedFilters ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+            className="gap-2"
+          >
+            <Filter className="h-4 w-4" />
+            Filtros
+            {activeFiltersCount > 0 && (
+              <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary-foreground text-primary text-xs font-bold">
+                {activeFiltersCount}
+              </span>
+            )}
+          </Button>
         </div>
+
+        {/* Status filter buttons */}
         <div className="flex gap-2 flex-wrap">
           {statusOptions.map((opt) => (
             <button
@@ -192,6 +297,128 @@ const PedidosView = ({
             </button>
           ))}
         </div>
+
+        {/* Advanced Filters Panel */}
+        {showAdvancedFilters && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="rounded-xl bg-muted/50 border border-border p-4 space-y-4"
+          >
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-foreground">Filtros Avanzados</h4>
+              {activeFiltersCount > 0 && (
+                <Button variant="ghost" size="sm" onClick={clearAdvancedFilters} className="h-7 text-xs gap-1">
+                  <X className="h-3 w-3" />
+                  Limpiar
+                </Button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Date From */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Desde</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal h-9",
+                        !dateFrom && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dateFrom ? format(dateFrom, "dd MMM yyyy", { locale: es }) : "Fecha inicio"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={dateFrom}
+                      onSelect={setDateFrom}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Date To */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Hasta</label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal h-9",
+                        !dateTo && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dateTo ? format(dateTo, "dd MMM yyyy", { locale: es }) : "Fecha fin"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={dateTo}
+                      onSelect={setDateTo}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              {/* Value Range */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Valor Mínimo</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={minValue}
+                    onChange={(e) => setMinValue(e.target.value)}
+                    className="pl-8 h-9"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Valor Máximo</label>
+                <div className="relative">
+                  <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="number"
+                    placeholder="Sin límite"
+                    value={maxValue}
+                    onChange={(e) => setMaxValue(e.target.value)}
+                    className="pl-8 h-9"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Recipient Filter */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">Nombre del Destinatario</label>
+              <div className="relative max-w-md">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="text"
+                  placeholder="Buscar por nombre..."
+                  value={recipientFilter}
+                  onChange={(e) => setRecipientFilter(e.target.value)}
+                  className="pl-8 h-9"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* Grid */}
@@ -203,7 +430,7 @@ const PedidosView = ({
         <div className="rounded-2xl bg-card border border-border p-8 text-center shadow-sm">
           <Package className="mx-auto h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-muted-foreground">
-            {searchQuery || statusFilter ? "No se encontraron pedidos" : "No tienes pedidos registrados"}
+            {searchQuery || statusFilter || activeFiltersCount > 0 ? "No se encontraron pedidos con estos filtros" : "No tienes pedidos registrados"}
           </p>
         </div>
       ) : (
@@ -214,6 +441,7 @@ const PedidosView = ({
               const StatusIcon = statusInfo.icon;
               const isEditable = canEditOrder(pedido.estado);
               const isNovedad = pedido.estado?.toLowerCase() === "novedad";
+              const hasDeliveryEvidence = isDelivered(pedido.estado) && pedido.foto_evidencia;
               const netProfit = getNetProfit(pedido);
 
               return (
@@ -292,8 +520,21 @@ const PedidosView = ({
                       )}
                     </div>
 
-                    {/* Evidence Thumbnail */}
-                    {pedido.foto_evidencia && (
+                    {/* Delivery Evidence Button - Only for delivered orders */}
+                    {hasDeliveryEvidence && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full gap-2 bg-green-500/10 border-green-500/30 text-green-700 hover:bg-green-500/20"
+                        onClick={() => onViewEvidence(pedido.foto_evidencia!)}
+                      >
+                        <Camera className="h-4 w-4" />
+                        Ver Foto de Entrega
+                      </Button>
+                    )}
+
+                    {/* Evidence Thumbnail for non-delivered */}
+                    {pedido.foto_evidencia && !isDelivered(pedido.estado) && (
                       <button
                         onClick={() => onViewEvidence(pedido.foto_evidencia!)}
                         className="w-full rounded-xl overflow-hidden border-2 border-border hover:border-primary transition-colors group relative h-24"

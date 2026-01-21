@@ -361,49 +361,91 @@ const MotorizadoDashboard = () => {
 
     setUpdating(true);
     try {
-      const updateData: any = {
-        estado: "Novedad",
-        tipo_novedad: selectedNovedadType,
-        fecha_actualizacion: new Date().toISOString(),
-      };
-
-      // Capture GPS coordinates
-      if (userLocation) {
-        updateData.novedad_latitud = userLocation.lat;
-        updateData.novedad_longitud = userLocation.lng;
-      }
-
-      // Add photo if provided
-      if (novedadPhoto) {
-        updateData.foto_evidencia = novedadPhoto;
-      }
-
-      const { error } = await supabase
+      // Import delivery attempt handler for automatic return logic
+      const { handleDeliveryAttempt } = await import("@/lib/notificationService");
+      
+      // Get current attempts from the order (need to fetch fresh data)
+      const { data: currentOrder, error: fetchError } = await supabase
         .from("pedidos")
-        .update(updateData)
-        .eq("id", selectedPedido.id);
-
-      if (error) throw error;
-
-      setPedidos((prev) =>
-        prev.map((p) =>
-          p.id === selectedPedido.id
-            ? { 
-                ...p, 
-                estado: "Novedad",
-                tipo_novedad: selectedNovedadType,
-                foto_evidencia: novedadPhoto || p.foto_evidencia,
-              }
-            : p
-        )
+        .select("intentos_entrega, valor_flete")
+        .eq("id", selectedPedido.id)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
+      const currentAttempts = currentOrder?.intentos_entrega || 0;
+      const valorFlete = currentOrder?.valor_flete || 12000;
+      
+      // Process delivery attempt - this will auto-mark as return after 2nd attempt
+      const attemptResult = await handleDeliveryAttempt(
+        selectedPedido.id,
+        currentAttempts,
+        valorFlete
       );
+      
+      // If auto-return was triggered, update local state accordingly
+      if (attemptResult.shouldMarkAsReturn) {
+        setPedidos((prev) =>
+          prev.map((p) =>
+            p.id === selectedPedido.id
+              ? { 
+                  ...p, 
+                  estado: "Devolución",
+                  tipo_novedad: selectedNovedadType,
+                  foto_evidencia: novedadPhoto || p.foto_evidencia,
+                }
+              : p
+          )
+        );
+        
+        toast.warning(attemptResult.message, { duration: 6000 });
+      } else {
+        // Normal novedad handling (1st attempt)
+        const updateData: Record<string, unknown> = {
+          estado: "Novedad",
+          tipo_novedad: selectedNovedadType,
+          fecha_actualizacion: new Date().toISOString(),
+        };
+
+        // Capture GPS coordinates
+        if (userLocation) {
+          updateData.novedad_latitud = userLocation.lat;
+          updateData.novedad_longitud = userLocation.lng;
+        }
+
+        // Add photo if provided
+        if (novedadPhoto) {
+          updateData.foto_evidencia = novedadPhoto;
+        }
+
+        const { error } = await supabase
+          .from("pedidos")
+          .update(updateData)
+          .eq("id", selectedPedido.id);
+
+        if (error) throw error;
+
+        setPedidos((prev) =>
+          prev.map((p) =>
+            p.id === selectedPedido.id
+              ? { 
+                  ...p, 
+                  estado: "Novedad",
+                  tipo_novedad: selectedNovedadType,
+                  foto_evidencia: novedadPhoto || p.foto_evidencia,
+                }
+              : p
+          )
+        );
+        
+        toast.success(`⚠️ ${attemptResult.message}`);
+      }
 
       setSelectedPedido(null);
       setShowNovedadModal(false);
       setSelectedNovedadType(null);
       setNovedadReason("");
       setNovedadPhoto(null);
-      toast.success("⚠️ Novedad reportada - Pin actualizado a naranja");
     } catch (error) {
       console.error("Error updating estado:", error);
       toast.error("Error al reportar novedad");
