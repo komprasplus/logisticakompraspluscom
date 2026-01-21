@@ -41,6 +41,42 @@ export type Database = {
         }
         Relationships: []
       }
+      api_credentials: {
+        Row: {
+          api_key_hash: string
+          api_key_prefix: string
+          client_user_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string | null
+          last_used_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          api_key_hash: string
+          api_key_prefix: string
+          client_user_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          last_used_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          api_key_hash?: string
+          api_key_prefix?: string
+          client_user_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          last_used_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notification_logs: {
         Row: {
           created_at: string
