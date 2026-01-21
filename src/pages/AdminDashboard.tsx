@@ -36,7 +36,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
-import AdminMap from "@/components/AdminMap";
+import AdminMapEnhanced from "@/components/AdminMapEnhanced";
+import MapErrorBoundary from "@/components/MapErrorBoundary";
 import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
 import NovedadCompactCard from "@/components/NovedadCompactCard";
@@ -752,13 +753,19 @@ const AdminDashboard = () => {
             
             {/* Map with Fleet Monitor sidebar */}
             <div className="flex-1 flex relative min-h-[500px]">
-              {/* Main Map */}
+              {/* Main Map with Error Boundary */}
               <div className="flex-1 relative">
-                <AdminMap 
-                  pedidos={mapFilteredPedidos} 
-                  onPedidoClick={(p) => setSelectedPedido(p as Pedido)}
-                  selectedPedidoId={selectedPedido?.id}
-                />
+                <MapErrorBoundary fallbackMessage="El mapa tuvo un problema. Esto puede deberse a un error de carga de datos de ubicación.">
+                  <AdminMapEnhanced 
+                    pedidos={mapFilteredPedidos}
+                    selectedDate={mapDateFilter}
+                    onPedidoClick={(p) => setSelectedPedido(p as Pedido)}
+                    onMotorizadoClick={(m) => {
+                      toast.info(`🏍️ ${m.full_name} - ${m.activeOrders || 0} pedidos activos`, { duration: 3000 });
+                    }}
+                    selectedPedidoId={selectedPedido?.id}
+                  />
+                </MapErrorBoundary>
               </div>
               
               {/* Fleet Monitor Sidebar - hidden on mobile */}
