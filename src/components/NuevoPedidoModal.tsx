@@ -240,8 +240,11 @@ const NuevoPedidoModal = ({
       const { data: { user } } = await supabase.auth.getUser();
       const zona = getZonaFromBarrio(barrio);
 
-      // Use manual address if provided (preserves exact nomenclature)
-      const direccionFinal = direccionManual.trim() || direccionCompleta;
+      // CRITICAL: Always use manual address + municipality for guides and motorizado view
+      // This ensures nomenclature like "Calle 45 # 12-34 Apto 501" is never lost
+      const direccionFinal = direccionManual.trim() 
+        ? `${direccionManual.trim()}, ${municipioSeleccionado}`
+        : `${direccionCompleta}, ${municipioSeleccionado}`;
 
       const pedidoData = {
         numero_guia: numeroGuia,
@@ -461,124 +464,137 @@ const NuevoPedidoModal = ({
               </div>
             </div>
 
-            {/* ============ SECTION 3: Address (Municipality First) ============ */}
-            <div className="space-y-3">
+            {/* ============ SECTION 3: Address (3 Steps) ============ */}
+            <div className="space-y-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Dirección de Entrega
+                Dirección de Entrega (3 Pasos)
               </h3>
               
-              {/* Municipality Selector - REQUIRED FIRST */}
-              <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <select
-                  value={municipioSeleccionado}
-                  onChange={(e) => {
-                    setMunicipioSeleccionado(e.target.value);
-                    // Reset address when municipality changes
-                    setDireccionCompleta("");
-                    setDireccionManual("");
-                    setBarrio("");
-                    setLocalidad("");
-                    setAddressSelected(false);
-                    setConfirmedLat(null);
-                    setConfirmedLng(null);
-                  }}
-                  required
-                  className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">Selecciona Ciudad/Municipio *</option>
-                  {MUNICIPIOS.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
+              {/* STEP A: Municipality Selector - REQUIRED FIRST */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">A</span>
+                  <span className="text-sm font-medium text-foreground">Selecciona Ciudad/Municipio</span>
+                </div>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <select
+                    value={municipioSeleccionado}
+                    onChange={(e) => {
+                      setMunicipioSeleccionado(e.target.value);
+                      // Reset address when municipality changes
+                      setDireccionCompleta("");
+                      setDireccionManual("");
+                      setBarrio("");
+                      setLocalidad("");
+                      setAddressSelected(false);
+                      setConfirmedLat(null);
+                      setConfirmedLng(null);
+                    }}
+                    required
+                    className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Selecciona Ciudad/Municipio *</option>
+                    {MUNICIPIOS.map((m) => (
+                      <option key={m.value} value={m.value}>
+                        {m.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
-              {/* Address Autocomplete - Only show after municipality is selected */}
+              {/* STEP B: Map Search - Only after municipality */}
               {municipioSeleccionado && (
-                <>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                      addressSelected ? "bg-green-500 text-white" : "bg-primary text-primary-foreground"
+                    )}>
+                      {addressSelected ? "✓" : "B"}
+                    </span>
+                    <span className="text-sm font-medium text-foreground">Buscar punto en el mapa</span>
+                  </div>
+                  
                   <AddressAutocomplete
                     onSelect={handleAddressSelect}
-                    placeholder={`Buscar dirección en ${municipioSeleccionado}...`}
+                    placeholder={`Buscar barrio o referencia en ${municipioSeleccionado}...`}
                     value={direccionCompleta}
                     municipio={municipioSeleccionado}
                   />
+                  
+                  {addressSelected && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-green-500/10 border border-green-500/30">
+                      <CheckCircle className="h-4 w-4 text-green-600 flex-shrink-0" />
+                      <span className="text-sm text-green-700">
+                        {barrio ? `${barrio}, ` : ""}{municipioSeleccionado}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
-                  {/* Manual Address Input for exact nomenclature - REQUIRED */}
+              {/* STEP C: Manual Nomenclature - ALWAYS VISIBLE after municipality */}
+              {municipioSeleccionado && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold",
+                      direccionManual.trim() ? "bg-green-500 text-white" : "bg-amber-500 text-white"
+                    )}>
+                      {direccionManual.trim() ? "✓" : "C"}
+                    </span>
+                    <span className="text-sm font-medium text-foreground">Dirección Exacta y Detalles</span>
+                    <span className="text-xs text-destructive font-medium">* OBLIGATORIO</span>
+                  </div>
+                  
                   <div className="relative">
-                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-amber-600" />
                     <textarea
-                      placeholder="* Dirección Exacta con Nomenclatura (Ej: Calle 45 # 12-34 Apto 501, Torre A)"
+                      placeholder="Ej: Calle 45 # 12-34 Apto 501, Torre A, Edificio Los Pinos"
                       value={direccionManual}
                       onChange={(e) => setDireccionManual(e.target.value)}
                       rows={2}
                       maxLength={300}
                       required
                       className={cn(
-                        "w-full rounded-lg border bg-background py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 resize-none",
-                        !direccionManual && addressSelected
-                          ? "border-amber-400 focus:border-amber-500 focus:ring-amber-200"
-                          : "border-border focus:border-primary focus:ring-primary/20"
+                        "w-full rounded-lg border-2 bg-background py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 resize-none",
+                        !direccionManual.trim()
+                          ? "border-amber-400 focus:border-amber-500 focus:ring-amber-200 bg-amber-50/50"
+                          : "border-green-400 focus:border-green-500 focus:ring-green-200 bg-green-50/50"
                       )}
                     />
                   </div>
-                  <p className="text-xs text-amber-600 font-medium -mt-2">
-                    ⚠️ OBLIGATORIO: Escribe la dirección exacta con # y detalles internos. Este texto se usará para guías y motorizados.
-                  </p>
-                </>
-              )}
-
-              {/* Selected Address Info */}
-              {addressSelected && (
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
-                  <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">
-                      {direccionManual || direccionCompleta}
+                  <div className="rounded-lg bg-amber-100 border border-amber-300 p-2">
+                    <p className="text-xs text-amber-800 font-medium">
+                      ⚠️ Escribe aquí la placa, torre, apto o local exacto. Este texto aparecerá en la guía impresa y en la app del motorizado.
                     </p>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {barrio && (
-                        <span className="text-xs bg-muted px-2 py-0.5 rounded">
-                          Barrio: {barrio}
-                        </span>
-                      )}
-                      {municipioSeleccionado && (
-                        <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                          {municipioSeleccionado}
-                        </span>
-                      )}
-                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Map Preview Button - REQUIRED */}
-              {municipioSeleccionado && (
-                <div className="space-y-1">
+              {/* Map Preview Button - REQUIRED for coordinates */}
+              {municipioSeleccionado && addressSelected && (
+                <div className="space-y-2">
                   <button
                     type="button"
                     onClick={handleOpenMapPreview}
-                    disabled={!addressSelected}
                     className={cn(
                       "w-full flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
                       confirmedLat && confirmedLng
                         ? "border-green-500 bg-green-500/10 text-green-600 dark:text-green-400"
-                        : addressSelected
-                        ? "border-dashed border-primary/50 bg-primary/5 text-primary hover:bg-primary/10"
-                        : "border-dashed border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
+                        : "border-dashed border-primary/50 bg-primary/5 text-primary hover:bg-primary/10"
                     )}
                   >
                     <Map className="h-4 w-4" />
                     {confirmedLat && confirmedLng 
-                      ? "✓ Ubicación confirmada - Toca para cambiar" 
-                      : addressSelected 
-                      ? "Verificar y confirmar en el mapa"
-                      : "Primero busca una dirección"}
+                      ? "✓ Ubicación confirmada - Toca para ajustar" 
+                      : "Verificar ubicación en el mapa"}
                   </button>
-                  {addressSelected && !confirmedLat && (
+                  {!confirmedLat && (
                     <p className="text-xs text-muted-foreground text-center">
-                      La ubicación ya está preseleccionada del buscador. Puedes ajustarla en el mapa.
+                      Puedes ajustar el pin si el mapa no coincide exactamente con la dirección
                     </p>
                   )}
                 </div>
