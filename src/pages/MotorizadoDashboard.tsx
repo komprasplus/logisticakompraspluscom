@@ -39,6 +39,7 @@ import MotorizadoQRScanner from "@/components/MotorizadoQRScanner";
 import WeatherWidget from "@/components/WeatherWidget";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
+import { deductInventoryOnDelivery } from "@/lib/inventoryService";
 
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
 
@@ -60,6 +61,8 @@ interface Pedido {
   foto_paquete?: string | null;
   valor_recaudar?: number | null;
   metodo_pago?: string | null;
+  inventory_item_id?: string | null;
+  quantity?: number | null;
 }
 
 // Warehouse coordinates for sorting
@@ -294,6 +297,18 @@ const MotorizadoDashboard = () => {
         .eq("id", selectedPedido.id);
 
       if (error) throw error;
+
+      // Deduct inventory if linked to inventory item
+      if (selectedPedido.inventory_item_id) {
+        const inventoryResult = await deductInventoryOnDelivery(
+          selectedPedido.id,
+          selectedPedido.inventory_item_id,
+          selectedPedido.quantity || 1
+        );
+        if (!inventoryResult.success) {
+          console.warn("Inventory deduction failed:", inventoryResult.error);
+        }
+      }
 
       setPedidos((prev) =>
         prev.map((p) =>

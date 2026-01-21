@@ -77,6 +77,42 @@ export type Database = {
         }
         Relationships: []
       }
+      inventory: {
+        Row: {
+          client_user_id: string
+          created_at: string
+          id: string
+          low_stock_threshold: number
+          price: number | null
+          product_name: string
+          sku: string
+          stock_available: number
+          updated_at: string
+        }
+        Insert: {
+          client_user_id: string
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number
+          price?: number | null
+          product_name: string
+          sku: string
+          stock_available?: number
+          updated_at?: string
+        }
+        Update: {
+          client_user_id?: string
+          created_at?: string
+          id?: string
+          low_stock_threshold?: number
+          price?: number | null
+          product_name?: string
+          sku?: string
+          stock_available?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       location_history: {
         Row: {
           accuracy: number | null
@@ -197,6 +233,7 @@ export type Database = {
           guia_impresa_at: string | null
           id: number
           intentos_entrega: number | null
+          inventory_item_id: string | null
           latitud: number | null
           longitud: number | null
           metodo_pago: string | null
@@ -208,6 +245,7 @@ export type Database = {
           numero_guia: string | null
           observaciones: string | null
           producto_nombre: string | null
+          quantity: number | null
           tipo_novedad: string | null
           utilidad: number | null
           valor_flete: number | null
@@ -235,6 +273,7 @@ export type Database = {
           guia_impresa_at?: string | null
           id?: number
           intentos_entrega?: number | null
+          inventory_item_id?: string | null
           latitud?: number | null
           longitud?: number | null
           metodo_pago?: string | null
@@ -246,6 +285,7 @@ export type Database = {
           numero_guia?: string | null
           observaciones?: string | null
           producto_nombre?: string | null
+          quantity?: number | null
           tipo_novedad?: string | null
           utilidad?: number | null
           valor_flete?: number | null
@@ -273,6 +313,7 @@ export type Database = {
           guia_impresa_at?: string | null
           id?: number
           intentos_entrega?: number | null
+          inventory_item_id?: string | null
           latitud?: number | null
           longitud?: number | null
           metodo_pago?: string | null
@@ -284,6 +325,7 @@ export type Database = {
           numero_guia?: string | null
           observaciones?: string | null
           producto_nombre?: string | null
+          quantity?: number | null
           tipo_novedad?: string | null
           utilidad?: number | null
           valor_flete?: number | null
@@ -291,7 +333,15 @@ export type Database = {
           valor_recaudar?: number | null
           zona?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pedidos_inventory_item_id_fkey"
+            columns: ["inventory_item_id"]
+            isOneToOne: false
+            referencedRelation: "inventory"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
