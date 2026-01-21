@@ -11,10 +11,13 @@ import {
   Plus, 
   Trash2, 
   ExternalLink,
-  Eye,
-  EyeOff,
   AlertCircle,
-  Zap
+  Zap,
+  Wifi,
+  WifiOff,
+  Clock,
+  Package,
+  RefreshCw
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,6 +37,15 @@ interface ApiCredential {
   is_active: boolean;
   last_used_at: string | null;
   created_at: string;
+}
+
+interface SyncedOrder {
+  id: number;
+  numero_guia: string;
+  cliente_nombre: string;
+  municipio: string;
+  estado: string;
+  fecha_creacion: string;
 }
 
 interface IntegracionesViewProps {
@@ -81,7 +93,9 @@ const integrations = [
 
 const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   const [credentials, setCredentials] = useState<ApiCredential[]>([]);
+  const [syncedOrders, setSyncedOrders] = useState<SyncedOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingOrders, setLoadingOrders] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [showNewKeyModal, setShowNewKeyModal] = useState(false);
   const [newKeyLabel, setNewKeyLabel] = useState("Mi Tienda");
@@ -89,6 +103,8 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   const [copiedKey, setCopiedKey] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const hasActiveKey = credentials.some(c => c.is_active);
 
   const fetchCredentials = async () => {
     try {
@@ -107,9 +123,29 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
     }
   };
 
+  const fetchSyncedOrders = async () => {
+    setLoadingOrders(true);
+    try {
+      const { data, error } = await supabase
+        .from("pedidos")
+        .select("id, numero_guia, cliente_nombre, municipio, estado, fecha_creacion")
+        .eq("client_user_id", clientUserId)
+        .order("fecha_creacion", { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setSyncedOrders(data || []);
+    } catch (error) {
+      console.error("Error fetching synced orders:", error);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
   useEffect(() => {
     if (clientUserId) {
       fetchCredentials();
+      fetchSyncedOrders();
     }
   }, [clientUserId]);
 
@@ -226,6 +262,17 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
     setCopiedKey(false);
   };
 
+  const getStatusBadge = (estado: string | null) => {
+    const statusMap: Record<string, { label: string; className: string }> = {
+      entregado: { label: "Entregado", className: "bg-green-500/10 text-green-600" },
+      en_ruta: { label: "En Ruta", className: "bg-blue-500/10 text-blue-600" },
+      pendiente: { label: "Pendiente", className: "bg-yellow-500/10 text-yellow-600" },
+      novedad: { label: "Novedad", className: "bg-red-500/10 text-red-600" },
+    };
+    const status = statusMap[estado || "pendiente"] || statusMap.pendiente;
+    return <Badge className={status.className}>{status.label}</Badge>;
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -242,6 +289,44 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
           Generar Nueva Llave
         </Button>
       </div>
+
+      {/* Connection Status Banner */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <Card className={`border-2 ${hasActiveKey ? 'border-green-500/50 bg-green-500/5' : 'border-muted bg-muted/20'}`}>
+          <CardContent className="py-4">
+            <div className="flex items-center gap-3">
+              {hasActiveKey ? (
+                <>
+                  <div className="p-2 rounded-full bg-green-500/20">
+                    <Wifi className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-green-700">Conectado</p>
+                    <p className="text-sm text-green-600/80">
+                      Tienes {credentials.filter(c => c.is_active).length} llave(s) activa(s) para recibir pedidos
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-2 rounded-full bg-muted">
+                    <WifiOff className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-muted-foreground">Sin configurar</p>
+                    <p className="text-sm text-muted-foreground/80">
+                      Genera una llave de API para comenzar a recibir pedidos automáticos
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Integration Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -261,13 +346,21 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${integration.color} shadow-lg`}>
                       <Icon className="h-6 w-6 text-white" />
                     </div>
-                    {integration.status === "coming_soon" ? (
-                      <Badge variant="secondary">Próximamente</Badge>
-                    ) : (
-                      <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20">
-                        Disponible
-                      </Badge>
-                    )}
+                    <div className="flex flex-col items-end gap-1">
+                      {integration.status === "coming_soon" ? (
+                        <Badge variant="secondary">Próximamente</Badge>
+                      ) : hasActiveKey ? (
+                        <Badge className="bg-green-500/10 text-green-600 hover:bg-green-500/20 flex items-center gap-1">
+                          <Wifi className="h-3 w-3" />
+                          Conectado
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-muted-foreground flex items-center gap-1">
+                          <WifiOff className="h-3 w-3" />
+                          Sin configurar
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <CardTitle className="text-lg mt-3">{integration.name}</CardTitle>
                   <CardDescription>{integration.description}</CardDescription>
@@ -281,7 +374,7 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                       onClick={() => setShowNewKeyModal(true)}
                     >
                       <Key className="h-4 w-4 mr-2" />
-                      Configurar
+                      {hasActiveKey ? "Gestionar" : "Configurar"}
                     </Button>
                     {integration.docUrl && (
                       <Button variant="ghost" size="icon" asChild>
@@ -374,6 +467,82 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Synced Orders Log */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                Últimos Pedidos Sincronizados
+              </CardTitle>
+              <CardDescription>
+                Historial de los últimos 10 pedidos recibidos por API
+              </CardDescription>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={fetchSyncedOrders}
+              disabled={loadingOrders}
+            >
+              <RefreshCw className={`h-4 w-4 ${loadingOrders ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loadingOrders ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : syncedOrders.length === 0 ? (
+            <div className="text-center py-8">
+              <Package className="h-12 w-12 text-muted-foreground mx-auto mb-3 opacity-50" />
+              <h3 className="font-medium text-foreground mb-1">Sin pedidos aún</h3>
+              <p className="text-sm text-muted-foreground">
+                Los pedidos que lleguen por API aparecerán aquí
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {syncedOrders.map((order) => (
+                <motion.div
+                  key={order.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-background hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-primary/10">
+                      <Package className="h-4 w-4 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-sm">
+                        {order.numero_guia || `#${order.id}`}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {order.cliente_nombre} · {order.municipio}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {getStatusBadge(order.estado)}
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(order.fecha_creacion).toLocaleDateString("es-CO", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      })}
+                    </span>
                   </div>
                 </motion.div>
               ))}
