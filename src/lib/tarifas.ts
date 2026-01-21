@@ -7,13 +7,16 @@ export interface TarifaConfig {
   etiqueta: string;
 }
 
-// Tarifas de envío por municipio
+// Tarifas de envío por municipio (ACTUALIZADAS)
+// Bogotá: $12,000
+// Soacha y Sibaté: $15,000
+// Chía, Cota, Funza, Mosquera, Madrid: $18,000
 export const TARIFAS_ENVIO: TarifaConfig[] = [
-  // Bogotá y sus localidades
+  // Bogotá y sus localidades - $12,000
   { municipio: "Bogotá", valor: 12000, etiqueta: "Flete Bogotá" },
   { municipio: "Bogotá D.C.", valor: 12000, etiqueta: "Flete Bogotá" },
   
-  // Localidades de Bogotá (todas aplican tarifa Bogotá)
+  // Localidades de Bogotá (todas aplican tarifa Bogotá - $12,000)
   { municipio: "Usaquén", valor: 12000, etiqueta: "Flete Bogotá" },
   { municipio: "Chapinero", valor: 12000, etiqueta: "Flete Bogotá" },
   { municipio: "Santa Fe", valor: 12000, etiqueta: "Flete Bogotá" },
@@ -35,13 +38,16 @@ export const TARIFAS_ENVIO: TarifaConfig[] = [
   { municipio: "Ciudad Bolívar", valor: 12000, etiqueta: "Flete Bogotá" },
   { municipio: "Sumapaz", valor: 12000, etiqueta: "Flete Bogotá" },
   
-  // Soacha
-  { municipio: "Soacha", valor: 15000, etiqueta: "Flete Zona Especial (Soacha)" },
+  // Soacha y Sibaté - $15,000
+  { municipio: "Soacha", valor: 15000, etiqueta: "Flete Zona Sur (Soacha)" },
+  { municipio: "Sibaté", valor: 15000, etiqueta: "Flete Zona Sur (Sibaté)" },
   
-  // Sabana Occidente
-  { municipio: "Madrid", valor: 18000, etiqueta: "Flete Zona Especial (Madrid)" },
-  { municipio: "Funza", valor: 18000, etiqueta: "Flete Zona Especial (Funza)" },
-  { municipio: "Mosquera", valor: 18000, etiqueta: "Flete Zona Especial (Mosquera)" },
+  // Sabana (Chía, Cota, Funza, Mosquera, Madrid) - $18,000
+  { municipio: "Chía", valor: 18000, etiqueta: "Flete Sabana (Chía)" },
+  { municipio: "Cota", valor: 18000, etiqueta: "Flete Sabana (Cota)" },
+  { municipio: "Funza", valor: 18000, etiqueta: "Flete Sabana (Funza)" },
+  { municipio: "Mosquera", valor: 18000, etiqueta: "Flete Sabana (Mosquera)" },
+  { municipio: "Madrid", valor: 18000, etiqueta: "Flete Sabana (Madrid)" },
 ];
 
 // Mapa rápido para búsqueda por municipio/localidad
@@ -76,8 +82,15 @@ export function getTarifaEnvio(localidad: string | null | undefined): TarifaConf
   }
   
   // Buscar coincidencia parcial para municipios especiales
-  const municipiosEspeciales = ["soacha", "madrid", "funza", "mosquera"];
-  for (const municipio of municipiosEspeciales) {
+  const municipiosZonaSur = ["soacha", "sibate"];
+  for (const municipio of municipiosZonaSur) {
+    if (normalizado.includes(municipio)) {
+      return TARIFA_MAP[municipio];
+    }
+  }
+  
+  const municipiosSabana = ["chia", "cota", "funza", "mosquera", "madrid"];
+  for (const municipio of municipiosSabana) {
     if (normalizado.includes(municipio)) {
       return TARIFA_MAP[municipio];
     }
@@ -115,14 +128,14 @@ export function formatCOP(valor: number | null | undefined): string {
 }
 
 /**
- * Obtiene todas las tarifas disponibles
+ * Obtiene todas las tarifas disponibles (resumen único)
  */
 export function getAllTarifas(): TarifaConfig[] {
   // Retornar solo las tarifas únicas por valor
   const uniqueTarifas: TarifaConfig[] = [
     { municipio: "Bogotá", valor: 12000, etiqueta: "Flete Bogotá" },
-    { municipio: "Soacha", valor: 15000, etiqueta: "Flete Zona Especial (Soacha)" },
-    { municipio: "Madrid/Funza/Mosquera", valor: 18000, etiqueta: "Flete Zona Especial" },
+    { municipio: "Soacha/Sibaté", valor: 15000, etiqueta: "Flete Zona Sur" },
+    { municipio: "Chía/Cota/Funza/Mosquera/Madrid", valor: 18000, etiqueta: "Flete Sabana" },
   ];
   return uniqueTarifas;
 }

@@ -68,6 +68,7 @@ interface Pedido {
   estado: string | null;
   corte_horario: string | null;
   fecha_creacion: string | null;
+  fecha_entrega: string | null;
   motorizado_asignado: string | null;
   motorizado_id: string | null;
   latitud: number | null;
@@ -92,6 +93,7 @@ interface Pedido {
   novedad_longitud?: number | null;
   guia_impresa?: boolean | null;
   guia_impresa_at?: string | null;
+  observaciones?: string | null;
 }
 
 interface Profile {
@@ -122,6 +124,7 @@ const AdminDashboard = () => {
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>("todos");
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [dateFilter, setDateFilter] = useState<string>("");
+  const [mapDateFilter, setMapDateFilter] = useState<string>(""); // Separate filter for map historical view
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<Profile[]>([]);
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
@@ -701,6 +704,14 @@ const AdminDashboard = () => {
   const renderMainContent = () => {
     switch (activeSection) {
       case "mapa":
+        // Filter pedidos for map by selected date (using mapDateFilter state)
+        const mapFilteredPedidos = mapDateFilter 
+          ? filteredPedidos.filter((p) => {
+              if (!p.fecha_entrega) return false;
+              return p.fecha_entrega === mapDateFilter;
+            })
+          : filteredPedidos;
+
         return (
           <motion.div
             initial={{ opacity: 0 }}
@@ -709,7 +720,24 @@ const AdminDashboard = () => {
           >
             <div className="p-3 border-b border-border flex flex-wrap items-center justify-between gap-2 bg-card">
               <h2 className="font-bold text-foreground text-lg">🗺️ Mapa Real-time</h2>
-              <div className="flex gap-2">
+              <div className="flex gap-2 items-center flex-wrap">
+                {/* Date Filter Calendar for Historical Map */}
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="date" 
+                    value={mapDateFilter} 
+                    onChange={(e) => setMapDateFilter(e.target.value)} 
+                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
+                  />
+                  {mapDateFilter && (
+                    <button 
+                      onClick={() => setMapDateFilter("")} 
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Ver hoy
+                    </button>
+                  )}
+                </div>
                 <Button size="sm" onClick={() => setShowNuevoPedido(true)} className="gap-1">
                   <Plus className="h-4 w-4" />
                   Nuevo
@@ -720,6 +748,14 @@ const AdminDashboard = () => {
                 </Button>
               </div>
             </div>
+
+            {/* Date indicator */}
+            {mapDateFilter && (
+              <div className="px-3 py-2 bg-primary/10 border-b border-primary/20 text-sm text-primary font-medium">
+                📅 Mostrando entregas del: {new Date(mapDateFilter + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                <span className="ml-2 text-muted-foreground">({mapFilteredPedidos.length} pedidos)</span>
+              </div>
+            )}
             
             {/* Legend */}
             <div className="px-3 py-2 bg-muted/30 border-b border-border flex flex-wrap gap-3 text-xs">
@@ -738,7 +774,7 @@ const AdminDashboard = () => {
             {/* Map */}
             <div className="flex-1 relative min-h-[500px]">
               <AdminMap 
-                pedidos={filteredPedidos} 
+                pedidos={mapFilteredPedidos} 
                 onPedidoClick={(p) => setSelectedPedido(p as Pedido)}
                 selectedPedidoId={selectedPedido?.id}
               />

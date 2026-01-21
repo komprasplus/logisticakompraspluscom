@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
 import { formatCOP } from "@/lib/tarifas";
+import { usePagination } from "@/hooks/usePagination";
+import PaginationControls from "@/components/PaginationControls";
 
 interface Pedido {
   id: number;
@@ -124,6 +126,19 @@ const PedidosView = ({
     return result;
   }, [pedidos, searchQuery, statusFilter]);
 
+  // Pagination
+  const {
+    paginatedItems,
+    currentPage,
+    totalPages,
+    startIndex,
+    endIndex,
+    totalItems,
+    itemsPerPage,
+    goToPage,
+    setItemsPerPage,
+  } = usePagination({ items: filteredPedidos, itemsPerPage: 10 });
+
   const statusOptions = [
     { value: null, label: "Todos" },
     { value: "pendiente", label: "Pendiente" },
@@ -184,7 +199,7 @@ const PedidosView = ({
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : filteredPedidos.length === 0 ? (
+      ) : totalItems === 0 ? (
         <div className="rounded-2xl bg-card border border-border p-8 text-center shadow-sm">
           <Package className="mx-auto h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-muted-foreground">
@@ -192,166 +207,182 @@ const PedidosView = ({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredPedidos.map((pedido, index) => {
-            const statusInfo = getStatusInfo(pedido.estado);
-            const StatusIcon = statusInfo.icon;
-            const isEditable = canEditOrder(pedido.estado);
-            const isNovedad = pedido.estado?.toLowerCase() === "novedad";
-            const netProfit = getNetProfit(pedido);
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {paginatedItems.map((pedido, index) => {
+              const statusInfo = getStatusInfo(pedido.estado);
+              const StatusIcon = statusInfo.icon;
+              const isEditable = canEditOrder(pedido.estado);
+              const isNovedad = pedido.estado?.toLowerCase() === "novedad";
+              const netProfit = getNetProfit(pedido);
 
-            return (
-              <motion.div
-                key={pedido.id}
-                className={`rounded-2xl bg-card border overflow-hidden transition-all duration-200 hover:shadow-xl hover:-translate-y-1 ${
-                  isNovedad 
-                    ? "border-orange-300 shadow-lg shadow-orange-500/10" 
-                    : "border-border shadow-md shadow-black/5"
-                }`}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.03 }}
-              >
-                {/* Card Header */}
-                <div className="px-4 py-3 flex items-center justify-between border-b border-border/50 bg-muted/30">
-                  <span className="text-sm font-bold text-foreground">
-                    {pedido.numero_guia || `#${pedido.id}`}
-                  </span>
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusInfo.color} ${statusInfo.textColor}`}>
-                    <StatusIcon className="h-3.5 w-3.5" />
-                    <span className="text-xs font-semibold">{statusInfo.label}</span>
-                  </div>
-                </div>
-
-                {/* Card Body */}
-                <div className="p-4 space-y-3">
-                  {/* Recipient */}
-                  <div>
-                    <p className="font-bold text-foreground text-base truncate">
-                      {pedido.cliente_nombre || "Sin destinatario"}
-                    </p>
-                    <div className="flex items-start gap-1.5 mt-1">
-                      <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
-                      <p className="text-xs text-muted-foreground line-clamp-2">
-                        {pedido.direccion_entrega || "Sin dirección"}
-                        {pedido.barrio && ` - ${pedido.barrio}`}
-                      </p>
+              return (
+                <motion.div
+                  key={pedido.id}
+                  className={`rounded-2xl bg-card border overflow-hidden transition-all duration-200 hover:shadow-xl hover:-translate-y-1 ${
+                    isNovedad 
+                      ? "border-orange-300 shadow-lg shadow-orange-500/10" 
+                      : "border-border shadow-md shadow-black/5"
+                  }`}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.03 }}
+                >
+                  {/* Card Header */}
+                  <div className="px-4 py-3 flex items-center justify-between border-b border-border/50 bg-muted/30">
+                    <span className="text-sm font-bold text-foreground">
+                      {pedido.numero_guia || `#${pedido.id}`}
+                    </span>
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusInfo.color} ${statusInfo.textColor}`}>
+                      <StatusIcon className="h-3.5 w-3.5" />
+                      <span className="text-xs font-semibold">{statusInfo.label}</span>
                     </div>
                   </div>
 
-                  {/* Metrics Row */}
-                  <div className="flex items-center gap-4 py-2 px-3 rounded-xl bg-muted/50">
-                    {pedido.metodo_pago === "anticipado" ? (
-                      <div className="flex-1 flex items-center justify-center">
-                        <span className="bg-primary/15 text-primary text-xs font-bold px-3 py-1 rounded-full">
-                          ✓ PAGADO
-                        </span>
+                  {/* Card Body */}
+                  <div className="p-4 space-y-3">
+                    {/* Recipient */}
+                    <div>
+                      <p className="font-bold text-foreground text-base truncate">
+                        {pedido.cliente_nombre || "Sin destinatario"}
+                      </p>
+                      <div className="flex items-start gap-1.5 mt-1">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {pedido.direccion_entrega || "Sin dirección"}
+                          {pedido.barrio && ` - ${pedido.barrio}`}
+                        </p>
                       </div>
-                    ) : (
-                      <>
-                        <div className="flex-1 flex items-center gap-2">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/15">
-                            <DollarSign className="h-4 w-4 text-green-600" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Recaudar</p>
-                            <p className="text-sm font-bold text-green-600">
-                              {formatCOP(pedido.valor_recaudar || 0)}
-                            </p>
-                          </div>
+                    </div>
+
+                    {/* Metrics Row */}
+                    <div className="flex items-center gap-4 py-2 px-3 rounded-xl bg-muted/50">
+                      {pedido.metodo_pago === "anticipado" ? (
+                        <div className="flex-1 flex items-center justify-center">
+                          <span className="bg-primary/15 text-primary text-xs font-bold px-3 py-1 rounded-full">
+                            ✓ PAGADO
+                          </span>
                         </div>
-                        <div className="w-px h-8 bg-border" />
-                        <div className="flex-1 flex items-center gap-2">
-                          <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${netProfit > 0 ? 'bg-emerald-500/15' : 'bg-destructive/15'}`}>
-                            <TrendingUp className={`h-4 w-4 ${netProfit > 0 ? 'text-emerald-600' : 'text-destructive'}`} />
+                      ) : (
+                        <>
+                          <div className="flex-1 flex items-center gap-2">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/15">
+                              <DollarSign className="h-4 w-4 text-green-600" />
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Recaudar</p>
+                              <p className="text-sm font-bold text-green-600">
+                                {formatCOP(pedido.valor_recaudar || 0)}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Utilidad</p>
-                            <p className={`text-sm font-bold ${netProfit > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
-                              {formatCOP(netProfit)}
-                            </p>
+                          <div className="w-px h-8 bg-border" />
+                          <div className="flex-1 flex items-center gap-2">
+                            <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${netProfit > 0 ? 'bg-emerald-500/15' : 'bg-destructive/15'}`}>
+                              <TrendingUp className={`h-4 w-4 ${netProfit > 0 ? 'text-emerald-600' : 'text-destructive'}`} />
+                            </div>
+                            <div>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Utilidad</p>
+                              <p className={`text-sm font-bold ${netProfit > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                                {formatCOP(netProfit)}
+                              </p>
+                            </div>
                           </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Evidence Thumbnail */}
+                    {pedido.foto_evidencia && (
+                      <button
+                        onClick={() => onViewEvidence(pedido.foto_evidencia!)}
+                        className="w-full rounded-xl overflow-hidden border-2 border-border hover:border-primary transition-colors group relative h-24"
+                      >
+                        <img
+                          src={pedido.foto_evidencia}
+                          alt="Evidencia"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Image className="h-6 w-6 text-white" />
                         </div>
-                      </>
+                      </button>
+                    )}
+
+                    {/* Novedad Alert */}
+                    {isNovedad && pedido.tipo_novedad && (
+                      <div className="rounded-xl bg-orange-500/10 border border-orange-500/20 p-3 flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                        <p className="text-xs text-orange-600 font-medium flex-1">{pedido.tipo_novedad}</p>
+                      </div>
                     )}
                   </div>
 
-                  {/* Evidence Thumbnail */}
-                  {pedido.foto_evidencia && (
-                    <button
-                      onClick={() => onViewEvidence(pedido.foto_evidencia!)}
-                      className="w-full rounded-xl overflow-hidden border-2 border-border hover:border-primary transition-colors group relative h-24"
-                    >
-                      <img
-                        src={pedido.foto_evidencia}
-                        alt="Evidencia"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Image className="h-6 w-6 text-white" />
-                      </div>
-                    </button>
-                  )}
-
-                  {/* Novedad Alert */}
-                  {isNovedad && pedido.tipo_novedad && (
-                    <div className="rounded-xl bg-orange-500/10 border border-orange-500/20 p-3 flex items-center gap-2">
-                      <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" />
-                      <p className="text-xs text-orange-600 font-medium flex-1">{pedido.tipo_novedad}</p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Card Footer - Actions */}
-                <div className="px-4 pb-4 pt-0 flex gap-2">
-                  {isNovedad ? (
-                    <>
-                      <Button
-                        size="sm"
-                        className="flex-1 h-10 gap-2 bg-orange-500 hover:bg-orange-600 text-white"
-                        onClick={() => onRespond(pedido)}
-                      >
-                        <MessageSquare className="h-4 w-4" />
-                        Responder
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-10 px-4"
-                        onClick={() => onPrint(pedido)}
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      {isEditable && (
+                  {/* Card Footer - Actions */}
+                  <div className="px-4 pb-4 pt-0 flex gap-2">
+                    {isNovedad ? (
+                      <>
+                        <Button
+                          size="sm"
+                          className="flex-1 h-10 gap-2 bg-orange-500 hover:bg-orange-600 text-white"
+                          onClick={() => onRespond(pedido)}
+                        >
+                          <MessageSquare className="h-4 w-4" />
+                          Responder
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          className="flex-1 h-10 gap-2"
-                          onClick={() => onEdit(pedido)}
+                          className="h-10 px-4"
+                          onClick={() => onPrint(pedido)}
                         >
-                          <Edit className="h-4 w-4" />
-                          Editar
+                          <Printer className="h-4 w-4" />
                         </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant={isEditable ? "secondary" : "outline"}
-                        className={`h-10 gap-2 ${isEditable ? '' : 'flex-1'}`}
-                        onClick={() => onPrint(pedido)}
-                      >
-                        <Printer className="h-4 w-4" />
-                        Guía
-                      </Button>
-                    </>
-                  )}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
+                      </>
+                    ) : (
+                      <>
+                        {isEditable && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-10 gap-2"
+                            onClick={() => onEdit(pedido)}
+                          >
+                            <Edit className="h-4 w-4" />
+                            Editar
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant={isEditable ? "secondary" : "outline"}
+                          className={`h-10 gap-2 ${isEditable ? '' : 'flex-1'}`}
+                          onClick={() => onPrint(pedido)}
+                        >
+                          <Printer className="h-4 w-4" />
+                          Guía
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              startIndex={startIndex}
+              endIndex={endIndex}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={goToPage}
+              onItemsPerPageChange={setItemsPerPage}
+            />
+          )}
+        </>
       )}
     </motion.div>
   );
