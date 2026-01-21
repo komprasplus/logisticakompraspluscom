@@ -77,6 +77,42 @@ export type Database = {
         }
         Relationships: []
       }
+      location_history: {
+        Row: {
+          accuracy: number | null
+          created_at: string
+          heading: number | null
+          id: string
+          latitude: number
+          longitude: number
+          motorizado_id: string
+          recorded_at: string
+          speed: number | null
+        }
+        Insert: {
+          accuracy?: number | null
+          created_at?: string
+          heading?: number | null
+          id?: string
+          latitude: number
+          longitude: number
+          motorizado_id: string
+          recorded_at?: string
+          speed?: number | null
+        }
+        Update: {
+          accuracy?: number | null
+          created_at?: string
+          heading?: number | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          motorizado_id?: string
+          recorded_at?: string
+          speed?: number | null
+        }
+        Relationships: []
+      }
       notification_logs: {
         Row: {
           created_at: string

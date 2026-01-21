@@ -23,9 +23,11 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
+import useLocationTracking from "@/hooks/useLocationTracking";
 import { toast } from "sonner";
 import logo from "@/assets/logo-kompras-plus.png";
 import MotorizadoMap from "@/components/MotorizadoMap";
+import MapErrorBoundary from "@/components/MapErrorBoundary";
 import PedidoQuickActions from "@/components/PedidoQuickActions";
 import BodegaSupportButton from "@/components/BodegaSupportButton";
 import SignatureCanvas from "@/components/SignatureCanvas";
@@ -105,6 +107,18 @@ const MotorizadoDashboard = () => {
     }
     return null;
   }, [latitude, longitude]);
+
+  // Track location every 30 seconds when online and has active orders
+  const hasActiveOrders = pedidos.some(p => 
+    p.estado?.toLowerCase() !== "entregado" && 
+    p.estado?.toLowerCase() !== "novedad"
+  );
+  
+  useLocationTracking({
+    enabled: isOnline && hasActiveOrders,
+    userId: user?.id,
+    intervalMs: 30000,
+  });
 
   useEffect(() => {
     if (user?.id) {
@@ -770,13 +784,15 @@ const MotorizadoDashboard = () => {
               exit={{ opacity: 0, height: 0 }}
             >
               <div className="rounded-2xl overflow-hidden shadow-card border border-border">
-                <div className="h-[300px]">
+              <div className="h-[300px]">
+                <MapErrorBoundary fallbackMessage="Error al cargar el mapa. Verifica tu conexión y permisos de GPS.">
                   <MotorizadoMap
                     pedidos={pedidos}
                     userLocation={userLocation}
                     onPedidoClick={(pedido) => setSelectedPedido(pedido as Pedido)}
                   />
-                </div>
+                </MapErrorBoundary>
+              </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2 text-center">
                 🏭 = Bodega | 📦 = Pedidos (ordenados por cercanía) | 📍 = Tu ubicación

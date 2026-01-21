@@ -184,3 +184,49 @@
   background: transparent !important;
   border: none !important;
 }
+
+/* Marker Cluster Styles */
+.marker-cluster {
+  background-clip: padding-box;
+}
+
+.marker-cluster-small,
+.marker-cluster-medium,
+.marker-cluster-large {
+  background-color: transparent !important;
+}
+
+.marker-cluster-small div,
+.marker-cluster-medium div,
+.marker-cluster-large div {
+  background-color: transparent !important;
+}
+
+/* Motorcycle icon animation */
+.motorcycle-icon {
+  transition: transform 0.3s ease-out;
+}
+
+/* Pulse animation for online motorizados */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+/* Route polyline gradient effect */
+.leaflet-interactive.route-line {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Route arrow markers */
+.route-arrow {
+  background: transparent !important;
+  border: none !important;
+}
