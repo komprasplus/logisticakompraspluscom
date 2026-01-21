@@ -217,19 +217,38 @@ const NuevoPedidoModal = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate phone
+    // Validate phone first
     if (!validatePhone(clienteTelefono)) return;
     
-    // Validate required fields - including direccionManual
-    if (!clienteNombre.trim() || !municipioSeleccionado || !barrio || !productoNombre.trim() || !direccionManual.trim()) {
-      toast.error("Por favor completa todos los campos requeridos, incluyendo la dirección exacta");
+    // Specific field validation with clear error messages
+    const missingFields: string[] = [];
+    
+    if (!clienteNombre.trim()) missingFields.push("Nombre del cliente");
+    if (!clienteTelefono.trim()) missingFields.push("Teléfono WhatsApp");
+    if (!municipioSeleccionado) missingFields.push("Ciudad/Municipio");
+    
+    // CRITICAL: direccionManual is the PRIMARY address field - validate it first
+    if (!direccionManual.trim()) {
+      missingFields.push("Dirección Exacta y Detalles (paso C)");
+    }
+    
+    if (!productoNombre.trim()) missingFields.push("Nombre del producto");
+    
+    // For "efectivo" payment method, valor a recaudar is required
+    if (metodoPago === "efectivo" && !valorRecaudar) {
+      missingFields.push("Valor a Recaudar");
+    }
+    
+    if (missingFields.length > 0) {
+      toast.error(`Falta: ${missingFields.join(", ")}`);
       return;
     }
 
-    // Check if location is confirmed
+    // Location validation - if user typed manual address but didn't use map, 
+    // we still need coordinates for motorizado navigation
     if (!confirmedLat || !confirmedLng) {
-      toast.error("Por favor confirma la ubicación en el mapa antes de crear el pedido");
-      setShowMapPreview(true);
+      // If user has direccionManual but no coordinates, prompt them to use map once
+      toast.error("Por favor busca un punto de referencia en el mapa (paso B) para obtener coordenadas de navegación");
       return;
     }
 
@@ -756,13 +775,13 @@ const NuevoPedidoModal = ({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !municipioSeleccionado || !addressSelected || !confirmedLat || !confirmedLng || !direccionManual.trim()}
+              disabled={loading}
               className={cn(
                 "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
-                municipioSeleccionado && addressSelected && confirmedLat && confirmedLng
+                municipioSeleccionado && direccionManual.trim() && confirmedLat && confirmedLng
                   ? "bg-primary text-primary-foreground hover:opacity-90"
-                  : "bg-muted text-muted-foreground cursor-not-allowed",
-                "disabled:opacity-50"
+                  : "bg-muted text-muted-foreground",
+                loading && "opacity-50 cursor-not-allowed"
               )}
             >
               {loading ? (
@@ -775,10 +794,15 @@ const NuevoPedidoModal = ({
                   <Building2 className="h-5 w-5" />
                   Selecciona ciudad primero
                 </>
-              ) : !addressSelected ? (
+              ) : !confirmedLat || !confirmedLng ? (
                 <>
                   <MapPin className="h-5 w-5" />
-                  Busca y selecciona una dirección
+                  Busca un punto en el mapa (paso B)
+                </>
+              ) : !direccionManual.trim() ? (
+                <>
+                  <MapPin className="h-5 w-5" />
+                  Escribe la dirección exacta (paso C)
                 </>
               ) : (
                 <>
