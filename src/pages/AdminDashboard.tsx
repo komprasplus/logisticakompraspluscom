@@ -39,6 +39,9 @@ import logo from "@/assets/logo-kompras-plus.png";
 import AdminMap from "@/components/AdminMap";
 import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
+import NovedadCompactCard from "@/components/NovedadCompactCard";
+import FleetMonitor from "@/components/FleetMonitor";
+import MapDateSelector from "@/components/MapDateSelector";
 import CreateUserModal from "@/components/CreateUserModal";
 import ResetUserPasswordModal from "@/components/ResetUserPasswordModal";
 import DeleteUserModal from "@/components/DeleteUserModal";
@@ -53,6 +56,7 @@ import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
 import PaginationControls from "@/components/PaginationControls";
+import StatusChipCarousel from "@/components/StatusChipCarousel";
 import { usePagination } from "@/hooks/usePagination";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
 import { Button } from "@/components/ui/button";
@@ -124,7 +128,7 @@ const AdminDashboard = () => {
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>("todos");
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [dateFilter, setDateFilter] = useState<string>("");
-  const [mapDateFilter, setMapDateFilter] = useState<string>(""); // Separate filter for map historical view
+  const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null); // null = live/today
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<Profile[]>([]);
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
@@ -704,11 +708,12 @@ const AdminDashboard = () => {
   const renderMainContent = () => {
     switch (activeSection) {
       case "mapa":
-        // Filter pedidos for map by selected date (using mapDateFilter state)
+        // Filter pedidos for map by selected date
         const mapFilteredPedidos = mapDateFilter 
           ? filteredPedidos.filter((p) => {
               if (!p.fecha_entrega) return false;
-              return p.fecha_entrega === mapDateFilter;
+              const selectedDateStr = mapDateFilter.toISOString().split('T')[0];
+              return p.fecha_entrega === selectedDateStr;
             })
           : filteredPedidos;
 
@@ -721,23 +726,11 @@ const AdminDashboard = () => {
             <div className="p-3 border-b border-border flex flex-wrap items-center justify-between gap-2 bg-card">
               <h2 className="font-bold text-foreground text-lg">🗺️ Mapa Real-time</h2>
               <div className="flex gap-2 items-center flex-wrap">
-                {/* Date Filter Calendar for Historical Map */}
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="date" 
-                    value={mapDateFilter} 
-                    onChange={(e) => setMapDateFilter(e.target.value)} 
-                    className="rounded-lg border border-border bg-card px-3 py-1.5 text-sm focus:border-primary focus:outline-none"
-                  />
-                  {mapDateFilter && (
-                    <button 
-                      onClick={() => setMapDateFilter("")} 
-                      className="text-xs text-primary hover:underline"
-                    >
-                      Ver hoy
-                    </button>
-                  )}
-                </div>
+                {/* Date Filter with MapDateSelector */}
+                <MapDateSelector
+                  selectedDate={mapDateFilter}
+                  onDateChange={setMapDateFilter}
+                />
                 <Button size="sm" onClick={() => setShowNuevoPedido(true)} className="gap-1">
                   <Plus className="h-4 w-4" />
                   Nuevo
@@ -749,35 +742,34 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Date indicator */}
+            {/* Date indicator when historical */}
             {mapDateFilter && (
               <div className="px-3 py-2 bg-primary/10 border-b border-primary/20 text-sm text-primary font-medium">
-                📅 Mostrando entregas del: {new Date(mapDateFilter + 'T12:00:00').toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                📅 Mostrando entregas del: {mapDateFilter.toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 <span className="ml-2 text-muted-foreground">({mapFilteredPedidos.length} pedidos)</span>
               </div>
             )}
             
-            {/* Legend */}
-            <div className="px-3 py-2 bg-muted/30 border-b border-border flex flex-wrap gap-3 text-xs">
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded bg-slate-800"></div><span>🏭 Bodega</span></div>
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-gray-400"></div><span>Sin Asignar</span></div>
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-indigo-500"></div><span>En Bodega</span></div>
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-blue-500"></div><span>Asignado</span></div>
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-sky-500"></div><span>En Ruta</span></div>
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-green-500"></div><span>Entregado</span></div>
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-orange-500"></div><span>Novedad</span></div>
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-red-500"></div><span>Rechazado</span></div>
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-purple-500"></div><span>Devolución</span></div>
-              <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-teal-500"></div><span>Liquidado</span></div>
-            </div>
-            
-            {/* Map */}
-            <div className="flex-1 relative min-h-[500px]">
-              <AdminMap 
-                pedidos={mapFilteredPedidos} 
-                onPedidoClick={(p) => setSelectedPedido(p as Pedido)}
-                selectedPedidoId={selectedPedido?.id}
-              />
+            {/* Map with Fleet Monitor sidebar */}
+            <div className="flex-1 flex relative min-h-[500px]">
+              {/* Main Map */}
+              <div className="flex-1 relative">
+                <AdminMap 
+                  pedidos={mapFilteredPedidos} 
+                  onPedidoClick={(p) => setSelectedPedido(p as Pedido)}
+                  selectedPedidoId={selectedPedido?.id}
+                />
+              </div>
+              
+              {/* Fleet Monitor Sidebar - hidden on mobile */}
+              <div className="hidden lg:block w-72 border-l border-border bg-card p-3 overflow-y-auto">
+                <FleetMonitor 
+                  onMotorizadoClick={(m) => {
+                    // Could center map on motorizado location
+                    toast.info(`📍 ${m.full_name} - ${m.is_online ? "En línea" : "Desconectado"}`);
+                  }}
+                />
+              </div>
             </div>
 
             {/* Selected Pedido Panel */}

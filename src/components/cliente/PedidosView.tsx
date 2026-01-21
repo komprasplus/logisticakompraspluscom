@@ -27,6 +27,7 @@ import { useState, useMemo } from "react";
 import { formatCOP } from "@/lib/tarifas";
 import { usePagination } from "@/hooks/usePagination";
 import PaginationControls from "@/components/PaginationControls";
+import StatusChipCarousel from "@/components/StatusChipCarousel";
 import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -224,16 +225,18 @@ const PedidosView = ({
     setItemsPerPage,
   } = usePagination({ items: filteredPedidos, itemsPerPage: 10 });
 
-  const statusOptions = [
-    { value: null, label: "Todos" },
-    { value: "pendiente", label: "Pendiente" },
-    { value: "recibido en bodega", label: "En Bodega" },
-    { value: "en ruta", label: "En Ruta" },
-    { value: "entregado", label: "Entregado" },
-    { value: "novedad", label: "Novedad" },
-    { value: "devolución", label: "Devolución" },
-    { value: "liquidado", label: "Liquidado" },
-  ];
+  // Calculate status counts for carousel
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    pedidos.forEach((p) => {
+      const status = p.estado?.toLowerCase() || "pendiente";
+      counts[status] = (counts[status] || 0) + 1;
+    });
+    return Object.entries(counts).map(([status, count]) => ({
+      status,
+      count,
+    }));
+  }, [pedidos]);
 
   return (
     <motion.div
@@ -281,22 +284,13 @@ const PedidosView = ({
           </Button>
         </div>
 
-        {/* Status filter buttons */}
-        <div className="flex gap-2 flex-wrap">
-          {statusOptions.map((opt) => (
-            <button
-              key={opt.value || "all"}
-              onClick={() => setStatusFilter(opt.value)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                statusFilter === opt.value
-                  ? "bg-primary text-white"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
+        {/* Mobile-first Status Chip Carousel */}
+        <StatusChipCarousel
+          statusCounts={statusCounts}
+          selectedStatus={statusFilter}
+          onStatusSelect={(status) => setStatusFilter(status)}
+          totalCount={pedidos.length}
+        />
 
         {/* Advanced Filters Panel */}
         {showAdvancedFilters && (
