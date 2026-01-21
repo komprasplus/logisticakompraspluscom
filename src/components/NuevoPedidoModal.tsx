@@ -220,9 +220,9 @@ const NuevoPedidoModal = ({
     // Validate phone
     if (!validatePhone(clienteTelefono)) return;
     
-    // Validate required fields
-    if (!clienteNombre.trim() || !municipioSeleccionado || !barrio || !productoNombre.trim()) {
-      toast.error("Por favor completa todos los campos requeridos");
+    // Validate required fields - including direccionManual
+    if (!clienteNombre.trim() || !municipioSeleccionado || !barrio || !productoNombre.trim() || !direccionManual.trim()) {
+      toast.error("Por favor completa todos los campos requeridos, incluyendo la dirección exacta");
       return;
     }
 
@@ -505,20 +505,26 @@ const NuevoPedidoModal = ({
                     municipio={municipioSeleccionado}
                   />
 
-                  {/* Manual Address Input for exact nomenclature */}
+                  {/* Manual Address Input for exact nomenclature - REQUIRED */}
                   <div className="relative">
                     <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                     <textarea
-                      placeholder="Dirección exacta con nomenclatura (Ej: Calle 45 # 12-34 Apto 501, Torre A)"
+                      placeholder="* Dirección Exacta con Nomenclatura (Ej: Calle 45 # 12-34 Apto 501, Torre A)"
                       value={direccionManual}
                       onChange={(e) => setDireccionManual(e.target.value)}
                       rows={2}
                       maxLength={300}
-                      className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                      required
+                      className={cn(
+                        "w-full rounded-lg border bg-background py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 resize-none",
+                        !direccionManual && addressSelected
+                          ? "border-amber-400 focus:border-amber-500 focus:ring-amber-200"
+                          : "border-border focus:border-primary focus:ring-primary/20"
+                      )}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground -mt-2">
-                    Escribe la dirección exacta con # y detalles internos. El sistema no la simplificará.
+                  <p className="text-xs text-amber-600 font-medium -mt-2">
+                    ⚠️ OBLIGATORIO: Escribe la dirección exacta con # y detalles internos. Este texto se usará para guías y motorizados.
                   </p>
                 </>
               )}
@@ -734,7 +740,7 @@ const NuevoPedidoModal = ({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !municipioSeleccionado || !addressSelected || !confirmedLat || !confirmedLng}
+              disabled={loading || !municipioSeleccionado || !addressSelected || !confirmedLat || !confirmedLng || !direccionManual.trim()}
               className={cn(
                 "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
                 municipioSeleccionado && addressSelected && confirmedLat && confirmedLng
