@@ -10,6 +10,8 @@ import {
   Calendar
 } from "lucide-react";
 import { formatCOP } from "@/lib/tarifas";
+import { usePagination } from "@/hooks/usePagination";
+import PaginationControls from "@/components/PaginationControls";
 
 interface Pedido {
   id: number;
@@ -39,6 +41,19 @@ const DevolucionesView = ({ pedidos, loading }: DevolucionesViewProps) => {
       (p) => p.estado?.toLowerCase() === "devolución" || p.estado?.toLowerCase() === "devolucion"
     );
   }, [pedidos]);
+
+  // Pagination for returns list
+  const {
+    paginatedItems,
+    currentPage,
+    totalPages,
+    startIndex,
+    endIndex,
+    totalItems,
+    itemsPerPage,
+    goToPage,
+    setItemsPerPage,
+  } = usePagination({ items: devolucionesPedidos, itemsPerPage: 10 });
 
   // Calculate total charges
   const totalCobrado = useMemo(() => {
@@ -138,76 +153,92 @@ const DevolucionesView = ({ pedidos, loading }: DevolucionesViewProps) => {
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {devolucionesPedidos.map((pedido, index) => (
-            <motion.div
-              key={pedido.id}
-              className="rounded-2xl bg-card border border-border p-4 shadow-sm hover:shadow-md transition-shadow"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.05 }}
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                {/* Order Info */}
-                <div className="flex-1 space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-foreground">
-                      {pedido.numero_guia || `#${pedido.id}`}
-                    </span>
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 text-xs font-medium">
-                      <RotateCcw className="h-3 w-3" />
-                      Devuelto
-                    </span>
-                    {pedido.intentos_entrega && pedido.intentos_entrega >= 3 && (
-                      <span className="text-xs text-muted-foreground">
-                        ({pedido.intentos_entrega} intentos)
+        <>
+          <div className="space-y-3">
+            {paginatedItems.map((pedido, index) => (
+              <motion.div
+                key={pedido.id}
+                className="rounded-2xl bg-card border border-border p-4 shadow-sm hover:shadow-md transition-shadow"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  {/* Order Info */}
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm font-bold text-foreground">
+                        {pedido.numero_guia || `#${pedido.id}`}
                       </span>
-                    )}
-                  </div>
-
-                  <p className="text-sm text-foreground font-medium">
-                    {pedido.cliente_nombre || "Sin destinatario"}
-                  </p>
-
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <MapPin className="h-3 w-3" />
-                    <span className="truncate">{pedido.direccion_entrega || "Sin dirección"}</span>
-                    {pedido.zona && (
-                      <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-xs">
-                        {pedido.zona}
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-xs font-medium">
+                        <RotateCcw className="h-3 w-3" />
+                        Devuelto
                       </span>
-                    )}
-                  </div>
+                      {pedido.intentos_entrega && pedido.intentos_entrega >= 2 && (
+                        <span className="text-xs text-muted-foreground">
+                          ({pedido.intentos_entrega} intentos)
+                        </span>
+                      )}
+                    </div>
 
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Calendar className="h-3 w-3" />
-                    <span>{formatDate(pedido.fecha_creacion)}</span>
-                  </div>
-                </div>
-
-                {/* Charge Info */}
-                <div className="flex items-center gap-4">
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground mb-1">Costo de Devolución</p>
-                    <p className="text-lg font-bold text-destructive">
-                      -{formatCOP(pedido.costo_devolucion || pedido.valor_flete || 12000)}
+                    <p className="text-sm text-foreground font-medium">
+                      {pedido.cliente_nombre || "Sin destinatario"}
                     </p>
+
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <MapPin className="h-3 w-3" />
+                      <span className="truncate">{pedido.direccion_entrega || "Sin dirección"}</span>
+                      {pedido.zona && (
+                        <span className="ml-2 px-1.5 py-0.5 rounded bg-muted text-xs">
+                          {pedido.zona}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      <span>{formatDate(pedido.fecha_creacion)}</span>
+                    </div>
                   </div>
-                  {pedido.devolucion_cobrada ? (
-                    <span className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-500/10 text-red-600 text-xs font-semibold">
-                      <DollarSign className="h-3 w-3" />
-                      Descontado
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 text-xs font-semibold">
-                      Pendiente
-                    </span>
-                  )}
+
+                  {/* Charge Info */}
+                  <div className="flex items-center gap-4">
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground mb-1">Costo de Devolución</p>
+                      <p className="text-lg font-bold text-destructive">
+                        -{formatCOP(pedido.costo_devolucion || pedido.valor_flete || 12000)}
+                      </p>
+                    </div>
+                    {pedido.devolucion_cobrada ? (
+                      <span className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-destructive/10 text-destructive text-xs font-semibold">
+                        <DollarSign className="h-3 w-3" />
+                        Descontado
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 text-xs font-semibold">
+                        Pendiente
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <PaginationControls
+              currentPage={currentPage}
+              totalPages={totalPages}
+              startIndex={startIndex}
+              endIndex={endIndex}
+              totalItems={totalItems}
+              itemsPerPage={itemsPerPage}
+              onPageChange={goToPage}
+              onItemsPerPageChange={setItemsPerPage}
+            />
+          )}
+        </>
       )}
     </motion.div>
   );
