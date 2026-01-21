@@ -13,6 +13,8 @@ interface LocationPreviewMapProps {
   localidad: string;
   onConfirm: (lat: number, lng: number) => void;
   onCancel: () => void;
+  initialLat?: number; // NEW: Optional initial latitude
+  initialLng?: number; // NEW: Optional initial longitude
 }
 
 const LocationPreviewMap = ({
@@ -21,6 +23,8 @@ const LocationPreviewMap = ({
   localidad,
   onConfirm,
   onCancel,
+  initialLat,
+  initialLng,
 }: LocationPreviewMapProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -48,14 +52,25 @@ const LocationPreviewMap = ({
     }
     
     // Add Colombia context
-    parts.push("Bogotá");
-    parts.push("Colombia");
+    if (!localidad.toLowerCase().includes("bogotá")) {
+      parts.push("Colombia");
+    } else {
+      parts.push("Bogotá");
+      parts.push("Colombia");
+    }
     
     return parts.join(", ");
   }, [direccion, barrio, localidad]);
 
   // Geocode the address using Nominatim
   const geocodeAddress = useCallback(async () => {
+    // If we have initial coordinates, use them directly
+    if (initialLat && initialLng) {
+      setPosition([initialLat, initialLng]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -72,7 +87,7 @@ const LocationPreviewMap = ({
         setPosition([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
       } else {
         // Fallback: try with just barrio and localidad
-        const fallbackQuery = encodeURIComponent(`${barrio}, ${localidad}, Bogotá, Colombia`);
+        const fallbackQuery = encodeURIComponent(`${barrio}, ${localidad}, Colombia`);
         const fallbackResponse = await fetch(
           `https://nominatim.openstreetmap.org/search?format=json&q=${fallbackQuery}&limit=1&countrycodes=co`
         );
@@ -83,7 +98,7 @@ const LocationPreviewMap = ({
           setError("No encontramos la dirección exacta. Mueve el marcador a la ubicación correcta.");
         } else {
           // Try with just localidad
-          const localidadQuery = encodeURIComponent(`${localidad}, Bogotá, Colombia`);
+          const localidadQuery = encodeURIComponent(`${localidad}, Colombia`);
           const localidadResponse = await fetch(
             `https://nominatim.openstreetmap.org/search?format=json&q=${localidadQuery}&limit=1&countrycodes=co`
           );
@@ -107,7 +122,7 @@ const LocationPreviewMap = ({
     } finally {
       setLoading(false);
     }
-  }, [buildSearchQuery, barrio, localidad]);
+  }, [buildSearchQuery, barrio, localidad, initialLat, initialLng]);
 
   // Load Leaflet CSS dynamically
   useEffect(() => {

@@ -14,6 +14,7 @@ import {
   Map,
   CheckCircle,
   Calculator,
+  Building2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -30,6 +31,18 @@ import { getZonaFromBarrio } from "@/lib/zonas";
 import { getTarifaEnvio, calcularUtilidad, formatCOP } from "@/lib/tarifas";
 import LocationPreviewMap from "./LocationPreviewMap";
 import AddressAutocomplete from "./AddressAutocomplete";
+
+// Supported municipalities/cities
+const MUNICIPIOS = [
+  { value: "Bogotá", label: "Bogotá D.C." },
+  { value: "Soacha", label: "Soacha" },
+  { value: "Chía", label: "Chía" },
+  { value: "Cota", label: "Cota" },
+  { value: "Funza", label: "Funza" },
+  { value: "Mosquera", label: "Mosquera" },
+  { value: "Madrid", label: "Madrid" },
+  { value: "Sibaté", label: "Sibaté" },
+];
 
 interface Profile {
   id: string;
@@ -50,18 +63,28 @@ const NuevoPedidoModal = ({
   onSuccess,
   isAdmin,
 }: NuevoPedidoModalProps) => {
-  // Form state
+  // Form state - Reordered: payment method first
+  const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
+  const [valorRecaudar, setValorRecaudar] = useState("");
+  
+  // Client data
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
+  
+  // Address with municipality first
+  const [municipioSeleccionado, setMunicipioSeleccionado] = useState("");
   const [direccionCompleta, setDireccionCompleta] = useState("");
+  const [direccionManual, setDireccionManual] = useState(""); // User's exact typed address
   const [barrio, setBarrio] = useState("");
   const [localidad, setLocalidad] = useState("");
   const [ciudad, setCiudad] = useState("");
+  
+  // Product
   const [productoNombre, setProductoNombre] = useState("");
-  const [valorRecaudar, setValorRecaudar] = useState("");
   const [valorProducto, setValorProducto] = useState("");
-  const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
   const [observaciones, setObservaciones] = useState("");
+  
+  // Schedule
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(undefined);
   const [motorizadoAsignado, setMotorizadoAsignado] = useState("");
   
@@ -76,14 +99,22 @@ const NuevoPedidoModal = ({
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [phoneError, setPhoneError] = useState("");
 
-  // Calculate flete and utility based on localidad
-  const tarifaInfo = useMemo(() => getTarifaEnvio(localidad), [localidad]);
+  // Calculate flete and utility based on localidad/municipio
+  const tarifaInfo = useMemo(() => {
+    // Use selected municipality or localidad from address
+    return getTarifaEnvio(localidad || municipioSeleccionado);
+  }, [localidad, municipioSeleccionado]);
   
   const utilidadCalculada = useMemo(() => {
+    // For "anticipado", no valor_recaudar, utility is just negative flete (internal charge)
+    if (metodoPago === "anticipado") {
+      const producto = valorProducto ? parseFloat(valorProducto) : 0;
+      return -tarifaInfo.valor; // Freight is deducted internally
+    }
     const recaudo = valorRecaudar ? parseFloat(valorRecaudar) : 0;
     const producto = valorProducto ? parseFloat(valorProducto) : 0;
     return calcularUtilidad(recaudo, producto, tarifaInfo.valor);
-  }, [valorRecaudar, valorProducto, tarifaInfo.valor]);
+  }, [valorRecaudar, valorProducto, tarifaInfo.valor, metodoPago]);
 
   // Fetch motorizados for admin selector
   useEffect(() => {
@@ -94,7 +125,6 @@ const NuevoPedidoModal = ({
 
   const fetchMotorizados = async () => {
     try {
-      // Get user IDs with motorizado role
       const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("user_id")
@@ -120,11 +150,8 @@ const NuevoPedidoModal = ({
 
   // Validate Colombian phone number
   const validatePhone = (phone: string) => {
-    // Remove spaces and dashes
     const cleaned = phone.replace(/[\s-]/g, "");
-    // Colombian format: 10 digits starting with 3
     const colombianMobile = /^3\d{9}$/;
-    // With country code
     const withCountryCode = /^(\+57)?3\d{9}$/;
     
     if (!cleaned) {
@@ -158,7 +185,9 @@ const NuevoPedidoModal = ({
     lat: number;
     lng: number;
   }) => {
-    setDireccionCompleta(result.direccion);
+    // Keep user's manual input if they've typed additional details
+    const finalDireccion = direccionManual || result.direccion;
+    setDireccionCompleta(finalDireccion);
     setBarrio(result.barrio);
     setLocalidad(result.localidad);
     setCiudad(result.ciudad);
@@ -192,7 +221,7 @@ const NuevoPedidoModal = ({
     if (!validatePhone(clienteTelefono)) return;
     
     // Validate required fields
-    if (!clienteNombre.trim() || !barrio || !productoNombre.trim()) {
+    if (!clienteNombre.trim() || !municipioSeleccionado || !barrio || !productoNombre.trim()) {
       toast.error("Por favor completa todos los campos requeridos");
       return;
     }
@@ -207,25 +236,24 @@ const NuevoPedidoModal = ({
     setLoading(true);
 
     try {
-      // Generate guide number
       const numeroGuia = generateGuideNumber();
-
-      // Get current user for client orders
       const { data: { user } } = await supabase.auth.getUser();
-
-      // Get zone from barrio
       const zona = getZonaFromBarrio(barrio);
+
+      // Use manual address if provided (preserves exact nomenclature)
+      const direccionFinal = direccionManual.trim() || direccionCompleta;
 
       const pedidoData = {
         numero_guia: numeroGuia,
         cliente_nombre: clienteNombre.trim(),
         client_phone: clienteTelefono.replace(/[\s-]/g, ""),
-        direccion_entrega: direccionCompleta,
+        direccion_entrega: direccionFinal,
         barrio: barrio,
         zona: zona,
-        municipio: localidad || "Bogotá",
+        municipio: municipioSeleccionado,
         producto_nombre: productoNombre.trim(),
-        valor_recaudar: valorRecaudar ? parseFloat(valorRecaudar) : null,
+        // If "anticipado", no valor_recaudar
+        valor_recaudar: metodoPago === "efectivo" && valorRecaudar ? parseFloat(valorRecaudar) : null,
         valor_producto: valorProducto ? parseFloat(valorProducto) : null,
         valor_flete: tarifaInfo.valor,
         utilidad: utilidadCalculada,
@@ -256,16 +284,18 @@ const NuevoPedidoModal = ({
   };
 
   const resetForm = () => {
+    setMetodoPago("efectivo");
+    setValorRecaudar("");
     setClienteNombre("");
     setClienteTelefono("");
+    setMunicipioSeleccionado("");
     setDireccionCompleta("");
+    setDireccionManual("");
     setBarrio("");
     setLocalidad("");
     setCiudad("");
     setProductoNombre("");
-    setValorRecaudar("");
     setValorProducto("");
-    setMetodoPago("efectivo");
     setFechaEntrega(undefined);
     setObservaciones("");
     setMotorizadoAsignado("");
@@ -314,7 +344,75 @@ const NuevoPedidoModal = ({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-4 space-y-5">
-            {/* Section: Client Data */}
+            
+            {/* ============ SECTION 1: Payment Method (FIRST) ============ */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Método de Pago
+              </h3>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMetodoPago("efectivo")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                    metodoPago === "efectivo"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  <DollarSign className="h-4 w-4" />
+                  Contra Entrega
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMetodoPago("anticipado");
+                    setValorRecaudar(""); // Clear recaudo when switching to anticipado
+                  }}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                    metodoPago === "anticipado"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  <CreditCard className="h-4 w-4" />
+                  Pago Anticipado
+                </button>
+              </div>
+
+              {/* Valor a Recaudar - Only show for Contra Entrega */}
+              {metodoPago === "efectivo" && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="relative"
+                >
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="number"
+                    placeholder="Valor a Recaudar (COP) *"
+                    value={valorRecaudar}
+                    onChange={(e) => setValorRecaudar(e.target.value)}
+                    required={metodoPago === "efectivo"}
+                    min="0"
+                    step="100"
+                    className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </motion.div>
+              )}
+
+              {metodoPago === "anticipado" && (
+                <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
+                  💳 El flete se cobrará internamente. No hay recaudo en la entrega.
+                </p>
+              )}
+            </div>
+
+            {/* ============ SECTION 2: Client Data ============ */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Datos del Cliente
@@ -363,39 +461,85 @@ const NuevoPedidoModal = ({
               </div>
             </div>
 
-            {/* Section: Address */}
+            {/* ============ SECTION 3: Address (Municipality First) ============ */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Dirección de Entrega
               </h3>
               
-              {/* Nominatim Address Autocomplete */}
-              <AddressAutocomplete
-                onSelect={handleAddressSelect}
-                placeholder="Buscar dirección, barrio o localidad..."
-                value={direccionCompleta}
-              />
+              {/* Municipality Selector - REQUIRED FIRST */}
+              <div className="relative">
+                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <select
+                  value={municipioSeleccionado}
+                  onChange={(e) => {
+                    setMunicipioSeleccionado(e.target.value);
+                    // Reset address when municipality changes
+                    setDireccionCompleta("");
+                    setDireccionManual("");
+                    setBarrio("");
+                    setLocalidad("");
+                    setAddressSelected(false);
+                    setConfirmedLat(null);
+                    setConfirmedLng(null);
+                  }}
+                  required
+                  className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Selecciona Ciudad/Municipio *</option>
+                  {MUNICIPIOS.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Address Autocomplete - Only show after municipality is selected */}
+              {municipioSeleccionado && (
+                <>
+                  <AddressAutocomplete
+                    onSelect={handleAddressSelect}
+                    placeholder={`Buscar dirección en ${municipioSeleccionado}...`}
+                    value={direccionCompleta}
+                    municipio={municipioSeleccionado}
+                  />
+
+                  {/* Manual Address Input for exact nomenclature */}
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    <textarea
+                      placeholder="Dirección exacta con nomenclatura (Ej: Calle 45 # 12-34 Apto 501, Torre A)"
+                      value={direccionManual}
+                      onChange={(e) => setDireccionManual(e.target.value)}
+                      rows={2}
+                      maxLength={300}
+                      className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-none"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground -mt-2">
+                    Escribe la dirección exacta con # y detalles internos. El sistema no la simplificará.
+                  </p>
+                </>
+              )}
 
               {/* Selected Address Info */}
               {addressSelected && (
                 <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/20">
                   <CheckCircle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground">{direccionCompleta}</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {direccionManual || direccionCompleta}
+                    </p>
                     <div className="flex flex-wrap gap-2 mt-1">
                       {barrio && (
                         <span className="text-xs bg-muted px-2 py-0.5 rounded">
                           Barrio: {barrio}
                         </span>
                       )}
-                      {localidad && (
+                      {municipioSeleccionado && (
                         <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">
-                          {localidad}
-                        </span>
-                      )}
-                      {ciudad && (
-                        <span className="text-xs text-muted-foreground">
-                          {ciudad}
+                          {municipioSeleccionado}
                         </span>
                       )}
                     </div>
@@ -404,36 +548,38 @@ const NuevoPedidoModal = ({
               )}
 
               {/* Map Preview Button - REQUIRED */}
-              <div className="space-y-1">
-                <button
-                  type="button"
-                  onClick={handleOpenMapPreview}
-                  disabled={!addressSelected}
-                  className={cn(
-                    "w-full flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
-                    confirmedLat && confirmedLng
-                      ? "border-green-500 bg-green-500/10 text-green-600 dark:text-green-400"
-                      : addressSelected
-                      ? "border-dashed border-primary/50 bg-primary/5 text-primary hover:bg-primary/10"
-                      : "border-dashed border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
+              {municipioSeleccionado && (
+                <div className="space-y-1">
+                  <button
+                    type="button"
+                    onClick={handleOpenMapPreview}
+                    disabled={!addressSelected}
+                    className={cn(
+                      "w-full flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                      confirmedLat && confirmedLng
+                        ? "border-green-500 bg-green-500/10 text-green-600 dark:text-green-400"
+                        : addressSelected
+                        ? "border-dashed border-primary/50 bg-primary/5 text-primary hover:bg-primary/10"
+                        : "border-dashed border-border bg-muted/50 text-muted-foreground cursor-not-allowed"
+                    )}
+                  >
+                    <Map className="h-4 w-4" />
+                    {confirmedLat && confirmedLng 
+                      ? "✓ Ubicación confirmada - Toca para cambiar" 
+                      : addressSelected 
+                      ? "Verificar y confirmar en el mapa"
+                      : "Primero busca una dirección"}
+                  </button>
+                  {addressSelected && !confirmedLat && (
+                    <p className="text-xs text-muted-foreground text-center">
+                      La ubicación ya está preseleccionada del buscador. Puedes ajustarla en el mapa.
+                    </p>
                   )}
-                >
-                  <Map className="h-4 w-4" />
-                  {confirmedLat && confirmedLng 
-                    ? "✓ Ubicación confirmada - Toca para cambiar" 
-                    : addressSelected 
-                    ? "Verificar y confirmar en el mapa"
-                    : "Primero busca una dirección"}
-                </button>
-                {addressSelected && !confirmedLat && (
-                  <p className="text-xs text-muted-foreground text-center">
-                    La ubicación ya está preseleccionada del buscador. Puedes ajustarla en el mapa.
-                  </p>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {/* Section: Package */}
+            {/* ============ SECTION 4: Package ============ */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Detalles del Paquete
@@ -453,20 +599,6 @@ const NuevoPedidoModal = ({
                 />
               </div>
 
-              {/* Valor a recaudar */}
-              <div className="relative">
-                <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="number"
-                  placeholder="Valor a Recaudar (COP)"
-                  value={valorRecaudar}
-                  onChange={(e) => setValorRecaudar(e.target.value)}
-                  min="0"
-                  step="100"
-                  className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
               {/* Costo del producto (opcional) */}
               <div className="relative">
                 <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -482,7 +614,7 @@ const NuevoPedidoModal = ({
               </div>
 
               {/* Tarifa y cálculo automático */}
-              {addressSelected && (
+              {(addressSelected || municipioSeleccionado) && (
                 <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <Calculator className="h-4 w-4 text-primary" />
@@ -498,10 +630,12 @@ const NuevoPedidoModal = ({
                       <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded">{tarifaInfo.etiqueta}</span>
                     </div>
                   </div>
-                  {(valorRecaudar || valorProducto) && (
+                  {(valorRecaudar || valorProducto || metodoPago === "anticipado") && (
                     <div className="pt-2 border-t border-border">
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Utilidad estimada:</span>
+                        <span className="text-muted-foreground">
+                          {metodoPago === "anticipado" ? "Cobro interno:" : "Utilidad estimada:"}
+                        </span>
                         <span className={cn(
                           "font-bold",
                           utilidadCalculada >= 0 ? "text-green-600" : "text-destructive"
@@ -515,43 +649,7 @@ const NuevoPedidoModal = ({
               )}
             </div>
 
-            {/* Section: Payment Method */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Método de Pago
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setMetodoPago("efectivo")}
-                  className={cn(
-                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
-                    metodoPago === "efectivo"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background text-muted-foreground hover:border-primary/50"
-                  )}
-                >
-                  <DollarSign className="h-4 w-4" />
-                  Contra Entrega
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMetodoPago("anticipado")}
-                  className={cn(
-                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
-                    metodoPago === "anticipado"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background text-muted-foreground hover:border-primary/50"
-                  )}
-                >
-                  <CreditCard className="h-4 w-4" />
-                  Pago Anticipado
-                </button>
-              </div>
-            </div>
-
-            {/* Section: Schedule */}
+            {/* ============ SECTION 5: Schedule ============ */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Programación
@@ -569,7 +667,7 @@ const NuevoPedidoModal = ({
                     <CalendarIcon className="h-4 w-4" />
                     {fechaEntrega
                       ? format(fechaEntrega, "PPP", { locale: es })
-                      : "Seleccionar fecha de entrega"}
+                      : "Seleccionar fecha de entrega (opcional)"}
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -577,15 +675,23 @@ const NuevoPedidoModal = ({
                     mode="single"
                     selected={fechaEntrega}
                     onSelect={setFechaEntrega}
-                    disabled={(date) => date < new Date()}
+                    // REMOVED date restriction - allow same-day orders
+                    disabled={(date) => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      return date < today;
+                    }}
                     initialFocus
                     className="p-3 pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
+              <p className="text-xs text-muted-foreground">
+                Puedes crear pedidos para entregar el mismo día.
+              </p>
             </div>
 
-            {/* Section: Observaciones */}
+            {/* ============ SECTION 6: Observaciones ============ */}
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Observaciones (Opcional)
@@ -600,7 +706,7 @@ const NuevoPedidoModal = ({
               />
             </div>
 
-            {/* Section: Assignment (Admin Only) */}
+            {/* ============ SECTION 7: Assignment (Admin Only) ============ */}
             {isAdmin && (
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
@@ -628,10 +734,10 @@ const NuevoPedidoModal = ({
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={loading || !addressSelected || !confirmedLat || !confirmedLng}
+              disabled={loading || !municipioSeleccionado || !addressSelected || !confirmedLat || !confirmedLng}
               className={cn(
                 "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
-                addressSelected && confirmedLat && confirmedLng
+                municipioSeleccionado && addressSelected && confirmedLat && confirmedLng
                   ? "bg-primary text-primary-foreground hover:opacity-90"
                   : "bg-muted text-muted-foreground cursor-not-allowed",
                 "disabled:opacity-50"
@@ -641,6 +747,11 @@ const NuevoPedidoModal = ({
                 <>
                   <Loader2 className="h-5 w-5 animate-spin" />
                   Creando pedido...
+                </>
+              ) : !municipioSeleccionado ? (
+                <>
+                  <Building2 className="h-5 w-5" />
+                  Selecciona ciudad primero
                 </>
               ) : !addressSelected ? (
                 <>
@@ -661,11 +772,13 @@ const NuevoPedidoModal = ({
       {/* Location Preview Map Modal */}
       {showMapPreview && (
         <LocationPreviewMap
-          direccion={direccionCompleta}
+          direccion={direccionManual || direccionCompleta}
           barrio={barrio}
-          localidad={localidad || "Bogotá"}
+          localidad={municipioSeleccionado || "Bogotá"}
           onConfirm={handleLocationConfirm}
           onCancel={() => setShowMapPreview(false)}
+          initialLat={confirmedLat || undefined}
+          initialLng={confirmedLng || undefined}
         />
       )}
     </AnimatePresence>
