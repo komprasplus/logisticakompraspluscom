@@ -42,7 +42,7 @@ import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
 import NovedadCompactCard from "@/components/NovedadCompactCard";
 import FleetMonitor from "@/components/FleetMonitor";
-import MapDateSelector from "@/components/MapDateSelector";
+import Map3DCalendarButton from "@/components/Map3DCalendarButton";
 import CreateUserModal from "@/components/CreateUserModal";
 import ResetUserPasswordModal from "@/components/ResetUserPasswordModal";
 import DeleteUserModal from "@/components/DeleteUserModal";
@@ -727,11 +727,6 @@ const AdminDashboard = () => {
             <div className="p-3 border-b border-border flex flex-wrap items-center justify-between gap-2 bg-card">
               <h2 className="font-bold text-foreground text-lg">🗺️ Mapa Real-time</h2>
               <div className="flex gap-2 items-center flex-wrap">
-                {/* Date Filter with MapDateSelector */}
-                <MapDateSelector
-                  selectedDate={mapDateFilter}
-                  onDateChange={setMapDateFilter}
-                />
                 <Button size="sm" onClick={() => setShowNuevoPedido(true)} className="gap-1">
                   <Plus className="h-4 w-4" />
                   Nuevo
@@ -766,6 +761,14 @@ const AdminDashboard = () => {
                     selectedPedidoId={selectedPedido?.id}
                   />
                 </MapErrorBoundary>
+                
+                {/* 3D Calendar Button - Floating on map top-right */}
+                <div className="absolute top-4 right-4 z-[500]">
+                  <Map3DCalendarButton
+                    selectedDate={mapDateFilter}
+                    onDateChange={setMapDateFilter}
+                  />
+                </div>
               </div>
               
               {/* Fleet Monitor Sidebar - hidden on mobile */}
