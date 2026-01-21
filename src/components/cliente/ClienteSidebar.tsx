@@ -8,11 +8,12 @@ import {
   ChevronRight,
   Store,
   RotateCcw,
-  Plug
+  Plug,
+  Boxes
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ClienteView = "dashboard" | "pedidos" | "novedades" | "devoluciones" | "reportes" | "tienda" | "integraciones";
+export type ClienteView = "dashboard" | "pedidos" | "novedades" | "devoluciones" | "reportes" | "tienda" | "integraciones" | "inventario";
 
 interface ClienteSidebarProps {
   activeView: ClienteView;
@@ -64,6 +65,13 @@ const navItems = [
     icon: Store,
     gradient: "from-purple-500 to-purple-600",
     shadow: "shadow-purple-500/30",
+  },
+  {
+    key: "inventario" as ClienteView,
+    label: "Inventario",
+    icon: Boxes,
+    gradient: "from-indigo-500 to-indigo-600",
+    shadow: "shadow-indigo-500/30",
   },
   {
     key: "integraciones" as ClienteView,

@@ -265,6 +265,15 @@ const NuevoPedidoModal = ({
         ? `${direccionManual.trim()}, ${municipioSeleccionado}`
         : `${direccionCompleta}, ${municipioSeleccionado}`;
 
+      // CRITICAL: Always set client_user_id from current authenticated user
+      // For clients creating their own orders, this must be set
+      const currentUserId = user?.id;
+      if (!isAdmin && !currentUserId) {
+        toast.error("Error de sesión. Por favor vuelve a iniciar sesión.");
+        setLoading(false);
+        return;
+      }
+
       const pedidoData = {
         numero_guia: numeroGuia,
         cliente_nombre: clienteNombre.trim(),
@@ -286,7 +295,7 @@ const NuevoPedidoModal = ({
         latitud: confirmedLat,
         longitud: confirmedLng,
         motorizado_asignado: isAdmin && motorizadoAsignado ? motorizadoAsignado : null,
-        client_user_id: !isAdmin ? user?.id : null,
+        client_user_id: isAdmin ? null : currentUserId,
       };
 
       const { error } = await supabase.from("pedidos").insert(pedidoData);

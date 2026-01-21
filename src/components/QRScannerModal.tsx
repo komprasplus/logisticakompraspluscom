@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Camera, Loader2, CheckCircle2, XCircle, ScanLine, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { restoreInventoryOnReturn } from "@/lib/inventoryService";
 
 interface QRScannerModalProps {
   isOpen: boolean;
@@ -58,7 +59,7 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
       // Check current status
       const { data: pedido, error: fetchError } = await supabase
         .from("pedidos")
-        .select("id, estado, cliente_nombre, numero_guia")
+        .select("id, estado, cliente_nombre, numero_guia, inventory_item_id, quantity")
         .eq("id", pedidoId)
         .maybeSingle();
 
@@ -68,10 +69,16 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
         return;
       }
 
+      // Check if this is a return being received at warehouse
+      const isReturn = pedido.estado?.toLowerCase() === "devolución";
+
       // Update to "Recibido en Bodega"
       const { error: updateError } = await supabase
         .from("pedidos")
-        .update({ estado: "Recibido en Bodega" })
+        .update({ 
+          estado: "Recibido en Bodega",
+          fecha_actualizacion: new Date().toISOString(),
+        })
         .eq("id", pedidoId);
 
       if (updateError) {
@@ -80,9 +87,23 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
         return;
       }
 
+      // If this was a return, restore inventory stock
+      if (isReturn && pedido.inventory_item_id) {
+        const inventoryResult = await restoreInventoryOnReturn(
+          pedidoId,
+          pedido.inventory_item_id,
+          pedido.quantity || 1
+        );
+        if (inventoryResult.success) {
+          console.log("✅ Inventory restored for returned order");
+        } else {
+          console.warn("Inventory restoration failed:", inventoryResult.error);
+        }
+      }
+
       setLastResult({
         success: true,
-        message: `${pedido.numero_guia || `#${pedidoId}`} - ${pedido.cliente_nombre || "Sin nombre"} → Recibido en Bodega`,
+        message: `${pedido.numero_guia || `#${pedidoId}`} - ${pedido.cliente_nombre || "Sin nombre"} → Recibido en Bodega${isReturn ? " (Devolución)" : ""}`,
       });
 
       toast.success(`Pedido ${pedido.numero_guia || `#${pedidoId}`} recibido en bodega`);
