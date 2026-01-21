@@ -18,6 +18,7 @@ import NovedadesView from "@/components/cliente/NovedadesView";
 import ReportesView from "@/components/cliente/ReportesView";
 import MiTiendaView from "@/components/cliente/MiTiendaView";
 import DevolucionesView from "@/components/cliente/DevolucionesView";
+import IntegracionesView from "@/components/cliente/IntegracionesView";
 import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
 import { AnimatePresence } from "framer-motion";
 
@@ -245,6 +246,10 @@ const ClienteDashboard = () => {
 
             {activeView === "devoluciones" && (
               <DevolucionesView key="devoluciones" pedidos={pedidos} loading={loading} />
+            )}
+
+            {activeView === "integraciones" && user?.id && (
+              <IntegracionesView key="integraciones" clientUserId={user.id} />
             )}
           </AnimatePresence>
         </div>
