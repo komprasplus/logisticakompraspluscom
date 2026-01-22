@@ -18,10 +18,10 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["logo-plus-envios.png", "pwa-192x192.png", "pwa-512x512.png"],
+      includeAssets: ["logo-plus.png", "pwa-192x192.png", "pwa-512x512.png"],
       manifest: {
-        name: "Plus Envios",
-        short_name: "Plus Envios",
+        name: "Plus Envíos",
+        short_name: "Plus Envíos",
         description: "Sistema de gestión logística y entregas en tiempo real",
         theme_color: "#1e3a5f",
         background_color: "#ffffff",
