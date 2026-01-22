@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/logo-plus-envios.png";
+const logo = "/logo-plus.png";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
 import MotorizadoInfo from "@/components/MotorizadoInfo";
 
@@ -100,7 +100,7 @@ const CustomerTracking = () => {
         setOrderResult(data);
       } else {
         setError(
-          "No encontramos tu guía, por favor verifica el número o comunícate con Kompras Plus al 324 222 3825"
+          "No encontramos tu guía, por favor verifica el número o comunícate con Plus Envíos al 324 222 3825"
         );
       }
     } catch (err) {
@@ -196,7 +196,7 @@ const CustomerTracking = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <img src={logo} alt="Kompras Plus" className="h-10 sm:h-14 w-auto" />
+            <img src={logo} alt="Plus Envíos" className="h-10 sm:h-14 w-auto" />
           </motion.div>
           
           <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-primary px-3 py-1.5 sm:px-4 sm:py-2">

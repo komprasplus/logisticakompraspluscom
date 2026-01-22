@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import logo from "@/assets/logo-plus-envios.png";
+const logo = "/logo-plus.png";
 import { z } from "zod";
 import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 

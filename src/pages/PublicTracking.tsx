@@ -13,7 +13,7 @@ import {
   Store,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import logo from "@/assets/logo-plus-envios.png";
+const logo = "/logo-plus.png";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
 import MotorizadoInfo from "@/components/MotorizadoInfo";
 
@@ -73,7 +73,7 @@ const PublicTracking = () => {
         if (data) {
           setOrderResult(data);
         } else {
-          setError("No encontramos esta guía. Verifica el número o contacta a Kompras Plus.");
+          setError("No encontramos esta guía. Verifica el número o contacta a Plus Envíos.");
         }
       } catch (err) {
         console.error("Error searching:", err);
@@ -185,7 +185,7 @@ const PublicTracking = () => {
 
   // Use store logo if available, otherwise Kompras Plus logo
   const displayLogo = storeProfile?.logo_url || logo;
-  const displayName = storeProfile?.store_name || "Kompras Plus";
+  const displayName = storeProfile?.store_name || "Plus Envíos";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background">
@@ -211,7 +211,7 @@ const PublicTracking = () => {
                 <span className="hidden sm:block text-sm font-semibold text-foreground">{displayName}</span>
               </div>
             ) : (
-              <img src={logo} alt="Kompras Plus" className="h-10 sm:h-14 w-auto" />
+              <img src={logo} alt="Plus Envíos" className="h-10 sm:h-14 w-auto" />
             )}
           </motion.div>
           

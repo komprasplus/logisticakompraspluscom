@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import logo from "@/assets/logo-plus-envios.png";
+const logo = "/logo-plus.png";
 import { MapPin } from "lucide-react";
 
 interface SplashScreenProps {
