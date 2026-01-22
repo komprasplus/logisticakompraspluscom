@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { LogOut, Phone, Store, Clock } from "lucide-react";
-const logo = "/logo-plus-envios.png";
+const logo = "/logo-oficial.png";
 import WeatherWidget from "@/components/WeatherWidget";
 
 interface ClienteHeaderProps {

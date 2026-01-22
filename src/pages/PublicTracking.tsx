@@ -13,7 +13,7 @@ import {
   Store,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-const logo = "/logo-plus-envios.png";
+const logo = "/logo-oficial.png";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
 import MotorizadoInfo from "@/components/MotorizadoInfo";
 

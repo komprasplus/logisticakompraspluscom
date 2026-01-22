@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Truck, Package, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
-import logo from "@/assets/logo-plus-envios.png";
+const logo = "/logo-oficial.png";
 
 const RoleSelector = () => {
   const containerVariants = {

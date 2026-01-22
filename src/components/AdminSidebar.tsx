@@ -11,7 +11,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-const logo = "/logo-plus-envios.png";
+const logo = "/logo-oficial.png";
 import { cn } from "@/lib/utils";
 
 interface AdminSidebarProps {

@@ -5,7 +5,7 @@ import { Printer, Download } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
-import logo from "@/assets/logo-plus-envios.png";
+const logo = "/logo-oficial.png";
 
 interface Pedido {
   id: number;
