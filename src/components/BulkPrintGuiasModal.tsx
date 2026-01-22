@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Printer } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
-import logo from "@/assets/logo-kompras-plus.png";
+import logo from "@/assets/logo-plus-envios.png";
 
 interface Pedido {
   id: number;
@@ -129,7 +129,7 @@ const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrin
         }}>
           <img 
             src={logo} 
-            alt="Kompras Plus" 
+            alt="Plus Envios" 
             style={{ height: "8mm", filter: "grayscale(100%)" }} 
           />
           <div style={{ textAlign: "right" }}>

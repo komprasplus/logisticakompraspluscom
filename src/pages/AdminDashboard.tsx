@@ -35,7 +35,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import logo from "@/assets/logo-kompras-plus.png";
+import logo from "@/assets/logo-plus-envios.png";
 import AdminMapEnhanced from "@/components/AdminMapEnhanced";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 import AdminSidebar from "@/components/AdminSidebar";

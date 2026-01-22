@@ -5,7 +5,7 @@ import { Printer, Download } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
-import logo from "@/assets/logo-kompras-plus.png";
+import logo from "@/assets/logo-plus-envios.png";
 
 interface Pedido {
   id: number;
@@ -146,7 +146,7 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
             }}>
               <img 
                 src={logo} 
-                alt="Kompras Plus" 
+                alt="Plus Envios" 
                 style={{ height: "8mm", filter: "grayscale(100%)" }} 
               />
               <div style={{ textAlign: "right" }}>

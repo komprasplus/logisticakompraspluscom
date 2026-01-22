@@ -25,7 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
 import useLocationTracking from "@/hooks/useLocationTracking";
 import { toast } from "sonner";
-import logo from "@/assets/logo-kompras-plus.png";
+import logo from "@/assets/logo-plus-envios.png";
 import MotorizadoMap from "@/components/MotorizadoMap";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 import PedidoQuickActions from "@/components/PedidoQuickActions";
