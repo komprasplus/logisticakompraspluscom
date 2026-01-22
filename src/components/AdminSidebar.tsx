@@ -11,7 +11,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-const logo = "/logo-kompras-plus.png";
+// Logo replaced with text for stability
 import { cn } from "@/lib/utils";
 
 interface AdminSidebarProps {
@@ -119,10 +119,10 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: Ad
         collapsed ? "w-20" : "w-72"
       )}
     >
-      {/* Logo */}
+      {/* Text Logo */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         {!collapsed && (
-          <img src={logo} alt="Plus Envíos" className="h-10 w-auto" />
+          <span className="text-xl font-bold text-primary">Plus Envíos</span>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
