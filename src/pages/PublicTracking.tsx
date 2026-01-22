@@ -13,7 +13,7 @@ import {
   Store,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-// Logo replaced with text for stability
+const logo = "/logo-plus-envios.png";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
 import MotorizadoInfo from "@/components/MotorizadoInfo";
 
@@ -197,7 +197,7 @@ const PublicTracking = () => {
             <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           </Link>
           
-          {/* Center Logo - Store or Plus Envíos Text */}
+          {/* Center Logo - Store or Plus Envíos */}
           <motion.div
             className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2"
             initial={{ opacity: 0, y: -10 }}
@@ -209,7 +209,7 @@ const PublicTracking = () => {
                 <span className="hidden sm:block text-sm font-semibold text-foreground">{displayName}</span>
               </div>
             ) : (
-              <span className="text-xl sm:text-2xl font-bold text-primary">Plus Envíos</span>
+              <img src={logo} alt="Plus Envíos" className="h-10 sm:h-14 w-auto" />
             )}
           </motion.div>
           

@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-// Logo replaced with text for stability
+const logo = "/logo-plus-envios.png";
 import { z } from "zod";
 import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 
@@ -102,8 +102,8 @@ const Auth = () => {
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          <h1 className="text-3xl font-bold text-primary mb-2">Plus Envíos</h1>
-          <h2 className="text-xl font-semibold text-foreground">Iniciar Sesión</h2>
+          <img src={logo} alt="Plus Envíos" className="h-24 w-auto mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-foreground">Iniciar Sesión</h1>
           <p className="text-muted-foreground text-sm mt-2">
             Ingresa tus credenciales para acceder
           </p>

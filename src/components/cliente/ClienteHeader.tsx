@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { LogOut, Phone, Store, Clock } from "lucide-react";
-// Logo replaced with text for stability
+const logo = "/logo-plus-envios.png";
 import WeatherWidget from "@/components/WeatherWidget";
 
 interface ClienteHeaderProps {
@@ -22,9 +22,9 @@ const ClienteHeader = ({
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-white shadow-sm">
       {/* Main Header Row */}
       <div className="flex h-16 items-center justify-between px-4">
-        {/* Text Logo and Store Info */}
+        {/* Logo and Store Info */}
         <div className="flex items-center gap-3">
-          <span className="text-xl font-bold text-primary">Plus Envíos</span>
+          <img src={logo} alt="Plus Envíos" className="h-10 w-auto" />
           
           {/* Store Branding - Desktop */}
           <div className="hidden sm:flex items-center gap-2 ml-2 pl-3 border-l border-border">

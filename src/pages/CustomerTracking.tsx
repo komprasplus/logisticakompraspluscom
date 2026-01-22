@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-// Logo replaced with text for stability
+const logo = "/logo-plus-envios.png";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
 import MotorizadoInfo from "@/components/MotorizadoInfo";
 
@@ -190,13 +190,13 @@ const CustomerTracking = () => {
             <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           </Link>
           
-          {/* Center Text Logo */}
+          {/* Center Logo */}
           <motion.div
             className="absolute left-1/2 -translate-x-1/2"
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
           >
-            <span className="text-xl sm:text-2xl font-bold text-primary">Plus Envíos</span>
+            <img src={logo} alt="Plus Envíos" className="h-10 sm:h-14 w-auto" />
           </motion.div>
           
           <div className="flex items-center gap-1.5 sm:gap-2 rounded-full bg-primary px-3 py-1.5 sm:px-4 sm:py-2">
