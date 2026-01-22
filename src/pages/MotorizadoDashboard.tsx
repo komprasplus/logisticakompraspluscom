@@ -25,7 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
 import useLocationTracking from "@/hooks/useLocationTracking";
 import { toast } from "sonner";
-const logo = "/logo-plus-envios.png";
+const logo = "/logo-oficial.png";
 import MotorizadoMap from "@/components/MotorizadoMap";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 import PedidoQuickActions from "@/components/PedidoQuickActions";

@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { MapPin } from "lucide-react";
 
-const logo = "/logo-plus-envios.png";
+const logo = "/logo-oficial.png";
 
 interface SplashScreenProps {
   onComplete: () => void;
