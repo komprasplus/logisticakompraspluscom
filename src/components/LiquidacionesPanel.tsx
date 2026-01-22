@@ -1,9 +1,17 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, User, Package, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { DollarSign, User, Package, CheckCircle2, Loader2, AlertCircle, Bike, Banknote, TrendingUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +29,8 @@ interface MotorizadoLiquidacion {
   full_name: string;
   phone: string | null;
   totalRecaudar: number;
+  totalFletes: number;
+  saldoABodega: number;
   pedidosCount: number;
   pedidoIds: number[];
 }
@@ -83,10 +93,20 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
           (p) => p.motorizado_asignado === profile.full_name
         );
         
+        // Total recaudado (lo que cobró al cliente)
         const totalRecaudar = motorizadoPedidos.reduce(
           (sum, p) => sum + (p.valor_recaudar || 0), 
           0
         );
+
+        // Total fletes ganados por el motorizado
+        const totalFletes = motorizadoPedidos.reduce(
+          (sum, p) => sum + (p.valor_flete || 0),
+          0
+        );
+
+        // Saldo a entregar a bodega = Recaudo Total - Fletes Ganados
+        const saldoABodega = totalRecaudar - totalFletes;
 
         return {
           id: profile.id,
@@ -94,6 +114,8 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
           full_name: profile.full_name,
           phone: profile.phone,
           totalRecaudar,
+          totalFletes,
+          saldoABodega,
           pedidosCount: motorizadoPedidos.length,
           pedidoIds: motorizadoPedidos.map((p) => p.id),
         };
@@ -130,7 +152,7 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
       toast.success(
         `Liquidación completada para ${selectedMotorizado.full_name}`,
         {
-          description: `${selectedMotorizado.pedidosCount} pedidos por $${selectedMotorizado.totalRecaudar.toLocaleString("es-CO")}`,
+          description: `${selectedMotorizado.pedidosCount} pedidos - Entrega a bodega: $${selectedMotorizado.saldoABodega.toLocaleString("es-CO")}`,
         }
       );
 
@@ -151,7 +173,9 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
     setConfirmDialogOpen(true);
   };
 
-  const totalPendiente = liquidaciones.reduce((sum, l) => sum + l.totalRecaudar, 0);
+  const totalPendiente = liquidaciones.reduce((sum, l) => sum + l.saldoABodega, 0);
+  const totalRecaudo = liquidaciones.reduce((sum, l) => sum + l.totalRecaudar, 0);
+  const totalFletes = liquidaciones.reduce((sum, l) => sum + l.totalFletes, 0);
   const totalPedidosPendientes = liquidaciones.reduce((sum, l) => sum + l.pedidosCount, 0);
 
   if (loading) {
@@ -165,39 +189,49 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 p-5 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <DollarSign className="h-5 w-5" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 p-4 text-white shadow-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 bg-white/20 rounded-lg">
+              <DollarSign className="h-4 w-4" />
             </div>
-            <span className="text-sm font-medium opacity-90">Total Pendiente</span>
+            <span className="text-xs font-medium opacity-90">Recaudo Total</span>
           </div>
-          <p className="text-2xl font-bold">${totalPendiente.toLocaleString("es-CO")}</p>
+          <p className="text-xl font-bold">${totalRecaudo.toLocaleString("es-CO")}</p>
         </div>
         
-        <div className="rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-5 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <Package className="h-5 w-5" />
+        <div className="rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 p-4 text-white shadow-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 bg-white/20 rounded-lg">
+              <Bike className="h-4 w-4" />
             </div>
-            <span className="text-sm font-medium opacity-90">Pedidos Pendientes</span>
+            <span className="text-xs font-medium opacity-90">Fletes Motoriz.</span>
           </div>
-          <p className="text-2xl font-bold">{totalPedidosPendientes}</p>
+          <p className="text-xl font-bold">${totalFletes.toLocaleString("es-CO")}</p>
         </div>
         
-        <div className="rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 p-5 text-white shadow-lg">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-white/20 rounded-lg">
-              <User className="h-5 w-5" />
+        <div className="rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-4 text-white shadow-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 bg-white/20 rounded-lg">
+              <Banknote className="h-4 w-4" />
             </div>
-            <span className="text-sm font-medium opacity-90">Motorizados con Saldo</span>
+            <span className="text-xs font-medium opacity-90">Saldo a Bodega</span>
           </div>
-          <p className="text-2xl font-bold">{liquidaciones.length}</p>
+          <p className="text-xl font-bold">${totalPendiente.toLocaleString("es-CO")}</p>
+        </div>
+        
+        <div className="rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 p-4 text-white shadow-lg">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="p-1.5 bg-white/20 rounded-lg">
+              <Package className="h-4 w-4" />
+            </div>
+            <span className="text-xs font-medium opacity-90">Pedidos</span>
+          </div>
+          <p className="text-xl font-bold">{totalPedidosPendientes}</p>
         </div>
       </div>
 
-      {/* Motorizados List */}
+      {/* Motorizados Table */}
       {liquidaciones.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center bg-card rounded-xl border border-border">
           <CheckCircle2 className="h-12 w-12 text-green-500 mb-4" />
@@ -207,65 +241,77 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
       ) : (
         <div className="rounded-xl bg-card shadow-card overflow-hidden border border-border">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground">Motorizado</th>
-                  <th className="px-4 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Teléfono</th>
-                  <th className="px-4 py-3 text-center font-semibold text-foreground">Pedidos</th>
-                  <th className="px-4 py-3 text-right font-semibold text-foreground">Total a Liquidar</th>
-                  <th className="px-4 py-3 text-center font-semibold text-foreground">Acción</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
+            <Table>
+              <TableHeader>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="font-semibold whitespace-nowrap">Motorizado</TableHead>
+                  <TableHead className="font-semibold text-center whitespace-nowrap">Entregados</TableHead>
+                  <TableHead className="font-semibold text-right whitespace-nowrap">Recaudo Total</TableHead>
+                  <TableHead className="font-semibold text-right whitespace-nowrap">Fletes Ganados</TableHead>
+                  <TableHead className="font-semibold text-right whitespace-nowrap">Saldo a Bodega</TableHead>
+                  <TableHead className="font-semibold text-center whitespace-nowrap">Acción</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {liquidaciones.map((liquidacion) => (
-                  <tr key={liquidacion.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-4 py-4">
+                  <TableRow key={liquidacion.id} className="hover:bg-muted/30">
+                    <TableCell>
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-teal-100 flex items-center justify-center">
-                          <User className="h-5 w-5 text-teal-600" />
+                        <div className="h-9 w-9 rounded-full bg-teal-100 flex items-center justify-center flex-shrink-0">
+                          <User className="h-4 w-4 text-teal-600" />
                         </div>
-                        <span className="font-medium text-foreground">{liquidacion.full_name}</span>
+                        <div className="min-w-0">
+                          <span className="font-medium text-foreground block truncate">{liquidacion.full_name}</span>
+                          {liquidacion.phone && (
+                            <span className="text-xs text-muted-foreground">{liquidacion.phone}</span>
+                          )}
+                        </div>
                       </div>
-                    </td>
-                    <td className="px-4 py-4 text-muted-foreground hidden sm:table-cell">
-                      {liquidacion.phone || "-"}
-                    </td>
-                    <td className="px-4 py-4 text-center">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-700">
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2.5 py-1 text-sm font-medium text-blue-700">
                         <Package className="h-3.5 w-3.5" />
                         {liquidacion.pedidosCount}
                       </span>
-                    </td>
-                    <td className="px-4 py-4 text-right">
-                      <span className="text-lg font-bold text-teal-600">
-                        ${liquidacion.totalRecaudar.toLocaleString("es-CO")}
+                    </TableCell>
+                    <TableCell className="text-right font-medium text-foreground whitespace-nowrap">
+                      ${liquidacion.totalRecaudar.toLocaleString("es-CO")}
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <span className="text-amber-600 font-medium">
+                        ${liquidacion.totalFletes.toLocaleString("es-CO")}
                       </span>
-                    </td>
-                    <td className="px-4 py-4 text-center">
+                    </TableCell>
+                    <TableCell className="text-right whitespace-nowrap">
+                      <span className="text-lg font-bold text-teal-600">
+                        ${liquidacion.saldoABodega.toLocaleString("es-CO")}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center">
                       <Button
                         size="sm"
                         onClick={() => openConfirmDialog(liquidacion)}
                         disabled={processing === liquidacion.id}
-                        className="bg-teal-600 hover:bg-teal-700 text-white gap-2"
+                        className="bg-teal-600 hover:bg-teal-700 text-white gap-1.5 whitespace-nowrap"
                       >
                         {processing === liquidacion.id ? (
                           <>
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            Procesando...
+                            <span className="hidden sm:inline">Procesando...</span>
                           </>
                         ) : (
                           <>
                             <CheckCircle2 className="h-4 w-4" />
-                            Liquidar
+                            <span className="hidden sm:inline">Cerrar Liquidación</span>
+                            <span className="sm:hidden">Cerrar</span>
                           </>
                         )}
                       </Button>
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}
@@ -276,18 +322,33 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertCircle className="h-5 w-5 text-teal-600" />
-              Confirmar Liquidación
+              Confirmar Cierre de Liquidación
             </AlertDialogTitle>
             <AlertDialogDescription>
               {selectedMotorizado && (
-                <div className="space-y-2 text-left">
-                  <p>¿Confirmas la liquidación de <strong>{selectedMotorizado.full_name}</strong>?</p>
-                  <div className="bg-muted rounded-lg p-3 space-y-1">
-                    <p><strong>Pedidos:</strong> {selectedMotorizado.pedidosCount}</p>
-                    <p><strong>Total recaudado:</strong> ${selectedMotorizado.totalRecaudar.toLocaleString("es-CO")}</p>
+                <div className="space-y-3 text-left">
+                  <p>¿Confirmas el cierre de liquidación de <strong>{selectedMotorizado.full_name}</strong>?</p>
+                  <div className="bg-muted rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span>Pedidos entregados:</span>
+                      <strong>{selectedMotorizado.pedidosCount}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Recaudo total:</span>
+                      <strong>${selectedMotorizado.totalRecaudar.toLocaleString("es-CO")}</strong>
+                    </div>
+                    <div className="flex justify-between text-amber-600">
+                      <span>Fletes ganados (-):</span>
+                      <strong>${selectedMotorizado.totalFletes.toLocaleString("es-CO")}</strong>
+                    </div>
+                    <hr className="border-border" />
+                    <div className="flex justify-between text-lg font-bold text-teal-600">
+                      <span>Entrega a bodega:</span>
+                      <span>${selectedMotorizado.saldoABodega.toLocaleString("es-CO")}</span>
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Esta acción cambiará el estado de todos los pedidos a "Liquidado" y pondrá el saldo en cero.
+                    Los pedidos cambiarán a estado "Liquidado" y el saldo quedará en cero.
                   </p>
                 </div>
               )}
@@ -296,7 +357,7 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleLiquidar} className="bg-teal-600 hover:bg-teal-700">
-              Confirmar Liquidación
+              Confirmar Cierre
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

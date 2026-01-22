@@ -268,33 +268,49 @@
 }
 
 /* =================================
-   Leaflet Popup Z-Index Fixes
+   Leaflet Popup Z-Index Fixes (CRITICAL)
    ================================= */
-.leaflet-popup {
-  z-index: 9999 !important;
+
+/* Force popup pane to be above everything */
+.leaflet-pane.leaflet-popup-pane {
+  z-index: 10000 !important;
 }
 
-.leaflet-popup-pane {
-  z-index: 9999 !important;
+.leaflet-popup {
+  z-index: 10001 !important;
+  position: relative !important;
 }
 
 .leaflet-popup-content-wrapper {
+  z-index: 10002 !important;
   border-radius: 1rem !important;
-  box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.25) !important;
+  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.35) !important;
   padding: 0 !important;
-  overflow: hidden;
+  overflow: visible !important;
+  background: hsl(var(--card)) !important;
 }
 
 .leaflet-popup-content {
   margin: 0 !important;
-  min-width: 220px;
+  min-width: 260px;
+  max-width: 340px;
+  z-index: 10003 !important;
+}
+
+.leaflet-popup-tip-container {
+  z-index: 10002 !important;
+}
+
+.leaflet-popup-tip {
+  background: hsl(var(--card)) !important;
 }
 
 .leaflet-popup-close-button {
-  z-index: 10000 !important;
-  width: 32px !important;
-  height: 32px !important;
-  font-size: 20px !important;
+  z-index: 10004 !important;
+  width: 36px !important;
+  height: 36px !important;
+  font-size: 22px !important;
+  line-height: 36px !important;
   color: hsl(var(--muted-foreground)) !important;
   right: 8px !important;
   top: 8px !important;
@@ -303,21 +319,42 @@
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2) !important;
   transition: all 0.2s ease !important;
+  border: 2px solid hsl(var(--border)) !important;
 }
 
 .leaflet-popup-close-button:hover {
-  background: hsl(var(--muted)) !important;
-  color: hsl(var(--foreground)) !important;
-  transform: scale(1.1) !important;
+  background: hsl(var(--destructive)) !important;
+  color: hsl(var(--destructive-foreground)) !important;
+  transform: scale(1.15) !important;
+  border-color: hsl(var(--destructive)) !important;
 }
 
-/* Ensure map controls don't overlap popups */
+/* Ensure map controls are BELOW popups */
 .leaflet-control-container {
-  z-index: 800 !important;
+  z-index: 500 !important;
 }
 
 .leaflet-control-zoom {
-  z-index: 800 !important;
+  z-index: 500 !important;
+}
+
+/* All marker panes below popup */
+.leaflet-pane.leaflet-marker-pane {
+  z-index: 600 !important;
+}
+
+.leaflet-pane.leaflet-overlay-pane {
+  z-index: 400 !important;
+}
+
+.leaflet-pane.leaflet-tile-pane {
+  z-index: 200 !important;
+}
+
+/* Custom order detail card on map */
+.order-detail-popup {
+  z-index: 10005 !important;
+  position: relative !important;
 }

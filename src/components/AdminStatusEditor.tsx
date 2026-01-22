@@ -63,10 +63,34 @@ const AdminStatusEditor = ({ pedidoId, currentStatus, onStatusChange }: AdminSta
     setShowConfirm(false);
 
     try {
-      // Update the order status
+      // Build the system comment for the store
+      const systemComment = `[SISTEMA] ${new Date().toLocaleDateString("es-CO", { 
+        day: "2-digit", 
+        month: "short", 
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      })} - Admin cambió estado de "${currentStatus}" a "${newStatus}". Motivo: ${motivo.trim()}`;
+
+      // Update the order status and add system comment to observaciones
+      const { data: currentOrder, error: fetchError } = await supabase
+        .from("pedidos")
+        .select("observaciones")
+        .eq("id", pedidoId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Append system comment to existing observaciones
+      const existingObs = currentOrder?.observaciones || "";
+      const newObservaciones = existingObs 
+        ? `${existingObs}\n\n${systemComment}`
+        : systemComment;
+
       const updateData: any = {
         estado: newStatus,
         fecha_actualizacion: new Date().toISOString(),
+        observaciones: newObservaciones,
       };
 
       // Clear delivery-specific fields if reverting from Entregado
@@ -101,7 +125,7 @@ const AdminStatusEditor = ({ pedidoId, currentStatus, onStatusChange }: AdminSta
       }
 
       toast.success("Estado actualizado exitosamente", {
-        description: `Cambio de "${currentStatus}" a "${newStatus}" registrado`,
+        description: `Cambio registrado y notificado a la tienda`,
       });
 
       setMotivo("");
