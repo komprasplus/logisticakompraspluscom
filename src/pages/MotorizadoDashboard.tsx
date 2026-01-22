@@ -25,7 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
 import useLocationTracking from "@/hooks/useLocationTracking";
 import { toast } from "sonner";
-const logo = "/logo-oficial.png";
+import BrandLogo from "@/components/BrandLogo";
 import MotorizadoMap from "@/components/MotorizadoMap";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 import PedidoQuickActions from "@/components/PedidoQuickActions";
@@ -662,7 +662,7 @@ const MotorizadoDashboard = () => {
       <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
-            <img src={logo} alt="Plus Envíos" className="h-10 w-auto" />
+            <BrandLogo size="md" />
           </div>
           <div className="flex items-center gap-2">
             <button

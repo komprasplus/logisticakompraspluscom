@@ -13,7 +13,7 @@ import {
   Store,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-const logo = "/logo-oficial.png";
+import BrandLogo from "@/components/BrandLogo";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
 import MotorizadoInfo from "@/components/MotorizadoInfo";
 
@@ -209,7 +209,7 @@ const PublicTracking = () => {
                 <span className="hidden sm:block text-sm font-semibold text-foreground">{displayName}</span>
               </div>
             ) : (
-              <img src={logo} alt="Plus Envíos" className="h-10 sm:h-14 w-auto" />
+              <BrandLogo size="lg" />
             )}
           </motion.div>
           
