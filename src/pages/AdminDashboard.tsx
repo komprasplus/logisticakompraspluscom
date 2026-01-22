@@ -35,7 +35,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-const logo = "/logo-kompras-plus.png";
+// Logo replaced with text for stability
 import AdminMapEnhanced from "@/components/AdminMapEnhanced";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 import AdminSidebar from "@/components/AdminSidebar";

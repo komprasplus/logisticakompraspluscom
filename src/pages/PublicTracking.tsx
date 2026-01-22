@@ -13,7 +13,7 @@ import {
   Store,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-const logo = "/logo-kompras-plus.png";
+// Logo replaced with text for stability
 import MotorcycleIcon from "@/components/MotorcycleIcon";
 import MotorizadoInfo from "@/components/MotorizadoInfo";
 
@@ -183,13 +183,11 @@ const PublicTracking = () => {
     }
   };
 
-  // Use store logo if available, otherwise Kompras Plus logo
-  const displayLogo = storeProfile?.logo_url || logo;
   const displayName = storeProfile?.store_name || "Plus Envíos";
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background">
-      {/* Header with Store/Kompras Branding */}
+      {/* Header with Store/Plus Envíos Branding */}
       <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
         <div className="container flex h-16 sm:h-20 items-center justify-between px-3 sm:px-4">
           <Link
@@ -199,7 +197,7 @@ const PublicTracking = () => {
             <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
           </Link>
           
-          {/* Center Logo - Store or Kompras Plus */}
+          {/* Center Logo - Store or Plus Envíos Text */}
           <motion.div
             className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2"
             initial={{ opacity: 0, y: -10 }}
@@ -211,7 +209,7 @@ const PublicTracking = () => {
                 <span className="hidden sm:block text-sm font-semibold text-foreground">{displayName}</span>
               </div>
             ) : (
-              <img src={logo} alt="Plus Envíos" className="h-10 sm:h-14 w-auto" />
+              <span className="text-xl sm:text-2xl font-bold text-primary">Plus Envíos</span>
             )}
           </motion.div>
           
