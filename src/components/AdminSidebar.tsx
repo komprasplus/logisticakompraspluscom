@@ -11,7 +11,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-const logo = "/logo-plus.png";
+const logo = "/logo-kompras-plus.png";
 import { cn } from "@/lib/utils";
 
 interface AdminSidebarProps {

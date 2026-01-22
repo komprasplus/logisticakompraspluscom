@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { LogOut, Phone, Store, Clock } from "lucide-react";
-const logo = "/logo-plus.png";
+const logo = "/logo-kompras-plus.png";
 import WeatherWidget from "@/components/WeatherWidget";
 
 interface ClienteHeaderProps {
