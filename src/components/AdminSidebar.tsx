@@ -11,7 +11,7 @@ import {
   LucideIcon,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-const logo = "/logo-oficial.png";
+import BrandLogo from "@/components/BrandLogo";
 import { cn } from "@/lib/utils";
 
 interface AdminSidebarProps {
@@ -122,7 +122,7 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: Ad
       {/* Logo */}
       <div className="flex items-center justify-between p-4 border-b border-border">
         {!collapsed && (
-          <img src={logo} alt="Plus Envíos" className="h-10 w-auto" />
+          <BrandLogo size="md" />
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}

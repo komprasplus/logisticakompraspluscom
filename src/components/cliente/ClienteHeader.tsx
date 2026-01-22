@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { LogOut, Phone, Store, Clock } from "lucide-react";
-const logo = "/logo-oficial.png";
+import BrandLogo from "@/components/BrandLogo";
 import WeatherWidget from "@/components/WeatherWidget";
 
 interface ClienteHeaderProps {
@@ -24,7 +24,7 @@ const ClienteHeader = ({
       <div className="flex h-16 items-center justify-between px-4">
         {/* Logo and Store Info */}
         <div className="flex items-center gap-3">
-          <img src={logo} alt="Plus Envíos" className="h-10 w-auto" />
+          <BrandLogo size="md" />
           
           {/* Store Branding - Desktop */}
           <div className="hidden sm:flex items-center gap-2 ml-2 pl-3 border-l border-border">

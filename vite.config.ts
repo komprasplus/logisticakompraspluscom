@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       includeAssets: ["logo-oficial.png", "pwa-192x192.png", "pwa-512x512.png"],
       manifest: {
-        name: "Kompras Plus",
-        short_name: "Kompras Plus",
+        name: "Plus Envíos",
+        short_name: "Plus Envíos",
         description: "Sistema de gestión logística y entregas en tiempo real",
         theme_color: "#1e3a5f",
         background_color: "#ffffff",

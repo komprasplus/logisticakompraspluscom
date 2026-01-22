@@ -266,3 +266,58 @@
 .calendar-3d-button:active {
   transform: translateY(0) scale(0.98);
 }
+
+/* =================================
+   Leaflet Popup Z-Index Fixes
+   ================================= */
+.leaflet-popup {
+  z-index: 9999 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 9999 !important;
+}
+
+.leaflet-popup-content-wrapper {
+  border-radius: 1rem !important;
+  box-shadow: 0 12px 40px -8px rgba(0, 0, 0, 0.25) !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  min-width: 220px;
+}
+
+.leaflet-popup-close-button {
+  z-index: 10000 !important;
+  width: 32px !important;
+  height: 32px !important;
+  font-size: 20px !important;
+  color: hsl(var(--muted-foreground)) !important;
+  right: 8px !important;
+  top: 8px !important;
+  background: hsl(var(--background)) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+  transition: all 0.2s ease !important;
+}
+
+.leaflet-popup-close-button:hover {
+  background: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+  transform: scale(1.1) !important;
+}
+
+/* Ensure map controls don't overlap popups */
+.leaflet-control-container {
+  z-index: 800 !important;
+}
+
+.leaflet-control-zoom {
+  z-index: 800 !important;
+}
