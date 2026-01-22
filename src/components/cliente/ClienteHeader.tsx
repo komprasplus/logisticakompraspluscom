@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { LogOut, Phone, Store, Clock } from "lucide-react";
-import logo from "@/assets/logo-kompras-plus.png";
+import logo from "@/assets/logo-plus-envios.png";
 import WeatherWidget from "@/components/WeatherWidget";
 
 interface ClienteHeaderProps {
@@ -24,7 +24,7 @@ const ClienteHeader = ({
       <div className="flex h-16 items-center justify-between px-4">
         {/* Logo and Store Info */}
         <div className="flex items-center gap-3">
-          <img src={logo} alt="Kompras Plus" className="h-10 w-auto" />
+          <img src={logo} alt="Plus Envios" className="h-10 w-auto" />
           
           {/* Store Branding - Desktop */}
           <div className="hidden sm:flex items-center gap-2 ml-2 pl-3 border-l border-border">

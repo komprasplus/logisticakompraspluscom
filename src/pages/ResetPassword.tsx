@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Loader2, Lock, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import logo from "@/assets/logo-kompras-plus.png";
+import logo from "@/assets/logo-plus-envios.png";
 import { z } from "zod";
 
 const passwordSchema = z.object({

@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
-import logo from "@/assets/logo-kompras-plus.png";
+import logo from "@/assets/logo-plus-envios.png";
 import { MapPin } from "lucide-react";
 
 interface SplashScreenProps {
@@ -52,7 +52,7 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
       >
         <motion.img
           src={logo}
-          alt="Kompras Plus"
+          alt="Plus Envios"
           className="w-64 h-auto"
           initial={{ y: -30, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

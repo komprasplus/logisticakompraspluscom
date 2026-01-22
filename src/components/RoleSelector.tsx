@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Truck, Package, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
-import logo from "@/assets/logo-kompras-plus.png";
+import logo from "@/assets/logo-plus-envios.png";
 
 const RoleSelector = () => {
   const containerVariants = {
@@ -29,11 +29,11 @@ const RoleSelector = () => {
           <motion.div variants={itemVariants} className="mb-8 text-center">
             <img
               src={logo}
-              alt="Kompras Plus"
+              alt="Plus Envios"
               className="mx-auto mb-4 h-24 w-auto"
             />
             <h1 className="text-2xl font-bold text-foreground">
-              ¡Bienvenido a Kompras Plus!
+              ¡Bienvenido a Plus Envios!
             </h1>
             <p className="mt-2 text-muted-foreground">
               Selecciona cómo deseas ingresar

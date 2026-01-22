@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Loader2, Mail, Lock, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import logo from "@/assets/logo-kompras-plus.png";
+import logo from "@/assets/logo-plus-envios.png";
 import { z } from "zod";
 import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 
@@ -102,7 +102,7 @@ const Auth = () => {
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          <img src={logo} alt="Kompras Plus" className="h-20 w-auto mx-auto mb-4" />
+          <img src={logo} alt="Plus Envios" className="h-20 w-auto mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground">Iniciar Sesión</h1>
           <p className="text-muted-foreground text-sm mt-2">
             Ingresa tus credenciales para acceder

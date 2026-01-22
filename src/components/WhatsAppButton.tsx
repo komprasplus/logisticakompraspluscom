@@ -25,7 +25,7 @@ const WhatsAppButton = ({
 
     const cleanPhone = phone.replace(/\D/g, "");
     const message = encodeURIComponent(
-      `Hola ${clientName || ""}! Soy el motorizado de Kompras Plus. ${
+      `Hola ${clientName || ""}! Soy el motorizado de Plus Envios. ${
         guia ? `Tu pedido ${guia} ` : "Tu pedido "
       }está en camino. ¿Puedes confirmar que estás disponible para recibirlo?`
     );
