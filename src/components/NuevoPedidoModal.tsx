@@ -29,7 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { getZonaFromBarrio, getZonaFromMunicipio } from "@/lib/zonas";
 import { getTarifaEnvio, calcularUtilidad, formatCOP } from "@/lib/tarifas";
-import LocationPreviewMap from "./LocationPreviewMap";
+import LocationPreviewMapGoogle from "./LocationPreviewMapGoogle";
 import GooglePlacesAutocomplete from "./GooglePlacesAutocomplete";
 
 // Supported municipalities/cities
@@ -871,7 +871,7 @@ const NuevoPedidoModal = ({
 
       {/* Location Preview Map Modal */}
       {showMapPreview && (
-        <LocationPreviewMap
+        <LocationPreviewMapGoogle
           direccion={direccionManual || direccionCompleta}
           barrio={barrio}
           localidad={municipioSeleccionado || "Bogotá"}
