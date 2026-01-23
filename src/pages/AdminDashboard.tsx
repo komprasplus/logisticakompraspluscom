@@ -30,14 +30,16 @@ import {
   Printer,
   FileCheck,
   Store,
+  Pencil,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 const logo = "/logo-oficial.png";
-import AdminMapEnhanced from "@/components/AdminMapEnhanced";
+import AdminMapGoogle from "@/components/AdminMapGoogle";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
+import EditPedidoModal from "@/components/EditPedidoModal";
 import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
 import NovedadCompactCard from "@/components/NovedadCompactCard";
@@ -154,6 +156,8 @@ const AdminDashboard = () => {
   const [showDeleteUser, setShowDeleteUser] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState<Profile | null>(null);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
+  const [showEditPedido, setShowEditPedido] = useState(false);
+  const [selectedPedidoForEdit, setSelectedPedidoForEdit] = useState<Pedido | null>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -751,7 +755,7 @@ const AdminDashboard = () => {
               {/* Main Map with Error Boundary */}
               <div className="flex-1 relative">
                 <MapErrorBoundary fallbackMessage="El mapa tuvo un problema. Esto puede deberse a un error de carga de datos de ubicación.">
-                  <AdminMapEnhanced 
+                  <AdminMapGoogle 
                     pedidos={mapFilteredPedidos}
                     selectedDate={mapDateFilter}
                     onPedidoClick={(p) => setSelectedPedido(p as Pedido)}
@@ -1039,6 +1043,19 @@ const AdminDashboard = () => {
                             <td className="px-3 py-3"><StatusBadge status={pedido.estado} /></td>
                             <td className="px-2 py-3 text-center">
                               <div className="flex items-center justify-center gap-1">
+                                {/* Edit Button */}
+                                {!isCancelled && (
+                                  <button
+                                    onClick={() => {
+                                      setSelectedPedidoForEdit(pedido);
+                                      setShowEditPedido(true);
+                                    }}
+                                    className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-muted text-muted-foreground hover:bg-amber-100 hover:text-amber-600 transition-colors"
+                                    title="Editar pedido"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </button>
+                                )}
                                 {/* Print Button */}
                                 {isPrintable && !isCancelled && (
                                   <button
@@ -1361,6 +1378,17 @@ const AdminDashboard = () => {
         pedidos={filteredPedidos.filter(p => selectedForPrint.includes(p.id))}
         remitentes={getClientRemitentes()}
         onPrintComplete={handleBulkPrintComplete}
+      />
+      <EditPedidoModal
+        isOpen={showEditPedido}
+        onClose={() => {
+          setShowEditPedido(false);
+          setSelectedPedidoForEdit(null);
+        }}
+        pedido={selectedPedidoForEdit}
+        onSuccess={() => {
+          fetchPedidos();
+        }}
       />
     </div>
   );
