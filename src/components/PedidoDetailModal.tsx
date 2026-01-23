@@ -11,6 +11,7 @@ import { formatCOP } from "@/lib/tarifas";
 import { useAuth } from "@/hooks/useAuth";
 import AdminStatusEditor from "./AdminStatusEditor";
 import PedidoStatusHistory from "./PedidoStatusHistory";
+import MotorizadoSelector from "./admin/MotorizadoSelector";
 
 interface Pedido {
   id: number;
@@ -30,6 +31,7 @@ interface Pedido {
   fecha_creacion: string | null;
   fecha_actualizacion: string | null;
   motorizado_asignado: string | null;
+  motorizado_id?: string | null;
   estado: string | null;
   tipo_novedad: string | null;
   foto_evidencia: string | null;
@@ -208,8 +210,17 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
               <p className="text-foreground">{pedido.producto_nombre || "Paquete estándar"}</p>
             </div>
 
-            {/* Motorizado Asignado */}
-            {pedido.motorizado_asignado && (
+            {/* Motorizado Asignado / Selector for Admin */}
+            {isAdmin ? (
+              <MotorizadoSelector
+                pedidoId={pedido.id}
+                currentMotorizadoId={pedido.motorizado_id || null}
+                currentMotorizadoName={pedido.motorizado_asignado}
+                onAssignmentChange={() => {
+                  onStatusChange?.();
+                }}
+              />
+            ) : pedido.motorizado_asignado ? (
               <div className="rounded-lg border border-border p-4">
                 <div className="flex items-center gap-2 mb-3">
                   <Truck className="h-4 w-4 text-primary" />
@@ -217,7 +228,7 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
                 </div>
                 <p className="text-foreground">{pedido.motorizado_asignado}</p>
               </div>
-            )}
+            ) : null}
 
             {/* Historial de Fechas */}
             <div className="rounded-lg border border-border p-4">
