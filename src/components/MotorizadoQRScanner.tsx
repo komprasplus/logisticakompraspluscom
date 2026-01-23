@@ -13,7 +13,8 @@ import {
   Package,
   DollarSign,
   PlayCircle,
-  AlertTriangle
+  AlertTriangle,
+  Truck
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -32,6 +33,7 @@ interface Pedido {
   metodo_pago: string | null;
   estado: string | null;
   motorizado_id: string | null;
+  motorizado_asignado: string | null;
 }
 
 interface MotorizadoQRScannerProps {
@@ -39,15 +41,17 @@ interface MotorizadoQRScannerProps {
   onClose: () => void;
   onStartDelivery: (pedido: Pedido) => void;
   motorizadoId: string;
+  motorizadoName?: string;
 }
 
-const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }: MotorizadoQRScannerProps) => {
+const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, motorizadoName }: MotorizadoQRScannerProps) => {
   const [scanning, setScanning] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [scannedPedido, setScannedPedido] = useState<Pedido | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isAutoAssign, setIsAutoAssign] = useState(false); // Track if this is an auto-assignment
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -74,12 +78,13 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
     setProcessing(true);
     setErrorMessage(null);
     setScannedPedido(null);
+    setIsAutoAssign(false);
 
     try {
       // Expected format: "PEDIDO:123"
       const match = qrData.match(/PEDIDO:(\d+)/);
       if (!match) {
-        setErrorMessage("Código QR no reconocido. Asegúrate de escanear una guía de Kompras Plus.");
+        setErrorMessage("Código QR no reconocido. Asegúrate de escanear una guía de Plus Envíos.");
         setProcessing(false);
         return;
       }
@@ -89,7 +94,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
       // Fetch the pedido details
       const { data: pedido, error: fetchError } = await supabase
         .from("pedidos")
-        .select("id, numero_guia, cliente_nombre, client_phone, direccion_entrega, barrio, zona, producto_nombre, valor_recaudar, metodo_pago, estado, motorizado_id")
+        .select("id, numero_guia, cliente_nombre, client_phone, direccion_entrega, barrio, zona, producto_nombre, valor_recaudar, metodo_pago, estado, motorizado_id, motorizado_asignado")
         .eq("id", pedidoId)
         .maybeSingle();
 
@@ -99,14 +104,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
         return;
       }
 
-      // SECURITY CHECK: Verify the order belongs to this motorizado
-      if (pedido.motorizado_id !== motorizadoId) {
-        setErrorMessage("❌ Este pedido no te pertenece. Solo puedes escanear pedidos asignados a ti.");
-        setProcessing(false);
-        return;
-      }
-
-      // Check if order is in a valid state for starting delivery
+      // Check if order is in a valid state
       const estado = pedido.estado?.toLowerCase();
       if (estado === "entregado" || estado === "liquidado") {
         setErrorMessage(`Este pedido ya fue entregado.`);
@@ -120,7 +118,30 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
         return;
       }
 
-      // Success! Show the pedido info
+      // AUTO-ASSIGNMENT LOGIC
+      // If the order is not assigned OR is assigned to someone else, we can auto-assign
+      if (!pedido.motorizado_id || pedido.motorizado_id !== motorizadoId) {
+        // Check if order is in a state that allows assignment
+        if (estado === "pendiente" || estado === "recibido en bodega" || estado === "asignado") {
+          setIsAutoAssign(true);
+          setScannedPedido({
+            ...pedido,
+            // Show that it will be auto-assigned
+            motorizado_id: motorizadoId,
+            motorizado_asignado: motorizadoName || "Yo"
+          });
+          stopScanner();
+          setProcessing(false);
+          return;
+        } else if (pedido.motorizado_id && pedido.motorizado_id !== motorizadoId) {
+          // Order is already in route with another driver
+          setErrorMessage("❌ Este pedido está asignado a otro motorizado y ya está en ruta.");
+          setProcessing(false);
+          return;
+        }
+      }
+
+      // Success! Order belongs to this motorizado
       setScannedPedido(pedido);
       stopScanner();
       
@@ -130,13 +151,14 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
     } finally {
       setProcessing(false);
     }
-  }, [processing, motorizadoId, stopScanner]);
+  }, [processing, motorizadoId, motorizadoName, stopScanner]);
 
   const startScanner = useCallback(async () => {
     setCameraError(null);
     setErrorMessage(null);
     setScannedPedido(null);
     setIsInitializing(true);
+    setIsAutoAssign(false);
 
     try {
       // Request camera permission
@@ -195,7 +217,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
       setIsInitializing(false);
       
       if (err.name === "NotAllowedError") {
-        setCameraError("Necesitamos acceso a la cámara para escanear las guías de Kompras Plus. Por favor, permite el acceso en la configuración del navegador.");
+        setCameraError("Necesitamos acceso a la cámara para escanear las guías de Plus Envíos. Por favor, permite el acceso en la configuración del navegador.");
       } else if (err.name === "NotFoundError") {
         setCameraError("No se encontró ninguna cámara en el dispositivo.");
       } else if (err.name === "NotReadableError") {
@@ -217,6 +239,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
       stopScanner();
       setScannedPedido(null);
       setErrorMessage(null);
+      setIsAutoAssign(false);
     }
   }, [isOpen, startScanner, stopScanner, scannedPedido]);
 
@@ -230,12 +253,14 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
     stopScanner();
     setScannedPedido(null);
     setErrorMessage(null);
+    setIsAutoAssign(false);
     onClose();
   };
 
   const handleRetry = () => {
     setErrorMessage(null);
     setScannedPedido(null);
+    setIsAutoAssign(false);
     stopScanner();
     setTimeout(() => {
       startScanner();
@@ -247,19 +272,48 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
     
     setProcessing(true);
     try {
+      // Build the update payload
+      const updatePayload: Record<string, any> = {
+        estado: "En Ruta",
+        fecha_actualizacion: new Date().toISOString(),
+      };
+
+      // If auto-assigning, also set the motorizado
+      if (isAutoAssign) {
+        updatePayload.motorizado_id = motorizadoId;
+        updatePayload.motorizado_asignado = motorizadoName || "Motorizado";
+      }
+
       // Update the order status to "En Ruta"
       const { error } = await supabase
         .from("pedidos")
-        .update({ 
-          estado: "En Ruta",
-          fecha_actualizacion: new Date().toISOString()
-        })
+        .update(updatePayload)
         .eq("id", scannedPedido.id);
 
       if (error) throw error;
 
-      toast.success(`🚀 ¡Entrega iniciada para ${scannedPedido.cliente_nombre || 'cliente'}!`);
-      onStartDelivery({ ...scannedPedido, estado: "En Ruta" });
+      // Log the status change for audit
+      await supabase.from("pedido_status_logs").insert({
+        pedido_id: scannedPedido.id,
+        estado_anterior: scannedPedido.estado,
+        estado_nuevo: "En Ruta",
+        motivo: isAutoAssign ? "Auto-asignado por escaneo QR" : "Iniciado por escaneo QR",
+        usuario_nombre: motorizadoName || "Motorizado",
+        usuario_id: motorizadoId,
+      });
+
+      if (isAutoAssign) {
+        toast.success(`🏍️ Pedido asignado automáticamente y ¡en ruta!`);
+      } else {
+        toast.success(`🚀 ¡Entrega iniciada para ${scannedPedido.cliente_nombre || 'cliente'}!`);
+      }
+      
+      onStartDelivery({ 
+        ...scannedPedido, 
+        estado: "En Ruta",
+        motorizado_id: motorizadoId,
+        motorizado_asignado: motorizadoName || "Motorizado"
+      });
       handleClose();
     } catch (error) {
       console.error("Error starting delivery:", error);
@@ -280,7 +334,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ScanLine className="h-5 w-5 text-primary" />
-            Escanear Pedido
+            Escanear Paquete
           </DialogTitle>
         </DialogHeader>
 
@@ -289,7 +343,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
           {!scannedPedido ? (
             <>
               <p className="text-sm text-muted-foreground text-center">
-                Escanea el código QR de la guía para ver los detalles del pedido e iniciar la entrega.
+                Escanea el código QR de la guía para <strong>asignar automáticamente</strong> el pedido e iniciar la entrega.
               </p>
 
               {/* Scanner Container */}
@@ -380,6 +434,17 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
               animate={{ opacity: 1, scale: 1 }}
               className="space-y-4"
             >
+              {/* Auto-assign indicator */}
+              {isAutoAssign && (
+                <div className="p-3 rounded-lg bg-teal-50 border border-teal-200 flex items-center gap-2">
+                  <Truck className="h-5 w-5 text-teal-600" />
+                  <div>
+                    <p className="text-sm font-semibold text-teal-800">Asignación Automática</p>
+                    <p className="text-xs text-teal-700">Este pedido se asignará a ti al iniciar</p>
+                  </div>
+                </div>
+              )}
+
               <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
                 <div className="flex items-center gap-2 mb-3">
                   <CheckCircle2 className="h-5 w-5 text-primary" />
@@ -456,7 +521,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId }:
                   ) : (
                     <PlayCircle className="h-5 w-5" />
                   )}
-                  Iniciar Entrega
+                  {isAutoAssign ? "Asignar e Iniciar" : "Iniciar Entrega"}
                 </Button>
               </div>
             </motion.div>
