@@ -67,6 +67,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getStatusConfig, ALL_STATUSES, isOperationalStatus } from "@/lib/orderStatuses";
 import AdminNotesInput from "@/components/AdminNotesInput";
 import AnalyticsControlTower from "@/components/admin/AnalyticsControlTower";
+import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 
 interface Pedido {
   id: number;
@@ -1078,6 +1079,16 @@ const AdminDashboard = () => {
                                   >
                                     <Printer className="h-4 w-4" />
                                   </button>
+                                )}
+                                {/* Reassign Button */}
+                                {!isCancelled && (
+                                  <QuickReassignPopover
+                                    pedidoId={pedido.id}
+                                    currentMotorizadoId={pedido.motorizado_id}
+                                    currentMotorizadoName={pedido.motorizado_asignado}
+                                    currentStatus={pedido.estado}
+                                    onReassigned={fetchPedidos}
+                                  />
                                 )}
                                 {/* Detail Button */}
                                 <button
