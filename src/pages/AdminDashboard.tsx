@@ -68,6 +68,7 @@ import { getStatusConfig, ALL_STATUSES, isOperationalStatus } from "@/lib/orderS
 import AdminNotesInput from "@/components/AdminNotesInput";
 import AnalyticsControlTower from "@/components/admin/AnalyticsControlTower";
 import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
+import BulkReassignModal from "@/components/admin/BulkReassignModal";
 
 interface Pedido {
   id: number;
@@ -160,6 +161,7 @@ const AdminDashboard = () => {
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [showEditPedido, setShowEditPedido] = useState(false);
   const [selectedPedidoForEdit, setSelectedPedidoForEdit] = useState<Pedido | null>(null);
+  const [showBulkReassign, setShowBulkReassign] = useState(false);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -926,20 +928,21 @@ const AdminDashboard = () => {
 
               {/* Bulk Assignment Bar */}
               {selectedForBulk.length > 0 && (
-                <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-primary/10 border border-primary/30">
+                <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-primary/10 border border-primary/30 neu-flat">
+                  <Package className="h-5 w-5 text-primary" />
                   <span className="text-sm font-medium text-foreground">{selectedForBulk.length} pedido(s) seleccionado(s)</span>
-                  <select
+                  <Button
+                    size="sm"
                     disabled={bulkAssigning}
-                    onChange={(e) => { if (e.target.value) bulkAssignMotorizado(e.target.value); }}
-                    className="rounded-lg border border-primary bg-card px-3 py-1.5 text-sm font-medium focus:outline-none"
-                    defaultValue=""
+                    onClick={() => setShowBulkReassign(true)}
+                    className="gap-2"
                   >
-                    <option value="" disabled>{bulkAssigning ? "Asignando..." : "Asignar a..."}</option>
-                    {motorizados.map((m) => (
-                      <option key={m.id} value={m.user_id}>{m.full_name}</option>
-                    ))}
-                  </select>
-                  <button onClick={() => setSelectedForBulk([])} className="text-sm text-muted-foreground hover:text-foreground">Cancelar</button>
+                    <ArrowLeftRight className="h-4 w-4" />
+                    Transferir a Motorizado
+                  </Button>
+                  <button onClick={() => setSelectedForBulk([])} className="text-sm text-muted-foreground hover:text-foreground">
+                    Cancelar
+                  </button>
                 </div>
               )}
 
@@ -996,9 +999,9 @@ const AdminDashboard = () => {
                         
                         return (
                           <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${isPendingAssignment && !isCancelled ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""} ${isPrintSelected ? "bg-emerald-50 dark:bg-emerald-950/20" : ""} ${isCancelled ? "opacity-60" : ""}`}>
-                            {/* Bulk assignment checkbox */}
+                            {/* Bulk reassignment checkbox - allow selecting any non-finalized order */}
                             <td className="px-2 py-3">
-                              {isPendingAssignment && !isCancelled && (
+                              {!isCancelled && pedido.estado?.toLowerCase() !== "entregado" && pedido.estado?.toLowerCase() !== "liquidado" && (
                                 <input type="checkbox" checked={isSelected} onChange={() => toggleBulkSelect(pedido.id)} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
                               )}
                             </td>
@@ -1408,6 +1411,15 @@ const AdminDashboard = () => {
         pedido={selectedPedidoForEdit}
         onSuccess={() => {
           fetchPedidos();
+        }}
+      />
+      <BulkReassignModal
+        isOpen={showBulkReassign}
+        onClose={() => setShowBulkReassign(false)}
+        selectedPedidoIds={selectedForBulk}
+        onSuccess={() => {
+          fetchPedidos();
+          setSelectedForBulk([]);
         }}
       />
     </div>
