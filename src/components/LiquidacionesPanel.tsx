@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, User, Package, CheckCircle2, Loader2, AlertCircle, Bike, Banknote, TrendingUp } from "lucide-react";
+import { DollarSign, User, Package, CheckCircle2, Loader2, AlertCircle, Bike, Banknote, TrendingUp, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { exportLiquidacionPDF } from "@/lib/pdfExport";
 
 interface MotorizadoLiquidacion {
   id: string;
@@ -148,6 +149,18 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
         .in("id", selectedMotorizado.pedidoIds);
 
       if (error) throw error;
+
+      // Export PDF receipt
+      exportLiquidacionPDF({
+        tipo: "motorizado",
+        nombre: selectedMotorizado.full_name,
+        telefono: selectedMotorizado.phone,
+        pedidosCount: selectedMotorizado.pedidosCount,
+        totalRecaudado: selectedMotorizado.totalRecaudar,
+        totalFletes: selectedMotorizado.totalFletes,
+        saldoNeto: selectedMotorizado.saldoABodega,
+        pedidoIds: selectedMotorizado.pedidoIds,
+      });
 
       toast.success(
         `Liquidación completada para ${selectedMotorizado.full_name}`,
