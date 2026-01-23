@@ -2,104 +2,157 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Nunito:wght@400;600;700;800;900&display=swap');
 
 @layer base {
   :root {
-    /* Kompras Plus Brand Colors */
-    --background: 0 0% 98%;
+    /* Neumorphic Light Theme - Plus Envíos Brand */
+    --background: 220 20% 94%;
     --foreground: 222 47% 15%;
 
-    --card: 0 0% 100%;
+    --card: 220 20% 96%;
     --card-foreground: 222 47% 15%;
 
-    --popover: 0 0% 100%;
+    --popover: 220 20% 96%;
     --popover-foreground: 222 47% 15%;
 
-    /* Azul marino del logo */
-    --primary: 222 60% 22%;
+    /* Primary Blue - Brand */
+    --primary: 210 100% 45%;
     --primary-foreground: 0 0% 100%;
 
-    /* Amarillo dorado del logo */
-    --secondary: 42 95% 55%;
-    --secondary-foreground: 222 60% 15%;
+    /* Accent Green for gradients */
+    --secondary: 150 80% 42%;
+    --secondary-foreground: 0 0% 100%;
 
-    /* Rosa/Magenta del logo */
+    /* Accent Magenta */
     --accent: 330 75% 55%;
     --accent-foreground: 0 0% 100%;
 
-    --muted: 220 15% 94%;
+    --muted: 220 15% 88%;
     --muted-foreground: 220 10% 45%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 88%;
+    --border: 220 15% 85%;
     --input: 220 15% 88%;
-    --ring: 222 60% 22%;
+    --ring: 210 100% 45%;
 
-    --radius: 1rem;
+    --radius: 1.25rem;
 
-    /* Custom tokens */
-    --gradient-primary: linear-gradient(135deg, hsl(222, 60%, 22%) 0%, hsl(222, 60%, 35%) 100%);
-    --gradient-secondary: linear-gradient(135deg, hsl(42, 95%, 55%) 0%, hsl(42, 95%, 65%) 100%);
+    /* Neumorphic Shadows - Light Mode */
+    --neu-shadow-light: 220 20% 100%;
+    --neu-shadow-dark: 220 20% 82%;
+    --neu-shadow-inset-light: 220 20% 100%;
+    --neu-shadow-inset-dark: 220 20% 80%;
+
+    /* Glass Effect */
+    --glass-bg: 220 20% 98% / 0.7;
+    --glass-border: 220 20% 100% / 0.5;
+
+    /* Gradient tokens */
+    --gradient-primary: linear-gradient(135deg, hsl(210, 100%, 50%) 0%, hsl(150, 80%, 45%) 100%);
+    --gradient-button: linear-gradient(145deg, hsl(210, 100%, 52%) 0%, hsl(150, 80%, 48%) 100%);
     --gradient-accent: linear-gradient(135deg, hsl(330, 75%, 55%) 0%, hsl(330, 75%, 65%) 100%);
-    --gradient-hero: 0 0% 100%;
+    --gradient-hero: 220 20% 96%;
     
     /* Splash screen specific */
-    --splash-background: 0 0% 100%;
+    --splash-background: 220 20% 94%;
     --splash-text: 222 47% 25%;
     
-    --shadow-card: 0 4px 20px -4px hsl(222 60% 22% / 0.15);
-    --shadow-elevated: 0 12px 40px -8px hsl(222 60% 22% / 0.25);
+    --shadow-card: 
+      8px 8px 16px hsl(var(--neu-shadow-dark)),
+      -8px -8px 16px hsl(var(--neu-shadow-light));
+    --shadow-card-inset:
+      inset 4px 4px 8px hsl(var(--neu-shadow-inset-dark)),
+      inset -4px -4px 8px hsl(var(--neu-shadow-inset-light));
+    --shadow-elevated: 
+      12px 12px 24px hsl(var(--neu-shadow-dark)),
+      -12px -12px 24px hsl(var(--neu-shadow-light));
+    --shadow-button:
+      6px 6px 12px hsl(var(--neu-shadow-dark)),
+      -6px -6px 12px hsl(var(--neu-shadow-light));
+    --shadow-button-pressed:
+      inset 3px 3px 6px hsl(var(--neu-shadow-inset-dark)),
+      inset -3px -3px 6px hsl(var(--neu-shadow-inset-light));
 
-    --sidebar-background: 0 0% 98%;
+    --sidebar-background: 220 20% 96% / 0.8;
     --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary: 210 100% 45%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent: 220 15% 90%;
     --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-border: 220 15% 85%;
+    --sidebar-ring: 210 100% 50%;
   }
 
   .dark {
-    --background: 222 47% 8%;
-    --foreground: 0 0% 98%;
+    /* Neumorphic Dark Theme - Midnight Blue & Carbon */
+    --background: 222 35% 10%;
+    --foreground: 0 0% 95%;
 
-    --card: 222 47% 12%;
-    --card-foreground: 0 0% 98%;
+    --card: 222 30% 14%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 222 47% 12%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 222 30% 14%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 42 95% 55%;
-    --primary-foreground: 222 60% 15%;
+    --primary: 200 100% 55%;
+    --primary-foreground: 222 35% 10%;
 
-    --secondary: 222 60% 25%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 150 70% 50%;
+    --secondary-foreground: 222 35% 10%;
 
-    --accent: 330 75% 55%;
+    --accent: 330 75% 60%;
     --accent-foreground: 0 0% 100%;
 
-    --muted: 222 30% 18%;
-    --muted-foreground: 220 10% 65%;
+    --muted: 222 25% 18%;
+    --muted-foreground: 220 10% 60%;
 
-    --destructive: 0 62% 30%;
+    --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 222 30% 20%;
-    --input: 222 30% 20%;
-    --ring: 42 95% 55%;
+    --border: 222 25% 20%;
+    --input: 222 25% 18%;
+    --ring: 200 100% 55%;
 
-    --sidebar-background: 222 47% 10%;
+    /* Neumorphic Shadows - Dark Mode (Deep Black) */
+    --neu-shadow-light: 222 30% 18%;
+    --neu-shadow-dark: 222 40% 5%;
+    --neu-shadow-inset-light: 222 30% 18%;
+    --neu-shadow-inset-dark: 222 40% 5%;
+
+    /* Glass Effect - Dark */
+    --glass-bg: 222 35% 12% / 0.75;
+    --glass-border: 222 30% 25% / 0.5;
+
+    --gradient-primary: linear-gradient(135deg, hsl(200, 100%, 55%) 0%, hsl(150, 70%, 50%) 100%);
+    --gradient-button: linear-gradient(145deg, hsl(200, 100%, 58%) 0%, hsl(150, 70%, 52%) 100%);
+
+    --shadow-card: 
+      8px 8px 16px hsl(var(--neu-shadow-dark)),
+      -8px -8px 16px hsl(var(--neu-shadow-light));
+    --shadow-card-inset:
+      inset 4px 4px 8px hsl(var(--neu-shadow-inset-dark)),
+      inset -4px -4px 8px hsl(var(--neu-shadow-inset-light));
+    --shadow-elevated: 
+      12px 12px 24px hsl(var(--neu-shadow-dark)),
+      -12px -12px 24px hsl(var(--neu-shadow-light));
+    --shadow-button:
+      6px 6px 12px hsl(var(--neu-shadow-dark)),
+      -6px -6px 12px hsl(var(--neu-shadow-light));
+    --shadow-button-pressed:
+      inset 3px 3px 6px hsl(var(--neu-shadow-inset-dark)),
+      inset -3px -3px 6px hsl(var(--neu-shadow-inset-light));
+
+    --sidebar-background: 222 30% 12% / 0.85;
     --sidebar-foreground: 0 0% 95%;
-    --sidebar-primary: 42 95% 55%;
-    --sidebar-primary-foreground: 222 60% 15%;
-    --sidebar-accent: 222 30% 18%;
+    --sidebar-primary: 200 100% 55%;
+    --sidebar-primary-foreground: 222 35% 10%;
+    --sidebar-accent: 222 25% 18%;
     --sidebar-accent-foreground: 0 0% 95%;
-    --sidebar-border: 222 30% 20%;
-    --sidebar-ring: 42 95% 55%;
+    --sidebar-border: 222 25% 20%;
+    --sidebar-ring: 200 100% 55%;
   }
 }
 
@@ -110,13 +163,82 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Nunito', sans-serif;
+    font-family: 'Inter', 'Nunito', sans-serif;
   }
 }
 
 @layer utilities {
+  /* Neumorphic Utilities */
+  .neu-flat {
+    background: hsl(var(--card));
+    box-shadow: var(--shadow-card);
+    border-radius: var(--radius);
+  }
+
+  .neu-pressed {
+    background: hsl(var(--card));
+    box-shadow: var(--shadow-card-inset);
+    border-radius: var(--radius);
+  }
+
+  .neu-button {
+    background: var(--gradient-button);
+    box-shadow: var(--shadow-button);
+    border-radius: var(--radius);
+    transition: all 0.2s ease;
+  }
+
+  .neu-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .neu-button:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-button-pressed);
+  }
+
+  .neu-input {
+    background: hsl(var(--card));
+    box-shadow: var(--shadow-card-inset);
+    border-radius: var(--radius);
+  }
+
+  .neu-card {
+    background: hsl(var(--card));
+    box-shadow: var(--shadow-card);
+    border-radius: var(--radius);
+  }
+
+  .neu-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  /* Glassmorphism Utilities */
+  .glass {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  .glass-strong {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid hsl(var(--glass-border));
+  }
+
+  /* Gradient utilities */
   .text-gradient-primary {
     background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-brand {
+    background: var(--gradient-button);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -126,8 +248,12 @@
     background: var(--gradient-primary);
   }
 
+  .bg-gradient-button {
+    background: var(--gradient-button);
+  }
+
   .bg-gradient-secondary {
-    background: var(--gradient-secondary);
+    background: linear-gradient(135deg, hsl(var(--secondary)) 0%, hsl(150, 80%, 55%) 100%);
   }
 
   .bg-gradient-accent {
@@ -135,7 +261,7 @@
   }
 
   .bg-gradient-hero {
-    background: var(--gradient-hero);
+    background: hsl(var(--gradient-hero));
   }
 
   .shadow-card {
@@ -160,20 +286,83 @@
   }
 
   @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 20px hsl(42 95% 55% / 0.3); }
-    50% { box-shadow: 0 0 40px hsl(42 95% 55% / 0.6); }
+    0%, 100% { box-shadow: 0 0 20px hsl(210 100% 50% / 0.3); }
+    50% { box-shadow: 0 0 40px hsl(210 100% 50% / 0.6); }
+  }
+
+  /* Z-index for map overlays */
+  .z-map-overlay {
+    z-index: 9999 !important;
   }
 }
 
-/* Leaflet Map Styles */
+/* =================================
+   Google Maps Popup/InfoWindow Z-Index Fixes
+   ================================= */
+
+/* Ensure Google Maps InfoWindows are above everything */
+.gm-style-iw-a {
+  z-index: 10010 !important;
+}
+
+.gm-style-iw {
+  z-index: 10011 !important;
+}
+
+.gm-style-iw-c {
+  z-index: 10012 !important;
+  border-radius: 1.25rem !important;
+  box-shadow: 
+    12px 12px 24px rgba(0, 0, 0, 0.15),
+    -12px -12px 24px rgba(255, 255, 255, 0.7) !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+.gm-style-iw-d {
+  overflow: visible !important;
+}
+
+.gm-style-iw-tc {
+  z-index: 10012 !important;
+}
+
+/* Close button styling */
+.gm-style-iw button.gm-ui-hover-effect {
+  z-index: 10013 !important;
+  top: 8px !important;
+  right: 8px !important;
+  opacity: 0.8;
+  border-radius: 50%;
+}
+
+.gm-style-iw button.gm-ui-hover-effect:hover {
+  opacity: 1;
+}
+
+/* Custom order detail card on map - HIGHEST Z-INDEX */
+.order-detail-popup {
+  z-index: 10015 !important;
+  position: relative !important;
+}
+
+/* Neumorphic cards on map must float above */
+.map-card-overlay {
+  z-index: 9999 !important;
+  position: relative !important;
+}
+
+/* Dark mode for Google Maps - handled via map styling */
+
+/* Leaflet Map Styles (Legacy - keeping for backward compat) */
 .leaflet-container {
   font-family: inherit;
   z-index: 1;
 }
 
 .leaflet-popup-content-wrapper {
-  border-radius: 0.75rem;
-  box-shadow: 0 4px 20px -4px hsl(222 60% 22% / 0.15);
+  border-radius: 1.25rem;
+  box-shadow: var(--shadow-card);
 }
 
 .leaflet-popup-content {
@@ -267,49 +456,46 @@
   transform: translateY(0) scale(0.98);
 }
 
-/* =================================
-   Google Maps Popup/InfoWindow Z-Index Fixes
-   ================================= */
-
-/* Ensure Google Maps InfoWindows are above everything */
-.gm-style-iw-a {
-  z-index: 10010 !important;
+/* Neumorphic Switch Toggle */
+.neu-switch {
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-card-inset);
+  border-radius: 9999px;
 }
 
-.gm-style-iw {
-  z-index: 10011 !important;
+.neu-switch[data-state="checked"] {
+  background: var(--gradient-primary);
 }
 
-.gm-style-iw-c {
-  z-index: 10012 !important;
-  border-radius: 1rem !important;
-  box-shadow: 0 20px 60px -12px rgba(0, 0, 0, 0.35) !important;
-  padding: 0 !important;
-  overflow: visible !important;
+/* Neumorphic Toggle for Dark Mode */
+.dark-mode-toggle {
+  position: relative;
+  width: 64px;
+  height: 32px;
+  background: hsl(var(--card));
+  box-shadow: var(--shadow-card-inset);
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
-.gm-style-iw-d {
-  overflow: visible !important;
+.dark-mode-toggle::after {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  background: var(--gradient-button);
+  border-radius: 50%;
+  box-shadow: var(--shadow-button);
+  transition: all 0.3s ease;
 }
 
-.gm-style-iw-tc {
-  z-index: 10012 !important;
+.dark-mode-toggle.active::after {
+  left: 36px;
 }
 
-/* Close button styling */
-.gm-style-iw button.gm-ui-hover-effect {
-  z-index: 10013 !important;
-  top: 4px !important;
-  right: 4px !important;
-  opacity: 0.8;
-}
-
-.gm-style-iw button.gm-ui-hover-effect:hover {
-  opacity: 1;
-}
-
-/* Custom order detail card on map */
-.order-detail-popup {
-  z-index: 10015 !important;
-  position: relative !important;
+.dark-mode-toggle.active {
+  background: hsl(222 35% 10%);
 }

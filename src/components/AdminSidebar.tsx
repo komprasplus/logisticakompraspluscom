@@ -9,9 +9,8 @@ import {
   ChevronLeft,
   ChevronRight,
   LucideIcon,
+  Truck,
 } from "lucide-react";
-import { NavLink } from "@/components/NavLink";
-import BrandLogo from "@/components/BrandLogo";
 import { cn } from "@/lib/utils";
 
 interface AdminSidebarProps {
@@ -20,12 +19,12 @@ interface AdminSidebarProps {
   novedadesCount?: number;
 }
 
-// 3D Icon wrapper component with shadow and depth effect
+// 3D Icon wrapper component with neumorphic depth effect
 const Icon3D = ({ 
   icon: IconComponent, 
   isActive, 
-  colorClass = "from-primary to-primary/80",
-  accentColor = "bg-primary/20"
+  colorClass = "from-primary to-secondary",
+  accentColor = "bg-primary/10"
 }: { 
   icon: LucideIcon; 
   isActive: boolean; 
@@ -35,15 +34,15 @@ const Icon3D = ({
   <div className="relative">
     {/* Shadow layer for 3D depth */}
     <div className={cn(
-      "absolute inset-0 rounded-xl blur-sm transition-all duration-300",
+      "absolute inset-0 rounded-2xl blur-sm transition-all duration-300",
       isActive ? "bg-primary/40 translate-y-1" : "bg-transparent"
     )} />
     {/* Main icon container with gradient */}
     <div className={cn(
-      "relative flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-300",
+      "relative flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-300",
       isActive 
-        ? `bg-gradient-to-br ${colorClass} shadow-lg shadow-primary/30` 
-        : `${accentColor} hover:shadow-md`
+        ? `bg-gradient-to-br ${colorClass} shadow-lg` 
+        : `${accentColor} neu-flat`
     )}>
       <IconComponent className={cn(
         "h-5 w-5 transition-all duration-300",
@@ -63,7 +62,7 @@ const menuItems = [
     label: "Mapa Real-time", 
     icon: MapPin,
     description: "Vista en vivo de entregas",
-    colorClass: "from-blue-500 to-blue-600",
+    colorClass: "from-blue-500 to-cyan-500",
     accentColor: "bg-blue-500/10"
   },
   { 
@@ -71,7 +70,7 @@ const menuItems = [
     label: "Despacho", 
     icon: Package,
     description: "Gestión de pedidos",
-    colorClass: "from-emerald-500 to-emerald-600",
+    colorClass: "from-emerald-500 to-teal-500",
     accentColor: "bg-emerald-500/10"
   },
   { 
@@ -79,7 +78,7 @@ const menuItems = [
     label: "Inventario Bodega", 
     icon: Warehouse,
     description: "Control de stock",
-    colorClass: "from-amber-500 to-amber-600",
+    colorClass: "from-amber-500 to-orange-500",
     accentColor: "bg-amber-500/10"
   },
   { 
@@ -96,7 +95,7 @@ const menuItems = [
     label: "Liquidaciones", 
     icon: DollarSign,
     description: "Cierre de entregas",
-    colorClass: "from-violet-500 to-purple-600",
+    colorClass: "from-violet-500 to-purple-500",
     accentColor: "bg-violet-500/10"
   },
   { 
@@ -104,7 +103,7 @@ const menuItems = [
     label: "Configuración", 
     icon: Settings,
     description: "Ajustes del sistema",
-    colorClass: "from-slate-500 to-slate-600",
+    colorClass: "from-slate-500 to-gray-500",
     accentColor: "bg-slate-500/10"
   },
 ];
@@ -115,18 +114,26 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: Ad
   return (
     <aside 
       className={cn(
-        "flex flex-col bg-white border-r border-border transition-all duration-300 h-full shadow-sm",
-        collapsed ? "w-20" : "w-72"
+        "flex flex-col glass-strong transition-all duration-300 h-full border-r border-white/20",
+        collapsed ? "w-24" : "w-80"
       )}
     >
-      {/* Logo */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
+      {/* Logo - Glassmorphic Header */}
+      <div className="flex items-center justify-between p-5 border-b border-white/10">
         {!collapsed && (
-          <BrandLogo size="md" />
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-xl bg-gradient-button flex items-center justify-center shadow-md">
+              <Truck className="h-5 w-5 text-white" />
+            </div>
+            <span className="font-black text-lg tracking-tight">
+              <span className="text-gradient-brand">Plus</span>
+              <span className="text-foreground"> Envíos</span>
+            </span>
+          </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="p-2 rounded-xl hover:bg-muted transition-all duration-200 hover:shadow-md"
+          className="p-3 rounded-2xl neu-flat hover:shadow-elevated transition-all duration-200"
         >
           {collapsed ? (
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -137,7 +144,7 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: Ad
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-2">
+      <nav className="flex-1 p-4 space-y-3">
         {menuItems.map((item) => {
           const isActive = activeSection === item.id;
           
@@ -146,10 +153,10 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: Ad
               key={item.id}
               onClick={() => onSectionChange(item.id)}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-300",
+                "w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300",
                 isActive 
-                  ? "bg-muted/50 shadow-sm" 
-                  : "hover:bg-muted/30"
+                  ? "neu-pressed" 
+                  : "neu-flat hover:shadow-elevated"
               )}
             >
               <div className="relative">
@@ -160,7 +167,7 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: Ad
                   accentColor={item.accentColor}
                 />
                 {item.badge && novedadesCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 text-[10px] font-bold text-white shadow-lg shadow-orange-500/30 animate-pulse">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 text-[10px] font-bold text-white shadow-lg animate-pulse">
                     {novedadesCount > 9 ? "9+" : novedadesCount}
                   </span>
                 )}
@@ -168,7 +175,7 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: Ad
               {!collapsed && (
                 <div className="flex-1 text-left">
                   <p className={cn(
-                    "text-sm font-semibold transition-colors duration-200",
+                    "text-sm font-bold transition-colors duration-200",
                     isActive ? "text-foreground" : "text-muted-foreground"
                   )}>
                     {item.label}
@@ -185,8 +192,8 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: Ad
 
       {/* Footer */}
       {!collapsed && (
-        <div className="p-4 border-t border-border">
-          <p className="text-xs text-muted-foreground text-center">
+        <div className="p-5 border-t border-white/10">
+          <p className="text-xs text-muted-foreground text-center font-medium">
             Sistema de Logística v2.0
           </p>
         </div>
