@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import {
   GoogleMap,
   useJsApiLoader,
@@ -12,17 +12,49 @@ const GOOGLE_MAPS_API_KEY = "AIzaSyDvV2fL5jv0OIp45Si4m4-gaWSt9gIXznA";
 // Warehouse coordinates - Carrera 20 # 14-30, Bogotá
 const BODEGA_COORDS = { lat: 4.60922, lng: -74.08463 };
 
-// Map styling - clean professional look
-const mapStyles = [
+// Map styling - clean professional look (Light Mode)
+const lightMapStyles = [
   { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
   { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
+];
+
+// Night Mode Styling for Dark Theme
+const darkMapStyles = [
+  { elementType: "geometry", stylers: [{ color: "#1d2c4d" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#8ec3b9" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
+  { featureType: "administrative.country", elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] },
+  { featureType: "administrative.land_parcel", elementType: "labels.text.fill", stylers: [{ color: "#64779e" }] },
+  { featureType: "administrative.province", elementType: "geometry.stroke", stylers: [{ color: "#4b6878" }] },
+  { featureType: "landscape.man_made", elementType: "geometry.stroke", stylers: [{ color: "#334e87" }] },
+  { featureType: "landscape.natural", elementType: "geometry", stylers: [{ color: "#1d3d59" }] },
+  { featureType: "poi", elementType: "geometry", stylers: [{ color: "#283d6a" }] },
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#6f9ba5" }] },
+  { featureType: "poi", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
+  { featureType: "poi.park", elementType: "geometry.fill", stylers: [{ color: "#023e58" }] },
+  { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#3C7680" }] },
+  { featureType: "road", elementType: "geometry", stylers: [{ color: "#304a7d" }] },
+  { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#98a5be" }] },
+  { featureType: "road", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
+  { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#2c6675" }] },
+  { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#255763" }] },
+  { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#b0d5ce" }] },
+  { featureType: "road.highway", elementType: "labels.text.stroke", stylers: [{ color: "#1a3646" }] },
+  { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", elementType: "labels.text.fill", stylers: [{ color: "#98a5be" }] },
+  { featureType: "transit", elementType: "labels.text.stroke", stylers: [{ color: "#1d2c4d" }] },
+  { featureType: "transit.line", elementType: "geometry.fill", stylers: [{ color: "#283d6a" }] },
+  { featureType: "transit.station", elementType: "geometry", stylers: [{ color: "#3a4762" }] },
+  { featureType: "water", elementType: "geometry", stylers: [{ color: "#0e1626" }] },
+  { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#4e6d70" }] },
 ];
 
 const mapContainerStyle = {
   width: "100%",
   height: "100%",
   minHeight: "250px",
-  borderRadius: "16px",
+  borderRadius: "20px",
 };
 
 interface Pedido {
@@ -52,6 +84,29 @@ const MotorizadoMapGoogle = ({
     data: Pedido | null;
     index?: number;
   } | null>(null);
+  const [isDark, setIsDark] = useState(false);
+
+  // Listen for dark mode changes
+  useEffect(() => {
+    const checkDarkMode = () => {
+      setIsDark(document.documentElement.classList.contains("dark"));
+    };
+    
+    checkDarkMode();
+    
+    // Observer for class changes on html element
+    const observer = new MutationObserver(checkDarkMode);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    
+    return () => observer.disconnect();
+  }, []);
+
+  // Update map styles when dark mode changes
+  useEffect(() => {
+    if (map) {
+      map.setOptions({ styles: isDark ? darkMapStyles : lightMapStyles });
+    }
+  }, [map, isDark]);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
@@ -144,7 +199,7 @@ const MotorizadoMapGoogle = ({
 
   if (loadError) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[250px] bg-muted rounded-2xl">
+      <div className="flex items-center justify-center h-full min-h-[250px] neu-flat">
         <div className="text-center text-destructive">
           <p className="font-medium">Error al cargar Google Maps</p>
           <p className="text-sm text-muted-foreground mt-1">Verifica tu conexión</p>
@@ -155,7 +210,7 @@ const MotorizadoMapGoogle = ({
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[250px] bg-muted rounded-2xl">
+      <div className="flex items-center justify-center h-full min-h-[250px] neu-flat">
         <div className="flex items-center gap-3">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
           <span className="text-muted-foreground">Cargando mapa...</span>
@@ -165,14 +220,14 @@ const MotorizadoMapGoogle = ({
   }
 
   return (
-    <div className="relative h-full w-full rounded-2xl overflow-hidden shadow-lg" style={{ minHeight: "250px" }}>
+    <div className="relative h-full w-full rounded-2xl overflow-hidden neu-elevated" style={{ minHeight: "250px" }}>
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
         center={center}
         zoom={14}
         onLoad={onMapLoad}
         options={{
-          styles: mapStyles,
+          styles: isDark ? darkMapStyles : lightMapStyles,
           disableDefaultUI: false,
           zoomControl: true,
           streetViewControl: false,

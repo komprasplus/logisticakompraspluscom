@@ -1,47 +1,39 @@
-import { useState } from "react";
+import { Truck } from "lucide-react";
 
 interface BrandLogoProps {
   className?: string;
   size?: "sm" | "md" | "lg" | "xl";
   alt?: string;
+  showIcon?: boolean;
 }
 
-const sizeClasses = {
-  sm: "h-8",
-  md: "h-10",
-  lg: "h-16",
-  xl: "h-24",
+const sizeConfig = {
+  sm: { text: "text-lg", icon: "h-5 w-5", iconBox: "w-7 h-7" },
+  md: { text: "text-xl", icon: "h-6 w-6", iconBox: "w-9 h-9" },
+  lg: { text: "text-2xl", icon: "h-7 w-7", iconBox: "w-11 h-11" },
+  xl: { text: "text-3xl", icon: "h-8 w-8", iconBox: "w-14 h-14" },
 };
 
-const textSizes = {
-  sm: "text-lg",
-  md: "text-xl",
-  lg: "text-2xl",
-  xl: "text-3xl",
-};
-
-const BrandLogo = ({ className = "", size = "md", alt = "Plus Envíos" }: BrandLogoProps) => {
-  const [imageError, setImageError] = useState(false);
-
-  if (imageError) {
-    // Fallback: Styled text logo
-    return (
-      <div className={`flex items-center gap-1 ${className}`}>
-        <span className={`font-black ${textSizes[size]} tracking-tight`}>
-          <span className="text-primary">Plus</span>
-          <span className="text-secondary"> Envíos</span>
-        </span>
-      </div>
-    );
-  }
+const BrandLogo = ({ 
+  className = "", 
+  size = "md", 
+  alt = "Plus Envíos",
+  showIcon = true 
+}: BrandLogoProps) => {
+  const config = sizeConfig[size];
 
   return (
-    <img
-      src="/logo-oficial.png"
-      alt={alt}
-      className={`${sizeClasses[size]} w-auto ${className}`}
-      onError={() => setImageError(true)}
-    />
+    <div className={`flex items-center gap-2 ${className}`} title={alt}>
+      {showIcon && (
+        <div className={`${config.iconBox} rounded-xl bg-gradient-button flex items-center justify-center shadow-md`}>
+          <Truck className={`${config.icon} text-white`} />
+        </div>
+      )}
+      <span className={`font-black ${config.text} tracking-tight`}>
+        <span className="text-gradient-brand">Plus</span>
+        <span className="text-foreground"> Envíos</span>
+      </span>
+    </div>
   );
 };
 

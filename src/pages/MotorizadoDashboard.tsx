@@ -21,6 +21,7 @@ import {
   QrCode,
   WifiOff,
   Cloud,
+  Truck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +42,7 @@ import AdminNotesDisplay from "@/components/AdminNotesDisplay";
 import MotorizadoQRScanner from "@/components/MotorizadoQRScanner";
 import WeatherWidget from "@/components/WeatherWidget";
 import QRPaymentModal from "@/components/QRPaymentModal";
+import DarkModeToggle from "@/components/DarkModeToggle";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
 import { deductInventoryOnDelivery } from "@/lib/inventoryService";
@@ -108,6 +110,7 @@ const MotorizadoDashboard = () => {
   const [isDeviationDelivery, setIsDeviationDelivery] = useState(false);
   const [networkOnline, setNetworkOnline] = useState(navigator.onLine);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const novedadPhotoRef = useRef<HTMLInputElement>(null);
   const packagePhotoRef = useRef<HTMLInputElement>(null);
@@ -759,46 +762,63 @@ const MotorizadoDashboard = () => {
       .slice(0, 2);
   };
 
+  // Dark mode effect - apply class to document
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [isDarkMode]);
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+    <div className="min-h-screen bg-background transition-colors duration-300">
+      {/* Header - Glassmorphic */}
+      <header className="sticky top-0 z-40 glass-strong border-b border-white/20">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <BrandLogo size="md" />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            {/* Dark Mode Toggle */}
+            <DarkModeToggle 
+              isDark={isDarkMode} 
+              onToggle={() => setIsDarkMode(!isDarkMode)} 
+            />
+            
+            {/* Map Toggle - Neumorphic */}
             <button
               onClick={() => setShowMapView(!showMapView)}
-              className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors ${
-                showMapView ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/80"
+              className={`flex h-11 w-11 items-center justify-center rounded-2xl transition-all ${
+                showMapView ? "bg-gradient-button text-white shadow-lg" : "neu-flat hover:shadow-elevated"
               }`}
             >
               <Map className="h-5 w-5" />
             </button>
             
-            {/* Profile Avatar Button */}
+            {/* Profile Avatar Button - Neumorphic */}
             <button
               onClick={() => setShowProfile(true)}
               className="relative"
             >
-              <Avatar className="h-10 w-10 border-2 border-primary/20">
+              <Avatar className="h-11 w-11 border-2 border-white/30 shadow-md">
                 <AvatarImage 
                   src={profile?.avatar_url || undefined} 
                   alt={profile?.full_name} 
                 />
-                <AvatarFallback className="bg-primary text-primary-foreground text-sm font-bold">
+                <AvatarFallback className="bg-gradient-button text-white text-sm font-bold">
                   {profile ? getInitials(profile.full_name) : "?"}
                 </AvatarFallback>
               </Avatar>
               {isOnline && (
-                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white"></span>
+                <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-background shadow-md"></span>
               )}
             </button>
             
+            {/* Logout - Neumorphic */}
             <button
               onClick={handleSignOut}
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-muted hover:bg-muted/80 transition-colors"
+              className="flex h-11 w-11 items-center justify-center rounded-2xl neu-flat hover:shadow-elevated transition-all"
             >
               <LogOut className="h-5 w-5 text-muted-foreground" />
             </button>
