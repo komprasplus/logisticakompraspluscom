@@ -14,11 +14,13 @@ import {
   DollarSign,
   PlayCircle,
   AlertTriangle,
-  Truck
+  Truck,
+  Volume2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { useScannerAudio } from "@/hooks/useScannerAudio";
 
 interface Pedido {
   id: number;
@@ -51,11 +53,16 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
   const [scannedPedido, setScannedPedido] = useState<Pedido | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
-  const [isAutoAssign, setIsAutoAssign] = useState(false); // Track if this is an auto-assignment
+  const [isAutoAssign, setIsAutoAssign] = useState(false);
+  const [isAlreadyOwned, setIsAlreadyOwned] = useState(false); // Track if scanned order belongs to another
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animationRef = useRef<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const lastScannedRef = useRef<string | null>(null); // Prevent double scans
+  
+  // Audio feedback hook
+  const { playSuccessSound, playErrorSound, playAssignedSound } = useScannerAudio();
 
   const stopScanner = useCallback(() => {
     if (animationRef.current) {
@@ -75,15 +82,23 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
 
   const handleQRCode = useCallback(async (qrData: string) => {
     if (processing) return;
+    
+    // Prevent duplicate scans of same code within 2 seconds
+    if (lastScannedRef.current === qrData) return;
+    lastScannedRef.current = qrData;
+    setTimeout(() => { lastScannedRef.current = null; }, 2000);
+    
     setProcessing(true);
     setErrorMessage(null);
     setScannedPedido(null);
     setIsAutoAssign(false);
+    setIsAlreadyOwned(false);
 
     try {
       // Expected format: "PEDIDO:123"
       const match = qrData.match(/PEDIDO:(\d+)/);
       if (!match) {
+        playErrorSound();
         setErrorMessage("Código QR no reconocido. Asegúrate de escanear una guía de Plus Envíos.");
         setProcessing(false);
         return;
@@ -99,6 +114,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
         .maybeSingle();
 
       if (fetchError || !pedido) {
+        playErrorSound();
         setErrorMessage(`Pedido #${pedidoId} no encontrado en el sistema.`);
         setProcessing(false);
         return;
@@ -107,51 +123,78 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
       // Check if order is in a valid state
       const estado = pedido.estado?.toLowerCase();
       if (estado === "entregado" || estado === "liquidado") {
+        playErrorSound();
         setErrorMessage(`Este pedido ya fue entregado.`);
         setProcessing(false);
         return;
       }
 
       if (estado === "anulado") {
+        playErrorSound();
         setErrorMessage(`Este pedido fue anulado y no puede ser entregado.`);
         setProcessing(false);
         return;
       }
 
-      // AUTO-ASSIGNMENT LOGIC
-      // If the order is not assigned OR is assigned to someone else, we can auto-assign
-      if (!pedido.motorizado_id || pedido.motorizado_id !== motorizadoId) {
-        // Check if order is in a state that allows assignment
-        if (estado === "pendiente" || estado === "recibido en bodega" || estado === "asignado") {
+      // AUTO-ASSIGNMENT LOGIC - "Libre Reclamación"
+      // Check if the order belongs to another motorizado
+      if (pedido.motorizado_id && pedido.motorizado_id !== motorizadoId) {
+        // Order is assigned to someone else
+        if (estado === "en ruta") {
+          // Already in route with another driver - strict error
+          playErrorSound();
+          setIsAlreadyOwned(true);
+          setErrorMessage(`❌ Este paquete ya pertenece a ${pedido.motorizado_asignado || 'otro motorizado'} y está en ruta.`);
+          toast.error("Este paquete pertenece a otro motorizado", {
+            description: pedido.motorizado_asignado || "Asignado a otro",
+          });
+          setProcessing(false);
+          return;
+        }
+      }
+
+      // If the order is NOT assigned, we can auto-assign (libre reclamación)
+      if (!pedido.motorizado_id) {
+        if (estado === "pendiente" || estado === "recibido en bodega") {
+          // This is a libre reclamación case - auto assign!
+          playAssignedSound();
           setIsAutoAssign(true);
           setScannedPedido({
             ...pedido,
-            // Show that it will be auto-assigned
             motorizado_id: motorizadoId,
             motorizado_asignado: motorizadoName || "Yo"
           });
           stopScanner();
           setProcessing(false);
           return;
-        } else if (pedido.motorizado_id && pedido.motorizado_id !== motorizadoId) {
-          // Order is already in route with another driver
-          setErrorMessage("❌ Este pedido está asignado a otro motorizado y ya está en ruta.");
-          setProcessing(false);
-          return;
         }
       }
 
-      // Success! Order belongs to this motorizado
-      setScannedPedido(pedido);
-      stopScanner();
+      // Order already assigned to me or in a state that allows scanning
+      if (pedido.motorizado_id === motorizadoId || !pedido.motorizado_id) {
+        playSuccessSound();
+        setScannedPedido(pedido);
+        stopScanner();
+      } else if (estado === "asignado" && pedido.motorizado_id !== motorizadoId) {
+        // Assigned to someone else but not in route - allow reassignment
+        playAssignedSound();
+        setIsAutoAssign(true);
+        setScannedPedido({
+          ...pedido,
+          motorizado_id: motorizadoId,
+          motorizado_asignado: motorizadoName || "Yo"
+        });
+        stopScanner();
+      }
       
     } catch (error) {
       console.error("Error processing QR:", error);
+      playErrorSound();
       setErrorMessage("Error al procesar el código. Intenta de nuevo.");
     } finally {
       setProcessing(false);
     }
-  }, [processing, motorizadoId, motorizadoName, stopScanner]);
+  }, [processing, motorizadoId, motorizadoName, stopScanner, playSuccessSound, playErrorSound, playAssignedSound]);
 
   const startScanner = useCallback(async () => {
     setCameraError(null);
@@ -159,18 +202,38 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
     setScannedPedido(null);
     setIsInitializing(true);
     setIsAutoAssign(false);
+    setIsAlreadyOwned(false);
+    lastScannedRef.current = null;
 
     try {
-      // Request camera permission
+      // Request camera permission with optimized settings for QR scanning
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
-          facingMode: "environment",
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        } 
+          facingMode: { ideal: "environment" },
+          // Higher resolution for better small QR detection
+          width: { ideal: 1280, min: 640 },
+          height: { ideal: 720, min: 480 },
+          // Auto-focus for sharp QR codes
+          focusMode: { ideal: "continuous" },
+          // Faster frame rate for responsiveness
+          frameRate: { ideal: 30, min: 15 }
+        } as MediaTrackConstraints
       });
 
       streamRef.current = stream;
+
+      // Try to enable advanced camera features if available
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack && 'applyConstraints' in videoTrack) {
+        try {
+          await videoTrack.applyConstraints({
+            advanced: [{ focusMode: "continuous" } as any]
+          });
+        } catch (e) {
+          // Focus mode not supported, continue anyway
+          console.log("Advanced focus mode not available");
+        }
+      }
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -194,8 +257,9 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            // Try both normal and inverted for better detection
             const code = jsQR(imageData.data, imageData.width, imageData.height, {
-              inversionAttempts: "dontInvert",
+              inversionAttempts: "attemptBoth",
             });
 
             if (code && code.data) {
@@ -261,10 +325,12 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
     setErrorMessage(null);
     setScannedPedido(null);
     setIsAutoAssign(false);
+    setIsAlreadyOwned(false);
+    lastScannedRef.current = null;
     stopScanner();
     setTimeout(() => {
       startScanner();
-    }, 100);
+    }, 150);
   };
 
   const handleStartDelivery = async () => {
@@ -272,16 +338,30 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
     
     setProcessing(true);
     try {
+      const timestamp = new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" });
+      
       // Build the update payload
       const updatePayload: Record<string, any> = {
         estado: "En Ruta",
         fecha_actualizacion: new Date().toISOString(),
       };
 
-      // If auto-assigning, also set the motorizado
+      // If auto-assigning, also set the motorizado and add observation
       if (isAutoAssign) {
         updatePayload.motorizado_id = motorizadoId;
         updatePayload.motorizado_asignado = motorizadoName || "Motorizado";
+        
+        // Add system note for auto-assignment
+        const { data: currentPedido } = await supabase
+          .from("pedidos")
+          .select("observaciones")
+          .eq("id", scannedPedido.id)
+          .maybeSingle();
+        
+        const systemNote = `[SISTEMA ${timestamp}] Auto-asignado a ${motorizadoName || "Motorizado"} por escaneo QR`;
+        updatePayload.observaciones = currentPedido?.observaciones 
+          ? `${currentPedido.observaciones}\n${systemNote}` 
+          : systemNote;
       }
 
       // Update the order status to "En Ruta"
@@ -297,13 +377,18 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
         pedido_id: scannedPedido.id,
         estado_anterior: scannedPedido.estado,
         estado_nuevo: "En Ruta",
-        motivo: isAutoAssign ? "Auto-asignado por escaneo QR" : "Iniciado por escaneo QR",
+        motivo: isAutoAssign ? "Auto-asignado por escaneo QR (Libre Reclamación)" : "Iniciado por escaneo QR",
         usuario_nombre: motorizadoName || "Motorizado",
         usuario_id: motorizadoId,
       });
 
+      // Play success sound on delivery start
+      playSuccessSound();
+
       if (isAutoAssign) {
-        toast.success(`🏍️ Pedido asignado automáticamente y ¡en ruta!`);
+        toast.success(`🏍️ ¡Pedido reclamado y en ruta!`, {
+          description: `Asignado automáticamente a ${motorizadoName || "ti"}`,
+        });
       } else {
         toast.success(`🚀 ¡Entrega iniciada para ${scannedPedido.cliente_nombre || 'cliente'}!`);
       }
@@ -317,6 +402,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
       handleClose();
     } catch (error) {
       console.error("Error starting delivery:", error);
+      playErrorSound();
       toast.error("Error al iniciar la entrega. Intenta de nuevo.");
     } finally {
       setProcessing(false);
@@ -436,12 +522,13 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
             >
               {/* Auto-assign indicator */}
               {isAutoAssign && (
-                <div className="p-3 rounded-lg bg-teal-50 border border-teal-200 flex items-center gap-2">
-                  <Truck className="h-5 w-5 text-teal-600" />
+                <div className="p-3 rounded-lg bg-primary/10 border border-primary/30 flex items-center gap-2">
+                  <Truck className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="text-sm font-semibold text-teal-800">Asignación Automática</p>
-                    <p className="text-xs text-teal-700">Este pedido se asignará a ti al iniciar</p>
+                    <p className="text-sm font-semibold text-foreground">Libre Reclamación</p>
+                    <p className="text-xs text-muted-foreground">Este pedido se asignará a ti automáticamente</p>
                   </div>
+                  <Volume2 className="h-4 w-4 text-primary ml-auto" />
                 </div>
               )}
 
