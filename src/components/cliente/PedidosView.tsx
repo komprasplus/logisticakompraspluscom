@@ -441,10 +441,10 @@ const PedidosView = ({
               return (
                 <motion.div
                   key={pedido.id}
-                  className={`rounded-2xl bg-card border overflow-hidden transition-all duration-200 hover:shadow-xl hover:-translate-y-1 ${
+                  className={`neu-flat overflow-hidden transition-all duration-200 hover:neu-elevated hover:-translate-y-1 ${
                     isNovedad 
-                      ? "border-orange-300 shadow-lg shadow-orange-500/10" 
-                      : "border-border shadow-md shadow-black/5"
+                      ? "ring-2 ring-orange-400/50" 
+                      : ""
                   }`}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -477,8 +477,8 @@ const PedidosView = ({
                       </div>
                     </div>
 
-                    {/* Metrics Row */}
-                    <div className="flex items-center gap-4 py-2 px-3 rounded-xl bg-muted/50">
+                    {/* Metrics Row - Neumorphic Inset */}
+                    <div className="flex items-center gap-4 py-2 px-3 rounded-xl neu-pressed">
                       {pedido.metodo_pago === "anticipado" ? (
                         <div className="flex-1 flex items-center justify-center">
                           <span className="bg-primary/15 text-primary text-xs font-bold px-3 py-1 rounded-full">

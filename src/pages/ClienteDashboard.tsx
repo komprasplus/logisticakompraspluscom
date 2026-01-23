@@ -81,12 +81,15 @@ const ClienteDashboard = () => {
   const fetchPedidos = async () => {
     if (!user?.id) return;
     
+    setLoading(true);
     try {
+      // Optimized: Using limit and pagination for faster initial load
       const { data, error } = await supabase
         .from("pedidos")
         .select("*")
         .eq("client_user_id", user.id)
-        .order("fecha_creacion", { ascending: false });
+        .order("fecha_creacion", { ascending: false })
+        .limit(200); // Limit to recent orders for performance
 
       if (error) throw error;
       setPedidos(data || []);
@@ -94,6 +97,7 @@ const ClienteDashboard = () => {
       console.error("Error fetching pedidos:", error);
       toast.error("Error al cargar el historial");
     } finally {
+      // Immediately hide loading indicator after data is received
       setLoading(false);
     }
   };

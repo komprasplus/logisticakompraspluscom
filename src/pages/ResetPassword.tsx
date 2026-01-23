@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Loader2, Lock, CheckCircle2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-const logo = "/logo-oficial.png";
+import BrandLogo from "@/components/BrandLogo";
 import { z } from "zod";
 
 const passwordSchema = z.object({
@@ -27,17 +27,14 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we have a valid recovery session
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Check URL hash for recovery token (Supabase sends tokens in hash)
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hashParams.get('access_token');
       const type = hashParams.get('type');
       
       if (type === 'recovery' && accessToken) {
-        // Set the session from the recovery token
         const { error } = await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: hashParams.get('refresh_token') || '',
@@ -50,7 +47,6 @@ const ResetPassword = () => {
           setValidSession(true);
         }
       } else if (session) {
-        // Already have a session (user might have refreshed the page)
         setValidSession(true);
       } else {
         setValidSession(false);
@@ -64,7 +60,6 @@ const ResetPassword = () => {
     e.preventDefault();
     setError("");
 
-    // Validate input
     const validation = passwordSchema.safeParse({ password, confirmPassword });
     if (!validation.success) {
       setError(validation.error.errors[0].message);
@@ -83,7 +78,6 @@ const ResetPassword = () => {
         return;
       }
 
-      // Sign out to force fresh login with new password
       await supabase.auth.signOut();
       setSuccess(true);
       toast.success("¡Contraseña actualizada exitosamente!");
@@ -113,11 +107,13 @@ const ResetPassword = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
         <motion.div
-          className="w-full max-w-sm text-center"
+          className="w-full max-w-sm text-center neu-flat rounded-3xl p-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <img src={logo} alt="Kompras Plus" className="h-16 w-auto mx-auto mb-6" />
+          <div className="flex justify-center mb-6">
+            <BrandLogo size="lg" />
+          </div>
           
           <div className="mx-auto w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
             <AlertCircle className="h-8 w-8 text-destructive" />
@@ -132,7 +128,7 @@ const ResetPassword = () => {
           
           <button
             onClick={handleGoToLogin}
-            className="w-full rounded-xl bg-primary py-3 font-bold text-primary-foreground transition-all hover:opacity-90"
+            className="w-full rounded-xl neu-button py-3 font-bold text-primary-foreground transition-all hover:opacity-90"
           >
             Volver al Login
           </button>
@@ -146,11 +142,13 @@ const ResetPassword = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
         <motion.div
-          className="w-full max-w-sm text-center"
+          className="w-full max-w-sm text-center neu-flat rounded-3xl p-8"
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
         >
-          <img src={logo} alt="Kompras Plus" className="h-16 w-auto mx-auto mb-6" />
+          <div className="flex justify-center mb-6">
+            <BrandLogo size="lg" />
+          </div>
           
           <div className="mx-auto w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mb-6">
             <CheckCircle2 className="h-10 w-10 text-green-600" />
@@ -165,7 +163,7 @@ const ResetPassword = () => {
           
           <motion.button
             onClick={handleGoToLogin}
-            className="w-full rounded-xl bg-primary py-3 font-bold text-primary-foreground transition-all hover:opacity-90"
+            className="w-full rounded-xl neu-button py-3 font-bold text-primary-foreground transition-all hover:opacity-90"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
           >
@@ -179,7 +177,7 @@ const ResetPassword = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
       <motion.div
-        className="w-full max-w-sm"
+        className="w-full max-w-sm neu-flat rounded-3xl p-8"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
@@ -190,7 +188,9 @@ const ResetPassword = () => {
           animate={{ scale: 1, opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-          <img src={logo} alt="Kompras Plus" className="h-16 w-auto mx-auto mb-4" />
+          <div className="flex justify-center mb-4">
+            <BrandLogo size="lg" />
+          </div>
           <h1 className="text-2xl font-bold text-foreground">Nueva Contraseña</h1>
           <p className="text-muted-foreground text-sm mt-2">
             Ingresa tu nueva contraseña para acceder a tu cuenta
@@ -225,7 +225,7 @@ const ResetPassword = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border-2 border-border bg-card py-3 pl-11 pr-12 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
+                className="w-full rounded-xl neu-pressed py-3 pl-11 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 required
               />
               <button
@@ -247,7 +247,7 @@ const ResetPassword = () => {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full rounded-xl border-2 border-border bg-card py-3 pl-11 pr-12 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
+                className="w-full rounded-xl neu-pressed py-3 pl-11 pr-12 text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                 required
               />
               <button
@@ -263,7 +263,7 @@ const ResetPassword = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-xl bg-primary py-3 font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 mt-6"
+            className="w-full rounded-xl neu-button py-3 font-bold text-primary-foreground transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 mt-6"
           >
             {loading ? (
               <>
