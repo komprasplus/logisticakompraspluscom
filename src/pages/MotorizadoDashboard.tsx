@@ -18,6 +18,9 @@ import {
   Share2,
   Pen,
   ScanLine,
+  QrCode,
+  WifiOff,
+  Cloud,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,9 +40,18 @@ import DateHeader from "@/components/DateHeader";
 import AdminNotesDisplay from "@/components/AdminNotesDisplay";
 import MotorizadoQRScanner from "@/components/MotorizadoQRScanner";
 import WeatherWidget from "@/components/WeatherWidget";
+import QRPaymentModal from "@/components/QRPaymentModal";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
 import { deductInventoryOnDelivery } from "@/lib/inventoryService";
+import { 
+  savePendingDeliveryOffline, 
+  savePendingNovedadOffline, 
+  syncAllPending, 
+  getPendingCount,
+  setupOnlineSync,
+  isOnline as checkIsOnline 
+} from "@/lib/offlineSync";
 
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
 
@@ -92,6 +104,10 @@ const MotorizadoDashboard = () => {
   const [showProfile, setShowProfile] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [showQRPayment, setShowQRPayment] = useState(false);
+  const [isDeviationDelivery, setIsDeviationDelivery] = useState(false);
+  const [networkOnline, setNetworkOnline] = useState(navigator.onLine);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const novedadPhotoRef = useRef<HTMLInputElement>(null);
   const packagePhotoRef = useRef<HTMLInputElement>(null);
@@ -128,6 +144,37 @@ const MotorizadoDashboard = () => {
       fetchPedidos();
     }
   }, [user?.id]);
+
+  // Setup offline sync and network status monitoring
+  useEffect(() => {
+    const updateNetworkStatus = () => {
+      setNetworkOnline(navigator.onLine);
+    };
+
+    window.addEventListener("online", updateNetworkStatus);
+    window.addEventListener("offline", updateNetworkStatus);
+
+    // Setup automatic sync when coming online
+    const cleanup = setupOnlineSync(async (result) => {
+      if (result.syncedDeliveries > 0 || result.syncedNovedades > 0) {
+        toast.success(
+          `✅ Sincronización completada: ${result.syncedDeliveries} entregas, ${result.syncedNovedades} novedades`,
+          { duration: 5000 }
+        );
+        fetchPedidos(); // Refresh data
+      }
+      setPendingSyncCount(await getPendingCount());
+    });
+
+    // Get initial pending count
+    getPendingCount().then(setPendingSyncCount);
+
+    return () => {
+      window.removeEventListener("online", updateNetworkStatus);
+      window.removeEventListener("offline", updateNetworkStatus);
+      cleanup();
+    };
+  }, []);
 
   // Sort and filter pedidos - prioritize by proximity to current location or bodega
   useEffect(() => {
@@ -226,19 +273,22 @@ const MotorizadoDashboard = () => {
   const openPhotoCapture = () => {
     if (!selectedPedido) return;
 
-    // Check geofence before allowing delivery
-    if (!validateGeofence(selectedPedido)) {
+    // Check geofence - now allows delivery outside range with deviation flag
+    const geofenceResult = validateGeofence(selectedPedido);
+    if (!geofenceResult.allowed) {
       return;
     }
 
+    setIsDeviationDelivery(geofenceResult.isDeviation);
     setShowPhotoModal(true);
     setCapturedPhoto(null);
   };
 
-  const validateGeofence = (pedido: Pedido): boolean => {
+  // GPS Flexibility: Allow delivery outside geofence but require mandatory photo
+  const validateGeofence = (pedido: Pedido): { allowed: boolean; isDeviation: boolean } => {
     // If pedido has no coordinates, allow the action (can't validate)
     if (pedido.latitud == null || pedido.longitud == null) {
-      return true;
+      return { allowed: true, isDeviation: false };
     }
 
     // If user location not available, show error
@@ -246,7 +296,7 @@ const MotorizadoDashboard = () => {
       toast.error("No se puede obtener tu ubicación GPS. Por favor habilita el GPS y vuelve a intentar.", {
         duration: 5000,
       });
-      return false;
+      return { allowed: false, isDeviation: false };
     }
 
     const withinGeofence = isWithinGeofence(
@@ -264,52 +314,104 @@ const MotorizadoDashboard = () => {
         pedido.latitud,
         pedido.longitud
       );
-      toast.error(
-        `Debes estar en la ubicación del cliente para reportar la entrega o novedad. Estás a ${Math.round(distance)} metros del destino (máximo ${GEOFENCE_RADIUS}m).`,
+      // NEW: Allow delivery but flag as deviation - require mandatory photo
+      toast.warning(
+        `⚠️ Estás a ${Math.round(distance)}m del destino (fuera de rango). Se requerirá FOTO DE EVIDENCIA OBLIGATORIA.`,
         { duration: 6000 }
       );
-      return false;
+      return { allowed: true, isDeviation: true };
     }
 
-    return true;
+    return { allowed: true, isDeviation: false };
   };
 
   const confirmDelivery = async () => {
     if (!selectedPedido) return;
 
-    // Check if we have at least the evidence photo
+    // Check if we have at least the evidence photo (mandatory for deviations)
     if (!capturedPhoto) {
-      toast.error("Debes tomar una foto de evidencia");
+      toast.error(isDeviationDelivery 
+        ? "⚠️ FOTO DE EVIDENCIA OBLIGATORIA - Estás fuera del rango GPS"
+        : "Debes tomar una foto de evidencia"
+      );
       return;
     }
 
     setUpdating(true);
-    try {
-      const { error } = await supabase
+    
+    // Build update data
+    const updateData: Record<string, unknown> = {
+      estado: "Entregado",
+      foto_evidencia: capturedPhoto,
+      foto_paquete: packagePhoto || null,
+      firma_cliente: signature || null,
+      fecha_actualizacion: new Date().toISOString(),
+    };
+
+    // If this is a deviation delivery, add system note with GPS coordinates
+    if (isDeviationDelivery && userLocation) {
+      const deviationNote = `[SISTEMA] ${new Date().toLocaleString()} - ⚠️ ENTREGA CON DESVIACIÓN GPS. Coordenadas reales de entrega: ${userLocation.lat.toFixed(6)}, ${userLocation.lng.toFixed(6)}`;
+      
+      // Fetch current observaciones
+      const { data: currentData } = await supabase
         .from("pedidos")
-        .update({
+        .select("observaciones")
+        .eq("id", selectedPedido.id)
+        .single();
+      
+      const existingObs = currentData?.observaciones || "";
+      updateData.observaciones = existingObs ? `${existingObs}\n\n${deviationNote}` : deviationNote;
+    }
+
+    try {
+      // Check if we're online
+      if (!navigator.onLine) {
+        // Save offline
+        await savePendingDeliveryOffline({
+          pedidoId: selectedPedido.id,
           estado: "Entregado",
           foto_evidencia: capturedPhoto,
           foto_paquete: packagePhoto || null,
           firma_cliente: signature || null,
-          fecha_actualizacion: new Date().toISOString(),
-        })
-        .eq("id", selectedPedido.id);
+          latitude: userLocation?.lat || null,
+          longitude: userLocation?.lng || null,
+          isDeviation: isDeviationDelivery,
+        });
+        
+        toast.success("📴 Entrega guardada offline - Se sincronizará cuando haya conexión", {
+          duration: 5000,
+        });
+        
+        setPendingSyncCount(await getPendingCount());
+      } else {
+        // Online: update directly
+        const { error } = await supabase
+          .from("pedidos")
+          .update(updateData)
+          .eq("id", selectedPedido.id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // Deduct inventory if linked to inventory item
-      if (selectedPedido.inventory_item_id) {
-        const inventoryResult = await deductInventoryOnDelivery(
-          selectedPedido.id,
-          selectedPedido.inventory_item_id,
-          selectedPedido.quantity || 1
-        );
-        if (!inventoryResult.success) {
-          console.warn("Inventory deduction failed:", inventoryResult.error);
+        // Deduct inventory if linked to inventory item
+        if (selectedPedido.inventory_item_id) {
+          const inventoryResult = await deductInventoryOnDelivery(
+            selectedPedido.id,
+            selectedPedido.inventory_item_id,
+            selectedPedido.quantity || 1
+          );
+          if (!inventoryResult.success) {
+            console.warn("Inventory deduction failed:", inventoryResult.error);
+          }
         }
+
+        toast.success(
+          isDeviationDelivery 
+            ? "⚠️ Pedido entregado con DESVIACIÓN GPS registrada"
+            : "✅ Pedido entregado exitosamente con firma y evidencia"
+        );
       }
 
+      // Update local state
       setPedidos((prev) =>
         prev.map((p) =>
           p.id === selectedPedido.id
@@ -330,7 +432,7 @@ const MotorizadoDashboard = () => {
       setCapturedPhoto(null);
       setPackagePhoto(null);
       setSignature(null);
-      toast.success("✅ Pedido entregado exitosamente con firma y evidencia");
+      setIsDeviationDelivery(false);
     } catch (error) {
       console.error("Error updating estado:", error);
       toast.error("Error al actualizar el estado");
@@ -342,8 +444,9 @@ const MotorizadoDashboard = () => {
   const openNovedadModal = () => {
     if (!selectedPedido) return;
 
-    // Check geofence before allowing novedad
-    if (!validateGeofence(selectedPedido)) {
+    // Check geofence - now with flexible validation
+    const geofenceResult = validateGeofence(selectedPedido);
+    if (!geofenceResult.allowed) {
       return;
     }
 
@@ -1123,6 +1226,17 @@ const MotorizadoDashboard = () => {
                 Compartir mi ubicación con cliente
               </button>
 
+              {/* QR Payment Button - Show for COD orders */}
+              {selectedPedido.metodo_pago?.toLowerCase() === "efectivo" && selectedPedido.valor_recaudar && (
+                <button
+                  onClick={() => setShowQRPayment(true)}
+                  className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-purple-600 py-3 font-bold text-white transition-all active:scale-95 shadow-md"
+                >
+                  <QrCode className="h-5 w-5" />
+                  Pagar con QR (${selectedPedido.valor_recaudar?.toLocaleString("es-CO")})
+                </button>
+              )}
+
               {/* Action Buttons - Only show if order is in "En Ruta" status */}
               {selectedPedido.estado?.toLowerCase() === "en ruta" && (
                 <div className="mt-3 grid grid-cols-2 gap-3">
@@ -1448,6 +1562,36 @@ const MotorizadoDashboard = () => {
       >
         <ScanLine className="h-7 w-7" />
       </motion.button>
+
+      {/* Offline Indicator */}
+      {(!networkOnline || pendingSyncCount > 0) && (
+        <motion.div
+          className="fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-white text-sm font-medium shadow-lg"
+          initial={{ x: -100, opacity: 0 }}
+          animate={{ x: 0, opacity: 1 }}
+        >
+          {!networkOnline ? (
+            <>
+              <WifiOff className="h-4 w-4" />
+              <span>Sin conexión</span>
+            </>
+          ) : (
+            <>
+              <Cloud className="h-4 w-4" />
+              <span>{pendingSyncCount} pendientes</span>
+            </>
+          )}
+        </motion.div>
+      )}
+
+      {/* QR Payment Modal */}
+      <QRPaymentModal
+        isOpen={showQRPayment}
+        onClose={() => setShowQRPayment(false)}
+        amount={selectedPedido?.valor_recaudar || 0}
+        orderId={selectedPedido?.id}
+        clientName={selectedPedido?.cliente_nombre || undefined}
+      />
     </div>
   );
 };
