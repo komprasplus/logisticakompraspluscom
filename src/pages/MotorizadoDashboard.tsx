@@ -29,7 +29,7 @@ import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/use
 import useLocationTracking from "@/hooks/useLocationTracking";
 import { toast } from "sonner";
 import BrandLogo from "@/components/BrandLogo";
-import MotorizadoMap from "@/components/MotorizadoMap";
+import MotorizadoMapGoogle from "@/components/MotorizadoMapGoogle";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 import PedidoQuickActions from "@/components/PedidoQuickActions";
 import BodegaSupportButton from "@/components/BodegaSupportButton";
@@ -904,7 +904,7 @@ const MotorizadoDashboard = () => {
               <div className="rounded-2xl overflow-hidden shadow-card border border-border">
               <div className="h-[300px]">
                 <MapErrorBoundary fallbackMessage="Error al cargar el mapa. Verifica tu conexión y permisos de GPS.">
-                  <MotorizadoMap
+                  <MotorizadoMapGoogle
                     pedidos={pedidos}
                     userLocation={userLocation}
                     onPedidoClick={(pedido) => setSelectedPedido(pedido as Pedido)}

@@ -1,0 +1,380 @@
+import { useCallback, useMemo, useState } from "react";
+import {
+  GoogleMap,
+  useJsApiLoader,
+  MarkerF,
+  InfoWindowF,
+} from "@react-google-maps/api";
+import { Loader2, Navigation, ExternalLink } from "lucide-react";
+
+const GOOGLE_MAPS_API_KEY = "AIzaSyDvV2fL5jv0OIp45Si4m4-gaWSt9gIXznA";
+
+// Warehouse coordinates - Carrera 20 # 14-30, Bogotá
+const BODEGA_COORDS = { lat: 4.60922, lng: -74.08463 };
+
+// Map styling - clean professional look
+const mapStyles = [
+  { featureType: "poi", elementType: "labels", stylers: [{ visibility: "off" }] },
+  { featureType: "transit", elementType: "labels", stylers: [{ visibility: "off" }] },
+];
+
+const mapContainerStyle = {
+  width: "100%",
+  height: "100%",
+  minHeight: "250px",
+  borderRadius: "16px",
+};
+
+interface Pedido {
+  id: number;
+  numero_guia: string | null;
+  cliente_nombre: string | null;
+  direccion_entrega: string | null;
+  estado: string | null;
+  latitud: number | null;
+  longitud: number | null;
+}
+
+interface MotorizadoMapGoogleProps {
+  pedidos: Pedido[];
+  userLocation?: { lat: number; lng: number } | null;
+  onPedidoClick?: (pedido: Pedido) => void;
+}
+
+const MotorizadoMapGoogle = ({ 
+  pedidos, 
+  userLocation, 
+  onPedidoClick 
+}: MotorizadoMapGoogleProps) => {
+  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [selectedMarker, setSelectedMarker] = useState<{
+    type: "pedido" | "user" | "bodega";
+    data: Pedido | null;
+    index?: number;
+  } | null>(null);
+
+  const { isLoaded, loadError } = useJsApiLoader({
+    googleMapsApiKey: GOOGLE_MAPS_API_KEY,
+    libraries: ["places"],
+  });
+
+  const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
+    setMap(mapInstance);
+  }, []);
+
+  // Filter valid pedidos
+  const validPedidos = useMemo(() => {
+    return pedidos.filter(
+      (p) =>
+        p.latitud != null &&
+        p.longitud != null &&
+        !isNaN(Number(p.latitud)) &&
+        !isNaN(Number(p.longitud))
+    );
+  }, [pedidos]);
+
+  // Calculate center based on pedidos
+  const center = useMemo(() => {
+    if (userLocation) {
+      return userLocation;
+    }
+    if (validPedidos.length > 0) {
+      const avgLat = validPedidos.reduce((sum, p) => sum + Number(p.latitud), 0) / validPedidos.length;
+      const avgLng = validPedidos.reduce((sum, p) => sum + Number(p.longitud), 0) / validPedidos.length;
+      return { lat: avgLat, lng: avgLng };
+    }
+    return BODEGA_COORDS;
+  }, [validPedidos, userLocation]);
+
+  // Get marker color based on status
+  const getMarkerColor = (status: string | null): string => {
+    const s = status?.toLowerCase();
+    if (s === "entregado") return "#22c55e";
+    if (s === "cancelado" || s === "novedad") return "#ef4444";
+    if (s === "en ruta" || s === "en camino") return "#3b82f6";
+    return "#f59e0b"; // Pending - amber
+  };
+
+  // Get status label
+  const getStatusLabel = (status: string | null): string => {
+    const s = status?.toLowerCase();
+    switch (s) {
+      case "entregado": return "✅ Entregado";
+      case "en ruta":
+      case "en camino": return "🚚 En Ruta";
+      case "cancelado":
+      case "novedad": return "❌ Novedad";
+      default: return "⏳ Pendiente";
+    }
+  };
+
+  // Create marker icon URL
+  const createPedidoMarkerIcon = useCallback((color: string, index: number) => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36">
+      <circle cx="18" cy="18" r="15" fill="${color}" stroke="white" stroke-width="3"/>
+      <text x="18" y="23" text-anchor="middle" fill="white" font-size="14" font-weight="bold" font-family="Arial">${index}</text>
+    </svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  }, []);
+
+  const userMarkerIcon = useMemo(() => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
+      <circle cx="20" cy="20" r="15" fill="#6366f1" stroke="white" stroke-width="4" opacity="0.9"/>
+      <circle cx="20" cy="20" r="22" fill="#6366f1" opacity="0.2"/>
+    </svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  }, []);
+
+  const warehouseMarkerIcon = useMemo(() => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" width="50" height="50">
+      <rect x="5" y="5" width="40" height="40" rx="10" fill="#334155" stroke="white" stroke-width="3"/>
+      <text x="25" y="32" text-anchor="middle" font-size="22">🏬</text>
+    </svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  }, []);
+
+  // Open navigation in Google Maps or Waze
+  const openNavigation = (lat: number, lng: number, app: "google" | "waze") => {
+    if (app === "waze") {
+      window.open(`https://waze.com/ul?ll=${lat},${lng}&navigate=yes`, "_blank");
+    } else {
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`, "_blank");
+    }
+  };
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[250px] bg-muted rounded-2xl">
+        <div className="text-center text-destructive">
+          <p className="font-medium">Error al cargar Google Maps</p>
+          <p className="text-sm text-muted-foreground mt-1">Verifica tu conexión</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoaded) {
+    return (
+      <div className="flex items-center justify-center h-full min-h-[250px] bg-muted rounded-2xl">
+        <div className="flex items-center gap-3">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <span className="text-muted-foreground">Cargando mapa...</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full w-full rounded-2xl overflow-hidden shadow-lg" style={{ minHeight: "250px" }}>
+      <GoogleMap
+        mapContainerStyle={mapContainerStyle}
+        center={center}
+        zoom={14}
+        onLoad={onMapLoad}
+        options={{
+          styles: mapStyles,
+          disableDefaultUI: false,
+          zoomControl: true,
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: false,
+        }}
+      >
+        {/* Warehouse Marker */}
+        <MarkerF
+          position={BODEGA_COORDS}
+          icon={{
+            url: warehouseMarkerIcon,
+            scaledSize: new google.maps.Size(50, 50),
+            anchor: new google.maps.Point(25, 25),
+          }}
+          zIndex={1000}
+          onClick={() => setSelectedMarker({ type: "bodega", data: null })}
+        />
+
+        {/* Bodega InfoWindow */}
+        {selectedMarker?.type === "bodega" && (
+          <InfoWindowF
+            position={BODEGA_COORDS}
+            onCloseClick={() => setSelectedMarker(null)}
+            options={{ zIndex: 10010 }}
+          >
+            <div style={{ padding: "8px", minWidth: "180px" }}>
+              <p style={{ fontWeight: "bold", fontSize: "14px", margin: "0 0 8px 0" }}>
+                🏬 Bodega Kompras Plus
+              </p>
+              <p style={{ margin: "0 0 4px 0", color: "#6b7280", fontSize: "12px" }}>
+                📍 Carrera 20 # 14-30 Local 212
+              </p>
+              <p style={{ margin: "0 0 8px 0", color: "#3b82f6", fontSize: "12px" }}>
+                📞 324 222 3825
+              </p>
+              <div style={{ display: "flex", gap: "8px", marginTop: "8px" }}>
+                <button
+                  onClick={() => openNavigation(BODEGA_COORDS.lat, BODEGA_COORDS.lng, "google")}
+                  style={{
+                    flex: 1,
+                    padding: "6px 8px",
+                    backgroundColor: "#4285F4",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Google Maps
+                </button>
+                <button
+                  onClick={() => openNavigation(BODEGA_COORDS.lat, BODEGA_COORDS.lng, "waze")}
+                  style={{
+                    flex: 1,
+                    padding: "6px 8px",
+                    backgroundColor: "#33CCFF",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  Waze
+                </button>
+              </div>
+            </div>
+          </InfoWindowF>
+        )}
+
+        {/* Pedido Markers */}
+        {validPedidos.map((pedido, index) => (
+          <MarkerF
+            key={`pedido-${pedido.id}`}
+            position={{ lat: Number(pedido.latitud), lng: Number(pedido.longitud) }}
+            icon={{
+              url: createPedidoMarkerIcon(getMarkerColor(pedido.estado), index + 1),
+              scaledSize: new google.maps.Size(36, 36),
+              anchor: new google.maps.Point(18, 18),
+            }}
+            zIndex={100 + index}
+            onClick={() => {
+              setSelectedMarker({ type: "pedido", data: pedido, index: index + 1 });
+              onPedidoClick?.(pedido);
+            }}
+          />
+        ))}
+
+        {/* Pedido InfoWindow */}
+        {selectedMarker?.type === "pedido" && selectedMarker.data && (
+          <InfoWindowF
+            position={{
+              lat: Number(selectedMarker.data.latitud),
+              lng: Number(selectedMarker.data.longitud),
+            }}
+            onCloseClick={() => setSelectedMarker(null)}
+            options={{ maxWidth: 320, zIndex: 10010 }}
+          >
+            <div style={{ padding: "8px", minWidth: "220px" }}>
+              <p style={{ fontWeight: "bold", fontSize: "14px", margin: "0 0 6px 0" }}>
+                #{selectedMarker.index} - {selectedMarker.data.numero_guia || `ID ${selectedMarker.data.id}`}
+              </p>
+              <p style={{ margin: "0 0 4px 0", color: "#374151", fontWeight: "500" }}>
+                {selectedMarker.data.cliente_nombre || "Sin nombre"}
+              </p>
+              <p style={{ margin: "0 0 8px 0", color: "#6b7280", fontSize: "12px" }}>
+                📍 {selectedMarker.data.direccion_entrega || "Sin dirección"}
+              </p>
+              <p style={{ margin: "0 0 10px 0", fontWeight: "500" }}>
+                {getStatusLabel(selectedMarker.data.estado)}
+              </p>
+              
+              {/* Navigation Buttons */}
+              <div style={{ display: "flex", gap: "8px" }}>
+                <button
+                  onClick={() => openNavigation(
+                    Number(selectedMarker.data!.latitud),
+                    Number(selectedMarker.data!.longitud),
+                    "google"
+                  )}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "4px",
+                    padding: "8px",
+                    backgroundColor: "#4285F4",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>🗺️</span> Google Maps
+                </button>
+                <button
+                  onClick={() => openNavigation(
+                    Number(selectedMarker.data!.latitud),
+                    Number(selectedMarker.data!.longitud),
+                    "waze"
+                  )}
+                  style={{
+                    flex: 1,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "4px",
+                    padding: "8px",
+                    backgroundColor: "#33CCFF",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                  }}
+                >
+                  <span>📍</span> Waze
+                </button>
+              </div>
+            </div>
+          </InfoWindowF>
+        )}
+
+        {/* User Location Marker */}
+        {userLocation && (
+          <MarkerF
+            position={userLocation}
+            icon={{
+              url: userMarkerIcon,
+              scaledSize: new google.maps.Size(40, 40),
+              anchor: new google.maps.Point(20, 20),
+            }}
+            zIndex={900}
+            onClick={() => setSelectedMarker({ type: "user", data: null })}
+          />
+        )}
+
+        {/* User Location InfoWindow */}
+        {selectedMarker?.type === "user" && userLocation && (
+          <InfoWindowF
+            position={userLocation}
+            onCloseClick={() => setSelectedMarker(null)}
+            options={{ zIndex: 10010 }}
+          >
+            <div style={{ padding: "4px" }}>
+              <p style={{ fontWeight: "bold", fontSize: "13px", margin: 0 }}>
+                📍 Tu ubicación actual
+              </p>
+            </div>
+          </InfoWindowF>
+        )}
+      </GoogleMap>
+    </div>
+  );
+};
+
+export default MotorizadoMapGoogle;
