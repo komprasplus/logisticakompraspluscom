@@ -757,6 +757,52 @@ export function getZonaFromBarrio(barrio: string | null | undefined): ZonaCodigo
 }
 
 /**
+ * Get the zone code based on municipality
+ * Implements automatic zone assignment for supported municipalities
+ */
+export function getZonaFromMunicipio(municipio: string | null | undefined): ZonaCodigo | null {
+  if (!municipio) return null;
+  
+  const normalizedMunicipio = municipio.toLowerCase().trim();
+  
+  // Zona Sur - Soacha and southern areas
+  if (normalizedMunicipio.includes("soacha") || normalizedMunicipio.includes("sibaté")) {
+    return "SUR";
+  }
+  
+  // Zona Norte - Sabana Norte municipalities
+  if (
+    normalizedMunicipio.includes("chía") ||
+    normalizedMunicipio.includes("chia") ||
+    normalizedMunicipio.includes("cota") ||
+    normalizedMunicipio.includes("cajicá") ||
+    normalizedMunicipio.includes("cajica") ||
+    normalizedMunicipio.includes("zipaquirá") ||
+    normalizedMunicipio.includes("zipaquira")
+  ) {
+    return "NOR";
+  }
+  
+  // Zona Occidente - Western municipalities
+  if (
+    normalizedMunicipio.includes("funza") ||
+    normalizedMunicipio.includes("madrid") ||
+    normalizedMunicipio.includes("mosquera") ||
+    normalizedMunicipio.includes("facatativá") ||
+    normalizedMunicipio.includes("facatativa")
+  ) {
+    return "OCC";
+  }
+  
+  // Default for Bogotá - depends on barrio, but default to CEN
+  if (normalizedMunicipio.includes("bogotá") || normalizedMunicipio.includes("bogota")) {
+    return "CEN"; // Will be overridden by barrio if available
+  }
+  
+  return null;
+}
+
+/**
  * Get full barrio info
  */
 export function getBarrioInfo(barrio: string): BarrioInfo | null {

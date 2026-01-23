@@ -1,11 +1,12 @@
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Download } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
-const logo = "/logo-oficial.png";
+import { supabase } from "@/integrations/supabase/client";
+const defaultLogo = "/logo-oficial.png";
 
 interface Pedido {
   id: number;
@@ -20,6 +21,7 @@ interface Pedido {
   producto_nombre: string | null;
   fecha_creacion: string | null;
   observaciones?: string | null;
+  client_user_id?: string | null;
 }
 
 interface PrintGuiaModalProps {
@@ -31,6 +33,40 @@ interface PrintGuiaModalProps {
 
 const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalProps) => {
   const guiaRef = useRef<HTMLDivElement>(null);
+  const [storeLogo, setStoreLogo] = useState<string | null>(null);
+  const [storeName, setStoreName] = useState<string | null>(null);
+
+  // Fetch store logo if pedido has client_user_id
+  useEffect(() => {
+    const fetchStoreLogo = async () => {
+      if (!pedido?.client_user_id) {
+        setStoreLogo(null);
+        setStoreName(null);
+        return;
+      }
+
+      try {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("logo_url, store_name")
+          .eq("user_id", pedido.client_user_id)
+          .single();
+
+        if (error) throw error;
+        
+        setStoreLogo(profile?.logo_url || null);
+        setStoreName(profile?.store_name || null);
+      } catch (error) {
+        console.error("Error fetching store logo:", error);
+        setStoreLogo(null);
+        setStoreName(null);
+      }
+    };
+
+    if (isOpen && pedido) {
+      fetchStoreLogo();
+    }
+  }, [pedido, isOpen]);
 
   if (!pedido) return null;
 
@@ -110,6 +146,8 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
 
   const guiaNumero = pedido.numero_guia || `KP-${pedido.id}`;
   const isPagado = pedido.metodo_pago === "anticipado";
+  const displayStoreName = storeName || remitente || "Kompras Plus";
+  const displayLogo = storeLogo || defaultLogo;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -135,20 +173,32 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
               flexDirection: "column",
             }}
           >
-            {/* Fila 1: Header - Logo, Guía, Fecha */}
+            {/* Fila 1: Header - Store Logo & Guía Number */}
             <div style={{ 
               display: "flex", 
               justifyContent: "space-between", 
               alignItems: "center",
               borderBottom: "2px solid #000",
-              paddingBottom: "2mm",
-              marginBottom: "2mm"
+              paddingBottom: "3mm",
+              marginBottom: "3mm"
             }}>
-              <img 
-                src={logo} 
-                alt="Plus Envios" 
-                style={{ height: "8mm", filter: "grayscale(100%)" }} 
-              />
+              {/* Store Logo - Left Corner */}
+              <div style={{ display: "flex", alignItems: "center", gap: "2mm" }}>
+                <img 
+                  src={displayLogo} 
+                  alt={displayStoreName}
+                  style={{ 
+                    height: "12mm", 
+                    maxWidth: "35mm",
+                    objectFit: "contain",
+                    filter: storeLogo ? "none" : "grayscale(100%)"
+                  }}
+                  onError={(e) => {
+                    e.currentTarget.src = defaultLogo;
+                    e.currentTarget.style.filter = "grayscale(100%)";
+                  }}
+                />
+              </div>
               <div style={{ textAlign: "right" }}>
                 <div style={{ 
                   fontSize: "14pt", 
@@ -163,7 +213,25 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
               </div>
             </div>
 
-            {/* Fila 2: Zona y Barrio destacados */}
+            {/* Fila 2: Store Name - PROMINENTLY DISPLAYED */}
+            <div style={{ 
+              backgroundColor: "#000",
+              color: "#fff",
+              padding: "2mm 3mm",
+              marginBottom: "2mm",
+              textAlign: "center"
+            }}>
+              <div style={{ 
+                fontSize: "14pt", 
+                fontWeight: "bold",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px"
+              }}>
+                {displayStoreName}
+              </div>
+            </div>
+
+            {/* Fila 3: Zona y Barrio destacados */}
             <div style={{ 
               display: "flex", 
               gap: "2mm", 
@@ -197,26 +265,16 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
               </div>
             </div>
 
-            {/* Remitente */}
-            <div style={{ 
-              marginBottom: "2mm",
-              padding: "1.5mm 2mm",
-              borderBottom: "1px solid #999"
-            }}>
-              <span style={{ fontSize: "8pt", fontWeight: "bold" }}>REMITENTE: </span>
-              <span style={{ fontSize: "8pt" }}>{remitente || "Kompras Plus"}</span>
-            </div>
-
-            {/* QR Code - Centered, 4x4cm max */}
+            {/* QR Code - Centered with increased margin */}
             <div style={{ 
               display: "flex", 
               justifyContent: "center", 
-              padding: "2mm 0",
-              marginBottom: "2mm"
+              padding: "4mm 0",
+              marginBottom: "3mm"
             }}>
               <QRCodeSVG
                 value={`PEDIDO:${pedido.id}`}
-                size={113} // ~4cm at 72dpi (4 * 28.35 ≈ 113px)
+                size={100} // Slightly smaller for better spacing
                 level="H"
                 bgColor="#ffffff"
                 fgColor="#000000"
@@ -298,7 +356,7 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
               textAlign: "center"
             }}>
               <div style={{ fontSize: "7pt", fontWeight: "bold", color: "#333" }}>
-                Kompras Plus - Carrera 20 # 14-30 local 212 - Tel: 324 222 3825
+                Plus Envíos - Carrera 20 # 14-30 local 212 - Tel: 324 222 3825
               </div>
             </div>
           </div>

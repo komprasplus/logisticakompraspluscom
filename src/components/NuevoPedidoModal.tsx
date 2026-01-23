@@ -27,7 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
-import { getZonaFromBarrio } from "@/lib/zonas";
+import { getZonaFromBarrio, getZonaFromMunicipio } from "@/lib/zonas";
 import { getTarifaEnvio, calcularUtilidad, formatCOP } from "@/lib/tarifas";
 import LocationPreviewMap from "./LocationPreviewMap";
 import GooglePlacesAutocomplete from "./GooglePlacesAutocomplete";
@@ -47,6 +47,12 @@ const MUNICIPIOS = [
 interface Profile {
   id: string;
   user_id: string;
+  full_name: string;
+}
+
+interface StoreOption {
+  user_id: string;
+  store_name: string | null;
   full_name: string;
 }
 
@@ -98,6 +104,10 @@ const NuevoPedidoModal = ({
   const [loading, setLoading] = useState(false);
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [phoneError, setPhoneError] = useState("");
+  
+  // Admin-only state for store selection
+  const [stores, setStores] = useState<StoreOption[]>([]);
+  const [selectedStoreId, setSelectedStoreId] = useState<string>("");
 
   // Calculate flete and utility based on localidad/municipio
   const tarifaInfo = useMemo(() => {
@@ -116,10 +126,11 @@ const NuevoPedidoModal = ({
     return calcularUtilidad(recaudo, producto, tarifaInfo.valor);
   }, [valorRecaudar, valorProducto, tarifaInfo.valor, metodoPago]);
 
-  // Fetch motorizados for admin selector
+  // Fetch motorizados and stores for admin selector
   useEffect(() => {
     if (isAdmin && isOpen) {
       fetchMotorizados();
+      fetchStores();
     }
   }, [isAdmin, isOpen]);
 
@@ -145,6 +156,28 @@ const NuevoPedidoModal = ({
       }
     } catch (error) {
       console.error("Error fetching motorizados:", error);
+    }
+  };
+
+  const fetchStores = async () => {
+    try {
+      const { data: roleData } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "cliente");
+
+      if (roleData && roleData.length > 0) {
+        const userIds = roleData.map((r) => r.user_id);
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, store_name, full_name")
+          .in("user_id", userIds)
+          .eq("status", "activo");
+
+        setStores(profiles || []);
+      }
+    } catch (error) {
+      console.error("Error fetching stores:", error);
     }
   };
 
@@ -257,7 +290,8 @@ const NuevoPedidoModal = ({
     try {
       const numeroGuia = generateGuideNumber();
       const { data: { user } } = await supabase.auth.getUser();
-      const zona = getZonaFromBarrio(barrio);
+      // Use barrio zone if available, otherwise fall back to municipality zone
+      const zona = getZonaFromBarrio(barrio) || getZonaFromMunicipio(municipioSeleccionado);
 
       // CRITICAL: Always use manual address + municipality for guides and motorizado view
       // This ensures nomenclature like "Calle 45 # 12-34 Apto 501" is never lost
@@ -295,7 +329,7 @@ const NuevoPedidoModal = ({
         latitud: confirmedLat,
         longitud: confirmedLng,
         motorizado_asignado: isAdmin && motorizadoAsignado ? motorizadoAsignado : null,
-        client_user_id: isAdmin ? null : currentUserId,
+        client_user_id: isAdmin ? (selectedStoreId || null) : currentUserId,
       };
 
       const { error } = await supabase.from("pedidos").insert(pedidoData);
@@ -334,6 +368,7 @@ const NuevoPedidoModal = ({
     setConfirmedLat(null);
     setConfirmedLng(null);
     setAddressSelected(false);
+    setSelectedStoreId("");
   };
 
   if (!isOpen) return null;
@@ -757,6 +792,33 @@ const NuevoPedidoModal = ({
             </div>
 
             {/* ============ SECTION 7: Assignment (Admin Only) ============ */}
+            {isAdmin && (
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  ¿Para qué tienda es este pedido? *
+                </h3>
+                
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <select
+                    value={selectedStoreId}
+                    onChange={(e) => setSelectedStoreId(e.target.value)}
+                    required
+                    className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Seleccionar tienda...</option>
+                    <option value="bodega">🏬 Bodega Kompras Plus (envío propio)</option>
+                    {stores.map((s) => (
+                      <option key={s.user_id} value={s.user_id}>
+                        {s.store_name || s.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
             {isAdmin && (
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
