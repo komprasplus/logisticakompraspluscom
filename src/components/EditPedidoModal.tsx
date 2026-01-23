@@ -7,12 +7,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Loader2, Save } from "lucide-react";
+import { CalendarIcon, Loader2, Save, MapPin, AlertTriangle } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ZONAS, getAllZonas } from "@/lib/zonas";
+import GooglePlacesAutocomplete from "@/components/GooglePlacesAutocomplete";
 
 interface Pedido {
   id: number;
@@ -27,6 +28,10 @@ interface Pedido {
   metodo_pago: string | null;
   fecha_entrega: string | null;
   estado: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  motorizado_id?: string | null;
+  observaciones?: string | null;
 }
 
 interface EditPedidoModalProps {
@@ -48,7 +53,13 @@ const EditPedidoModal = ({ pedido, isOpen, onClose, onSuccess }: EditPedidoModal
     valor_recaudar: "",
     metodo_pago: "efectivo",
     fecha_entrega: null as Date | null,
+    latitud: null as number | null,
+    longitud: null as number | null,
   });
+
+  // Track if this is a critical edit (order in transit)
+  const isCriticalEdit = pedido?.estado?.toLowerCase() === "en ruta" || 
+                         pedido?.estado?.toLowerCase().includes("novedad");
 
   useEffect(() => {
     if (pedido) {
@@ -62,9 +73,28 @@ const EditPedidoModal = ({ pedido, isOpen, onClose, onSuccess }: EditPedidoModal
         valor_recaudar: pedido.valor_recaudar?.toString() || "",
         metodo_pago: pedido.metodo_pago || "efectivo",
         fecha_entrega: pedido.fecha_entrega ? parseISO(pedido.fecha_entrega) : null,
+        latitud: pedido.latitud ?? null,
+        longitud: pedido.longitud ?? null,
       });
     }
   }, [pedido]);
+
+  const handleAddressSelect = (result: {
+    direccion: string;
+    barrio: string;
+    localidad: string;
+    ciudad: string;
+    lat: number;
+    lng: number;
+  }) => {
+    setFormData((prev) => ({
+      ...prev,
+      direccion_entrega: result.direccion,
+      barrio: result.barrio || prev.barrio,
+      latitud: result.lat,
+      longitud: result.lng,
+    }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,24 +102,56 @@ const EditPedidoModal = ({ pedido, isOpen, onClose, onSuccess }: EditPedidoModal
 
     setLoading(true);
     try {
+      // Build the update payload
+      const updatePayload: Record<string, any> = {
+        cliente_nombre: formData.cliente_nombre,
+        client_phone: formData.client_phone,
+        direccion_entrega: formData.direccion_entrega,
+        barrio: formData.barrio,
+        zona: formData.zona,
+        producto_nombre: formData.producto_nombre,
+        valor_recaudar: formData.valor_recaudar ? parseFloat(formData.valor_recaudar) : null,
+        metodo_pago: formData.metodo_pago,
+        fecha_entrega: formData.fecha_entrega ? format(formData.fecha_entrega, "yyyy-MM-dd") : null,
+        latitud: formData.latitud,
+        longitud: formData.longitud,
+        fecha_actualizacion: new Date().toISOString(),
+      };
+
+      // Check if address/GPS was changed
+      const addressChanged = formData.direccion_entrega !== pedido.direccion_entrega ||
+                            formData.latitud !== pedido.latitud ||
+                            formData.longitud !== pedido.longitud;
+
+      // If critical edit, add system note to observaciones
+      if (isCriticalEdit && addressChanged) {
+        const timestamp = new Date().toLocaleString("es-CO");
+        const systemNote = `\n[SISTEMA ${timestamp}] Dirección corregida por Admin.`;
+        updatePayload.observaciones = (pedido.observaciones || "") + systemNote;
+      }
+
       const { error } = await supabase
         .from("pedidos")
-        .update({
-          cliente_nombre: formData.cliente_nombre,
-          client_phone: formData.client_phone,
-          direccion_entrega: formData.direccion_entrega,
-          barrio: formData.barrio,
-          zona: formData.zona,
-          producto_nombre: formData.producto_nombre,
-          valor_recaudar: formData.valor_recaudar ? parseFloat(formData.valor_recaudar) : null,
-          metodo_pago: formData.metodo_pago,
-          fecha_entrega: formData.fecha_entrega ? format(formData.fecha_entrega, "yyyy-MM-dd") : null,
-        })
+        .update(updatePayload)
         .eq("id", pedido.id);
 
       if (error) throw error;
 
+      // Log the status change for audit trail
+      if (isCriticalEdit && addressChanged) {
+        await supabase.from("pedido_status_logs").insert({
+          pedido_id: pedido.id,
+          estado_anterior: pedido.estado,
+          estado_nuevo: pedido.estado, // Status doesn't change
+          motivo: "Dirección/GPS corregido por Admin",
+          usuario_nombre: "Admin",
+        });
+      }
+
       toast.success("Pedido actualizado exitosamente");
+      if (isCriticalEdit && addressChanged) {
+        toast.info("📍 Se notificó al motorizado del cambio de dirección");
+      }
       onSuccess();
       onClose();
     } catch (error) {
@@ -110,6 +172,17 @@ const EditPedidoModal = ({ pedido, isOpen, onClose, onSuccess }: EditPedidoModal
             Editar Pedido #{pedido?.id}
           </DialogTitle>
         </DialogHeader>
+
+        {/* Critical Edit Warning */}
+        {isCriticalEdit && (
+          <div className="flex items-start gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 mb-2">
+            <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold text-amber-800">Pedido en {pedido?.estado}</p>
+              <p className="text-amber-700">Los cambios de dirección/GPS se registrarán en el Timeline y se notificará al motorizado.</p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Cliente Info */}
@@ -136,19 +209,30 @@ const EditPedidoModal = ({ pedido, isOpen, onClose, onSuccess }: EditPedidoModal
             </div>
           </div>
 
-          {/* Dirección */}
+          {/* Dirección con Google Places */}
           <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-muted-foreground">Dirección de Entrega</h3>
+            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Dirección de Entrega
+            </h3>
             <div className="grid gap-3">
               <div>
                 <Label htmlFor="direccion_entrega">Dirección</Label>
-                <Textarea
-                  id="direccion_entrega"
+                <GooglePlacesAutocomplete
                   value={formData.direccion_entrega}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, direccion_entrega: e.target.value }))}
-                  required
+                  onSelect={handleAddressSelect}
+                  placeholder="Buscar dirección..."
                 />
               </div>
+
+              {/* Show current GPS coordinates if available */}
+              {(formData.latitud && formData.longitud) && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-muted/50 text-xs text-muted-foreground">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
+                  <span>📍 GPS: {formData.latitud.toFixed(6)}, {formData.longitud.toFixed(6)}</span>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="barrio">Barrio</Label>

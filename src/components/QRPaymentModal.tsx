@@ -85,11 +85,17 @@ const QRPaymentModal = ({
         <div className="p-6 flex flex-col items-center">
           <div className="bg-white rounded-2xl shadow-lg p-4 mb-4">
             <img
-              src="/qr-pago-bold.jpeg"
+              src="/qr-pago-bold.png"
               alt="Código QR para pago"
               className="w-64 h-auto rounded-lg"
               onError={(e) => {
-                (e.target as HTMLImageElement).src = "/placeholder.svg";
+                // Try JPEG fallback if PNG fails
+                const img = e.target as HTMLImageElement;
+                if (img.src.includes(".png")) {
+                  img.src = "/qr-pago-bold.jpeg";
+                } else {
+                  img.src = "/placeholder.svg";
+                }
               }}
             />
           </div>

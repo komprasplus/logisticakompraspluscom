@@ -56,8 +56,8 @@ import LiquidacionesPanel from "@/components/LiquidacionesPanel";
 import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
+import UserManagementTabs from "@/components/UserManagementTabs";
 import PaginationControls from "@/components/PaginationControls";
-import StatusChipCarousel from "@/components/StatusChipCarousel";
 import { usePagination } from "@/hooks/usePagination";
 import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
 import { Button } from "@/components/ui/button";
@@ -1208,8 +1208,8 @@ const AdminDashboard = () => {
               </button>
             </div>
 
-            {/* User Cards Grid */}
-            <UserCardsGrid
+            {/* User Management with Tabs */}
+            <UserManagementTabs
               users={users}
               userRoles={userRoles}
               onResetPassword={(user) => {
