@@ -415,14 +415,16 @@ const PedidosView = ({
         )}
       </div>
 
-      {/* Grid */}
-      {loading ? (
+      {/* Grid - Skeleton only on true first load, not background refetches */}
+      {loading && pedidos.length === 0 ? (
         <PedidosSkeleton />
       ) : totalItems === 0 ? (
-        <div className="rounded-2xl bg-card border border-border p-8 text-center shadow-sm">
+        <div className="rounded-2xl neu-flat p-8 text-center">
           <Package className="mx-auto h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-muted-foreground">
-            {searchQuery || statusFilter || activeFiltersCount > 0 ? "No se encontraron pedidos con estos filtros" : "No tienes pedidos registrados"}
+            {searchQuery || statusFilter || activeFiltersCount > 0
+              ? "No se encontraron pedidos con estos filtros"
+              : "No tienes pedidos registrados"}
           </p>
         </div>
       ) : (
