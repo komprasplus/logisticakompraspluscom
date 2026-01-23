@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Truck, Package, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
-const logo = "/logo-oficial.png";
+import BrandLogo from "@/components/BrandLogo";
 
 const RoleSelector = () => {
   const containerVariants = {
@@ -27,13 +27,12 @@ const RoleSelector = () => {
           animate="visible"
         >
           <motion.div variants={itemVariants} className="mb-8 text-center">
-            <img
-              src={logo}
-              alt="Plus Envios"
-              className="mx-auto mb-4 h-24 w-auto"
-            />
+            {/* Fixed: Using BrandLogo component instead of broken img */}
+            <div className="flex justify-center mb-6">
+              <BrandLogo size="xl" />
+            </div>
             <h1 className="text-2xl font-bold text-foreground">
-              ¡Bienvenido a Plus Envios!
+              ¡Bienvenido a Plus Envíos!
             </h1>
             <p className="mt-2 text-muted-foreground">
               Selecciona cómo deseas ingresar
@@ -41,15 +40,15 @@ const RoleSelector = () => {
           </motion.div>
 
           <motion.div variants={itemVariants} className="space-y-4">
-            {/* Login Button */}
+            {/* Login Button - Neumorphic Style */}
             <Link to="/auth">
               <motion.div
-                className="group flex w-full items-center gap-4 rounded-2xl bg-card p-6 shadow-card transition-all hover:shadow-elevated"
+                className="group flex w-full items-center gap-4 rounded-2xl neu-flat p-6 transition-all hover:shadow-elevated"
                 whileHover={{ scale: 1.02, y: -4 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-primary">
-                  <LogIn className="h-8 w-8 text-primary-foreground" />
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-button shadow-lg">
+                  <LogIn className="h-8 w-8 text-white" />
                 </div>
                 <div className="flex-1 text-left">
                   <h2 className="text-lg font-bold text-foreground">
@@ -59,7 +58,7 @@ const RoleSelector = () => {
                     Motorizado, Cliente o Administrador
                   </p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-secondary transition-colors">
+                <div className="h-10 w-10 rounded-full neu-pressed flex items-center justify-center group-hover:bg-secondary transition-colors">
                   <svg
                     className="h-5 w-5 text-muted-foreground group-hover:text-secondary-foreground transition-colors"
                     fill="none"
@@ -72,15 +71,15 @@ const RoleSelector = () => {
               </motion.div>
             </Link>
 
-            {/* Quick Tracking */}
+            {/* Quick Tracking - Neumorphic Style */}
             <Link to="/rastreo">
               <motion.div
-                className="group flex w-full items-center gap-4 rounded-2xl bg-card p-6 shadow-card transition-all hover:shadow-elevated"
+                className="group flex w-full items-center gap-4 rounded-2xl neu-flat p-6 transition-all hover:shadow-elevated"
                 whileHover={{ scale: 1.02, y: -4 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-accent">
-                  <Package className="h-8 w-8 text-accent-foreground" />
+                <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-accent shadow-lg">
+                  <Package className="h-8 w-8 text-white" />
                 </div>
                 <div className="flex-1 text-left">
                   <h2 className="text-lg font-bold text-foreground">
@@ -90,7 +89,7 @@ const RoleSelector = () => {
                     Sin necesidad de cuenta
                   </p>
                 </div>
-                <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center group-hover:bg-accent transition-colors">
+                <div className="h-10 w-10 rounded-full neu-pressed flex items-center justify-center group-hover:bg-accent transition-colors">
                   <svg
                     className="h-5 w-5 text-muted-foreground group-hover:text-accent-foreground transition-colors"
                     fill="none"
