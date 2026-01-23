@@ -1098,7 +1098,13 @@ const AdminDashboard = () => {
       case "novedades":
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
-            <NovedadesPanel pedidos={pedidos} onPedidoClick={(p) => setSelectedPedido(p as Pedido)} />
+            <NovedadesPanel 
+              pedidos={pedidos} 
+              onPedidoClick={(p) => {
+                setSelectedPedidoForDetail(p as Pedido);
+                setShowDetailModal(true);
+              }} 
+            />
           </motion.div>
         );
 
@@ -1115,24 +1121,61 @@ const AdminDashboard = () => {
 
       case "liquidaciones":
         return (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
-            <h2 className="font-bold text-foreground text-xl mb-4">💰 Liquidaciones</h2>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                <DollarSign className="h-6 w-6 text-primary" />
+                Liquidaciones
+              </h2>
+            </div>
+            
             <Tabs defaultValue="motorizados" className="w-full">
-              <TabsList className="mb-4">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="motorizados" className="gap-2">
                   <Truck className="h-4 w-4" />
-                  Motorizados
+                  <span className="hidden sm:inline">Motorizados</span>
+                  <span className="sm:hidden">Motoriz.</span>
                 </TabsTrigger>
                 <TabsTrigger value="tiendas" className="gap-2">
                   <Store className="h-4 w-4" />
-                  Tiendas
+                  <span>Tiendas</span>
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="motorizados">
-                <LiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
+              
+              <TabsContent value="motorizados" className="mt-0">
+                <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <Truck className="h-5 w-5 text-teal-600" />
+                      Cierre de Caja - Motorizados
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Pedidos entregados en efectivo pendientes de recibir en bodega.
+                    </p>
+                    <div className="mt-2 p-2 bg-muted/50 rounded-lg text-xs font-mono">
+                      <span className="text-teal-600 font-semibold">Saldo a Bodega</span> = Recaudo Total − Fletes Ganados
+                    </div>
+                  </div>
+                  <LiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
+                </div>
               </TabsContent>
-              <TabsContent value="tiendas">
-                <StoreLiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
+              
+              <TabsContent value="tiendas" className="mt-0">
+                <div className="rounded-xl border border-border bg-card p-4 space-y-4">
+                  <div>
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <Store className="h-5 w-5 text-emerald-600" />
+                      Pago a Tiendas
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Pedidos liquidados pendientes de transferir el valor neto a la tienda.
+                    </p>
+                    <div className="mt-2 p-2 bg-muted/50 rounded-lg text-xs font-mono">
+                      <span className="text-emerald-600 font-semibold">Neto a Pagar</span> = Total Recaudado − Costo de Envíos
+                    </div>
+                  </div>
+                  <StoreLiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
+                </div>
               </TabsContent>
             </Tabs>
           </motion.div>
