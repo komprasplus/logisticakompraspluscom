@@ -10,6 +10,8 @@ import {
   ChevronRight,
   LucideIcon,
   Truck,
+  LayoutDashboard,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +60,14 @@ const Icon3D = ({
 
 const menuItems = [
   { 
+    id: "analytics", 
+    label: "Control Tower", 
+    icon: LayoutDashboard,
+    description: "Analíticas en tiempo real",
+    colorClass: "from-primary to-blue-600",
+    accentColor: "bg-primary/10"
+  },
+  { 
     id: "mapa", 
     label: "Mapa Real-time", 
     icon: MapPin,
@@ -97,6 +107,14 @@ const menuItems = [
     description: "Cierre de entregas",
     colorClass: "from-violet-500 to-purple-500",
     accentColor: "bg-violet-500/10"
+  },
+  { 
+    id: "informes", 
+    label: "Informes", 
+    icon: FileText,
+    description: "Reportes y exportación",
+    colorClass: "from-indigo-500 to-blue-500",
+    accentColor: "bg-indigo-500/10"
   },
   { 
     id: "configuracion", 
