@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import {
   Package,
-  Loader2,
   Edit,
   Printer,
   Clock,
@@ -15,12 +14,13 @@ import {
   Search,
   MapPin,
   DollarSign,
-  TrendingUp,
   Calendar,
   Filter,
   X,
   Camera,
 } from "lucide-react";
+import PedidosSkeleton from "./PedidosSkeleton";
+import { TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
@@ -417,9 +417,7 @@ const PedidosView = ({
 
       {/* Grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
+        <PedidosSkeleton />
       ) : totalItems === 0 ? (
         <div className="rounded-2xl bg-card border border-border p-8 text-center shadow-sm">
           <Package className="mx-auto h-12 w-12 text-muted-foreground" />

@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Plus, MapPin } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { toast } from "sonner";
+import { usePedidosQuery } from "@/hooks/usePedidosQuery";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import EditPedidoModal from "@/components/EditPedidoModal";
 import PrintGuiaModal from "@/components/PrintGuiaModal";
@@ -50,8 +49,6 @@ const SUPPORT_PHONE = "324 222 3825";
 const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
 
 const ClienteDashboard = () => {
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeView, setActiveView] = useState<ClienteView>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
@@ -64,6 +61,9 @@ const ClienteDashboard = () => {
   const { signOut, profile, user } = useAuth();
   const navigate = useNavigate();
 
+  // React Query with SWR pattern - shows cached data instantly, refetches in background
+  const { pedidos, isLoading, refetch } = usePedidosQuery(user?.id);
+
   // Check warehouse status every minute
   useEffect(() => {
     const interval = setInterval(() => {
@@ -71,36 +71,6 @@ const ClienteDashboard = () => {
     }, 60000);
     return () => clearInterval(interval);
   }, []);
-
-  useEffect(() => {
-    if (user?.id) {
-      fetchPedidos();
-    }
-  }, [user?.id]);
-
-  const fetchPedidos = async () => {
-    if (!user?.id) return;
-    
-    setLoading(true);
-    try {
-      // Optimized: Using limit and pagination for faster initial load
-      const { data, error } = await supabase
-        .from("pedidos")
-        .select("*")
-        .eq("client_user_id", user.id)
-        .order("fecha_creacion", { ascending: false })
-        .limit(200); // Limit to recent orders for performance
-
-      if (error) throw error;
-      setPedidos(data || []);
-    } catch (error) {
-      console.error("Error fetching pedidos:", error);
-      toast.error("Error al cargar el historial");
-    } finally {
-      // Immediately hide loading indicator after data is received
-      setLoading(false);
-    }
-  };
 
   // Calculate stats - Wallet only shows liquidated orders
   const stats = useMemo(() => {
@@ -222,7 +192,7 @@ const ClienteDashboard = () => {
               <PedidosView
                 key="pedidos"
                 pedidos={pedidos}
-                loading={loading}
+                loading={isLoading}
                 onEdit={setEditingPedido}
                 onPrint={setPrintingPedido}
                 onRespond={setInstructionsPedido}
@@ -234,7 +204,7 @@ const ClienteDashboard = () => {
               <NovedadesView
                 key="novedades"
                 pedidos={pedidos}
-                loading={loading}
+                loading={isLoading}
                 onRespond={setInstructionsPedido}
                 onPrint={setPrintingPedido}
                 onViewEvidence={setEvidencePhoto}
@@ -250,7 +220,7 @@ const ClienteDashboard = () => {
             )}
 
             {activeView === "devoluciones" && (
-              <DevolucionesView key="devoluciones" pedidos={pedidos} loading={loading} />
+              <DevolucionesView key="devoluciones" pedidos={pedidos} loading={isLoading} />
             )}
 
             {activeView === "integraciones" && user?.id && (
@@ -268,7 +238,7 @@ const ClienteDashboard = () => {
       <NuevoPedidoModal
         isOpen={showNuevoPedido}
         onClose={() => setShowNuevoPedido(false)}
-        onSuccess={fetchPedidos}
+        onSuccess={refetch}
         isAdmin={false}
       />
 
@@ -276,7 +246,7 @@ const ClienteDashboard = () => {
         pedido={editingPedido}
         isOpen={!!editingPedido}
         onClose={() => setEditingPedido(null)}
-        onSuccess={fetchPedidos}
+        onSuccess={refetch}
       />
 
       <PrintGuiaModal
@@ -292,7 +262,7 @@ const ClienteDashboard = () => {
         tipoNovedad={instructionsPedido?.tipo_novedad || null}
         isOpen={!!instructionsPedido}
         onClose={() => setInstructionsPedido(null)}
-        onSuccess={fetchPedidos}
+        onSuccess={refetch}
       />
 
       <EvidencePhotoModal
