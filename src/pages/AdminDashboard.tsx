@@ -66,6 +66,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getStatusConfig, ALL_STATUSES, isOperationalStatus } from "@/lib/orderStatuses";
 import AdminNotesInput from "@/components/AdminNotesInput";
+import AnalyticsControlTower from "@/components/admin/AnalyticsControlTower";
 
 interface Pedido {
   id: number;
@@ -124,7 +125,7 @@ const AdminDashboard = () => {
   const [pedidos, setPedidos] = useState<Pedido[]>([]);
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<string>("mapa");
+  const [activeSection, setActiveSection] = useState<string>("analytics");
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [barrioFilter, setBarrioFilter] = useState<string>("todos");
@@ -712,6 +713,14 @@ const AdminDashboard = () => {
 
   const renderMainContent = () => {
     switch (activeSection) {
+      case "analytics":
+        return (
+          <AnalyticsControlTower 
+            pedidos={pedidos} 
+            motorizados={motorizados} 
+          />
+        );
+
       case "mapa":
         // Filter pedidos for map by selected date
         const mapFilteredPedidos = mapDateFilter 
