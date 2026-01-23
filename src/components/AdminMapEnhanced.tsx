@@ -406,7 +406,7 @@ const AdminMapEnhanced = ({
         })
           .bindPopup(`
             <div style="font-size: 13px; min-width: 180px; padding: 6px;">
-              <p style="font-weight: bold; margin: 0 0 8px 0; font-size: 15px;">🏬 Bodega Kompras Plus</p>
+              <p style="font-weight: bold; margin: 0 0 8px 0; font-size: 15px;">🏬 Bodega Plus Envíos</p>
               <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px;">📍 Carrera 20 # 14-30 Local 212</p>
               <p style="margin: 0; color: #3b82f6; font-size: 12px;">📞 324 222 3825</p>
             </div>

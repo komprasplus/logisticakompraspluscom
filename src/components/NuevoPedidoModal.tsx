@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 import { getZonaFromBarrio } from "@/lib/zonas";
 import { getTarifaEnvio, calcularUtilidad, formatCOP } from "@/lib/tarifas";
 import LocationPreviewMap from "./LocationPreviewMap";
-import AddressAutocomplete from "./AddressAutocomplete";
+import GooglePlacesAutocomplete from "./GooglePlacesAutocomplete";
 
 // Supported municipalities/cities
 const MUNICIPIOS = [
@@ -545,7 +545,7 @@ const NuevoPedidoModal = ({
                     <span className="text-sm font-medium text-foreground">Buscar punto en el mapa</span>
                   </div>
                   
-                  <AddressAutocomplete
+                  <GooglePlacesAutocomplete
                     onSelect={handleAddressSelect}
                     placeholder={`Buscar barrio o referencia en ${municipioSeleccionado}...`}
                     value={direccionCompleta}
