@@ -13,12 +13,14 @@ import {
   BarChart3,
   TrendingDown,
   Archive,
+  ShoppingCart,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatCOP } from "@/lib/tarifas";
 import { useAuth } from "@/hooks/useAuth";
+import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 
 interface InventoryItem {
   id: string;
@@ -56,6 +58,16 @@ const InventarioView = () => {
     price: 0,
     low_stock_threshold: 5,
   });
+
+  // Order creation state
+  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [orderPrefill, setOrderPrefill] = useState<{
+    inventoryItemId: string;
+    productName: string;
+    price: number;
+    quantity: number;
+    sku: string;
+  } | null>(null);
 
   useEffect(() => {
     if (user?.id) {
@@ -406,6 +418,28 @@ const InventarioView = () => {
                     {isOutOfStock ? "¡Agotado!" : "Stock bajo"}
                   </div>
                 )}
+
+                {/* Create Order Button */}
+                {!isOutOfStock && (
+                  <motion.button
+                    onClick={() => {
+                      setOrderPrefill({
+                        inventoryItemId: item.id,
+                        productName: item.product_name,
+                        price: item.price,
+                        quantity: 1,
+                        sku: item.sku,
+                      });
+                      setShowOrderModal(true);
+                    }}
+                    className="w-full mt-3 flex items-center justify-center gap-2 rounded-xl bg-primary/10 py-2.5 text-xs font-semibold text-primary hover:bg-primary/20 transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <ShoppingCart className="h-3.5 w-3.5" />
+                    Crear Orden
+                  </motion.button>
+                )}
               </motion.div>
             );
           })}
@@ -680,6 +714,19 @@ const InventarioView = () => {
           </div>
         )}
       </AnimatePresence>
+      {/* Order Creation Modal */}
+      <NuevoPedidoModal
+        isOpen={showOrderModal}
+        onClose={() => {
+          setShowOrderModal(false);
+          setOrderPrefill(null);
+        }}
+        onSuccess={() => {
+          fetchInventory();
+        }}
+        isAdmin={false}
+        inventoryPrefill={orderPrefill || undefined}
+      />
     </div>
   );
 };

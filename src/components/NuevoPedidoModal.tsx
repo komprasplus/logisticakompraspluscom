@@ -56,11 +56,20 @@ interface StoreOption {
   full_name: string;
 }
 
+interface InventoryPrefill {
+  inventoryItemId: string;
+  productName: string;
+  price: number;
+  quantity: number;
+  sku: string;
+}
+
 interface NuevoPedidoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   isAdmin: boolean;
+  inventoryPrefill?: InventoryPrefill;
 }
 
 const NuevoPedidoModal = ({
@@ -68,6 +77,7 @@ const NuevoPedidoModal = ({
   onClose,
   onSuccess,
   isAdmin,
+  inventoryPrefill,
 }: NuevoPedidoModalProps) => {
   // Form state - Reordered: payment method first
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
@@ -89,6 +99,8 @@ const NuevoPedidoModal = ({
   const [productoNombre, setProductoNombre] = useState("");
   const [valorProducto, setValorProducto] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  const [inventoryItemId, setInventoryItemId] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState<number>(1);
   
   // Schedule
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(undefined);
@@ -133,6 +145,19 @@ const NuevoPedidoModal = ({
       fetchStores();
     }
   }, [isAdmin, isOpen]);
+
+  // Pre-fill from inventory when provided
+  useEffect(() => {
+    if (inventoryPrefill && isOpen) {
+      setInventoryItemId(inventoryPrefill.inventoryItemId);
+      setProductoNombre(inventoryPrefill.productName);
+      setValorProducto(inventoryPrefill.price.toString());
+      setQuantity(inventoryPrefill.quantity);
+      // Auto-fill observaciones with product details
+      const detalles = `${inventoryPrefill.productName} (SKU: ${inventoryPrefill.sku}) x${inventoryPrefill.quantity}`;
+      setObservaciones(detalles);
+    }
+  }, [inventoryPrefill, isOpen]);
 
   const fetchMotorizados = async () => {
     try {
@@ -330,6 +355,9 @@ const NuevoPedidoModal = ({
         longitud: confirmedLng,
         motorizado_asignado: isAdmin && motorizadoAsignado ? motorizadoAsignado : null,
         client_user_id: isAdmin ? (selectedStoreId || null) : currentUserId,
+        // Inventory linking
+        inventory_item_id: inventoryItemId || null,
+        quantity: quantity,
       };
 
       const { error } = await supabase.from("pedidos").insert(pedidoData);
@@ -369,6 +397,8 @@ const NuevoPedidoModal = ({
     setConfirmedLng(null);
     setAddressSelected(false);
     setSelectedStoreId("");
+    setInventoryItemId(null);
+    setQuantity(1);
   };
 
   if (!isOpen) return null;

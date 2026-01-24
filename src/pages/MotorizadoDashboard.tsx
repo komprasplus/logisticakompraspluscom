@@ -22,6 +22,7 @@ import {
   WifiOff,
   Cloud,
   Truck,
+  ClipboardList,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +44,7 @@ import MotorizadoQRScanner from "@/components/MotorizadoQRScanner";
 import WeatherWidget from "@/components/WeatherWidget";
 import QRPaymentModal from "@/components/QRPaymentModal";
 import DarkModeToggle from "@/components/DarkModeToggle";
+import LoadManifest from "@/components/motorizado/LoadManifest";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
 import { deductInventoryOnDelivery } from "@/lib/inventoryService";
@@ -107,6 +109,7 @@ const MotorizadoDashboard = () => {
   const [isOnline, setIsOnline] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
   const [showQRPayment, setShowQRPayment] = useState(false);
+  const [showLoadManifest, setShowLoadManifest] = useState(false);
   const [isDeviationDelivery, setIsDeviationDelivery] = useState(false);
   const [networkOnline, setNetworkOnline] = useState(navigator.onLine);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
@@ -1570,18 +1573,36 @@ const MotorizadoDashboard = () => {
         />
       )}
 
-      {/* Floating QR Scanner Button */}
-      <motion.button
-        onClick={() => setShowQRScanner(true)}
-        className="fixed bottom-24 right-4 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        title="Escanear Pedido"
-      >
-        <ScanLine className="h-7 w-7" />
-      </motion.button>
+      {/* Floating Action Buttons */}
+      <div className="fixed bottom-24 right-4 z-50 flex flex-col gap-3">
+        {/* Load Manifest Button */}
+        {inTransitCount > 0 && (
+          <motion.button
+            onClick={() => setShowLoadManifest(true)}
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-secondary text-secondary-foreground shadow-lg hover:opacity-90 transition-opacity"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            title="Resumen de Carga"
+          >
+            <ClipboardList className="h-6 w-6" />
+          </motion.button>
+        )}
+
+        {/* QR Scanner Button */}
+        <motion.button
+          onClick={() => setShowQRScanner(true)}
+          className="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:opacity-90 transition-opacity"
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          title="Escanear Pedido"
+        >
+          <ScanLine className="h-7 w-7" />
+        </motion.button>
+      </div>
 
       {/* Offline Indicator */}
       {(!networkOnline || pendingSyncCount > 0) && (
@@ -1612,6 +1633,20 @@ const MotorizadoDashboard = () => {
         orderId={selectedPedido?.id}
         clientName={selectedPedido?.cliente_nombre || undefined}
       />
+
+      {/* Load Manifest Modal */}
+      {user?.id && profile && (
+        <LoadManifest
+          isOpen={showLoadManifest}
+          onClose={() => setShowLoadManifest(false)}
+          pedidos={pedidos}
+          motorizadoId={user.id}
+          motorizadoName={profile.full_name || "Motorizado"}
+          onConfirmExit={() => {
+            fetchPedidos();
+          }}
+        />
+      )}
     </div>
   );
 };
