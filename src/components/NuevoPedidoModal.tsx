@@ -62,6 +62,7 @@ interface InventoryPrefill {
   price: number;
   quantity: number;
   sku: string;
+  maxStock?: number;
 }
 
 interface NuevoPedidoModalProps {
@@ -158,6 +159,14 @@ const NuevoPedidoModal = ({
       setObservaciones(detalles);
     }
   }, [inventoryPrefill, isOpen]);
+
+  // Update observaciones when quantity changes (for inventory orders)
+  useEffect(() => {
+    if (inventoryPrefill && inventoryItemId) {
+      const detalles = `${inventoryPrefill.productName} (SKU: ${inventoryPrefill.sku}) x${quantity}`;
+      setObservaciones(detalles);
+    }
+  }, [quantity, inventoryPrefill, inventoryItemId]);
 
   const fetchMotorizados = async () => {
     try {
@@ -363,6 +372,37 @@ const NuevoPedidoModal = ({
       const { error } = await supabase.from("pedidos").insert(pedidoData);
 
       if (error) throw error;
+
+      // CRITICAL: Deduct stock immediately on order creation to prevent overselling
+      if (inventoryItemId && quantity > 0) {
+        const { error: stockError } = await (supabase as any)
+          .from("inventory")
+          .update({ 
+            stock_available: (supabase as any).rpc ? 
+              // Ideally use RPC for atomic decrement, but fallback works
+              inventoryPrefill?.maxStock ? 
+                Math.max(0, (inventoryPrefill.maxStock - quantity)) : 0
+              : 0
+          })
+          .eq("id", inventoryItemId);
+
+        // Get current stock and update
+        const { data: currentItem } = await (supabase as any)
+          .from("inventory")
+          .select("stock_available")
+          .eq("id", inventoryItemId)
+          .single();
+
+        if (currentItem) {
+          const newStock = Math.max(0, currentItem.stock_available - quantity);
+          await (supabase as any)
+            .from("inventory")
+            .update({ stock_available: newStock })
+            .eq("id", inventoryItemId);
+          
+          console.log(`📦 Stock deducted: ${currentItem.stock_available} → ${newStock}`);
+        }
+      }
 
       toast.success(`Pedido creado exitosamente. Guía: ${numeroGuia}`);
       resetForm();
@@ -700,19 +740,90 @@ const NuevoPedidoModal = ({
                 Detalles del Paquete
               </h3>
               
-              {/* Producto */}
-              <div className="relative">
-                <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Nombre del Producto *"
-                  value={productoNombre}
-                  onChange={(e) => setProductoNombre(e.target.value)}
-                  required
-                  maxLength={150}
-                  className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
+              {/* Inventory Quantity Selector - Only shown when product is from inventory */}
+              {inventoryItemId && inventoryPrefill && (
+                <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-semibold text-foreground">
+                      Producto de Inventario
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-foreground">{inventoryPrefill.productName}</p>
+                      <p className="text-xs text-muted-foreground font-mono">SKU: {inventoryPrefill.sku}</p>
+                    </div>
+                    <span className="text-sm font-medium text-primary">
+                      {formatCOP(inventoryPrefill.price)} c/u
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-background p-2">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      disabled={quantity <= 1}
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-lg font-bold transition-colors",
+                        quantity <= 1
+                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          : "bg-primary/10 text-primary hover:bg-primary/20"
+                      )}
+                    >
+                      −
+                    </button>
+                    
+                    <div className="text-center">
+                      <span className="text-xl font-bold text-foreground">{quantity}</span>
+                      <span className="text-xs text-muted-foreground ml-1">
+                        / {inventoryPrefill.maxStock || "∞"} disponibles
+                      </span>
+                    </div>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const max = inventoryPrefill.maxStock || 999;
+                        setQuantity(Math.min(max, quantity + 1));
+                      }}
+                      disabled={inventoryPrefill.maxStock ? quantity >= inventoryPrefill.maxStock : false}
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-lg font-bold transition-colors",
+                        inventoryPrefill.maxStock && quantity >= inventoryPrefill.maxStock
+                          ? "bg-muted text-muted-foreground cursor-not-allowed"
+                          : "bg-primary/10 text-primary hover:bg-primary/20"
+                      )}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm pt-1 border-t border-border/50">
+                    <span className="text-muted-foreground">Total producto:</span>
+                    <span className="font-bold text-foreground">
+                      {formatCOP(inventoryPrefill.price * quantity)}
+                    </span>
+                  </div>
+                </div>
+              )}
+              
+              {/* Producto - Only show if NOT from inventory */}
+              {!inventoryItemId && (
+                <div className="relative">
+                  <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Nombre del Producto *"
+                    value={productoNombre}
+                    onChange={(e) => setProductoNombre(e.target.value)}
+                    required
+                    maxLength={150}
+                    className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              )}
 
               {/* Costo del producto (opcional) */}
               <div className="relative">

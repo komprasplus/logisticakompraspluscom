@@ -81,7 +81,9 @@ export type Database = {
         Row: {
           client_user_id: string
           created_at: string
+          fulfillment_value: number | null
           id: string
+          image_url: string | null
           low_stock_threshold: number
           price: number | null
           product_name: string
@@ -92,7 +94,9 @@ export type Database = {
         Insert: {
           client_user_id: string
           created_at?: string
+          fulfillment_value?: number | null
           id?: string
+          image_url?: string | null
           low_stock_threshold?: number
           price?: number | null
           product_name: string
@@ -103,7 +107,9 @@ export type Database = {
         Update: {
           client_user_id?: string
           created_at?: string
+          fulfillment_value?: number | null
           id?: string
+          image_url?: string | null
           low_stock_threshold?: number
           price?: number | null
           product_name?: string
