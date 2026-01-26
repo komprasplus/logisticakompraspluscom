@@ -136,26 +136,34 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
         return;
       }
 
-      // AUTO-ASSIGNMENT LOGIC - "Libre Reclamación"
+      // Store previous motorizado info for reassignment tracking
+      const previousMotorizadoId = pedido.motorizado_id;
+      const previousMotorizadoName = pedido.motorizado_asignado;
+
+      // AUTO-ASSIGNMENT LOGIC - Now allows reassignment from any motorizado
       // Check if the order belongs to another motorizado
       if (pedido.motorizado_id && pedido.motorizado_id !== motorizadoId) {
-        // Order is assigned to someone else
-        if (estado === "en ruta") {
-          // Already in route with another driver - strict error
-          playErrorSound();
-          setIsAlreadyOwned(true);
-          setErrorMessage(`❌ Este paquete ya pertenece a ${pedido.motorizado_asignado || 'otro motorizado'} y está en ruta.`);
-          toast.error("Este paquete pertenece a otro motorizado", {
-            description: pedido.motorizado_asignado || "Asignado a otro",
-          });
-          setProcessing(false);
-          return;
-        }
+        // Order is assigned to someone else - allow automatic reassignment!
+        console.log(`📦 Reasignación automática: de ${previousMotorizadoName || 'desconocido'} a ${motorizadoName}`);
+        
+        playAssignedSound();
+        setIsAutoAssign(true);
+        setScannedPedido({
+          ...pedido,
+          motorizado_id: motorizadoId,
+          motorizado_asignado: motorizadoName || "Yo",
+          // Store previous info for the reassignment log
+          _previousMotorizadoId: previousMotorizadoId,
+          _previousMotorizadoName: previousMotorizadoName,
+        } as Pedido & { _previousMotorizadoId?: string; _previousMotorizadoName?: string });
+        stopScanner();
+        setProcessing(false);
+        return;
       }
 
       // If the order is NOT assigned, we can auto-assign (libre reclamación)
       if (!pedido.motorizado_id) {
-        if (estado === "pendiente" || estado === "recibido en bodega") {
+        if (estado === "pendiente" || estado === "recibido en bodega" || estado === "asignado") {
           // This is a libre reclamación case - auto assign!
           playAssignedSound();
           setIsAutoAssign(true);
@@ -170,20 +178,10 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
         }
       }
 
-      // Order already assigned to me or in a state that allows scanning
-      if (pedido.motorizado_id === motorizadoId || !pedido.motorizado_id) {
+      // Order already assigned to me - just proceed
+      if (pedido.motorizado_id === motorizadoId) {
         playSuccessSound();
         setScannedPedido(pedido);
-        stopScanner();
-      } else if (estado === "asignado" && pedido.motorizado_id !== motorizadoId) {
-        // Assigned to someone else but not in route - allow reassignment
-        playAssignedSound();
-        setIsAutoAssign(true);
-        setScannedPedido({
-          ...pedido,
-          motorizado_id: motorizadoId,
-          motorizado_asignado: motorizadoName || "Yo"
-        });
         stopScanner();
       }
       
@@ -339,6 +337,8 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
     setProcessing(true);
     try {
       const timestamp = new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" });
+      const extendedPedido = scannedPedido as Pedido & { _previousMotorizadoId?: string; _previousMotorizadoName?: string };
+      const isReassignment = isAutoAssign && extendedPedido._previousMotorizadoId;
       
       // Build the update payload
       const updatePayload: Record<string, any> = {
@@ -346,19 +346,25 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
         fecha_actualizacion: new Date().toISOString(),
       };
 
-      // If auto-assigning, also set the motorizado and add observation
+      // If auto-assigning or reassigning, set the motorizado and add observation
       if (isAutoAssign) {
         updatePayload.motorizado_id = motorizadoId;
         updatePayload.motorizado_asignado = motorizadoName || "Motorizado";
         
-        // Add system note for auto-assignment
+        // Add system note for auto-assignment or reassignment
         const { data: currentPedido } = await supabase
           .from("pedidos")
           .select("observaciones")
           .eq("id", scannedPedido.id)
           .maybeSingle();
         
-        const systemNote = `[SISTEMA ${timestamp}] Auto-asignado a ${motorizadoName || "Motorizado"} por escaneo QR`;
+        let systemNote: string;
+        if (isReassignment) {
+          systemNote = `[SISTEMA ${timestamp}] Reasignación por escaneo: de ${extendedPedido._previousMotorizadoName || 'Desconocido'} a ${motorizadoName || "Motorizado"}`;
+        } else {
+          systemNote = `[SISTEMA ${timestamp}] Auto-asignado a ${motorizadoName || "Motorizado"} por escaneo QR`;
+        }
+        
         updatePayload.observaciones = currentPedido?.observaciones 
           ? `${currentPedido.observaciones}\n${systemNote}` 
           : systemNote;
@@ -372,20 +378,49 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
 
       if (error) throw error;
 
-      // Log the status change for audit
-      await supabase.from("pedido_status_logs").insert({
+      // Log the status change for audit with specific reassignment info
+      const logEntry = {
         pedido_id: scannedPedido.id,
         estado_anterior: scannedPedido.estado,
         estado_nuevo: "En Ruta",
-        motivo: isAutoAssign ? "Auto-asignado por escaneo QR (Libre Reclamación)" : "Iniciado por escaneo QR",
+        motivo: isReassignment 
+          ? `Reasignación por escaneo: de ${extendedPedido._previousMotorizadoName || 'Desconocido'} a ${motorizadoName || "Motorizado"}`
+          : isAutoAssign 
+            ? "Auto-asignado por escaneo QR (Libre Reclamación)" 
+            : "Iniciado por escaneo QR",
         usuario_nombre: motorizadoName || "Motorizado",
         usuario_id: motorizadoId,
-      });
+      };
+      
+      await supabase.from("pedido_status_logs").insert(logEntry);
+
+      // If this was a reassignment, broadcast a real-time notification for Admin/Despachador
+      if (isReassignment) {
+        // Use Supabase Realtime broadcast to notify admin panel
+        const channel = supabase.channel('admin-notifications');
+        await channel.send({
+          type: 'broadcast',
+          event: 'order-reassigned',
+          payload: {
+            pedido_id: scannedPedido.id,
+            numero_guia: scannedPedido.numero_guia,
+            previous_motorizado: extendedPedido._previousMotorizadoName || 'Desconocido',
+            new_motorizado: motorizadoName || 'Motorizado',
+            timestamp: new Date().toISOString(),
+          }
+        });
+        
+        console.log("📡 Notificación de reasignación enviada al panel de despacho");
+      }
 
       // Play success sound on delivery start
       playSuccessSound();
 
-      if (isAutoAssign) {
+      if (isReassignment) {
+        toast.success(`🔄 ¡Pedido reasignado y en ruta!`, {
+          description: `Transferido de ${extendedPedido._previousMotorizadoName || 'otro'} a ti`,
+        });
+      } else if (isAutoAssign) {
         toast.success(`🏍️ ¡Pedido reclamado y en ruta!`, {
           description: `Asignado automáticamente a ${motorizadoName || "ti"}`,
         });
