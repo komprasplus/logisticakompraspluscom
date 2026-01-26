@@ -10,6 +10,7 @@ import {
   Store,
   User,
   ArrowLeftRight,
+  Ban,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,6 +27,7 @@ import { getStatusConfig, ALL_STATUSES, isOperationalStatus } from "@/lib/orderS
 import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 import BulkReassignModal from "@/components/admin/BulkReassignModal";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Pedido {
   id: number;
@@ -244,9 +246,10 @@ const DespachadorDashboard = () => {
     setSelectedForBulk((prev) => prev.includes(pedidoId) ? prev.filter((id) => id !== pedidoId) : [...prev, pedidoId]);
   };
 
-  const canPrintGuia = (pedido: Pedido) => {
+  // Allow reprinting for any order except cancelled
+  const canReprintGuia = (pedido: Pedido) => {
     const estado = pedido.estado?.toLowerCase();
-    return estado === "recibido en bodega" || estado === "asignado";
+    return estado !== "anulado";
   };
 
   const handleLogout = async () => {
@@ -473,37 +476,66 @@ const DespachadorDashboard = () => {
                             )}
                           </td>
                           <td className="px-4 py-3">
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedPedidoForDetail(pedido);
-                                  setShowDetailModal(true);
-                                }}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <QuickReassignPopover
-                                pedidoId={pedido.id}
-                                currentMotorizadoId={pedido.motorizado_id}
-                                currentMotorizadoName={pedido.motorizado_asignado}
-                                currentStatus={pedido.estado}
-                                onReassigned={fetchPedidos}
-                              />
-                              {canPrintGuia(pedido) && (
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => {
-                                    setSelectedPedidoForPrint(pedido);
-                                    setShowPrintGuia(true);
-                                  }}
-                                >
-                                  <Printer className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
+                            <TooltipProvider delayDuration={200}>
+                              <div className="flex items-center gap-1">
+                                {/* Ver detalle */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setSelectedPedidoForDetail(pedido);
+                                        setShowDetailModal(true);
+                                      }}
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Ver detalle</TooltipContent>
+                                </Tooltip>
+
+                                {/* Re-imprimir Guía */}
+                                {canReprintGuia(pedido) && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                          setSelectedPedidoForPrint(pedido);
+                                          setShowPrintGuia(true);
+                                        }}
+                                      >
+                                        <Printer className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Re-imprimir Guía</TooltipContent>
+                                  </Tooltip>
+                                )}
+
+                                {/* Reasignar */}
+                                <QuickReassignPopover
+                                  pedidoId={pedido.id}
+                                  currentMotorizadoId={pedido.motorizado_id}
+                                  currentMotorizadoName={pedido.motorizado_asignado}
+                                  currentStatus={pedido.estado}
+                                  onReassigned={fetchPedidos}
+                                />
+
+                                {/* Anulado indicator */}
+                                {pedido.estado?.toLowerCase() === "anulado" && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="inline-flex items-center justify-center h-8 w-8 text-destructive">
+                                        <Ban className="h-4 w-4" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Pedido anulado</TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            </TooltipProvider>
                           </td>
                         </tr>
                       );
@@ -585,7 +617,7 @@ const DespachadorDashboard = () => {
         <BulkPrintGuiasModal
           isOpen={showBulkPrint}
           onClose={() => setShowBulkPrint(false)}
-          pedidos={pedidos.filter((p) => canPrintGuia(p))}
+          pedidos={pedidos.filter((p) => canReprintGuia(p))}
           remitentes={remitentesMap}
           onPrintComplete={(ids) => fetchPedidos()}
         />

@@ -71,6 +71,7 @@ import AnalyticsControlTower from "@/components/admin/AnalyticsControlTower";
 import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 import BulkReassignModal from "@/components/admin/BulkReassignModal";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Pedido {
   id: number;
@@ -1116,71 +1117,95 @@ const AdminDashboard = () => {
                             </td>
                             <td className="px-3 py-3"><StatusBadge status={pedido.estado} /></td>
                             <td className="px-2 py-3 text-center">
-                              <div className="flex items-center justify-center gap-1">
-                                {/* Edit Button */}
-                                {!isCancelled && (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedPedidoForEdit(pedido);
-                                      setShowEditPedido(true);
-                                    }}
-                                    className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-muted text-muted-foreground hover:bg-amber-100 hover:text-amber-600 transition-colors"
-                                    title="Editar pedido"
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </button>
-                                )}
-                                {/* Print Button */}
-                                {isPrintable && !isCancelled && (
-                                  <button
-                                    onClick={() => handlePrintGuia(pedido)}
-                                    className={`inline-flex items-center justify-center h-8 w-8 rounded-lg transition-colors ${
-                                      isGuiaImpresa 
-                                        ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400" 
-                                        : "bg-muted text-muted-foreground hover:bg-emerald-100 hover:text-emerald-600"
-                                    }`}
-                                    title={isGuiaImpresa ? "Reimprimir guía" : "Imprimir guía"}
-                                  >
-                                    <Printer className="h-4 w-4" />
-                                  </button>
-                                )}
-                                {/* Reassign Button */}
-                                {!isCancelled && (
-                                  <QuickReassignPopover
-                                    pedidoId={pedido.id}
-                                    currentMotorizadoId={pedido.motorizado_id}
-                                    currentMotorizadoName={pedido.motorizado_asignado}
-                                    currentStatus={pedido.estado}
-                                    onReassigned={fetchPedidos}
-                                  />
-                                )}
-                                {/* Detail Button */}
-                                <button
-                                  onClick={() => {
-                                    setSelectedPedidoForDetail(pedido);
-                                    setShowDetailModal(true);
-                                  }}
-                                  className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                                  title="Ver detalle"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </button>
-                                {canCancel && (
-                                  <button
-                                    onClick={() => {
-                                      setSelectedPedidoForCancel(pedido);
-                                      setShowCancelOrder(true);
-                                    }}
-                                    className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
-                                    title="Anular pedido"
-                                  >
-                                    <Ban className="h-4 w-4" />
-                                  </button>
-                                )}
-                                {isCancelled && (
-                                  <span className="text-xs text-muted-foreground">Anulado</span>
-                                )}
-                              </div>
+                              <TooltipProvider delayDuration={200}>
+                                <div className="flex items-center justify-center gap-1">
+                                  {/* Edit Button */}
+                                  {!isCancelled && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedPedidoForEdit(pedido);
+                                            setShowEditPedido(true);
+                                          }}
+                                          className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-muted text-muted-foreground hover:bg-amber-100 hover:text-amber-600 transition-colors"
+                                        >
+                                          <Pencil className="h-4 w-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Editar pedido</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  
+                                  {/* Detail Button - moved before printer */}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        onClick={() => {
+                                          setSelectedPedidoForDetail(pedido);
+                                          setShowDetailModal(true);
+                                        }}
+                                        className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Ver detalle</TooltipContent>
+                                  </Tooltip>
+
+                                  {/* Print/Reprint Button - always available for non-cancelled */}
+                                  {!isCancelled && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={() => handlePrintGuia(pedido)}
+                                          className={`inline-flex items-center justify-center h-8 w-8 rounded-lg transition-colors ${
+                                            isGuiaImpresa 
+                                              ? "bg-emerald-100 text-emerald-600 hover:bg-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400" 
+                                              : "bg-muted text-muted-foreground hover:bg-emerald-100 hover:text-emerald-600"
+                                          }`}
+                                        >
+                                          <Printer className="h-4 w-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>{isGuiaImpresa ? "Re-imprimir Guía" : "Imprimir Guía"}</TooltipContent>
+                                    </Tooltip>
+                                  )}
+
+                                  {/* Cancel Button */}
+                                  {canCancel && (
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          onClick={() => {
+                                            setSelectedPedidoForCancel(pedido);
+                                            setShowCancelOrder(true);
+                                          }}
+                                          className="inline-flex items-center justify-center h-8 w-8 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                                        >
+                                          <Ban className="h-4 w-4" />
+                                        </button>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Anular pedido</TooltipContent>
+                                    </Tooltip>
+                                  )}
+                                  
+                                  {/* Reassign Button */}
+                                  {!isCancelled && (
+                                    <QuickReassignPopover
+                                      pedidoId={pedido.id}
+                                      currentMotorizadoId={pedido.motorizado_id}
+                                      currentMotorizadoName={pedido.motorizado_asignado}
+                                      currentStatus={pedido.estado}
+                                      onReassigned={fetchPedidos}
+                                    />
+                                  )}
+                                  
+                                  {isCancelled && (
+                                    <span className="text-xs text-muted-foreground">Anulado</span>
+                                  )}
+                                </div>
+                              </TooltipProvider>
                             </td>
                           </tr>
                         );
