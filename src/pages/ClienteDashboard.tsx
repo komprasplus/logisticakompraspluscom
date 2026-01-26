@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Plus } from "lucide-react";
+import { Plus, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { usePedidosQuery } from "@/hooks/usePedidosQuery";
@@ -20,6 +20,7 @@ import DevolucionesView from "@/components/cliente/DevolucionesView";
 import IntegracionesView from "@/components/cliente/IntegracionesView";
 import InventarioView from "@/components/cliente/InventarioView";
 import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
+import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { AnimatePresence } from "framer-motion";
 
 interface Pedido {
@@ -52,6 +53,7 @@ const ClienteDashboard = () => {
   const [activeView, setActiveView] = useState<ClienteView>("dashboard");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
   const [printingPedido, setPrintingPedido] = useState<Pedido | null>(null);
   const [instructionsPedido, setInstructionsPedido] = useState<Pedido | null>(null);
@@ -154,25 +156,36 @@ const ClienteDashboard = () => {
         }`}
       >
         <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-          {/* Warehouse Status + New Order Button */}
+          {/* Warehouse Status + Action Buttons */}
           <div className="mb-6 flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
               <WarehouseStatus isOpen={isWarehouseOpen} address={WAREHOUSE_ADDRESS} />
             </div>
-            <motion.button
-              onClick={() => setShowNuevoPedido(true)}
-              className="relative group flex items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-bold text-white overflow-hidden sm:w-auto w-full"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500 to-green-600 rounded-xl" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-xl" />
-              <div className="absolute bottom-0 left-0 right-0 h-1 bg-green-700 rounded-b-xl" />
-              <div className="relative flex items-center gap-2">
-                <Plus className="h-5 w-5" />
-                <span>Nuevo Pedido</span>
-              </div>
-            </motion.button>
+            <div className="flex gap-2 sm:w-auto w-full">
+              {/* Bulk Upload Button */}
+              <motion.button
+                onClick={() => setShowBulkUpload(true)}
+                className="relative group flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold text-primary overflow-hidden flex-1 sm:flex-none border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Upload className="h-5 w-5" />
+                <span className="hidden sm:inline">Carga Masiva</span>
+              </motion.button>
+
+              {/* New Order Button */}
+              <motion.button
+                onClick={() => setShowNuevoPedido(true)}
+                className="relative group flex items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-bold text-primary-foreground overflow-hidden flex-1 sm:flex-none bg-primary shadow-lg"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <div className="relative flex items-center gap-2">
+                  <Plus className="h-5 w-5" />
+                  <span>Nuevo Pedido</span>
+                </div>
+              </motion.button>
+            </div>
           </div>
 
           {/* Views */}
@@ -269,6 +282,17 @@ const ClienteDashboard = () => {
         imageUrl={evidencePhoto}
         isOpen={!!evidencePhoto}
         onClose={() => setEvidencePhoto(null)}
+      />
+
+      <BulkOrderUploadModal
+        isOpen={showBulkUpload}
+        onClose={() => setShowBulkUpload(false)}
+        onSuccess={() => {
+          refetch();
+          setActiveView("pedidos");
+        }}
+        clientUserId={user?.id}
+        storeName={storeName}
       />
     </div>
   );
