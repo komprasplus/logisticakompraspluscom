@@ -26,6 +26,7 @@ interface Pedido {
   valor_producto?: number | null;
   valor_flete?: number | null;
   utilidad?: number | null;
+  fulfillment_cost?: number | null;
   metodo_pago: string | null;
   producto_nombre: string | null;
   fecha_creacion: string | null;
@@ -179,6 +180,19 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
                       {formatCOP(pedido.valor_flete || 12000)}
                     </span>
                   </div>
+
+                  {/* Fulfillment Cost - Read Only Display */}
+                  {pedido.fulfillment_cost !== undefined && pedido.fulfillment_cost !== null && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground flex items-center gap-1">
+                        <Package className="h-3 w-3" />
+                        Fulfillment:
+                      </span>
+                      <span className="font-medium text-primary">
+                        {formatCOP(pedido.fulfillment_cost)}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Utilidad */}

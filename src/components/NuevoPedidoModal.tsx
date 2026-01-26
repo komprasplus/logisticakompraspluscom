@@ -54,6 +54,7 @@ interface StoreOption {
   user_id: string;
   store_name: string | null;
   full_name: string;
+  fulfillment_rate: number | null;
 }
 
 interface InventoryPrefill {
@@ -63,6 +64,12 @@ interface InventoryPrefill {
   quantity: number;
   sku: string;
   maxStock?: number;
+}
+
+// State for current user's fulfillment rate
+interface FulfillmentRateInfo {
+  rate: number;
+  loaded: boolean;
 }
 
 interface NuevoPedidoModalProps {
@@ -121,6 +128,9 @@ const NuevoPedidoModal = ({
   // Admin-only state for store selection
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+  
+  // Fulfillment rate state - loaded from profile
+  const [fulfillmentInfo, setFulfillmentInfo] = useState<FulfillmentRateInfo>({ rate: 1900, loaded: false });
 
   // Calculate flete and utility based on localidad/municipio
   const tarifaInfo = useMemo(() => {
@@ -204,16 +214,54 @@ const NuevoPedidoModal = ({
         const userIds = roleData.map((r) => r.user_id);
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("user_id, store_name, full_name")
+          .select("user_id, store_name, full_name, fulfillment_rate")
           .in("user_id", userIds)
           .eq("status", "activo");
 
-        setStores(profiles || []);
+        setStores((profiles || []) as StoreOption[]);
       }
     } catch (error) {
       console.error("Error fetching stores:", error);
     }
   };
+
+  // Fetch fulfillment rate for the current user (non-admin clients)
+  const fetchUserFulfillmentRate = async (userId: string) => {
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("fulfillment_rate")
+        .eq("user_id", userId)
+        .maybeSingle();
+      
+      const rate = data?.fulfillment_rate ?? 1900;
+      setFulfillmentInfo({ rate, loaded: true });
+    } catch (error) {
+      console.error("Error fetching fulfillment rate:", error);
+      setFulfillmentInfo({ rate: 1900, loaded: true });
+    }
+  };
+
+  // For admins, update fulfillment rate when store selection changes
+  useEffect(() => {
+    if (isAdmin && selectedStoreId) {
+      const selectedStore = stores.find(s => s.user_id === selectedStoreId);
+      if (selectedStore) {
+        setFulfillmentInfo({ rate: selectedStore.fulfillment_rate ?? 1900, loaded: true });
+      }
+    }
+  }, [isAdmin, selectedStoreId, stores]);
+
+  // For clients, fetch their own fulfillment rate on mount
+  useEffect(() => {
+    if (!isAdmin && isOpen) {
+      supabase.auth.getUser().then(({ data }) => {
+        if (data.user?.id) {
+          fetchUserFulfillmentRate(data.user.id);
+        }
+      });
+    }
+  }, [isAdmin, isOpen]);
 
   // Validate Colombian phone number
   const validatePhone = (phone: string) => {
@@ -367,6 +415,8 @@ const NuevoPedidoModal = ({
         // Inventory linking
         inventory_item_id: inventoryItemId || null,
         quantity: quantity,
+        // Store fulfillment cost from profile at order creation time
+        fulfillment_cost: fulfillmentInfo.rate,
       };
 
       const { error } = await supabase.from("pedidos").insert(pedidoData);
@@ -871,6 +921,24 @@ const NuevoPedidoModal = ({
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Fulfillment Rate Informative Display - Read Only */}
+              {fulfillmentInfo.loaded && (
+                <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Truck className="h-4 w-4 text-primary" />
+                      <span>Tarifa de Fulfillment aplicada:</span>
+                    </div>
+                    <span className="text-sm font-bold text-primary">
+                      {formatCOP(fulfillmentInfo.rate)}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Configurada por el administrador. Se aplicará a este despacho.
+                  </p>
                 </div>
               )}
             </div>

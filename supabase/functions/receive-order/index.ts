@@ -129,6 +129,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Fetch the store's fulfillment rate from profile (admin-controlled)
+    const { data: storeProfile, error: profileError } = await supabase
+      .from("profiles")
+      .select("fulfillment_rate")
+      .eq("user_id", credential.client_user_id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Error fetching store profile:", profileError);
+    }
+
+    // Use admin-configured fulfillment rate, default to 1900 if not set
+    const fulfillmentCost = storeProfile?.fulfillment_rate ?? 1900;
+
     // Calculate freight based on municipality
     const valorFlete = TARIFAS[orderPayload.municipio] || 15000;
     const valorProducto = Number(orderPayload.valor_producto) || 0;
@@ -150,7 +164,7 @@ Deno.serve(async (req) => {
     
     const newId = (maxIdResult?.id || 0) + 1;
 
-    // Create the order
+    // Create the order with admin-controlled fulfillment cost
     const { data: newOrder, error: insertError } = await supabase
       .from("pedidos")
       .insert({
@@ -177,7 +191,8 @@ Deno.serve(async (req) => {
         intentos_entrega: 0,
         costo_devolucion: 0,
         devolucion_cobrada: false,
-        guia_impresa: false
+        guia_impresa: false,
+        fulfillment_cost: fulfillmentCost, // Admin-controlled rate from store profile
       })
       .select()
       .single();

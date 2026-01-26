@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
-import { User, Phone, Mail, Store, Key, UserCheck, Trash2, Wifi, WifiOff } from "lucide-react";
+import { User, Phone, Mail, Store, Key, UserCheck, Trash2, Wifi, WifiOff, Pencil, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatCOP } from "@/lib/tarifas";
 
 interface Profile {
   id: string;
@@ -13,6 +14,7 @@ interface Profile {
   store_name?: string | null;
   avatar_url?: string | null;
   is_online?: boolean;
+  fulfillment_rate?: number | null;
 }
 
 interface UserRole {
@@ -26,6 +28,7 @@ interface UserCardsGridProps {
   onResetPassword: (user: Profile) => void;
   onConfirmEmail: (userId: string) => void;
   onDeleteUser: (user: Profile) => void;
+  onEditStore?: (user: Profile) => void;
 }
 
 const UserCardsGrid = ({
@@ -34,6 +37,7 @@ const UserCardsGrid = ({
   onResetPassword,
   onConfirmEmail,
   onDeleteUser,
+  onEditStore,
 }: UserCardsGridProps) => {
   const getUserRole = (userId: string): string => {
     const role = userRoles.find((r) => r.user_id === userId);
@@ -146,6 +150,16 @@ const UserCardsGrid = ({
                   <span className="font-medium text-foreground">{user.store_name}</span>
                 </p>
               )}
+              {/* Show Fulfillment Rate for Clients */}
+              {role === "cliente" && (
+                <p className="text-sm text-muted-foreground flex items-center gap-2">
+                  <DollarSign className="h-4 w-4 text-emerald-500" />
+                  <span>Fulfillment: </span>
+                  <span className="font-semibold text-foreground">
+                    {formatCOP(user.fulfillment_rate || 1900)}
+                  </span>
+                </p>
+              )}
               {user.phone && (
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                   <Phone className="h-4 w-4" />
@@ -162,6 +176,18 @@ const UserCardsGrid = ({
 
             {/* Actions */}
             <div className="flex items-center gap-2 pt-3 border-t border-border">
+              {/* Edit Store - Only for Clients */}
+              {role === "cliente" && onEditStore && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEditStore(user)}
+                  className="gap-1.5"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Editar</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"

@@ -235,6 +235,7 @@ export type Database = {
           firma_cliente: string | null
           foto_evidencia: string | null
           foto_paquete: string | null
+          fulfillment_cost: number | null
           guia_impresa: boolean | null
           guia_impresa_at: string | null
           id: number
@@ -275,6 +276,7 @@ export type Database = {
           firma_cliente?: string | null
           foto_evidencia?: string | null
           foto_paquete?: string | null
+          fulfillment_cost?: number | null
           guia_impresa?: boolean | null
           guia_impresa_at?: string | null
           id?: number
@@ -315,6 +317,7 @@ export type Database = {
           firma_cliente?: string | null
           foto_evidencia?: string | null
           foto_paquete?: string | null
+          fulfillment_cost?: number | null
           guia_impresa?: boolean | null
           guia_impresa_at?: string | null
           id?: number
@@ -354,6 +357,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string | null
+          fulfillment_rate: number | null
           full_name: string
           id: string
           is_online: boolean | null
@@ -373,6 +377,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          fulfillment_rate?: number | null
           full_name: string
           id?: string
           is_online?: boolean | null
@@ -392,6 +397,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email?: string | null
+          fulfillment_rate?: number | null
           full_name?: string
           id?: string
           is_online?: boolean | null
