@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -21,7 +21,6 @@ interface CreateProductModalProps {
   onClose: () => void;
   onSuccess: () => void;
   userId: string;
-  defaultFulfillmentValue?: number;
 }
 
 interface NewProduct {
@@ -29,9 +28,13 @@ interface NewProduct {
   product_name: string;
   stock_available: number;
   price: number;
-  fulfillment_value: number;
   low_stock_threshold: number;
   image_url: string | null;
+}
+
+interface FulfillmentRateInfo {
+  rate: number;
+  loaded: boolean;
 }
 
 const CreateProductModal = ({
@@ -39,23 +42,47 @@ const CreateProductModal = ({
   onClose,
   onSuccess,
   userId,
-  defaultFulfillmentValue = 1900,
 }: CreateProductModalProps) => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fulfillmentInfo, setFulfillmentInfo] = useState<FulfillmentRateInfo>({ rate: 0, loaded: false });
 
   const [product, setProduct] = useState<NewProduct>({
     sku: "",
     product_name: "",
     stock_available: 0,
     price: 0,
-    fulfillment_value: defaultFulfillmentValue,
     low_stock_threshold: 5,
     image_url: null,
   });
+
+  // Fetch fulfillment rate from store's profile
+  useEffect(() => {
+    if (isOpen && userId) {
+      fetchFulfillmentRate();
+    }
+  }, [isOpen, userId]);
+
+  const fetchFulfillmentRate = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("fulfillment_rate")
+        .eq("user_id", userId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      // Rate of 0 means fulfillment is disabled
+      const rate = data?.fulfillment_rate ?? 0;
+      setFulfillmentInfo({ rate, loaded: true });
+    } catch (error) {
+      console.error("Error fetching fulfillment rate:", error);
+      setFulfillmentInfo({ rate: 0, loaded: true });
+    }
+  };
 
   const resetForm = () => {
     setProduct({
@@ -63,7 +90,6 @@ const CreateProductModal = ({
       product_name: "",
       stock_available: 0,
       price: 0,
-      fulfillment_value: defaultFulfillmentValue,
       low_stock_threshold: 5,
       image_url: null,
     });
@@ -181,7 +207,7 @@ const CreateProductModal = ({
         product_name: product.product_name.trim(),
         stock_available: product.stock_available,
         price: product.price,
-        fulfillment_value: product.fulfillment_value,
+        fulfillment_value: fulfillmentInfo.rate, // Use rate from profile, not manual input
         low_stock_threshold: product.low_stock_threshold,
         image_url: product.image_url,
       });
@@ -387,20 +413,31 @@ const CreateProductModal = ({
               </div>
             </div>
 
-            {/* Fulfillment Value - Read Only Info */}
+            {/* Fulfillment Value - Read Only Info from Profile */}
             <div className="rounded-xl bg-muted/30 border border-border p-4">
               <div className="flex items-center gap-2 mb-1">
-                <DollarSign className="h-4 w-4 text-emerald-500" />
+                <DollarSign className={cn(
+                  "h-4 w-4",
+                  fulfillmentInfo.rate > 0 ? "text-emerald-500" : "text-muted-foreground"
+                )} />
                 <span className="text-sm font-medium text-foreground">Tarifa de Fulfillment</span>
               </div>
-              <p className="text-lg font-bold text-primary">
-                {formatCOP(defaultFulfillmentValue)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Configurada por el administrador. Se aplicará automáticamente a cada despacho.
-              </p>
+              {fulfillmentInfo.loaded ? (
+                <>
+                  <p className={cn(
+                    "text-lg font-bold",
+                    fulfillmentInfo.rate > 0 ? "text-primary" : "text-muted-foreground"
+                  )}>
+                    {fulfillmentInfo.rate > 0 ? formatCOP(fulfillmentInfo.rate) : "$0 (No aplica)"}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Tarifa asignada por el administrador según tu plan actual
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Cargando...</p>
+              )}
             </div>
-
             {/* Low Stock Threshold */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">
