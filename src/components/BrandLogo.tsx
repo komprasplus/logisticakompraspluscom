@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Truck } from "lucide-react";
 
 interface BrandLogoProps {
@@ -14,16 +15,16 @@ const sizeConfig = {
   xl: { text: "text-3xl", icon: "h-8 w-8", iconBox: "w-14 h-14" },
 };
 
-const BrandLogo = ({ 
+const BrandLogo = forwardRef<HTMLDivElement, BrandLogoProps>(({ 
   className = "", 
   size = "md", 
   alt = "Plus Envíos",
   showIcon = true 
-}: BrandLogoProps) => {
+}, ref) => {
   const config = sizeConfig[size];
 
   return (
-    <div className={`flex items-center gap-2 ${className}`} title={alt}>
+    <div ref={ref} className={`flex items-center gap-2 ${className}`} title={alt}>
       {showIcon && (
         <div className={`${config.iconBox} rounded-xl bg-gradient-button flex items-center justify-center shadow-md`}>
           <Truck className={`${config.icon} text-white`} />
@@ -35,6 +36,8 @@ const BrandLogo = ({
       </span>
     </div>
   );
-};
+});
+
+BrandLogo.displayName = "BrandLogo";
 
 export default BrandLogo;
