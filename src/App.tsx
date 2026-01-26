@@ -12,6 +12,7 @@ import MotorizadoDashboard from "./pages/MotorizadoDashboard";
 import ClienteDashboard from "./pages/ClienteDashboard";
 import CustomerTracking from "./pages/CustomerTracking";
 import PublicTracking from "./pages/PublicTracking";
+import DespachadorDashboard from "./pages/DespachadorDashboard";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -38,6 +39,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     if (role === "admin") return <Navigate to="/admin" replace />;
     if (role === "motorizado") return <Navigate to="/motorizado" replace />;
     if (role === "cliente") return <Navigate to="/cliente" replace />;
+    if (role === "despachador") return <Navigate to="/despachador" replace />;
   }
 
   return <>{children}</>;
@@ -74,6 +76,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute allowedRoles={["cliente"]}>
             <ClienteDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/despachador"
+        element={
+          <ProtectedRoute allowedRoles={["despachador"]}>
+            <DespachadorDashboard />
           </ProtectedRoute>
         }
       />

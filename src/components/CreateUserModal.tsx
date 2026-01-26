@@ -10,7 +10,7 @@ interface CreateUserModalProps {
   onUserCreated: () => void;
 }
 
-type AppRole = "admin" | "motorizado" | "cliente";
+type AppRole = "admin" | "motorizado" | "cliente" | "despachador";
 
 const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProps) => {
   const [email, setEmail] = useState("");
@@ -210,6 +210,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
                   >
                     <option value="motorizado">Motorizado</option>
                     <option value="cliente">Cliente</option>
+                    <option value="despachador">Despachador</option>
                     <option value="admin">Administrador</option>
                   </select>
                 </div>
