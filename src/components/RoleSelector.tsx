@@ -1,9 +1,10 @@
+import { forwardRef } from "react";
 import { motion } from "framer-motion";
-import { Truck, Package, LogIn } from "lucide-react";
+import { Package, LogIn } from "lucide-react";
 import { Link } from "react-router-dom";
 import BrandLogo from "@/components/BrandLogo";
 
-const RoleSelector = () => {
+const RoleSelector = forwardRef<HTMLDivElement>((_, ref) => {
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -18,7 +19,7 @@ const RoleSelector = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div ref={ref} className="min-h-screen bg-background">
       <div className="container mx-auto flex min-h-screen flex-col items-center justify-center px-4 py-8">
         <motion.div
           className="w-full max-w-md"
@@ -27,7 +28,6 @@ const RoleSelector = () => {
           animate="visible"
         >
           <motion.div variants={itemVariants} className="mb-8 text-center">
-            {/* Fixed: Using BrandLogo component instead of broken img */}
             <div className="flex justify-center mb-6">
               <BrandLogo size="xl" />
             </div>
@@ -40,7 +40,6 @@ const RoleSelector = () => {
           </motion.div>
 
           <motion.div variants={itemVariants} className="space-y-4">
-            {/* Login Button - Neumorphic Style */}
             <Link to="/auth">
               <motion.div
                 className="group flex w-full items-center gap-4 rounded-2xl neu-flat p-6 transition-all hover:shadow-elevated"
@@ -71,7 +70,6 @@ const RoleSelector = () => {
               </motion.div>
             </Link>
 
-            {/* Quick Tracking - Neumorphic Style */}
             <Link to="/rastreo">
               <motion.div
                 className="group flex w-full items-center gap-4 rounded-2xl neu-flat p-6 transition-all hover:shadow-elevated"
@@ -114,6 +112,8 @@ const RoleSelector = () => {
       </div>
     </div>
   );
-};
+});
+
+RoleSelector.displayName = "RoleSelector";
 
 export default RoleSelector;
