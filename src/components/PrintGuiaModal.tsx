@@ -1,7 +1,7 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer, Download } from "lucide-react";
+import { Printer, Download, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
@@ -35,6 +35,8 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
   const guiaRef = useRef<HTMLDivElement>(null);
   const [storeLogo, setStoreLogo] = useState<string | null>(null);
   const [storeName, setStoreName] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
 
   // Fetch store logo if pedido has client_user_id
   useEffect(() => {
@@ -68,73 +70,121 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
     }
   }, [pedido, isOpen]);
 
-  if (!pedido) return null;
-
-  const handlePrint = () => {
+  const handlePrint = useCallback(async () => {
+    if (!pedido) return;
     const printContent = guiaRef.current;
     if (!printContent) return;
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      toast.error("No se pudo abrir la ventana de impresión");
-      return;
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Guía ${pedido.numero_guia || pedido.id}</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { 
-              font-family: Arial, Helvetica, sans-serif; 
-              background: white;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            @page {
-              size: 10cm 15cm;
-              margin: 0;
-            }
-            @media print {
-              body { margin: 0; }
-              .guia-container { border: none !important; }
-            }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 250);
-  };
-
-  const handleDownload = async () => {
-    if (!guiaRef.current) return;
+    setIsPrinting(true);
 
     try {
+      // For mobile, use a more compatible approach
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        toast.error("No se pudo abrir la ventana de impresión. Desactiva el bloqueador de pop-ups.");
+        setIsPrinting(false);
+        return;
+      }
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Guía ${pedido.numero_guia || pedido.id}</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { 
+                font-family: Arial, Helvetica, sans-serif; 
+                background: white;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              @page {
+                size: 10cm 15cm;
+                margin: 0;
+              }
+              @media print {
+                body { margin: 0; }
+                .guia-container { border: none !important; }
+              }
+            </style>
+          </head>
+          <body>
+            ${printContent.innerHTML}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+        setIsPrinting(false);
+      }, 250);
+    } catch (error) {
+      console.error("Error printing:", error);
+      toast.error("Error al imprimir la guía");
+      setIsPrinting(false);
+    }
+  }, [pedido]);
+
+  const handleDownload = useCallback(async () => {
+    if (!pedido) return;
+    if (!guiaRef.current) return;
+
+    setIsGenerating(true);
+    toast.info("Generando guía...", { duration: 2000 });
+
+    try {
+      // Use lower pixelRatio on mobile for better performance
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const pixelRatio = isMobile ? 2 : 3;
+      
       const dataUrl = await toPng(guiaRef.current, { 
-        quality: 1, 
-        pixelRatio: 3,
-        backgroundColor: "#ffffff"
+        quality: 0.95, 
+        pixelRatio,
+        backgroundColor: "#ffffff",
+        cacheBust: true, // Prevent caching issues
+        skipAutoScale: true, // Better mobile compatibility
       });
+
+      // Convert data URL to Blob for more reliable mobile download
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      
+      // Create a robust download using object URL
+      const blobUrl = URL.createObjectURL(blob);
+      const fileName = `guia-${pedido.numero_guia || pedido.id}.png`;
+      
+      // Create temporary anchor for download
       const link = document.createElement("a");
-      link.download = `guia-${pedido.numero_guia || pedido.id}.png`;
-      link.href = dataUrl;
+      link.href = blobUrl;
+      link.download = fileName;
+      link.style.display = "none";
+      
+      // Required for Firefox and some mobile browsers
+      document.body.appendChild(link);
+      
+      // Trigger download
       link.click();
-      toast.success("Guía descargada");
+      
+      // Cleanup
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      }, 100);
+      
+      toast.success("Guía descargada correctamente");
     } catch (error) {
       console.error("Error generating image:", error);
-      toast.error("Error al descargar la guía");
+      toast.error("No se pudo generar la guía, intenta nuevamente");
+    } finally {
+      setIsGenerating(false);
     }
-  };
+  }, [pedido]);
+
+  // Early return after all hooks
+  if (!pedido) return null;
 
   const formatDate = () => {
     return new Date().toLocaleDateString("es-CO", {
@@ -362,15 +412,42 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
           </div>
         </div>
 
-        {/* Actions */}
+        {/* Actions - Larger touch targets for mobile (min 44px) */}
         <div className="flex gap-3 mt-4">
-          <Button variant="outline" className="flex-1" onClick={handleDownload}>
-            <Download className="h-4 w-4 mr-2" />
-            Descargar
+          <Button 
+            variant="outline" 
+            className="flex-1 h-12 min-h-[44px] text-base" 
+            onClick={handleDownload}
+            disabled={isGenerating}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Generando...
+              </>
+            ) : (
+              <>
+                <Download className="h-5 w-5 mr-2" />
+                Descargar
+              </>
+            )}
           </Button>
-          <Button className="flex-1" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-2" />
-            Imprimir
+          <Button 
+            className="flex-1 h-12 min-h-[44px] text-base" 
+            onClick={handlePrint}
+            disabled={isPrinting}
+          >
+            {isPrinting ? (
+              <>
+                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                Imprimiendo...
+              </>
+            ) : (
+              <>
+                <Printer className="h-5 w-5 mr-2" />
+                Imprimir
+              </>
+            )}
           </Button>
         </div>
       </DialogContent>
