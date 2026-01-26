@@ -31,6 +31,7 @@ import {
   FileCheck,
   Store,
   Pencil,
+  Upload,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -69,6 +70,7 @@ import AdminNotesInput from "@/components/AdminNotesInput";
 import AnalyticsControlTower from "@/components/admin/AnalyticsControlTower";
 import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 import BulkReassignModal from "@/components/admin/BulkReassignModal";
+import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 
 interface Pedido {
   id: number;
@@ -133,7 +135,9 @@ const AdminDashboard = () => {
   const [barrioFilter, setBarrioFilter] = useState<string>("todos");
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>("todos");
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
+  const [storeFilter, setStoreFilter] = useState<string>("todos");
   const [dateFilter, setDateFilter] = useState<string>("");
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null); // null = live/today
   const [searchQuery, setSearchQuery] = useState("");
   const [users, setUsers] = useState<Profile[]>([]);
@@ -260,7 +264,7 @@ const AdminDashboard = () => {
   // Apply filters  
   useEffect(() => {
     filterPedidos();
-  }, [statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, dateFilter, searchQuery, pedidos]);
+  }, [statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, dateFilter, searchQuery, pedidos, clientProfiles]);
 
   const fetchPedidos = async () => {
     try {
@@ -347,6 +351,15 @@ const AdminDashboard = () => {
 
     if (zonaFilter !== "todos") {
       filtered = filtered.filter((p) => p.zona === zonaFilter);
+    }
+
+    if (storeFilter !== "todos") {
+      filtered = filtered.filter((p) => {
+        if (!p.client_user_id) return false;
+        const profile = clientProfiles[p.client_user_id];
+        const storeName = profile?.store_name || profile?.full_name || "";
+        return storeName === storeFilter;
+      });
     }
 
     if (dateFilter) {
@@ -862,6 +875,10 @@ const AdminDashboard = () => {
                   <Plus className="h-4 w-4" />
                   Nuevo Pedido
                 </button>
+                <Button onClick={() => setShowBulkUpload(true)} variant="outline" className="gap-2">
+                  <Upload className="h-4 w-4" />
+                  Carga Masiva
+                </Button>
                 <Button onClick={() => setShowQRScanner(true)} variant="secondary" className="gap-2">
                   <ScanLine className="h-4 w-4" />
                   Escanear QR
@@ -917,10 +934,17 @@ const AdminDashboard = () => {
                   ))}
                 </select>
 
+                <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
+                  <option value="todos">🏪 Todas las tiendas</option>
+                  {Object.values(clientProfiles).map((profile, idx) => (
+                    <option key={idx} value={profile.store_name || profile.full_name}>{profile.store_name || profile.full_name}</option>
+                  ))}
+                </select>
+
                 <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none" />
 
-                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || dateFilter) && (
-                  <button onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setDateFilter(""); }} className="text-sm text-primary hover:underline">
+                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || dateFilter) && (
+                  <button onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setDateFilter(""); }} className="text-sm text-primary hover:underline">
                     Limpiar filtros
                   </button>
                 )}
@@ -979,6 +1003,7 @@ const AdminDashboard = () => {
                         <th className="px-2 py-3 text-left w-8"><span className="sr-only">Seleccionar Guía</span></th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Guía</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Cliente</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden xl:table-cell">Tienda</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Zona</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Barrio</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
@@ -1029,6 +1054,16 @@ const AdminDashboard = () => {
                               </div>
                             </td>
                             <td className="px-3 py-3 text-muted-foreground text-xs sm:text-sm max-w-[100px] sm:max-w-none truncate">{pedido.cliente_nombre || "-"}</td>
+                            <td className="px-3 py-3 hidden xl:table-cell">
+                              {pedido.client_user_id && clientProfiles[pedido.client_user_id] ? (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">
+                                  <Store className="h-3 w-3" />
+                                  {clientProfiles[pedido.client_user_id].store_name || clientProfiles[pedido.client_user_id].full_name}
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground text-xs">-</span>
+                              )}
+                            </td>
                             <td className="px-3 py-3 hidden sm:table-cell"><ZonaBadge zona={pedido.zona} /></td>
                             <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">{pedido.barrio || "-"}</td>
                             <td className="px-3 py-3 hidden md:table-cell">
@@ -1421,6 +1456,11 @@ const AdminDashboard = () => {
           fetchPedidos();
           setSelectedForBulk([]);
         }}
+      />
+      <BulkOrderUploadModal
+        isOpen={showBulkUpload}
+        onClose={() => setShowBulkUpload(false)}
+        onSuccess={fetchPedidos}
       />
     </div>
   );
