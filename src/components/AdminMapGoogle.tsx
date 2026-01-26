@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import {
   GoogleMap,
   useJsApiLoader,
@@ -8,9 +8,11 @@ import {
 } from "@react-google-maps/api";
 import { supabase } from "@/integrations/supabase/client";
 import { getMapMarkerColor, getStatusConfig } from "@/lib/orderStatuses";
-import { format } from "date-fns";
+import { format, isToday, parseISO, startOfDay } from "date-fns";
 import { es } from "date-fns/locale";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyDvV2fL5jv0OIp45Si4m4-gaWSt9gIXznA";
 
@@ -29,6 +31,11 @@ const mapContainerStyle = {
   minHeight: "400px",
 };
 
+// Operational statuses to show on map
+const OPERATIONAL_STATUSES = ["en ruta", "novedad", "asignado", "recibido en bodega"];
+// Statuses that are considered "closed" - hide from previous days
+const CLOSED_STATUSES = ["entregado", "liquidado", "anulado", "rechazado", "devolución"];
+
 interface Pedido {
   id: number;
   numero_guia: string | null;
@@ -42,16 +49,27 @@ interface Pedido {
   tipo_novedad?: string | null;
   barrio?: string | null;
   zona?: string | null;
+  fecha_creacion?: string | null;
+  fecha_entrega?: string | null;
 }
 
 interface Motorizado {
   user_id: string;
   full_name: string;
+  phone: string | null;
   is_online: boolean;
   last_location_lat: number | null;
   last_location_lng: number | null;
   last_location_updated_at: string | null;
   activeOrders?: number;
+}
+
+// Animated position for smooth GPS tracking
+interface AnimatedPosition {
+  lat: number;
+  lng: number;
+  targetLat: number;
+  targetLng: number;
 }
 
 interface AdminMapGoogleProps {
@@ -71,10 +89,14 @@ const AdminMapGoogle = ({
 }: AdminMapGoogleProps) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [motorizados, setMotorizados] = useState<Motorizado[]>([]);
+  const [animatedPositions, setAnimatedPositions] = useState<Record<string, AnimatedPosition>>({});
+  const [showNovedadesOnly, setShowNovedadesOnly] = useState(false);
   const [selectedMarker, setSelectedMarker] = useState<{
     type: "pedido" | "motorizado" | "bodega";
     data: Pedido | Motorizado | null;
   } | null>(null);
+  
+  const animationFrameRef = useRef<number | null>(null);
 
   const isLiveView = selectedDate === null;
 
@@ -83,7 +105,7 @@ const AdminMapGoogle = ({
     libraries: ["places"],
   });
 
-  // Fetch motorizados
+  // Fetch motorizados with phone numbers
   const fetchMotorizados = useCallback(async () => {
     try {
       const { data: roles } = await supabase
@@ -100,16 +122,16 @@ const AdminMapGoogle = ({
 
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("user_id, full_name, is_online, last_location_lat, last_location_lng, last_location_updated_at")
+        .select("user_id, full_name, phone, is_online, last_location_lat, last_location_lng, last_location_updated_at")
         .in("user_id", userIds)
         .eq("status", "activo");
 
-      // Get active orders count
+      // Get active orders count per motorizado
       const { data: orderCounts } = await supabase
         .from("pedidos")
         .select("motorizado_id")
         .in("motorizado_id", userIds)
-        .in("estado", ["Asignado", "En Ruta"]);
+        .in("estado", ["Asignado", "En Ruta", "Novedad"]);
 
       const countMap: Record<string, number> = {};
       orderCounts?.forEach((o) => {
@@ -118,28 +140,154 @@ const AdminMapGoogle = ({
         }
       });
 
-      setMotorizados(
-        (profiles || []).map((p) => ({
-          ...p,
-          activeOrders: countMap[p.user_id] || 0,
-        }))
-      );
+      const newMotorizados = (profiles || []).map((p) => ({
+        ...p,
+        activeOrders: countMap[p.user_id] || 0,
+      }));
+
+      setMotorizados(newMotorizados);
+
+      // Initialize animated positions for new motorizados
+      setAnimatedPositions((prev) => {
+        const updated = { ...prev };
+        newMotorizados.forEach((m) => {
+          if (m.last_location_lat && m.last_location_lng) {
+            if (!updated[m.user_id]) {
+              // New motorizado - set position directly
+              updated[m.user_id] = {
+                lat: m.last_location_lat,
+                lng: m.last_location_lng,
+                targetLat: m.last_location_lat,
+                targetLng: m.last_location_lng,
+              };
+            } else {
+              // Existing - update target for smooth animation
+              updated[m.user_id] = {
+                ...updated[m.user_id],
+                targetLat: m.last_location_lat,
+                targetLng: m.last_location_lng,
+              };
+            }
+          }
+        });
+        return updated;
+      });
     } catch (error) {
       console.error("Error fetching motorizados:", error);
     }
   }, []);
 
+  // Smooth animation for motorizado positions
   useEffect(() => {
-    fetchMotorizados();
-    
-    // Poll for updates in live view
-    let interval: NodeJS.Timeout | null = null;
-    if (isLiveView) {
-      interval = setInterval(fetchMotorizados, 15000);
-    }
-    
+    if (!isLiveView) return;
+
+    const animate = () => {
+      setAnimatedPositions((prev) => {
+        let hasChanges = false;
+        const updated = { ...prev };
+
+        Object.keys(updated).forEach((userId) => {
+          const pos = updated[userId];
+          const latDiff = pos.targetLat - pos.lat;
+          const lngDiff = pos.targetLng - pos.lng;
+
+          // If position is close enough, snap to target
+          if (Math.abs(latDiff) < 0.00001 && Math.abs(lngDiff) < 0.00001) {
+            if (pos.lat !== pos.targetLat || pos.lng !== pos.targetLng) {
+              updated[userId] = { ...pos, lat: pos.targetLat, lng: pos.targetLng };
+              hasChanges = true;
+            }
+          } else {
+            // Smooth interpolation (ease-out)
+            updated[userId] = {
+              ...pos,
+              lat: pos.lat + latDiff * 0.15,
+              lng: pos.lng + lngDiff * 0.15,
+            };
+            hasChanges = true;
+          }
+        });
+
+        return hasChanges ? updated : prev;
+      });
+
+      animationFrameRef.current = requestAnimationFrame(animate);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animate);
+
     return () => {
-      if (interval) clearInterval(interval);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
+  }, [isLiveView]);
+
+  // Real-time subscription for motorizado location updates
+  useEffect(() => {
+    if (!isLiveView) return;
+
+    fetchMotorizados();
+
+    // Subscribe to profile location changes
+    const channel = supabase
+      .channel('motorizado-locations')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: 'last_location_lat=neq.null',
+        },
+        (payload) => {
+          const updated = payload.new as {
+            user_id: string;
+            last_location_lat: number | null;
+            last_location_lng: number | null;
+            last_location_updated_at: string | null;
+            is_online: boolean | null;
+          };
+
+          // Check if this is a motorizado we're tracking
+          setMotorizados((prev) => {
+            const existing = prev.find((m) => m.user_id === updated.user_id);
+            if (!existing) return prev;
+
+            return prev.map((m) =>
+              m.user_id === updated.user_id
+                ? {
+                    ...m,
+                    last_location_lat: updated.last_location_lat,
+                    last_location_lng: updated.last_location_lng,
+                    last_location_updated_at: updated.last_location_updated_at,
+                    is_online: updated.is_online ?? m.is_online,
+                  }
+                : m
+            );
+          });
+
+          // Update animated position target
+          if (updated.last_location_lat && updated.last_location_lng) {
+            setAnimatedPositions((prev) => ({
+              ...prev,
+              [updated.user_id]: {
+                ...(prev[updated.user_id] || { lat: updated.last_location_lat!, lng: updated.last_location_lng! }),
+                targetLat: updated.last_location_lat!,
+                targetLng: updated.last_location_lng!,
+              },
+            }));
+          }
+        }
+      )
+      .subscribe();
+
+    // Fallback polling every 30s for robustness
+    const interval = setInterval(fetchMotorizados, 30000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [fetchMotorizados, isLiveView]);
 
@@ -147,27 +295,59 @@ const AdminMapGoogle = ({
     setMap(mapInstance);
   }, []);
 
-  // Filter valid pedidos for markers
+  // Smart filter: operational statuses + lagged orders from previous days
   const validPedidos = useMemo(() => {
-    return pedidos.filter(
-      (p) =>
-        p.latitud &&
-        p.longitud &&
-        !isNaN(p.latitud) &&
-        !isNaN(p.longitud) &&
-        p.estado?.toLowerCase() !== "anulado"
-    );
-  }, [pedidos]);
+    const today = startOfDay(new Date());
+
+    return pedidos.filter((p) => {
+      // Must have valid coordinates
+      if (!p.latitud || !p.longitud || isNaN(p.latitud) || isNaN(p.longitud)) {
+        return false;
+      }
+
+      const estado = p.estado?.toLowerCase() || "";
+
+      // Always exclude "anulado"
+      if (estado === "anulado") return false;
+
+      // If "novedades only" toggle is on, show only novedades
+      if (showNovedadesOnly) {
+        return estado === "novedad" || estado.includes("novedad");
+      }
+
+      // For today's orders, show all operational statuses
+      const orderDate = p.fecha_creacion ? startOfDay(parseISO(p.fecha_creacion)) : null;
+      const deliveryDate = p.fecha_entrega ? startOfDay(parseISO(p.fecha_entrega)) : null;
+      const isOrderFromToday = orderDate && orderDate.getTime() === today.getTime();
+      const isDeliveryToday = deliveryDate && deliveryDate.getTime() === today.getTime();
+
+      if (isOrderFromToday || isDeliveryToday) {
+        // Today's orders: show all except closed/completed from previous days
+        return !CLOSED_STATUSES.includes(estado);
+      }
+
+      // For previous days: only show if NOT in a closed status (lagged/problem orders)
+      // This includes: En Ruta, Novedad, Asignado, Recibido en Bodega
+      return OPERATIONAL_STATUSES.includes(estado);
+    });
+  }, [pedidos, showNovedadesOnly]);
 
   // Create marker icon URL based on status
   const getPedidoMarkerIcon = useCallback((pedido: Pedido) => {
     const isUnassigned = !pedido.motorizado_asignado;
     const color = getMapMarkerColor(pedido.estado, !isUnassigned);
+    const isNovedad = pedido.estado?.toLowerCase().includes("novedad");
+    
     // Using SVG data URI for custom colored markers
     const svg = isUnassigned
       ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">
           <rect x="2" y="2" width="20" height="20" rx="4" fill="${color}" stroke="white" stroke-width="2"/>
           <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">?</text>
+        </svg>`
+      : isNovedad
+      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 28" width="28" height="28">
+          <circle cx="14" cy="14" r="12" fill="${color}" stroke="white" stroke-width="2"/>
+          <text x="14" y="19" text-anchor="middle" fill="white" font-size="14" font-weight="bold">!</text>
         </svg>`
       : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
           <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>
@@ -177,9 +357,15 @@ const AdminMapGoogle = ({
 
   const getMotorizadoMarkerIcon = useCallback((isOnline: boolean) => {
     const color = isOnline ? "#22c55e" : "#9ca3af";
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
-      <circle cx="20" cy="20" r="18" fill="${color}" stroke="white" stroke-width="3"/>
-      <text x="20" y="26" text-anchor="middle" font-size="18">🏍️</text>
+    // Motorcycle icon with pulsing effect for online
+    const pulseAnimation = isOnline 
+      ? `<animate attributeName="r" values="18;20;18" dur="1.5s" repeatCount="indefinite"/>`
+      : "";
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 44 44" width="44" height="44">
+      <circle cx="22" cy="22" r="18" fill="${color}" stroke="white" stroke-width="3">
+        ${pulseAnimation}
+      </circle>
+      <text x="22" y="28" text-anchor="middle" font-size="18">🏍️</text>
     </svg>`;
     return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   }, []);
@@ -202,6 +388,14 @@ const AdminMapGoogle = ({
     }),
     []
   );
+
+  // Count novedades for toggle label
+  const novedadesCount = useMemo(() => {
+    return pedidos.filter((p) => {
+      const estado = p.estado?.toLowerCase() || "";
+      return estado === "novedad" || estado.includes("novedad");
+    }).length;
+  }, [pedidos]);
 
   if (loadError) {
     return (
@@ -227,6 +421,37 @@ const AdminMapGoogle = ({
 
   return (
     <div className="relative h-full w-full rounded-xl overflow-hidden shadow-lg">
+      {/* Toggle for Novedades Only */}
+      <div className="absolute top-4 left-4 z-[600] bg-card/95 backdrop-blur-sm rounded-lg px-3 py-2 shadow-lg border border-border">
+        <div className="flex items-center gap-2">
+          <Switch
+            id="novedades-only"
+            checked={showNovedadesOnly}
+            onCheckedChange={setShowNovedadesOnly}
+          />
+          <Label 
+            htmlFor="novedades-only" 
+            className="text-sm font-medium cursor-pointer flex items-center gap-1"
+          >
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+            Ver solo Novedades
+            {novedadesCount > 0 && (
+              <span className="ml-1 bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                {novedadesCount}
+              </span>
+            )}
+          </Label>
+        </div>
+      </div>
+
+      {/* Live indicator */}
+      {isLiveView && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[600] bg-green-500/90 text-white text-xs font-medium px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg">
+          <span className="w-2 h-2 bg-white rounded-full animate-pulse" />
+          En vivo
+        </div>
+      )}
+
       <GoogleMap
         mapContainerStyle={mapContainerStyle}
         center={BODEGA_COORDS}
@@ -358,43 +583,45 @@ const AdminMapGoogle = ({
           </InfoWindowF>
         )}
 
-        {/* Motorizado Markers */}
+        {/* Motorizado Markers with smooth animation */}
         {isLiveView &&
           motorizados
-            .filter((m) => m.last_location_lat && m.last_location_lng)
-            .map((motorizado) => (
-              <MarkerF
-                key={`moto-${motorizado.user_id}`}
-                position={{
-                  lat: motorizado.last_location_lat!,
-                  lng: motorizado.last_location_lng!,
-                }}
-                icon={{
-                  url: getMotorizadoMarkerIcon(motorizado.is_online || false),
-                  scaledSize: new google.maps.Size(40, 40),
-                  anchor: new google.maps.Point(20, 20),
-                }}
-                zIndex={500}
-                onClick={() => {
-                  setSelectedMarker({ type: "motorizado", data: motorizado });
-                  onMotorizadoClick?.(motorizado);
-                }}
-              />
-            ))}
+            .filter((m) => animatedPositions[m.user_id])
+            .map((motorizado) => {
+              const pos = animatedPositions[motorizado.user_id];
+              return (
+                <MarkerF
+                  key={`moto-${motorizado.user_id}`}
+                  position={{ lat: pos.lat, lng: pos.lng }}
+                  icon={{
+                    url: getMotorizadoMarkerIcon(motorizado.is_online || false),
+                    scaledSize: new google.maps.Size(44, 44),
+                    anchor: new google.maps.Point(22, 22),
+                  }}
+                  zIndex={500}
+                  onClick={() => {
+                    setSelectedMarker({ type: "motorizado", data: motorizado });
+                    onMotorizadoClick?.(motorizado);
+                  }}
+                />
+              );
+            })}
 
-        {/* Motorizado InfoWindow */}
+        {/* Motorizado InfoWindow - Enhanced with phone and orders */}
         {selectedMarker?.type === "motorizado" && selectedMarker.data && (
           <InfoWindowF
             position={{
-              lat: (selectedMarker.data as Motorizado).last_location_lat!,
-              lng: (selectedMarker.data as Motorizado).last_location_lng!,
+              lat: animatedPositions[(selectedMarker.data as Motorizado).user_id]?.lat ||
+                   (selectedMarker.data as Motorizado).last_location_lat!,
+              lng: animatedPositions[(selectedMarker.data as Motorizado).user_id]?.lng ||
+                   (selectedMarker.data as Motorizado).last_location_lng!,
             }}
             onCloseClick={() => setSelectedMarker(null)}
-            options={{ maxWidth: 280, zIndex: 10010 }}
+            options={{ maxWidth: 300, zIndex: 10010 }}
           >
-            <div style={{ padding: "8px", minWidth: "200px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px" }}>
-                <span style={{ fontWeight: "bold", fontSize: "14px" }}>
+            <div style={{ padding: "10px", minWidth: "220px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "10px" }}>
+                <span style={{ fontWeight: "bold", fontSize: "15px" }}>
                   🏍️ {(selectedMarker.data as Motorizado).full_name}
                 </span>
                 <span
@@ -410,9 +637,32 @@ const AdminMapGoogle = ({
                   {(selectedMarker.data as Motorizado).is_online ? "En línea" : "Offline"}
                 </span>
               </div>
-              <p style={{ margin: "0 0 4px 0", fontSize: "12px" }}>
-                📦 Pedidos activos: <strong>{(selectedMarker.data as Motorizado).activeOrders || 0}</strong>
+              
+              {/* Phone */}
+              {(selectedMarker.data as Motorizado).phone && (
+                <p style={{ margin: "0 0 6px 0", fontSize: "13px" }}>
+                  📞{" "}
+                  <a 
+                    href={`tel:${(selectedMarker.data as Motorizado).phone}`}
+                    style={{ color: "#3b82f6", textDecoration: "none" }}
+                  >
+                    {(selectedMarker.data as Motorizado).phone}
+                  </a>
+                </p>
+              )}
+              
+              {/* Active orders count */}
+              <p style={{ margin: "0 0 6px 0", fontSize: "13px", fontWeight: "500" }}>
+                📦 Pedidos asignados:{" "}
+                <span style={{ 
+                  color: (selectedMarker.data as Motorizado).activeOrders ? "#22c55e" : "#9ca3af",
+                  fontWeight: "bold" 
+                }}>
+                  {(selectedMarker.data as Motorizado).activeOrders || 0}
+                </span>
               </p>
+              
+              {/* Last location update */}
               {(selectedMarker.data as Motorizado).last_location_updated_at && (
                 <p style={{ margin: "0", fontSize: "11px", color: "#6b7280" }}>
                   📍 Última ubicación:{" "}
