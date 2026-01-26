@@ -101,7 +101,7 @@ const DespachadorDashboard = () => {
     fetchClientProfiles();
   }, []);
 
-  // Real-time subscription
+  // Real-time subscription for pedidos changes
   useEffect(() => {
     const channel = supabase
       .channel('despachador-pedidos')
@@ -117,6 +117,32 @@ const DespachadorDashboard = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  // Listen for real-time reassignment notifications from motorizados
+  useEffect(() => {
+    const notificationChannel = supabase
+      .channel('admin-notifications')
+      .on('broadcast', { event: 'order-reassigned' }, (payload) => {
+        const data = payload.payload as {
+          pedido_id: number;
+          numero_guia: string | null;
+          previous_motorizado: string;
+          new_motorizado: string;
+          timestamp: string;
+        };
+        
+        // Show toast notification
+        toast.info(`🔄 Reasignación por escaneo`, {
+          description: `Guía ${data.numero_guia || `#${data.pedido_id}`}: ${data.previous_motorizado} → ${data.new_motorizado}`,
+          duration: 8000,
+        });
+        
+        console.log("📡 Notificación de reasignación recibida:", data);
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(notificationChannel); };
   }, []);
 
   useEffect(() => {
