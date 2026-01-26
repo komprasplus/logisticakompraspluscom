@@ -17,6 +17,7 @@ interface Profile {
   is_online?: boolean;
   nit_rut?: string | null;
   vehicle_plate?: string | null;
+  fulfillment_rate?: number | null;
 }
 
 interface UserRole {
@@ -30,6 +31,7 @@ interface UserManagementTabsProps {
   onResetPassword: (user: Profile) => void;
   onConfirmEmail: (userId: string) => void;
   onDeleteUser: (user: Profile) => void;
+  onEditStore?: (user: Profile) => void;
 }
 
 const UserManagementTabs = ({
@@ -38,6 +40,7 @@ const UserManagementTabs = ({
   onResetPassword,
   onConfirmEmail,
   onDeleteUser,
+  onEditStore,
 }: UserManagementTabsProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"tiendas" | "motorizados">("tiendas");
@@ -154,6 +157,7 @@ const UserManagementTabs = ({
               onResetPassword={onResetPassword}
               onConfirmEmail={onConfirmEmail}
               onDeleteUser={onDeleteUser}
+              onEditStore={onEditStore}
             />
 
             {filteredTiendas.length === 0 && searchQuery && (

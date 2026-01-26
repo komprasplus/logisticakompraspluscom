@@ -110,6 +110,8 @@ const InventarioView = () => {
 
     setSaving(true);
     try {
+      // NOTE: fulfillment_value is no longer editable by clients
+      // It is now controlled at the store profile level by admins
       const { error } = await (supabase as any)
         .from("inventory")
         .update({
@@ -118,7 +120,6 @@ const InventarioView = () => {
           stock_available: editingItem.stock_available,
           price: editingItem.price,
           low_stock_threshold: editingItem.low_stock_threshold,
-          fulfillment_value: editingItem.fulfillment_value || 1900,
         })
         .eq("id", editingItem.id);
 

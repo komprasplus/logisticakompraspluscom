@@ -73,6 +73,7 @@ import BulkReassignModal from "@/components/admin/BulkReassignModal";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import WarehouseInventoryPanel from "@/components/admin/WarehouseInventoryPanel";
+import EditStoreModal from "@/components/EditStoreModal";
 
 interface Pedido {
   id: number;
@@ -120,6 +121,7 @@ interface Profile {
   store_name?: string | null;
   avatar_url?: string | null;
   is_online?: boolean;
+  fulfillment_rate?: number | null;
 }
 
 interface UserRole {
@@ -168,6 +170,8 @@ const AdminDashboard = () => {
   const [showEditPedido, setShowEditPedido] = useState(false);
   const [selectedPedidoForEdit, setSelectedPedidoForEdit] = useState<Pedido | null>(null);
   const [showBulkReassign, setShowBulkReassign] = useState(false);
+  const [showEditStore, setShowEditStore] = useState(false);
+  const [selectedStoreForEdit, setSelectedStoreForEdit] = useState<Profile | null>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -1340,6 +1344,10 @@ const AdminDashboard = () => {
                 setSelectedUserForDelete(user);
                 setShowDeleteUser(true);
               }}
+              onEditStore={(user) => {
+                setSelectedStoreForEdit(user);
+                setShowEditStore(true);
+              }}
             />
           </motion.div>
         );
@@ -1505,6 +1513,17 @@ const AdminDashboard = () => {
         isOpen={showBulkUpload}
         onClose={() => setShowBulkUpload(false)}
         onSuccess={fetchPedidos}
+      />
+      <EditStoreModal
+        isOpen={showEditStore}
+        onClose={() => {
+          setShowEditStore(false);
+          setSelectedStoreForEdit(null);
+        }}
+        store={selectedStoreForEdit}
+        onSuccess={() => {
+          fetchUsers();
+        }}
       />
     </div>
   );

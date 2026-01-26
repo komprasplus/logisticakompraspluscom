@@ -387,32 +387,17 @@ const CreateProductModal = ({
               </div>
             </div>
 
-            {/* Fulfillment Value */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Valor Fulfillment (COP)
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {[1900, 2000, 2200].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() =>
-                      setProduct({ ...product, fulfillment_value: value })
-                    }
-                    className={cn(
-                      "py-2.5 rounded-xl text-sm font-semibold transition-all",
-                      product.fulfillment_value === value
-                        ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                        : "bg-muted/50 text-muted-foreground hover:bg-muted"
-                    )}
-                  >
-                    {formatCOP(value)}
-                  </button>
-                ))}
+            {/* Fulfillment Value - Read Only Info */}
+            <div className="rounded-xl bg-muted/30 border border-border p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="h-4 w-4 text-emerald-500" />
+                <span className="text-sm font-medium text-foreground">Tarifa de Fulfillment</span>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Costo de fulfillment por unidad despachada
+              <p className="text-lg font-bold text-primary">
+                {formatCOP(defaultFulfillmentValue)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Configurada por el administrador. Se aplicará automáticamente a cada despacho.
               </p>
             </div>
 
