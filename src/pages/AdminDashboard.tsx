@@ -72,6 +72,7 @@ import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 import BulkReassignModal from "@/components/admin/BulkReassignModal";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import WarehouseInventoryPanel from "@/components/admin/WarehouseInventoryPanel";
 
 interface Pedido {
   id: number;
@@ -1235,15 +1236,7 @@ const AdminDashboard = () => {
         );
 
       case "inventario":
-        return (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Warehouse className="h-16 w-16 text-muted-foreground mb-4" />
-              <h3 className="text-xl font-bold text-foreground">Inventario de Bodega</h3>
-              <p className="text-muted-foreground mt-2">Módulo en desarrollo</p>
-            </div>
-          </motion.div>
-        );
+        return <WarehouseInventoryPanel />;
 
       case "liquidaciones":
         return (
