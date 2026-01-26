@@ -39,6 +39,11 @@ interface InventoryItem {
   updated_at: string;
 }
 
+interface FulfillmentRateInfo {
+  rate: number;
+  loaded: boolean;
+}
+
 const InventarioView = () => {
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +52,7 @@ const InventarioView = () => {
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   const [saving, setSaving] = useState(false);
   const { user } = useAuth();
+  const [fulfillmentInfo, setFulfillmentInfo] = useState<FulfillmentRateInfo>({ rate: 0, loaded: false });
 
   // Order creation state
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -62,8 +68,26 @@ const InventarioView = () => {
   useEffect(() => {
     if (user?.id) {
       fetchInventory();
+      fetchFulfillmentRate();
     }
   }, [user?.id]);
+
+  const fetchFulfillmentRate = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("fulfillment_rate")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      const rate = data?.fulfillment_rate ?? 0;
+      setFulfillmentInfo({ rate, loaded: true });
+    } catch (error) {
+      console.error("Error fetching fulfillment rate:", error);
+      setFulfillmentInfo({ rate: 0, loaded: true });
+    }
+  };
 
   const fetchInventory = async () => {
     try {
@@ -387,7 +411,11 @@ const InventarioView = () => {
                       </p>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5">
                         <Truck className="h-3 w-3" />
-                        <span>Fulfillment: {formatCOP(item.fulfillment_value || 1900)}</span>
+                        <span>
+                          Fulfillment: {fulfillmentInfo.rate > 0 
+                            ? formatCOP(fulfillmentInfo.rate) 
+                            : "$0 (No aplica)"}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -427,7 +455,7 @@ const InventarioView = () => {
         </div>
       )}
 
-      {/* Create Product Modal - New Enhanced Version */}
+      {/* Create Product Modal - Uses profile fulfillment rate */}
       <CreateProductModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
@@ -435,7 +463,6 @@ const InventarioView = () => {
           fetchInventory();
         }}
         userId={user?.id || ""}
-        defaultFulfillmentValue={1900}
       />
 
       {/* Edit Product Modal */}
