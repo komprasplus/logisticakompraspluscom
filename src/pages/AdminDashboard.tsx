@@ -163,7 +163,7 @@ const AdminDashboard = () => {
   const [showPrintGuia, setShowPrintGuia] = useState(false);
   const [selectedPedidoForPrint, setSelectedPedidoForPrint] = useState<Pedido | null>(null);
   const [showBulkPrint, setShowBulkPrint] = useState(false);
-  const [selectedForPrint, setSelectedForPrint] = useState<number[]>([]);
+  const [selectedForPrint, setSelectedForPrint] = useState<number[]>([]); // Used only for bulk print modal
   const [showDeleteUser, setShowDeleteUser] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState<Profile | null>(null);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
@@ -516,19 +516,41 @@ const AdminDashboard = () => {
     setSelectedForBulk(unassigned);
   };
 
-  // Toggle select for bulk printing
-  const togglePrintSelect = (pedidoId: number) => {
-    setSelectedForPrint((prev) =>
-      prev.includes(pedidoId)
-        ? prev.filter((id) => id !== pedidoId)
-        : [...prev, pedidoId]
-    );
-  };
-
   // Check if order can have guide printed (only 'Recibido en Bodega' or 'Asignado')
   const canPrintGuia = (pedido: Pedido) => {
     const estado = pedido.estado?.toLowerCase();
     return estado === "recibido en bodega" || estado === "asignado";
+  };
+
+  // Get selectable orders for the current page (non-cancelled, non-finalized)
+  const getSelectableOrdersOnPage = useCallback(() => {
+    return despachoPageState.paginatedItems.filter(
+      (p) =>
+        p.estado?.toLowerCase() !== "anulado" &&
+        p.estado?.toLowerCase() !== "entregado" &&
+        p.estado?.toLowerCase() !== "liquidado"
+    );
+  }, [despachoPageState.paginatedItems]);
+
+  // Check if all selectable items on current page are selected
+  const allPageSelected = useCallback(() => {
+    const selectable = getSelectableOrdersOnPage();
+    if (selectable.length === 0) return false;
+    return selectable.every((p) => selectedForBulk.includes(p.id));
+  }, [getSelectableOrdersOnPage, selectedForBulk]);
+
+  // Toggle select all on current page
+  const toggleSelectAllPage = () => {
+    const selectable = getSelectableOrdersOnPage();
+    if (allPageSelected()) {
+      // Deselect all on current page
+      const pageIds = selectable.map((p) => p.id);
+      setSelectedForBulk((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      // Select all on current page
+      const pageIds = selectable.map((p) => p.id);
+      setSelectedForBulk((prev) => [...new Set([...prev, ...pageIds])]);
+    }
   };
 
   // Mark guides as printed in the database
@@ -573,12 +595,22 @@ const AdminDashboard = () => {
     setSelectedPedidoForPrint(null);
   };
 
-  // Handle bulk print
-  const handleBulkPrint = () => {
-    if (selectedForPrint.length < 2) {
-      toast.error("Selecciona al menos 2 pedidos para impresión masiva");
+  // Handle bulk print from selection
+  const handleBulkPrintFromSelection = () => {
+    if (selectedForBulk.length === 0) {
+      toast.error("Selecciona al menos 1 pedido para imprimir");
       return;
     }
+    // Filter to only printable orders
+    const printableIds = selectedForBulk.filter((id) => {
+      const pedido = pedidos.find((p) => p.id === id);
+      return pedido && canPrintGuia(pedido);
+    });
+    if (printableIds.length === 0) {
+      toast.error("Ninguno de los pedidos seleccionados puede imprimirse (deben estar en 'Recibido en Bodega' o 'Asignado')");
+      return;
+    }
+    setSelectedForPrint(printableIds);
     setShowBulkPrint(true);
   };
 
@@ -587,6 +619,7 @@ const AdminDashboard = () => {
     await markGuiasAsPrinted(pedidoIds);
     setShowBulkPrint(false);
     setSelectedForPrint([]);
+    setSelectedForBulk([]);
   };
 
   // Get client remitentes map for bulk print
@@ -982,13 +1015,26 @@ const AdminDashboard = () => {
                 )}
               </div>
 
-              {/* Bulk Assignment Bar */}
+              {/* Dynamic Selection Bar - only visible when items selected */}
               {selectedForBulk.length > 0 && (
-                <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-primary/10 border border-primary/30 neu-flat">
+                <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-primary/10 border-2 border-primary/40 shadow-sm">
                   <Package className="h-5 w-5 text-primary" />
-                  <span className="text-sm font-medium text-foreground">{selectedForBulk.length} pedido(s) seleccionado(s)</span>
+                  <span className="text-sm font-semibold text-foreground">{selectedForBulk.length} pedido(s) seleccionado(s)</span>
+                  
+                  {/* Print Selection Button - highlighted */}
                   <Button
                     size="sm"
+                    onClick={handleBulkPrintFromSelection}
+                    className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Imprimir Selección
+                  </Button>
+                  
+                  {/* Transfer to Motorizado */}
+                  <Button
+                    size="sm"
+                    variant="outline"
                     disabled={bulkAssigning}
                     onClick={() => setShowBulkReassign(true)}
                     className="gap-2"
@@ -996,8 +1042,9 @@ const AdminDashboard = () => {
                     <ArrowLeftRight className="h-4 w-4" />
                     Transferir a Motorizado
                   </Button>
+                  
                   <button onClick={() => setSelectedForBulk([])} className="text-sm text-muted-foreground hover:text-foreground">
-                    Cancelar
+                    Cancelar selección
                   </button>
                 </div>
               )}
@@ -1006,19 +1053,6 @@ const AdminDashboard = () => {
                 <button onClick={selectAllUnassigned} className="text-sm text-primary hover:underline">
                   Seleccionar todos sin asignar ({filteredPedidos.filter((p) => !p.motorizado_asignado).length})
                 </button>
-              )}
-
-              {/* Bulk Print Bar */}
-              {selectedForPrint.length >= 2 && (
-                <div className="flex flex-wrap items-center gap-3 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-300 dark:border-emerald-700">
-                  <Printer className="h-4 w-4 text-emerald-600" />
-                  <span className="text-sm font-medium text-foreground">{selectedForPrint.length} guía(s) seleccionada(s)</span>
-                  <Button size="sm" onClick={handleBulkPrint} className="gap-1">
-                    <Printer className="h-4 w-4" />
-                    Generar Guías Masivas
-                  </Button>
-                  <button onClick={() => setSelectedForPrint([])} className="text-sm text-muted-foreground hover:text-foreground">Cancelar</button>
-                </div>
               )}
             </div>
 
@@ -1031,8 +1065,16 @@ const AdminDashboard = () => {
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b border-border">
                       <tr>
-                        <th className="px-2 py-3 text-left w-8"><span className="sr-only">Seleccionar Asig.</span></th>
-                        <th className="px-2 py-3 text-left w-8"><span className="sr-only">Seleccionar Guía</span></th>
+                        {/* Select All Checkbox */}
+                        <th className="px-2 py-3 text-left w-10">
+                          <input 
+                            type="checkbox" 
+                            checked={allPageSelected()} 
+                            onChange={toggleSelectAllPage}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                            title="Seleccionar todo en esta página"
+                          />
+                        </th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Guía</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Cliente</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden xl:table-cell">Tienda</th>
@@ -1045,32 +1087,24 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {filteredPedidos.map((pedido) => {
+                      {despachoPageState.paginatedItems.map((pedido) => {
                         const isPendingAssignment = !pedido.motorizado_asignado;
                         const isSelected = selectedForBulk.includes(pedido.id);
                         const isCancelled = pedido.estado?.toLowerCase() === "anulado";
                         const canCancel = !isCancelled && pedido.estado?.toLowerCase() !== "entregado" && pedido.estado?.toLowerCase() !== "liquidado";
-                        const isPrintable = canPrintGuia(pedido);
-                        const isPrintSelected = selectedForPrint.includes(pedido.id);
+                        const isSelectable = !isCancelled && pedido.estado?.toLowerCase() !== "entregado" && pedido.estado?.toLowerCase() !== "liquidado";
                         const isGuiaImpresa = pedido.guia_impresa;
                         
                         return (
-                          <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${isPendingAssignment && !isCancelled ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""} ${isPrintSelected ? "bg-emerald-50 dark:bg-emerald-950/20" : ""} ${isCancelled ? "opacity-60" : ""}`}>
-                            {/* Bulk reassignment checkbox - allow selecting any non-finalized order */}
+                          <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${isPendingAssignment && !isCancelled ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""} ${isCancelled ? "opacity-60" : ""}`}>
+                            {/* Unified checkbox for selection */}
                             <td className="px-2 py-3">
-                              {!isCancelled && pedido.estado?.toLowerCase() !== "entregado" && pedido.estado?.toLowerCase() !== "liquidado" && (
-                                <input type="checkbox" checked={isSelected} onChange={() => toggleBulkSelect(pedido.id)} className="h-4 w-4 rounded border-border text-primary focus:ring-primary" />
-                              )}
-                            </td>
-                            {/* Bulk print checkbox */}
-                            <td className="px-2 py-3">
-                              {isPrintable && !isCancelled && (
+                              {isSelectable && (
                                 <input 
                                   type="checkbox" 
-                                  checked={isPrintSelected} 
-                                  onChange={() => togglePrintSelect(pedido.id)} 
-                                  className="h-4 w-4 rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500" 
-                                  title="Seleccionar para impresión masiva"
+                                  checked={isSelected} 
+                                  onChange={() => toggleBulkSelect(pedido.id)} 
+                                  className="h-4 w-4 rounded border-border text-primary focus:ring-primary" 
                                 />
                               )}
                             </td>
@@ -1220,6 +1254,22 @@ const AdminDashboard = () => {
                 </div>
                 {filteredPedidos.length === 0 && (
                   <div className="p-8 text-center text-muted-foreground">No se encontraron pedidos con los filtros seleccionados</div>
+                )}
+                
+                {/* Pagination */}
+                {filteredPedidos.length > 0 && (
+                  <div className="p-4 border-t border-border">
+                    <PaginationControls
+                      currentPage={despachoPageState.currentPage}
+                      totalPages={despachoPageState.totalPages}
+                      onPageChange={despachoPageState.goToPage}
+                      startIndex={despachoPageState.startIndex}
+                      endIndex={despachoPageState.endIndex}
+                      totalItems={despachoPageState.totalItems}
+                      itemsPerPage={despachoPageState.itemsPerPage}
+                      onItemsPerPageChange={despachoPageState.setItemsPerPage}
+                    />
+                  </div>
                 )}
               </div>
             )}
