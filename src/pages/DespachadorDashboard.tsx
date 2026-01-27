@@ -354,9 +354,10 @@ const DespachadorDashboard = () => {
                   onClick={() => setShowBulkPrint(true)}
                   variant="outline"
                   className="gap-2"
+                  disabled={selectedForBulk.length === 0}
                 >
                   <Printer className="h-4 w-4" />
-                  Impresión Masiva
+                  Imprimir Selección {selectedForBulk.length > 0 && `(${selectedForBulk.length})`}
                 </Button>
               </div>
             </div>
@@ -616,10 +617,15 @@ const DespachadorDashboard = () => {
       {showBulkPrint && (
         <BulkPrintGuiasModal
           isOpen={showBulkPrint}
-          onClose={() => setShowBulkPrint(false)}
-          pedidos={pedidos.filter((p) => canReprintGuia(p))}
+          onClose={() => {
+            setShowBulkPrint(false);
+          }}
+          pedidos={pedidos.filter((p) => selectedForBulk.includes(p.id) && canReprintGuia(p))}
           remitentes={remitentesMap}
-          onPrintComplete={(ids) => fetchPedidos()}
+          onPrintComplete={(ids) => {
+            setSelectedForBulk([]);
+            fetchPedidos();
+          }}
         />
       )}
 
