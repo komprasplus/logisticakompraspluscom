@@ -1,9 +1,10 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Printer } from "lucide-react";
+import { Printer, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
+import { Progress } from "@/components/ui/progress";
 const logo = "/logo-oficial.png";
 
 interface Pedido {
@@ -30,8 +31,9 @@ interface BulkPrintGuiasModalProps {
 
 const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrintComplete }: BulkPrintGuiasModalProps) => {
   const guiasRef = useRef<HTMLDivElement>(null);
-
-  if (pedidos.length === 0) return null;
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const showProgressBar = pedidos.length > 10;
 
   const formatDate = () => {
     return new Date().toLocaleDateString("es-CO", {
@@ -41,63 +43,98 @@ const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrin
     });
   };
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     const printContent = guiasRef.current;
     if (!printContent) return;
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      toast.error("No se pudo abrir la ventana de impresión");
-      return;
+    setIsGenerating(true);
+    setProgress(0);
+
+    // Simulate progress for user feedback on large batches
+    if (showProgressBar) {
+      const progressInterval = setInterval(() => {
+        setProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 100);
     }
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Guías de Envío (${pedidos.length})</title>
-          <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { 
-              font-family: Arial, Helvetica, sans-serif; 
-              background: white;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            @page {
-              size: 10cm 15cm;
-              margin: 0;
-            }
-            .guia-container {
-              page-break-after: always;
-              page-break-inside: avoid;
-            }
-            .guia-container:last-child {
-              page-break-after: auto;
-            }
-            @media print {
-              body { margin: 0; }
-              .guia-container { border: none !important; }
-            }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-      
-      // Notify parent that print was completed
-      if (onPrintComplete) {
-        onPrintComplete(pedidos.map(p => p.id));
+    try {
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        toast.error("No se pudo abrir la ventana de impresión");
+        setIsGenerating(false);
+        setProgress(0);
+        return;
       }
-    }, 250);
+
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Guías de Envío (${pedidos.length})</title>
+            <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body { 
+                font-family: Arial, Helvetica, sans-serif; 
+                background: white;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              @page {
+                size: 10cm 15cm;
+                margin: 0;
+              }
+              .guia-container {
+                page-break-after: always;
+                page-break-inside: avoid;
+              }
+              .guia-container:last-child {
+                page-break-after: auto;
+              }
+              @media print {
+                body { margin: 0; }
+                .guia-container { border: none !important; }
+              }
+            </style>
+          </head>
+          <body>
+            ${printContent.innerHTML}
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
+      printWindow.focus();
+
+      setProgress(100);
+
+      setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+        
+        // Notify parent that print was completed
+        if (onPrintComplete) {
+          onPrintComplete(pedidos.map(p => p.id));
+        }
+        
+        setIsGenerating(false);
+        setProgress(0);
+        toast.success(`${pedidos.length} guías enviadas a impresión`);
+      }, 250);
+    } catch (error) {
+      console.error("Error printing:", error);
+      toast.error("Error al imprimir las guías");
+      setIsGenerating(false);
+      setProgress(0);
+    }
   };
+
+  // Early return after hooks
+  if (pedidos.length === 0) return null;
 
   const GuiaItem = ({ pedido, remitente }: { pedido: Pedido; remitente?: string }) => {
     const guiaNumero = pedido.numero_guia || `KP-${pedido.id}`;
@@ -293,14 +330,34 @@ const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrin
           </div>
         </div>
 
+        {/* Progress indicator for large batches */}
+        {isGenerating && showProgressBar && (
+          <div className="space-y-2 py-2">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>Preparando {pedidos.length} guías...</span>
+              <span>{progress}%</span>
+            </div>
+            <Progress value={progress} className="h-2" />
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex gap-3 mt-4 pt-4 border-t">
-          <Button variant="outline" className="flex-1" onClick={onClose}>
+          <Button variant="outline" className="flex-1" onClick={onClose} disabled={isGenerating}>
             Cancelar
           </Button>
-          <Button className="flex-1" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-2" />
-            Imprimir {pedidos.length} Guías
+          <Button className="flex-1" onClick={handlePrint} disabled={isGenerating}>
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Procesando...
+              </>
+            ) : (
+              <>
+                <Printer className="h-4 w-4 mr-2" />
+                Imprimir {pedidos.length} Guías
+              </>
+            )}
           </Button>
         </div>
       </DialogContent>
