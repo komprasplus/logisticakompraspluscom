@@ -26,6 +26,9 @@ interface Pedido {
   barrio: string | null;
   zona: string | null;
   valor_recaudar: number | null;
+  valor_producto?: number | null;
+  valor_flete?: number | null;
+  fulfillment_cost?: number | null;
   estado: string | null;
   tipo_novedad: string | null;
   fecha_creacion: string | null;
@@ -78,23 +81,54 @@ const ReportesView = ({ pedidos }: ReportesViewProps) => {
     setIsGenerating(true);
 
     try {
-      // Prepare data for Excel
-      const excelData = filteredPedidos.map((p) => ({
-        "Fecha": p.fecha_creacion 
-          ? format(parseISO(p.fecha_creacion), "dd/MM/yyyy", { locale: es }) 
-          : "-",
-        "Guía": p.numero_guia || "-",
-        "Cliente Final": p.cliente_nombre || "-",
-        "Ciudad/Zona": p.zona || p.barrio || "-",
-        "Dirección": p.direccion_entrega || "-",
-        "Valor Recaudo": p.valor_recaudar || 0,
-        "Estado": p.estado || "-",
-        "Motivo Novedad": p.tipo_novedad || "-",
-      }));
+      // Prepare data for Excel with financial breakdown
+      const excelData = filteredPedidos.map((p) => {
+        const recaudo = p.valor_recaudar || 0;
+        const costoProducto = p.valor_producto || 0;
+        const flete = p.valor_flete || 0;
+        const fulfillment = p.fulfillment_cost || 0;
+        const utilidadNeta = recaudo - costoProducto - flete - fulfillment;
+
+        return {
+          "Fecha": p.fecha_creacion 
+            ? format(parseISO(p.fecha_creacion), "dd/MM/yyyy", { locale: es }) 
+            : "-",
+          "Guía": p.numero_guia || "-",
+          "Cliente Final": p.cliente_nombre || "-",
+          "Ciudad/Zona": p.zona || p.barrio || "-",
+          "Dirección": p.direccion_entrega || "-",
+          "Valor Recaudo": recaudo,
+          "Costo Producto": costoProducto,
+          "Valor Flete": flete,
+          "Valor Fulfillment": fulfillment,
+          "Utilidad Neta": utilidadNeta,
+          "Estado": p.estado || "-",
+          "Motivo Novedad": p.tipo_novedad || "-",
+        };
+      });
+
+      // Calculate totals row
+      const totals = {
+        "Fecha": "",
+        "Guía": "",
+        "Cliente Final": "",
+        "Ciudad/Zona": "",
+        "Dirección": "TOTALES",
+        "Valor Recaudo": excelData.reduce((sum, row) => sum + (row["Valor Recaudo"] || 0), 0),
+        "Costo Producto": excelData.reduce((sum, row) => sum + (row["Costo Producto"] || 0), 0),
+        "Valor Flete": excelData.reduce((sum, row) => sum + (row["Valor Flete"] || 0), 0),
+        "Valor Fulfillment": excelData.reduce((sum, row) => sum + (row["Valor Fulfillment"] || 0), 0),
+        "Utilidad Neta": excelData.reduce((sum, row) => sum + (row["Utilidad Neta"] || 0), 0),
+        "Estado": "",
+        "Motivo Novedad": "",
+      };
+
+      // Combine data with totals
+      const dataWithTotals = [...excelData, totals];
 
       // Create workbook and worksheet
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelData);
+      const ws = XLSX.utils.json_to_sheet(dataWithTotals);
 
       // Set column widths
       ws["!cols"] = [
@@ -103,7 +137,11 @@ const ReportesView = ({ pedidos }: ReportesViewProps) => {
         { wch: 25 }, // Cliente
         { wch: 15 }, // Ciudad
         { wch: 35 }, // Dirección
-        { wch: 15 }, // Valor
+        { wch: 15 }, // Recaudo
+        { wch: 15 }, // Costo Producto
+        { wch: 12 }, // Flete
+        { wch: 15 }, // Fulfillment
+        { wch: 15 }, // Utilidad
         { wch: 12 }, // Estado
         { wch: 25 }, // Motivo
       ];
@@ -232,8 +270,11 @@ const ReportesView = ({ pedidos }: ReportesViewProps) => {
       {/* Info Card */}
       <div className="rounded-xl bg-primary/5 border border-primary/20 p-4">
         <p className="text-sm text-foreground">
-          <strong>El reporte incluye:</strong> Fecha, Número de Guía, Cliente Final, 
-          Ciudad/Zona, Dirección, Valor a Recaudar, Estado y Motivo de Novedad (si aplica).
+          <strong>El reporte incluye:</strong> Fecha, Guía, Cliente Final, Ciudad/Zona, Dirección, 
+          <span className="text-primary font-medium"> Valor Recaudo, Costo Producto, Valor Flete, Valor Fulfillment, Utilidad Neta</span>, Estado y Motivo Novedad.
+        </p>
+        <p className="text-xs text-muted-foreground mt-2">
+          💡 Incluye fila de <strong>TOTALES</strong> al final para facilitar tu liquidación semanal.
         </p>
       </div>
     </motion.div>

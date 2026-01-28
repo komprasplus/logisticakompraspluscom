@@ -15,6 +15,7 @@ interface Pedido {
   valor_recaudar: number | null;
   valor_producto?: number | null;
   valor_flete?: number | null;
+  fulfillment_cost?: number | null;
   utilidad?: number | null;
   metodo_pago: string | null;
   fecha_entrega: string | null;
