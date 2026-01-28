@@ -20,6 +20,9 @@ interface Pedido {
   barrio: string | null;
   zona: string | null;
   valor_recaudar: number | null;
+  valor_producto: number | null;
+  valor_flete: number | null;
+  fulfillment_cost: number | null;
   estado: string | null;
   tipo_novedad: string | null;
   metodo_pago: string | null;
@@ -113,25 +116,59 @@ const AdminReportesPanel = () => {
           "Tienda";
 
       // Prepare Excel data
-      const excelData = pedidos.map((p: Pedido) => ({
-        "Fecha": p.fecha_creacion 
-          ? new Date(p.fecha_creacion).toLocaleDateString("es-CO") 
-          : "-",
-        "N° Guía": p.numero_guia || `#${p.id}`,
-        "Cliente Final": p.cliente_nombre || "-",
-        "Ciudad/Zona": p.zona || "-",
-        "Barrio": p.barrio || "-",
-        "Dirección": p.direccion_entrega || "-",
-        "Método Pago": p.metodo_pago === "anticipado" ? "Anticipado" : "Contra Entrega",
-        "Valor Recaudo": p.valor_recaudar || 0,
-        "Estado": p.estado || "-",
-        "Motivo Novedad": p.tipo_novedad || "-",
-        "Motorizado": p.motorizado_asignado || "-",
-      }));
+      const excelData = pedidos.map((p: Pedido) => {
+        const recaudo = p.valor_recaudar || 0;
+        const costoProducto = p.valor_producto || 0;
+        const flete = p.valor_flete || 0;
+        const fulfillment = p.fulfillment_cost || 0;
+        const utilidadNeta = recaudo - costoProducto - flete - fulfillment;
+
+        return {
+          "Fecha": p.fecha_creacion 
+            ? new Date(p.fecha_creacion).toLocaleDateString("es-CO") 
+            : "-",
+          "N° Guía": p.numero_guia || `#${p.id}`,
+          "Cliente Final": p.cliente_nombre || "-",
+          "Ciudad/Zona": p.zona || "-",
+          "Barrio": p.barrio || "-",
+          "Dirección": p.direccion_entrega || "-",
+          "Método Pago": p.metodo_pago === "anticipado" ? "Anticipado" : "Contra Entrega",
+          "Valor Recaudo": recaudo,
+          "Costo Producto": costoProducto,
+          "Valor Flete": flete,
+          "Valor Fulfillment": fulfillment,
+          "Utilidad Neta": utilidadNeta,
+          "Estado": p.estado || "-",
+          "Motivo Novedad": p.tipo_novedad || "-",
+          "Motorizado": p.motorizado_asignado || "-",
+        };
+      });
+
+      // Calculate totals
+      const totals = {
+        "Fecha": "",
+        "N° Guía": "",
+        "Cliente Final": "",
+        "Ciudad/Zona": "",
+        "Barrio": "",
+        "Dirección": "",
+        "Método Pago": "TOTALES",
+        "Valor Recaudo": excelData.reduce((sum, row) => sum + (row["Valor Recaudo"] || 0), 0),
+        "Costo Producto": excelData.reduce((sum, row) => sum + (row["Costo Producto"] || 0), 0),
+        "Valor Flete": excelData.reduce((sum, row) => sum + (row["Valor Flete"] || 0), 0),
+        "Valor Fulfillment": excelData.reduce((sum, row) => sum + (row["Valor Fulfillment"] || 0), 0),
+        "Utilidad Neta": excelData.reduce((sum, row) => sum + (row["Utilidad Neta"] || 0), 0),
+        "Estado": "",
+        "Motivo Novedad": "",
+        "Motorizado": "",
+      };
+
+      // Add totals row
+      const dataWithTotals = [...excelData, totals];
 
       // Create workbook
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelData);
+      const ws = XLSX.utils.json_to_sheet(dataWithTotals);
 
       // Set column widths
       ws["!cols"] = [
@@ -142,8 +179,12 @@ const AdminReportesPanel = () => {
         { wch: 20 }, // Barrio
         { wch: 35 }, // Dirección
         { wch: 15 }, // Método Pago
-        { wch: 15 }, // Valor
-        { wch: 15 }, // Estado
+        { wch: 15 }, // Recaudo
+        { wch: 15 }, // Costo Producto
+        { wch: 12 }, // Flete
+        { wch: 15 }, // Fulfillment
+        { wch: 15 }, // Utilidad
+        { wch: 12 }, // Estado
         { wch: 20 }, // Motivo
         { wch: 20 }, // Motorizado
       ];
@@ -260,7 +301,10 @@ const AdminReportesPanel = () => {
       <div className="rounded-xl bg-muted/50 p-4 border border-border">
         <p className="text-sm text-muted-foreground">
           <strong>Columnas del reporte:</strong> Fecha, N° Guía, Cliente Final, Ciudad/Zona, 
-          Barrio, Dirección, Método de Pago, Valor Recaudo, Estado, Motivo de Novedad, Motorizado.
+          Barrio, Dirección, Método Pago, Valor Recaudo, <span className="text-primary font-medium">Costo Producto, Valor Flete, Valor Fulfillment, Utilidad Neta</span>, Estado, Motivo Novedad, Motorizado.
+        </p>
+        <p className="text-xs text-muted-foreground mt-2">
+          💡 Incluye fila de <strong>TOTALES</strong> al final para facilitar la liquidación.
         </p>
       </div>
     </motion.div>
