@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useNotificationSound } from "@/hooks/useNotificationSound";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
@@ -187,6 +188,7 @@ const AdminDashboard = () => {
   const [pendingAssignment, setPendingAssignment] = useState<{ pedidoId: number; motorizadoUserId: string; pedido: Pedido } | null>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
+  const { playNotificationPing } = useNotificationSound();
 
   // Guards to avoid request storms / setState after unmount
   const pedidosFetchInFlight = useRef(false);
@@ -279,6 +281,9 @@ const AdminDashboard = () => {
             setPedidos((prev) => [newPedido, ...prev]);
             setNewOrdersCount((c) => c + 1);
             
+            // Play notification sound
+            playNotificationPing();
+            
             toast.success(
               `🔔 Nuevo pedido: ${newPedido.cliente_nombre || 'Cliente'}`,
               {
@@ -302,7 +307,7 @@ const AdminDashboard = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [playNotificationPing]);
 
   // Listen for real-time reassignment notifications from motorizados
   useEffect(() => {
