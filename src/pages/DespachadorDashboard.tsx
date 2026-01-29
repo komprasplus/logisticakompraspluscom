@@ -39,6 +39,9 @@ import {
   compareDeliveryDates,
 } from "@/lib/dateUtils";
 
+// --- Emergency kill-switch (temporary) ---
+const EMERGENCY_DISABLE_DATE_FILTER_UI = true;
+
 interface Pedido {
   id: number;
   numero_guia: string | null;
@@ -125,6 +128,13 @@ const DespachadorDashboard = () => {
     return () => {
       isMountedRef.current = false;
     };
+  }, []);
+
+  // Emergency: ensure disabled filters can't get stuck enabled
+  useEffect(() => {
+    if (!EMERGENCY_DISABLE_DATE_FILTER_UI) return;
+    setDateFilter("");
+    setTodayOnlyFilter(false);
   }, []);
 
   const normalizePedido = useCallback((p: Pedido): Pedido => {
@@ -553,12 +563,14 @@ const DespachadorDashboard = () => {
                   <option key={s} value={s!}>{s}</option>
                 ))}
               </select>
-              <input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
-              />
+              {!EMERGENCY_DISABLE_DATE_FILTER_UI && (
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
+                />
+              )}
 
               <Button
                 onClick={() => fetchPedidos()}
@@ -572,20 +584,21 @@ const DespachadorDashboard = () => {
                 Actualizar
               </Button>
               
-              {/* NEW: "Ver solo para hoy" Quick Filter */}
-              <button
-                onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                  todayOnlyFilter 
-                    ? "bg-primary text-primary-foreground border-primary" 
-                    : "bg-background border-border hover:bg-muted"
-                }`}
-              >
-                <CalendarCheck className="h-4 w-4" />
-                Ver solo para hoy
-              </button>
+              {!EMERGENCY_DISABLE_DATE_FILTER_UI && (
+                <button
+                  onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    todayOnlyFilter
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-background border-border hover:bg-muted"
+                  }`}
+                >
+                  <CalendarCheck className="h-4 w-4" />
+                  Ver solo para hoy
+                </button>
+              )}
 
-              {(statusFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || dateFilter || todayOnlyFilter) && (
+              {(statusFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || (!EMERGENCY_DISABLE_DATE_FILTER_UI && (dateFilter || todayOnlyFilter))) && (
                 <button 
                   onClick={() => { setStatusFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setDateFilter(""); setTodayOnlyFilter(false); }} 
                   className="text-sm text-primary hover:underline"

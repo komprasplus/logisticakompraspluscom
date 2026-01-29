@@ -17,7 +17,8 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const { signIn, user, role, loading: authLoading } = useAuth();
+  const [showRoleFallback, setShowRoleFallback] = useState(false);
+  const { signIn, user, role, loading: authLoading, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -25,6 +26,23 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
       redirectToPanel(role);
     }
   }, [user, role, authLoading, navigate]);
+
+  // Emergency: if session exists but role fetch fails/gets stuck (e.g., network "Failed to fetch"),
+  // allow the user to continue manually instead of being locked out on /auth.
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      setShowRoleFallback(false);
+      return;
+    }
+    if (role) {
+      setShowRoleFallback(false);
+      return;
+    }
+
+    const t = window.setTimeout(() => setShowRoleFallback(true), 1500);
+    return () => window.clearTimeout(t);
+  }, [authLoading, user, role]);
 
   const redirectToPanel = (userRole: string) => {
     switch (userRole) {
@@ -69,6 +87,12 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
         } else {
           setError("No se pudo iniciar sesión. Verifica tus credenciales e intenta de nuevo.");
         }
+      } else {
+        // Best-effort: trigger profile/role refresh after sign-in.
+        // (If network is failing, fallback UI below will allow manual entry.)
+        setTimeout(() => {
+          void refreshProfile();
+        }, 0);
       }
     } catch (err) {
       setError("Error al iniciar sesión. Por favor intenta de nuevo.");
@@ -123,14 +147,80 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
           </p>
         </motion.div>
 
-        {/* Neumorphic Form Card */}
-        <motion.div
-          className="neu-flat p-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15 }}
-        >
-          <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Emergency: session exists but role is not available */}
+        {user && !role && showRoleFallback ? (
+          <motion.div
+            className="neu-flat p-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <div className="space-y-4">
+              <div className="neu-pressed p-4 rounded-2xl">
+                <p className="text-sm text-foreground font-semibold">Sesión iniciada, pero no pudimos cargar permisos.</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Esto suele pasar por fallas temporales de red ("Failed to fetch"). Puedes continuar manualmente.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => navigate("/admin")}
+                  className="neu-button py-3 font-bold text-white"
+                >
+                  Entrar Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/despachador")}
+                  className="neu-button py-3 font-bold text-white"
+                >
+                  Entrar Despachos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/cliente")}
+                  className="neu-button py-3 font-bold text-white"
+                >
+                  Entrar Tienda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate("/motorizado")}
+                  className="neu-button py-3 font-bold text-white"
+                >
+                  Entrar Motorizado
+                </button>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => void refreshProfile()}
+                  className="flex-1 neu-flat py-3 font-semibold text-primary"
+                >
+                  Reintentar permisos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.location.reload()}
+                  className="flex-1 neu-flat py-3 font-semibold text-primary"
+                >
+                  Recargar
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ) : (
+          /* Neumorphic Form Card */
+          <motion.div
+            className="neu-flat p-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
               <motion.div
                 className="flex items-start gap-3 p-4 rounded-2xl neu-pressed"
@@ -205,8 +295,9 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
                 "Ingresar"
               )}
             </button>
-          </form>
-        </motion.div>
+            </form>
+          </motion.div>
+        )}
 
         {/* Guest tracking link */}
         <motion.div

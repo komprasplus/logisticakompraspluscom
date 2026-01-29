@@ -85,6 +85,11 @@ import {
   compareDeliveryDates,
 } from "@/lib/dateUtils";
 
+// --- Emergency kill-switches (temporary) ---
+// Goal: restore platform access even if problematic UI widgets cause render loops.
+const EMERGENCY_DISABLE_DATE_FILTER_UI = true;
+const EMERGENCY_DISABLE_ADMIN_SOUND = true;
+
 interface Pedido {
   id: number;
   numero_guia: string | null;
@@ -212,6 +217,14 @@ const AdminDashboard = () => {
     };
   }, []);
 
+  // Emergency: ensure disabled filters can't get stuck enabled
+  useEffect(() => {
+    if (!EMERGENCY_DISABLE_DATE_FILTER_UI) return;
+    // Keep state aligned with disabled UI
+    setDateFilter("");
+    setTodayOnlyFilter(false);
+  }, []);
+
   const normalizePedido = useCallback((p: Pedido): Pedido => {
     // Defensive defaults so the table never breaks on null/undefined
     return {
@@ -280,8 +293,10 @@ const AdminDashboard = () => {
             setPedidos((prev) => [newPedido, ...prev]);
             setNewOrdersCount((c) => c + 1);
             
-            // Play notification sound (global singleton; doesn't couple to component lifecycle)
-            playGlobalNotificationPing();
+            // Play notification sound (disabled temporarily for stability)
+            if (!EMERGENCY_DISABLE_ADMIN_SOUND) {
+              playGlobalNotificationPing();
+            }
             
             toast.success(
               `🔔 Nuevo pedido: ${newPedido.cliente_nombre || 'Cliente'}`,
@@ -1140,22 +1155,31 @@ const AdminDashboard = () => {
                   ))}
                 </select>
 
-                <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none" />
+                {!EMERGENCY_DISABLE_DATE_FILTER_UI && (
+                  <>
+                    <input
+                      type="date"
+                      value={dateFilter}
+                      onChange={(e) => setDateFilter(e.target.value)}
+                      className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                    />
 
-                {/* NEW: "Ver solo para hoy" Quick Filter */}
-                <button
-                  onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                    todayOnlyFilter 
-                      ? "bg-primary text-primary-foreground border-primary" 
-                      : "bg-card border-border hover:bg-muted"
-                  }`}
-                >
-                  <CalendarCheck className="h-4 w-4" />
-                  Ver solo para hoy
-                </button>
+                    {/* "Ver solo para hoy" Quick Filter */}
+                    <button
+                      onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        todayOnlyFilter
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-card border-border hover:bg-muted"
+                      }`}
+                    >
+                      <CalendarCheck className="h-4 w-4" />
+                      Ver solo para hoy
+                    </button>
+                  </>
+                )}
 
-                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || dateFilter || todayOnlyFilter) && (
+                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || (!EMERGENCY_DISABLE_DATE_FILTER_UI && (dateFilter || todayOnlyFilter))) && (
                   <button onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setDateFilter(""); setTodayOnlyFilter(false); }} className="text-sm text-primary hover:underline">
                     Limpiar filtros
                   </button>
