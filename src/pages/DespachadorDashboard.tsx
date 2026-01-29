@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Package,
@@ -107,12 +107,34 @@ const DespachadorDashboard = () => {
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
+  // Guards to avoid request storms / setState after unmount
+  const pedidosFetchInFlight = useRef(false);
+  const isMountedRef = useRef(true);
+
   const pagination = usePagination({ items: filteredPedidos, itemsPerPage: 10 });
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     fetchPedidos();
     fetchMotorizados();
     fetchClientProfiles();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const normalizePedido = useCallback((p: Pedido): Pedido => {
+    return {
+      ...p,
+      numero_guia: p.numero_guia ?? null,
+      cliente_nombre: p.cliente_nombre ?? "—",
+      direccion_entrega: p.direccion_entrega ?? "—",
+      zona: p.zona ?? "—",
+      barrio: p.barrio ?? "—",
+      fecha_entrega: p.fecha_entrega ?? null,
+    };
   }, []);
 
   // Real-time subscription for pedidos changes
@@ -228,22 +250,33 @@ const DespachadorDashboard = () => {
     filterPedidos();
   }, [filterPedidos]);
 
-  const fetchPedidos = async () => {
+  const fetchPedidos = useCallback(async () => {
+    if (pedidosFetchInFlight.current) return;
+    pedidosFetchInFlight.current = true;
+
     try {
       const { data, error } = await supabase
         .from("pedidos")
         .select("*")
-        .order("fecha_creacion", { ascending: false });
+        .order("fecha_creacion", { ascending: false })
+        .range(0, 499);
 
       if (error) throw error;
-      setPedidos(data || []);
-    } catch (error) {
+      const normalized = (data || []).map((p) => normalizePedido(p as Pedido));
+      if (isMountedRef.current) setPedidos(normalized);
+    } catch (error: any) {
       console.error("Error fetching pedidos:", error);
-      toast.error("Error al cargar los pedidos");
+      if (error?.code === "57014") {
+        toast.error("La consulta de pedidos tardó demasiado (timeout). Intenta de nuevo en unos segundos.");
+      } else {
+        toast.error("Error al cargar los pedidos");
+      }
+      if (isMountedRef.current) setPedidos([]);
     } finally {
-      setLoading(false);
+      pedidosFetchInFlight.current = false;
+      if (isMountedRef.current) setLoading(false);
     }
-  };
+  }, [normalizePedido]);
 
   const fetchMotorizados = async () => {
     try {
