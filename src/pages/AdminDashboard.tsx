@@ -305,11 +305,6 @@ const AdminDashboard = () => {
     return () => { supabase.removeChannel(notificationChannel); };
   }, []);
 
-  // Apply filters  
-  useEffect(() => {
-    filterPedidos();
-  }, [statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, dateFilter, todayOnlyFilter, searchQuery, pedidos, clientProfiles]);
-
   const fetchPedidos = async () => {
     try {
       const { data, error } = await supabase
@@ -367,80 +362,90 @@ const AdminDashboard = () => {
     }
   };
 
-  // Helper to check if a fecha_entrega is for today or past - using centralized utility
-  const isTodayOrPast = useCallback((fechaEntrega: string | null) => {
-    return isTodayOrPastDeliveryDate(fechaEntrega);
-  }, []);
+  // Memoized filter function to prevent unnecessary re-renders
+  const filterPedidos = useCallback(() => {
+    try {
+      let filtered = [...pedidos];
 
-  const filterPedidos = () => {
-    let filtered = [...pedidos];
+      // For operational views (map, table), exclude cancelled orders unless specifically filtering for them
+      if (statusFilter === "sin_asignar") {
+        filtered = filtered.filter((p) => !p.motorizado_asignado && isOperationalStatus(p.estado));
+      } else if (statusFilter === "anulado") {
+        // Show only cancelled orders
+        filtered = filtered.filter((p) => p.estado?.toLowerCase() === "anulado");
+      } else if (statusFilter !== "todos") {
+        filtered = filtered.filter(
+          (p) => p.estado?.toLowerCase() === statusFilter.toLowerCase()
+        );
+      } else {
+        // "todos" filter - exclude cancelled orders from default view
+        filtered = filtered.filter((p) => isOperationalStatus(p.estado));
+      }
 
-    // For operational views (map, table), exclude cancelled orders unless specifically filtering for them
-    if (statusFilter === "sin_asignar") {
-      filtered = filtered.filter((p) => !p.motorizado_asignado && isOperationalStatus(p.estado));
-    } else if (statusFilter === "anulado") {
-      // Show only cancelled orders
-      filtered = filtered.filter((p) => p.estado?.toLowerCase() === "anulado");
-    } else if (statusFilter !== "todos") {
-      filtered = filtered.filter(
-        (p) => p.estado?.toLowerCase() === statusFilter.toLowerCase()
-      );
-    } else {
-      // "todos" filter - exclude cancelled orders from default view
-      filtered = filtered.filter((p) => isOperationalStatus(p.estado));
+      if (barrioFilter !== "todos") {
+        filtered = filtered.filter((p) => p.barrio === barrioFilter);
+      }
+
+      if (metodoPagoFilter !== "todos") {
+        filtered = filtered.filter((p) => p.metodo_pago === metodoPagoFilter);
+      }
+
+      if (zonaFilter !== "todos") {
+        filtered = filtered.filter((p) => p.zona === zonaFilter);
+      }
+
+      if (storeFilter !== "todos") {
+        filtered = filtered.filter((p) => {
+          if (!p.client_user_id) return false;
+          const profile = clientProfiles[p.client_user_id];
+          const storeName = profile?.store_name || profile?.full_name || "";
+          return storeName === storeFilter;
+        });
+      }
+
+      if (dateFilter) {
+        filtered = filtered.filter((p) => {
+          if (!p.fecha_creacion) return false;
+          try {
+            const pedidoDate = new Date(p.fecha_creacion).toISOString().split("T")[0];
+            return pedidoDate === dateFilter;
+          } catch {
+            return false;
+          }
+        });
+      }
+
+      // Filter for "Ver solo para hoy" - only show orders with fecha_entrega = today or past
+      if (todayOnlyFilter) {
+        filtered = filtered.filter((p) => isTodayOrPastDeliveryDate(p.fecha_entrega));
+      }
+
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        filtered = filtered.filter(
+          (p) =>
+            p.numero_guia?.toLowerCase().includes(query) ||
+            p.cliente_nombre?.toLowerCase().includes(query) ||
+            p.motorizado_asignado?.toLowerCase().includes(query) ||
+            p.barrio?.toLowerCase().includes(query) ||
+            p.zona?.toLowerCase().includes(query)
+        );
+      }
+
+      // Sort by fecha_entrega ascending (nearest first) using centralized utility
+      filtered.sort((a, b) => compareDeliveryDates(a.fecha_entrega, b.fecha_entrega));
+
+      setFilteredPedidos(filtered);
+    } catch (error) {
+      console.error("Error filtering pedidos:", error);
+      setFilteredPedidos([]);
     }
+  }, [pedidos, statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, dateFilter, todayOnlyFilter, searchQuery, clientProfiles]);
 
-    if (barrioFilter !== "todos") {
-      filtered = filtered.filter((p) => p.barrio === barrioFilter);
-    }
-
-    if (metodoPagoFilter !== "todos") {
-      filtered = filtered.filter((p) => p.metodo_pago === metodoPagoFilter);
-    }
-
-    if (zonaFilter !== "todos") {
-      filtered = filtered.filter((p) => p.zona === zonaFilter);
-    }
-
-    if (storeFilter !== "todos") {
-      filtered = filtered.filter((p) => {
-        if (!p.client_user_id) return false;
-        const profile = clientProfiles[p.client_user_id];
-        const storeName = profile?.store_name || profile?.full_name || "";
-        return storeName === storeFilter;
-      });
-    }
-
-    if (dateFilter) {
-      filtered = filtered.filter((p) => {
-        if (!p.fecha_creacion) return false;
-        const pedidoDate = new Date(p.fecha_creacion).toISOString().split("T")[0];
-        return pedidoDate === dateFilter;
-      });
-    }
-
-    // NEW: Filter for "Ver solo para hoy" - only show orders with fecha_entrega = today or past
-    if (todayOnlyFilter) {
-      filtered = filtered.filter((p) => isTodayOrPast(p.fecha_entrega));
-    }
-
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.numero_guia?.toLowerCase().includes(query) ||
-          p.cliente_nombre?.toLowerCase().includes(query) ||
-          p.motorizado_asignado?.toLowerCase().includes(query) ||
-          p.barrio?.toLowerCase().includes(query) ||
-          p.zona?.toLowerCase().includes(query)
-      );
-    }
-
-    // Sort by fecha_entrega ascending (nearest first) using centralized utility
-    filtered.sort((a, b) => compareDeliveryDates(a.fecha_entrega, b.fecha_entrega));
-
-    setFilteredPedidos(filtered);
-  };
+  // Apply filters when dependencies change
+  useEffect(() => {
+    filterPedidos();
+  }, [filterPedidos]);
 
   // Initiate assignment - check for future date first
   const initiateAssignMotorizado = (pedidoId: number, motorizadoUserId: string) => {
