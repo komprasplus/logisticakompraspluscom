@@ -31,6 +31,7 @@ import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import DeliveryDateBadge from "@/components/DeliveryDateBadge";
 import FutureDateConfirmDialog from "@/components/FutureDateConfirmDialog";
+import CriticalErrorBoundary from "@/components/CriticalErrorBoundary";
 import {
   isFutureDeliveryDate,
   isTodayOrPastDeliveryDate,
@@ -400,14 +401,6 @@ const DespachadorDashboard = () => {
 
   const uniqueStores = Array.from(new Set(Object.values(clientProfiles).map((p) => p.store_name || p.full_name))).filter(Boolean);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-primary" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background flex">
       {/* Sidebar */}
@@ -461,12 +454,18 @@ const DespachadorDashboard = () => {
       {/* Main Content */}
       <main className="flex-1 p-6 overflow-auto">
         {activeSection === "despacho" ? (
-          <div className="space-y-6">
+          <CriticalErrorBoundary
+            title="Despachos"
+            fallbackMessage="La tabla de despachos falló al renderizar. El panel seguirá disponible para que puedas reintentar."
+          >
+            <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
                 <h1 className="text-2xl font-bold text-foreground">Gestión de Despachos</h1>
-                <p className="text-muted-foreground">{filteredPedidos.length} pedidos</p>
+                <p className="text-muted-foreground">
+                  {loading ? "Cargando pedidos..." : `${filteredPedidos.length} pedidos`}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 {selectedForBulk.length > 0 && (
@@ -566,6 +565,12 @@ const DespachadorDashboard = () => {
 
             {/* Table */}
             <div className="bg-card rounded-xl border border-border overflow-hidden">
+              {loading ? (
+                <div className="p-10 flex items-center justify-center gap-3 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <span>Cargando…</span>
+                </div>
+              ) : null}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50">
@@ -716,7 +721,8 @@ const DespachadorDashboard = () => {
               startIndex={pagination.startIndex}
               endIndex={pagination.endIndex}
             />
-          </div>
+            </div>
+          </CriticalErrorBoundary>
         ) : (
           // Profile Section
           <div className="max-w-lg mx-auto">
@@ -759,15 +765,25 @@ const DespachadorDashboard = () => {
       )}
 
       {showPrintGuia && selectedPedidoForPrint && (
-        <PrintGuiaModal
-          isOpen={showPrintGuia}
-          onClose={() => {
-            setShowPrintGuia(false);
-            setSelectedPedidoForPrint(null);
-          }}
-          pedido={selectedPedidoForPrint}
-          remitente={selectedPedidoForPrint.client_user_id ? getStoreName(selectedPedidoForPrint.client_user_id) : undefined}
-        />
+        <CriticalErrorBoundary
+          title="Impresión de Guía"
+          fallbackMessage="La impresión de guía falló. Puedes cerrar y reintentar sin perder el acceso al panel."
+          minHeightClassName="min-h-[120px]"
+        >
+          <PrintGuiaModal
+            isOpen={showPrintGuia}
+            onClose={() => {
+              setShowPrintGuia(false);
+              setSelectedPedidoForPrint(null);
+            }}
+            pedido={selectedPedidoForPrint}
+            remitente={
+              selectedPedidoForPrint.client_user_id
+                ? getStoreName(selectedPedidoForPrint.client_user_id)
+                : undefined
+            }
+          />
+        </CriticalErrorBoundary>
       )}
 
       {showBulkPrint && (
