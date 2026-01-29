@@ -41,6 +41,8 @@ import {
 
 // --- Emergency kill-switch (temporary) ---
 const EMERGENCY_DISABLE_DATE_FILTER_UI = true;
+// Stop Realtime traffic while Supabase is under pressure (temporary)
+const EMERGENCY_DISABLE_REALTIME = true;
 
 interface Pedido {
   id: number;
@@ -151,16 +153,14 @@ const DespachadorDashboard = () => {
 
   // Real-time subscription for pedidos changes
   useEffect(() => {
+    if (EMERGENCY_DISABLE_REALTIME) return;
+
     const channel = supabase
       .channel('despachador-pedidos')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'pedidos' }, (payload) => {
-        if (payload.eventType === 'INSERT') {
-          setPedidos((prev) => [payload.new as Pedido, ...prev]);
-        } else if (payload.eventType === 'UPDATE') {
-          setPedidos((prev) => prev.map((p) => (p.id === (payload.new as Pedido).id ? payload.new as Pedido : p)));
-        } else if (payload.eventType === 'DELETE') {
-          setPedidos((prev) => prev.filter((p) => p.id !== (payload.old as { id: number }).id));
-        }
+      // Only listen for INSERTs to reduce traffic/CPU; updates are reflected on manual refresh or local optimistic updates.
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pedidos' }, (payload) => {
+        const next = normalizePedido(payload.new as Pedido);
+        setPedidos((prev) => [next, ...prev].slice(0, 20));
       })
       .subscribe();
 
@@ -169,6 +169,8 @@ const DespachadorDashboard = () => {
 
   // Listen for real-time reassignment notifications from motorizados
   useEffect(() => {
+    if (EMERGENCY_DISABLE_REALTIME) return;
+
     const notificationChannel = supabase
       .channel('admin-notifications')
       .on('broadcast', { event: 'order-reassigned' }, (payload) => {
@@ -265,7 +267,7 @@ const DespachadorDashboard = () => {
   /**
    * EMERGENCY PERFORMANCE MODE
    * - Keep initial load ultra-light (no complex filters on load; those run client-side)
-   * - Fetch only the first 50 most recent orders
+   * - Fetch only the first 20 most recent orders
    * - Select minimal columns needed to render the table without breaking UI
    */
   const PEDIDO_COLUMNS = `
@@ -300,7 +302,7 @@ const DespachadorDashboard = () => {
         .from("pedidos")
         .select(PEDIDO_COLUMNS)
         .order("fecha_creacion", { ascending: false })
-        .limit(50);
+        .limit(20);
 
       if (error) throw error;
       const normalized = (data || []).map((p) => normalizePedido(p as Pedido));
