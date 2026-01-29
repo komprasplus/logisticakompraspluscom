@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from "react";
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -36,7 +36,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Emergency: prevent double-fetch storms (onAuthStateChange + getSession can both fire)
+  const fetchInFlightRef = useRef(false);
+  const lastFetchRef = useRef<{ userId: string; at: number } | null>(null);
+
   const fetchUserData = useCallback(async (userId: string) => {
+    // De-dupe repeated calls for the same user within a short window
+    const last = lastFetchRef.current;
+    if (fetchInFlightRef.current) return;
+    if (last?.userId === userId && Date.now() - last.at < 2000) return;
+
+    fetchInFlightRef.current = true;
     try {
       // Fetch profile
       const { data: profileData } = await supabase
@@ -62,6 +72,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.error("Error fetching user data:", error);
     } finally {
+      lastFetchRef.current = { userId, at: Date.now() };
+      fetchInFlightRef.current = false;
       setLoading(false);
     }
   }, []);

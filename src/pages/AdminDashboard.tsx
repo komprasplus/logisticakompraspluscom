@@ -274,46 +274,33 @@ const AdminDashboard = () => {
     }
   };
 
-  // Real-time subscription for pedidos
+  // Emergency: stop realtime traffic while Supabase is under pressure
+  const EMERGENCY_DISABLE_REALTIME = true;
+
+  // Real-time subscription for pedidos (reduced)
   useEffect(() => {
+    if (EMERGENCY_DISABLE_REALTIME) return;
+
     const channel = supabase
       .channel('pedidos-changes')
+      // Only INSERTs to avoid high-frequency UPDATE storms
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'pedidos',
-        },
+        { event: 'INSERT', schema: 'public', table: 'pedidos' },
         (payload) => {
-          console.log('Realtime pedido change:', payload);
-          
-          if (payload.eventType === 'INSERT') {
-            const newPedido = payload.new as Pedido;
-            setPedidos((prev) => [newPedido, ...prev]);
-            setNewOrdersCount((c) => c + 1);
-            
-            // Play notification sound (disabled temporarily for stability)
-            if (!EMERGENCY_DISABLE_ADMIN_SOUND) {
-              playGlobalNotificationPing();
-            }
-            
-            toast.success(
-              `🔔 Nuevo pedido: ${newPedido.cliente_nombre || 'Cliente'}`,
-              {
-                description: newPedido.direccion_entrega || 'Sin dirección',
-                duration: 5000,
-              }
-            );
-          } else if (payload.eventType === 'UPDATE') {
-            const updatedPedido = payload.new as Pedido;
-            setPedidos((prev) =>
-              prev.map((p) => (p.id === updatedPedido.id ? updatedPedido : p))
-            );
-          } else if (payload.eventType === 'DELETE') {
-            const deletedId = (payload.old as { id: number }).id;
-            setPedidos((prev) => prev.filter((p) => p.id !== deletedId));
+          const newPedido = payload.new as Pedido;
+          setPedidos((prev) => [newPedido, ...prev].slice(0, 20));
+          setNewOrdersCount((c) => c + 1);
+
+          // Play notification sound (disabled temporarily for stability)
+          if (!EMERGENCY_DISABLE_ADMIN_SOUND) {
+            playGlobalNotificationPing();
           }
+
+          toast.success(`🔔 Nuevo pedido: ${newPedido.cliente_nombre || 'Cliente'}`, {
+            description: newPedido.direccion_entrega || 'Sin dirección',
+            duration: 5000,
+          });
         }
       )
       .subscribe();
@@ -371,8 +358,8 @@ const AdminDashboard = () => {
         .from("pedidos")
         .select(PEDIDO_COLUMNS)
         .order("fecha_creacion", { ascending: false })
-        // Reduced limit to prevent statement_timeout
-        .limit(300);
+        // Emergency: ultra-light initial load
+        .limit(20);
 
       if (error) throw error;
 
