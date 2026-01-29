@@ -9,7 +9,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { CalendarClock } from "lucide-react";
-import { formatDeliveryDate } from "./DeliveryDateBadge";
+import { formatDeliveryDateLong } from "@/lib/dateUtils";
 
 interface FutureDateConfirmDialogProps {
   isOpen: boolean;
@@ -30,7 +30,7 @@ const FutureDateConfirmDialog = ({
   fechaEntrega,
   numeroGuia,
 }: FutureDateConfirmDialogProps) => {
-  const formattedDate = formatDeliveryDate(fechaEntrega);
+  const formattedDate = formatDeliveryDateLong(fechaEntrega);
 
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
