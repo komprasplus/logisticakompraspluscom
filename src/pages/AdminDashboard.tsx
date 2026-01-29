@@ -41,6 +41,7 @@ import { toast } from "sonner";
 const logo = "/logo-oficial.png";
 import AdminMapGoogle from "@/components/AdminMapGoogle";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
+import CriticalErrorBoundary from "@/components/CriticalErrorBoundary";
 import EditPedidoModal from "@/components/EditPedidoModal";
 import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
@@ -1584,7 +1585,12 @@ const AdminDashboard = () => {
 
         {/* Main Area */}
         <main className="flex-1 overflow-auto relative bg-muted/30">
-          {renderMainContent()}
+          <CriticalErrorBoundary
+            title="Panel"
+            fallbackMessage="Un módulo del panel falló al renderizar. El layout seguirá disponible para que puedas cambiar de sección o reintentar."
+          >
+            {renderMainContent()}
+          </CriticalErrorBoundary>
         </main>
       </div>
 
@@ -1633,17 +1639,25 @@ const AdminDashboard = () => {
           fetchPedidos();
         }}
       />
-      <PrintGuiaModal
-        isOpen={showPrintGuia}
-        onClose={() => {
-          handlePrintComplete(selectedPedidoForPrint ? [selectedPedidoForPrint.id] : []);
-        }}
-        pedido={selectedPedidoForPrint}
-        remitente={selectedPedidoForPrint?.client_user_id 
-          ? clientProfiles[selectedPedidoForPrint.client_user_id]?.store_name || 
-            clientProfiles[selectedPedidoForPrint.client_user_id]?.full_name 
-          : undefined}
-      />
+      <CriticalErrorBoundary
+        title="Impresión de Guía"
+        fallbackMessage="La impresión de guía falló. Puedes cerrar y reintentar sin perder acceso al panel."
+        minHeightClassName="min-h-[120px]"
+      >
+        <PrintGuiaModal
+          isOpen={showPrintGuia}
+          onClose={() => {
+            handlePrintComplete(selectedPedidoForPrint ? [selectedPedidoForPrint.id] : []);
+          }}
+          pedido={selectedPedidoForPrint}
+          remitente={
+            selectedPedidoForPrint?.client_user_id
+              ? clientProfiles[selectedPedidoForPrint.client_user_id]?.store_name ||
+                clientProfiles[selectedPedidoForPrint.client_user_id]?.full_name
+              : undefined
+          }
+        />
+      </CriticalErrorBoundary>
       <BulkPrintGuiasModal
         isOpen={showBulkPrint}
         onClose={() => {

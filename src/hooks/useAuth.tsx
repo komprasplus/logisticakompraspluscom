@@ -86,16 +86,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchUserData(session.user.id);
-      } else {
+    // THEN check for existing session (guarded: no unhandled promise rejections)
+    (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        const session = data.session;
+        setSession(session);
+        setUser(session?.user ?? null);
+
+        if (session?.user) {
+          await fetchUserData(session.user.id);
+        }
+      } catch (error) {
+        console.error("Error reading auth session:", error);
+        // Fail open: allow the UI to proceed to /auth instead of hanging forever
+      } finally {
         setLoading(false);
       }
-    });
+    })();
 
     return () => subscription.unsubscribe();
   }, [fetchUserData]);
