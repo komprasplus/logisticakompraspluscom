@@ -11,6 +11,7 @@ import {
   User,
   ArrowLeftRight,
   Ban,
+  CalendarCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +29,9 @@ import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 import BulkReassignModal from "@/components/admin/BulkReassignModal";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import DeliveryDateBadge, { isFutureDeliveryDate } from "@/components/DeliveryDateBadge";
+import FutureDateConfirmDialog from "@/components/FutureDateConfirmDialog";
+import { startOfDay } from "date-fns";
 
 interface Pedido {
   id: number;
@@ -81,6 +85,7 @@ const DespachadorDashboard = () => {
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [storeFilter, setStoreFilter] = useState<string>("todos");
   const [dateFilter, setDateFilter] = useState<string>("");
+  const [todayOnlyFilter, setTodayOnlyFilter] = useState(false); // New "Ver solo para hoy" filter
   const [searchQuery, setSearchQuery] = useState("");
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [clientProfiles, setClientProfiles] = useState<Record<string, { store_name: string | null; full_name: string }>>({});
@@ -92,6 +97,9 @@ const DespachadorDashboard = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPedidoForDetail, setSelectedPedidoForDetail] = useState<Pedido | null>(null);
   const [showBulkReassign, setShowBulkReassign] = useState(false);
+  // Future date confirmation dialog state
+  const [showFutureDateConfirm, setShowFutureDateConfirm] = useState(false);
+  const [pendingAssignment, setPendingAssignment] = useState<{ pedidoId: number; motorizadoUserId: string; pedido: Pedido } | null>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -149,7 +157,7 @@ const DespachadorDashboard = () => {
 
   useEffect(() => {
     filterPedidos();
-  }, [statusFilter, zonaFilter, storeFilter, dateFilter, searchQuery, pedidos, clientProfiles]);
+  }, [statusFilter, zonaFilter, storeFilter, dateFilter, todayOnlyFilter, searchQuery, pedidos, clientProfiles]);
 
   const fetchPedidos = async () => {
     try {
@@ -196,6 +204,14 @@ const DespachadorDashboard = () => {
     }
   };
 
+  // Helper to check if a fecha_entrega is for today or past
+  const isTodayOrPast = useCallback((fechaEntrega: string | null) => {
+    if (!fechaEntrega) return true; // No date = treat as today
+    const date = new Date(fechaEntrega + "T00:00:00");
+    const today = startOfDay(new Date());
+    return date <= today;
+  }, []);
+
   const filterPedidos = () => {
     let filtered = [...pedidos];
 
@@ -228,6 +244,11 @@ const DespachadorDashboard = () => {
       });
     }
 
+    // NEW: Filter for "Ver solo para hoy"
+    if (todayOnlyFilter) {
+      filtered = filtered.filter((p) => isTodayOrPast(p.fecha_entrega));
+    }
+
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       filtered = filtered.filter((p) =>
@@ -239,7 +260,81 @@ const DespachadorDashboard = () => {
       );
     }
 
+    // Sort by fecha_entrega ascending (nearest first)
+    filtered.sort((a, b) => {
+      const dateA = a.fecha_entrega ? new Date(a.fecha_entrega + "T00:00:00").getTime() : 0;
+      const dateB = b.fecha_entrega ? new Date(b.fecha_entrega + "T00:00:00").getTime() : 0;
+      if (!a.fecha_entrega && b.fecha_entrega) return -1;
+      if (a.fecha_entrega && !b.fecha_entrega) return 1;
+      return dateA - dateB;
+    });
+
     setFilteredPedidos(filtered);
+  };
+
+  // Initiate assignment - check for future date first
+  const initiateAssignMotorizado = (pedidoId: number, motorizadoUserId: string) => {
+    const pedido = pedidos.find(p => p.id === pedidoId);
+    if (!pedido) return;
+
+    if (isFutureDeliveryDate(pedido.fecha_entrega)) {
+      setPendingAssignment({ pedidoId, motorizadoUserId, pedido });
+      setShowFutureDateConfirm(true);
+    } else {
+      assignMotorizado(pedidoId, motorizadoUserId);
+    }
+  };
+
+  // Actual assignment function
+  const assignMotorizado = async (pedidoId: number, motorizadoUserId: string) => {
+    const motorizado = motorizados.find(m => m.user_id === motorizadoUserId);
+    if (!motorizado) {
+      toast.error("Motorizado no encontrado");
+      return;
+    }
+
+    setAssigningPedido(pedidoId);
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({
+          motorizado_asignado: motorizado.full_name,
+          motorizado_id: motorizadoUserId,
+          estado: "Asignado",
+          fecha_actualizacion: new Date().toISOString(),
+        })
+        .eq("id", pedidoId);
+
+      if (error) throw error;
+
+      setPedidos((prev) =>
+        prev.map((p) =>
+          p.id === pedidoId
+            ? { ...p, motorizado_asignado: motorizado.full_name, motorizado_id: motorizadoUserId, estado: "Asignado" }
+            : p
+        )
+      );
+
+      toast.success(`Pedido asignado a ${motorizado.full_name}`);
+    } catch (error) {
+      console.error("Error assigning motorizado:", error);
+      toast.error("Error al asignar motorizado");
+    } finally {
+      setAssigningPedido(null);
+    }
+  };
+
+  const handleFutureDateConfirm = () => {
+    if (pendingAssignment) {
+      assignMotorizado(pendingAssignment.pedidoId, pendingAssignment.motorizadoUserId);
+    }
+    setShowFutureDateConfirm(false);
+    setPendingAssignment(null);
+  };
+
+  const handleFutureDateCancel = () => {
+    setShowFutureDateConfirm(false);
+    setPendingAssignment(null);
   };
 
   const toggleBulkSelect = (pedidoId: number) => {
@@ -411,6 +506,28 @@ const DespachadorDashboard = () => {
                 onChange={(e) => setDateFilter(e.target.value)}
                 className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
               />
+              
+              {/* NEW: "Ver solo para hoy" Quick Filter */}
+              <button
+                onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                  todayOnlyFilter 
+                    ? "bg-primary text-primary-foreground border-primary" 
+                    : "bg-background border-border hover:bg-muted"
+                }`}
+              >
+                <CalendarCheck className="h-4 w-4" />
+                Ver solo para hoy
+              </button>
+
+              {(statusFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || dateFilter || todayOnlyFilter) && (
+                <button 
+                  onClick={() => { setStatusFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setDateFilter(""); setTodayOnlyFilter(false); }} 
+                  className="text-sm text-primary hover:underline"
+                >
+                  Limpiar filtros
+                </button>
+              )}
             </div>
 
             {/* Table */}
@@ -437,6 +554,7 @@ const DespachadorDashboard = () => {
                       <th className="px-4 py-3 text-left font-semibold">Tienda</th>
                       <th className="px-4 py-3 text-left font-semibold">Cliente</th>
                       <th className="px-4 py-3 text-left font-semibold">Zona</th>
+                      <th className="px-4 py-3 text-left font-semibold">F. Entrega</th>
                       <th className="px-4 py-3 text-left font-semibold">Estado</th>
                       <th className="px-4 py-3 text-left font-semibold">Motorizado</th>
                       <th className="px-4 py-3 text-left font-semibold">Acciones</th>
@@ -464,6 +582,10 @@ const DespachadorDashboard = () => {
                           </td>
                           <td className="px-4 py-3">{pedido.cliente_nombre || "—"}</td>
                           <td className="px-4 py-3">{pedido.zona || "—"}</td>
+                          {/* Fecha Entrega Column */}
+                          <td className="px-4 py-3">
+                            <DeliveryDateBadge fechaEntrega={pedido.fecha_entrega} />
+                          </td>
                           <td className="px-4 py-3">
                             <span className={cn("inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium", statusConfig.bgColor, statusConfig.textColor)}>
                               {statusConfig.icon} {pedido.estado}
@@ -640,6 +762,15 @@ const DespachadorDashboard = () => {
           }}
         />
       )}
+
+      {/* Future Date Confirmation Dialog */}
+      <FutureDateConfirmDialog
+        isOpen={showFutureDateConfirm}
+        onClose={handleFutureDateCancel}
+        onConfirm={handleFutureDateConfirm}
+        fechaEntrega={pendingAssignment?.pedido.fecha_entrega || null}
+        numeroGuia={pendingAssignment?.pedido.numero_guia}
+      />
     </div>
   );
 };

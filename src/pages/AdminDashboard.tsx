@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
@@ -32,6 +32,7 @@ import {
   Store,
   Pencil,
   Upload,
+  CalendarCheck,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -74,6 +75,9 @@ import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import WarehouseInventoryPanel from "@/components/admin/WarehouseInventoryPanel";
 import EditStoreModal from "@/components/EditStoreModal";
+import DeliveryDateBadge, { isFutureDeliveryDate } from "@/components/DeliveryDateBadge";
+import FutureDateConfirmDialog from "@/components/FutureDateConfirmDialog";
+import { startOfDay, isToday, isBefore, parseISO } from "date-fns";
 
 interface Pedido {
   id: number;
@@ -141,6 +145,7 @@ const AdminDashboard = () => {
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [storeFilter, setStoreFilter] = useState<string>("todos");
   const [dateFilter, setDateFilter] = useState<string>("");
+  const [todayOnlyFilter, setTodayOnlyFilter] = useState(false); // New filter for "Ver solo para hoy"
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null); // null = live/today
   const [searchQuery, setSearchQuery] = useState("");
@@ -172,6 +177,9 @@ const AdminDashboard = () => {
   const [showBulkReassign, setShowBulkReassign] = useState(false);
   const [showEditStore, setShowEditStore] = useState(false);
   const [selectedStoreForEdit, setSelectedStoreForEdit] = useState<Profile | null>(null);
+  // Future date confirmation dialog state
+  const [showFutureDateConfirm, setShowFutureDateConfirm] = useState(false);
+  const [pendingAssignment, setPendingAssignment] = useState<{ pedidoId: number; motorizadoUserId: string; pedido: Pedido } | null>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
 
@@ -296,7 +304,7 @@ const AdminDashboard = () => {
   // Apply filters  
   useEffect(() => {
     filterPedidos();
-  }, [statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, dateFilter, searchQuery, pedidos, clientProfiles]);
+  }, [statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, dateFilter, todayOnlyFilter, searchQuery, pedidos, clientProfiles]);
 
   const fetchPedidos = async () => {
     try {
@@ -355,6 +363,14 @@ const AdminDashboard = () => {
     }
   };
 
+  // Helper to check if a fecha_entrega is for today or past
+  const isTodayOrPast = useCallback((fechaEntrega: string | null) => {
+    if (!fechaEntrega) return true; // No date = treat as today
+    const date = new Date(fechaEntrega + "T00:00:00");
+    const today = startOfDay(new Date());
+    return date <= today;
+  }, []);
+
   const filterPedidos = () => {
     let filtered = [...pedidos];
 
@@ -402,6 +418,11 @@ const AdminDashboard = () => {
       });
     }
 
+    // NEW: Filter for "Ver solo para hoy" - only show orders with fecha_entrega = today or past
+    if (todayOnlyFilter) {
+      filtered = filtered.filter((p) => isTodayOrPast(p.fecha_entrega));
+    }
+
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -414,9 +435,34 @@ const AdminDashboard = () => {
       );
     }
 
+    // Sort by fecha_entrega ascending (nearest first), null dates treated as today
+    filtered.sort((a, b) => {
+      const dateA = a.fecha_entrega ? new Date(a.fecha_entrega + "T00:00:00").getTime() : 0;
+      const dateB = b.fecha_entrega ? new Date(b.fecha_entrega + "T00:00:00").getTime() : 0;
+      // Orders without date come first (treated as urgent)
+      if (!a.fecha_entrega && b.fecha_entrega) return -1;
+      if (a.fecha_entrega && !b.fecha_entrega) return 1;
+      return dateA - dateB;
+    });
+
     setFilteredPedidos(filtered);
   };
 
+  // Initiate assignment - check for future date first
+  const initiateAssignMotorizado = (pedidoId: number, motorizadoUserId: string) => {
+    const pedido = pedidos.find(p => p.id === pedidoId);
+    if (!pedido) return;
+
+    // Check if fecha_entrega is in the future
+    if (isFutureDeliveryDate(pedido.fecha_entrega)) {
+      setPendingAssignment({ pedidoId, motorizadoUserId, pedido });
+      setShowFutureDateConfirm(true);
+    } else {
+      assignMotorizado(pedidoId, motorizadoUserId);
+    }
+  };
+
+  // Actual assignment function
   const assignMotorizado = async (pedidoId: number, motorizadoUserId: string) => {
     // Find the motorizado by user_id to get both name and id
     const motorizado = motorizados.find(m => m.user_id === motorizadoUserId);
@@ -454,6 +500,20 @@ const AdminDashboard = () => {
     } finally {
       setAssigningPedido(null);
     }
+  };
+
+  // Handle confirmation of future date assignment
+  const handleFutureDateConfirm = () => {
+    if (pendingAssignment) {
+      assignMotorizado(pendingAssignment.pedidoId, pendingAssignment.motorizadoUserId);
+    }
+    setShowFutureDateConfirm(false);
+    setPendingAssignment(null);
+  };
+
+  const handleFutureDateCancel = () => {
+    setShowFutureDateConfirm(false);
+    setPendingAssignment(null);
   };
 
   const bulkAssignMotorizado = async (motorizadoUserId: string) => {
@@ -1008,8 +1068,21 @@ const AdminDashboard = () => {
 
                 <input type="date" value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none" />
 
-                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || dateFilter) && (
-                  <button onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setDateFilter(""); }} className="text-sm text-primary hover:underline">
+                {/* NEW: "Ver solo para hoy" Quick Filter */}
+                <button
+                  onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    todayOnlyFilter 
+                      ? "bg-primary text-primary-foreground border-primary" 
+                      : "bg-card border-border hover:bg-muted"
+                  }`}
+                >
+                  <CalendarCheck className="h-4 w-4" />
+                  Ver solo para hoy
+                </button>
+
+                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || dateFilter || todayOnlyFilter) && (
+                  <button onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setDateFilter(""); setTodayOnlyFilter(false); }} className="text-sm text-primary hover:underline">
                     Limpiar filtros
                   </button>
                 )}
@@ -1081,6 +1154,7 @@ const AdminDashboard = () => {
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Zona</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Barrio</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">F. Entrega</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Motorizado</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Estado</th>
                         <th className="px-2 py-3 text-center font-semibold text-foreground text-xs sm:text-sm w-24">Acciones</th>
@@ -1137,13 +1211,17 @@ const AdminDashboard = () => {
                                 {pedido.metodo_pago === "anticipado" ? "Anticipado" : "Contra Entrega"}
                               </span>
                             </td>
+                            {/* Fecha Entrega Column */}
+                            <td className="px-3 py-3 hidden lg:table-cell">
+                              <DeliveryDateBadge fechaEntrega={pedido.fecha_entrega} />
+                            </td>
                             <td className="px-3 py-3 text-xs sm:text-sm">
                               {isCancelled ? (
                                 <span className="text-muted-foreground">-</span>
                               ) : isPendingAssignment ? (
                                 <select
                                   disabled={assigningPedido === pedido.id}
-                                  onChange={(e) => { if (e.target.value) assignMotorizado(pedido.id, e.target.value); }}
+                                  onChange={(e) => { if (e.target.value) initiateAssignMotorizado(pedido.id, e.target.value); }}
                                   className="w-full min-w-[120px] rounded-lg border-2 border-amber-400 bg-card px-2 py-1.5 text-xs font-medium focus:border-primary focus:outline-none"
                                   defaultValue=""
                                 >
@@ -1574,6 +1652,15 @@ const AdminDashboard = () => {
         onSuccess={() => {
           fetchUsers();
         }}
+      />
+      
+      {/* Future Date Confirmation Dialog */}
+      <FutureDateConfirmDialog
+        isOpen={showFutureDateConfirm}
+        onClose={handleFutureDateCancel}
+        onConfirm={handleFutureDateConfirm}
+        fechaEntrega={pendingAssignment?.pedido.fecha_entrega || null}
+        numeroGuia={pendingAssignment?.pedido.numero_guia}
       />
     </div>
   );
