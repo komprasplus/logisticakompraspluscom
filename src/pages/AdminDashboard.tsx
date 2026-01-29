@@ -330,18 +330,30 @@ const AdminDashboard = () => {
     return () => { supabase.removeChannel(notificationChannel); };
   }, []);
 
+  // Select only columns needed for admin table/map to avoid timeout
+  const PEDIDO_COLUMNS = `
+    id, numero_guia, cliente_nombre, direccion_entrega, estado, corte_horario,
+    fecha_creacion, fecha_entrega, motorizado_asignado, motorizado_id,
+    latitud, longitud, barrio, metodo_pago, producto_nombre, valor_recaudar,
+    valor_producto, valor_flete, utilidad, municipio, zona, tipo_novedad,
+    firma_cliente, foto_paquete, foto_evidencia, fecha_actualizacion,
+    client_phone, client_user_id, novedad_latitud, novedad_longitud,
+    guia_impresa, guia_impresa_at, observaciones
+  `;
+
   const fetchPedidos = useCallback(async () => {
     // Prevent concurrent fetch loops (e.g. remounts + realtime updates)
     if (pedidosFetchInFlight.current) return;
     pedidosFetchInFlight.current = true;
+    if (isMountedRef.current) setLoading(true);
 
     try {
       const { data, error } = await supabase
         .from("pedidos")
-        .select("*")
+        .select(PEDIDO_COLUMNS)
         .order("fecha_creacion", { ascending: false })
-        // Avoid statement_timeout on huge tables; still enough for UI
-        .range(0, 499);
+        // Reduced limit to prevent statement_timeout
+        .limit(300);
 
       if (error) throw error;
 
@@ -350,11 +362,11 @@ const AdminDashboard = () => {
     } catch (error: any) {
       console.error("Error fetching pedidos:", error);
       if (error?.code === "57014") {
-        toast.error("La consulta de pedidos tardó demasiado (timeout). Intenta de nuevo en unos segundos.");
+        toast.error("La consulta tardó demasiado. Usa el botón Refrescar.");
       } else {
         toast.error("Error al cargar los pedidos");
       }
-      if (isMountedRef.current) setPedidos([]);
+      // Don't reset pedidos on error to keep stale data visible
     } finally {
       pedidosFetchInFlight.current = false;
       if (isMountedRef.current) setLoading(false);
@@ -1030,7 +1042,7 @@ const AdminDashboard = () => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
             {/* Actions & Filters */}
             <div className="mb-4 flex flex-col gap-3">
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap items-center">
                 <button
                   onClick={() => setShowNuevoPedido(true)}
                   className="flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90"
@@ -1038,6 +1050,16 @@ const AdminDashboard = () => {
                   <Plus className="h-4 w-4" />
                   Nuevo Pedido
                 </button>
+                <Button
+                  onClick={() => fetchPedidos()}
+                  variant="outline"
+                  size="sm"
+                  disabled={loading}
+                  className="gap-1.5"
+                >
+                  <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  Refrescar
+                </Button>
                 <Button onClick={() => setShowBulkUpload(true)} variant="outline" className="gap-2">
                   <Upload className="h-4 w-4" />
                   Carga Masiva

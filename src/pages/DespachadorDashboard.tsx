@@ -12,6 +12,7 @@ import {
   ArrowLeftRight,
   Ban,
   CalendarCheck,
+  RotateCcw,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -251,16 +252,26 @@ const DespachadorDashboard = () => {
     filterPedidos();
   }, [filterPedidos]);
 
+  // Select only columns needed for dispatcher table to avoid timeout
+  const PEDIDO_COLUMNS = `
+    id, numero_guia, cliente_nombre, direccion_entrega, estado, corte_horario,
+    fecha_creacion, fecha_entrega, motorizado_asignado, motorizado_id,
+    latitud, longitud, barrio, metodo_pago, producto_nombre, valor_recaudar,
+    municipio, zona, tipo_novedad, foto_evidencia, foto_paquete, firma_cliente,
+    fecha_actualizacion, client_phone, client_user_id, guia_impresa, guia_impresa_at, observaciones
+  `;
+
   const fetchPedidos = useCallback(async () => {
     if (pedidosFetchInFlight.current) return;
     pedidosFetchInFlight.current = true;
+    if (isMountedRef.current) setLoading(true);
 
     try {
       const { data, error } = await supabase
         .from("pedidos")
-        .select("*")
+        .select(PEDIDO_COLUMNS)
         .order("fecha_creacion", { ascending: false })
-        .range(0, 499);
+        .limit(300);
 
       if (error) throw error;
       const normalized = (data || []).map((p) => normalizePedido(p as Pedido));
@@ -268,11 +279,10 @@ const DespachadorDashboard = () => {
     } catch (error: any) {
       console.error("Error fetching pedidos:", error);
       if (error?.code === "57014") {
-        toast.error("La consulta de pedidos tardó demasiado (timeout). Intenta de nuevo en unos segundos.");
+        toast.error("La consulta tardó demasiado. Usa el botón Refrescar.");
       } else {
         toast.error("Error al cargar los pedidos");
       }
-      if (isMountedRef.current) setPedidos([]);
     } finally {
       pedidosFetchInFlight.current = false;
       if (isMountedRef.current) setLoading(false);
@@ -468,6 +478,16 @@ const DespachadorDashboard = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  onClick={() => fetchPedidos()}
+                  variant="outline"
+                  size="sm"
+                  disabled={loading}
+                  className="gap-1.5"
+                >
+                  <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  Refrescar
+                </Button>
                 {selectedForBulk.length > 0 && (
                   <Button
                     onClick={() => setShowBulkReassign(true)}
