@@ -29,9 +29,13 @@ import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 import BulkReassignModal from "@/components/admin/BulkReassignModal";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import DeliveryDateBadge, { isFutureDeliveryDate } from "@/components/DeliveryDateBadge";
+import DeliveryDateBadge from "@/components/DeliveryDateBadge";
 import FutureDateConfirmDialog from "@/components/FutureDateConfirmDialog";
-import { startOfDay } from "date-fns";
+import {
+  isFutureDeliveryDate,
+  isTodayOrPastDeliveryDate,
+  compareDeliveryDates,
+} from "@/lib/dateUtils";
 
 interface Pedido {
   id: number;
@@ -204,12 +208,9 @@ const DespachadorDashboard = () => {
     }
   };
 
-  // Helper to check if a fecha_entrega is for today or past
+  // Helper to check if a fecha_entrega is for today or past - using centralized utility
   const isTodayOrPast = useCallback((fechaEntrega: string | null) => {
-    if (!fechaEntrega) return true; // No date = treat as today
-    const date = new Date(fechaEntrega + "T00:00:00");
-    const today = startOfDay(new Date());
-    return date <= today;
+    return isTodayOrPastDeliveryDate(fechaEntrega);
   }, []);
 
   const filterPedidos = () => {
@@ -260,14 +261,8 @@ const DespachadorDashboard = () => {
       );
     }
 
-    // Sort by fecha_entrega ascending (nearest first)
-    filtered.sort((a, b) => {
-      const dateA = a.fecha_entrega ? new Date(a.fecha_entrega + "T00:00:00").getTime() : 0;
-      const dateB = b.fecha_entrega ? new Date(b.fecha_entrega + "T00:00:00").getTime() : 0;
-      if (!a.fecha_entrega && b.fecha_entrega) return -1;
-      if (a.fecha_entrega && !b.fecha_entrega) return 1;
-      return dateA - dateB;
-    });
+    // Sort by fecha_entrega ascending (nearest first) using centralized utility
+    filtered.sort((a, b) => compareDeliveryDates(a.fecha_entrega, b.fecha_entrega));
 
     setFilteredPedidos(filtered);
   };
