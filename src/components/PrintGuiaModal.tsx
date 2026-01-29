@@ -8,6 +8,12 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 const defaultLogo = "/logo-oficial.png";
 
+type StoreCacheEntry = {
+  logo_url: string | null;
+  store_name: string | null;
+  at: number;
+};
+
 const formatTodayDate = () => {
   return new Date().toLocaleDateString("es-CO", {
     year: "numeric",
@@ -46,15 +52,31 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
+  // Cache to avoid repeated DB queries when opening/closing the modal frequently
+  const storeCacheRef = useRef<Record<string, StoreCacheEntry>>({});
+
   // Fetch store logo if pedido has client_user_id
   useEffect(() => {
     let isMounted = true;
 
+    const userId = pedido?.client_user_id ?? null;
+
     const fetchStoreLogo = async () => {
-      if (!pedido?.client_user_id) {
+      if (!userId) {
         if (isMounted) {
           setStoreLogo(null);
           setStoreName(null);
+        }
+        return;
+      }
+
+      // Serve from cache when possible (reduces Supabase CPU + network)
+      const cached = storeCacheRef.current[userId];
+      const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+      if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+        if (isMounted) {
+          setStoreLogo(cached.logo_url);
+          setStoreName(cached.store_name);
         }
         return;
       }
@@ -63,7 +85,7 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
         const { data: profile, error } = await supabase
           .from("profiles")
           .select("logo_url, store_name")
-          .eq("user_id", pedido.client_user_id)
+          .eq("user_id", userId)
           .maybeSingle();
 
         if (error) {
@@ -79,6 +101,12 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
           setStoreLogo(profile?.logo_url || null);
           setStoreName(profile?.store_name || null);
         }
+
+        storeCacheRef.current[userId] = {
+          logo_url: profile?.logo_url || null,
+          store_name: profile?.store_name || null,
+          at: Date.now(),
+        };
       } catch (error) {
         console.error("Error fetching store logo:", error);
         if (isMounted) {
@@ -95,7 +123,7 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
     return () => {
       isMounted = false;
     };
-  }, [pedido, isOpen]);
+  }, [isOpen, pedido?.client_user_id]);
 
   const handlePrint = useCallback(async () => {
     if (!pedido) return;

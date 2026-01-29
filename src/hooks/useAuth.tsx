@@ -39,6 +39,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Emergency: prevent double-fetch storms (onAuthStateChange + getSession can both fire)
   const fetchInFlightRef = useRef(false);
   const lastFetchRef = useRef<{ userId: string; at: number } | null>(null);
+  // Prevent role/profile re-fetch on TOKEN_REFRESHED events (happens frequently)
+  const currentUserIdRef = useRef<string | null>(null);
 
   const fetchUserData = useCallback(async (userId: string) => {
     // De-dupe repeated calls for the same user within a short window
@@ -74,26 +76,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       lastFetchRef.current = { userId, at: Date.now() };
       fetchInFlightRef.current = false;
-      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    setLoading(true);
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
 
-        // Defer profile/role fetch with setTimeout to prevent deadlock
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserData(session.user.id);
-          }, 0);
-        } else {
+        if (!session?.user) {
+          currentUserIdRef.current = null;
           setRole(null);
           setProfile(null);
           setLoading(false);
+          return;
+        }
+
+        const userId = session.user.id;
+        const userChanged = currentUserIdRef.current !== userId;
+        if (userChanged) {
+          currentUserIdRef.current = userId;
+          // Clear stale data immediately; new fetch will repopulate
+          setRole(null);
+          setProfile(null);
+        }
+
+        // CRITICAL: Avoid hitting DB on TOKEN_REFRESHED (causes steady CPU usage).
+        // Only fetch role/profile when:
+        // - User just signed in
+        // - User changed
+        // - User explicitly updated
+        if (event === "SIGNED_IN" || event === "USER_UPDATED" || userChanged) {
+          // Defer profile/role fetch with setTimeout to prevent deadlock
+          setTimeout(() => {
+            void fetchUserData(userId);
+          }, 0);
         }
       }
     );
@@ -109,7 +130,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(session?.user ?? null);
 
         if (session?.user) {
+          currentUserIdRef.current = session.user.id;
           await fetchUserData(session.user.id);
+        } else {
+          currentUserIdRef.current = null;
+          setRole(null);
+          setProfile(null);
         }
       } catch (error) {
         console.error("Error reading auth session:", error);
