@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useNotificationSound } from "@/hooks/useNotificationSound";
+import { playGlobalNotificationPing } from "@/hooks/useNotificationSound";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
@@ -188,7 +188,6 @@ const AdminDashboard = () => {
   const [pendingAssignment, setPendingAssignment] = useState<{ pedidoId: number; motorizadoUserId: string; pedido: Pedido } | null>(null);
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
-  const { playNotificationPing } = useNotificationSound();
 
   // Guards to avoid request storms / setState after unmount
   const pedidosFetchInFlight = useRef(false);
@@ -281,8 +280,8 @@ const AdminDashboard = () => {
             setPedidos((prev) => [newPedido, ...prev]);
             setNewOrdersCount((c) => c + 1);
             
-            // Play notification sound
-            playNotificationPing();
+            // Play notification sound (global singleton; doesn't couple to component lifecycle)
+            playGlobalNotificationPing();
             
             toast.success(
               `🔔 Nuevo pedido: ${newPedido.cliente_nombre || 'Cliente'}`,
@@ -307,7 +306,7 @@ const AdminDashboard = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [playNotificationPing]);
+  }, []);
 
   // Listen for real-time reassignment notifications from motorizados
   useEffect(() => {
@@ -462,12 +461,11 @@ const AdminDashboard = () => {
       if (dateFilter) {
         filtered = filtered.filter((p) => {
           if (!p.fecha_creacion) return false;
-          try {
-            const pedidoDate = new Date(p.fecha_creacion).toISOString().split("T")[0];
-            return pedidoDate === dateFilter;
-          } catch {
-            return false;
-          }
+          // Compare only YYYY-MM-DD (ignore time + avoid UTC shifting)
+          const dateOnly = p.fecha_creacion.includes("T")
+            ? p.fecha_creacion.split("T")[0]
+            : p.fecha_creacion;
+          return dateOnly === dateFilter;
         });
       }
 
@@ -1090,6 +1088,17 @@ const AdminDashboard = () => {
               {/* Filters Row */}
               <div className="flex flex-wrap gap-2 items-center">
                 <Filter className="h-4 w-4 text-muted-foreground" />
+                <Button
+                  onClick={() => fetchPedidos()}
+                  variant="outline"
+                  size="sm"
+                  disabled={loading}
+                  className="gap-1.5"
+                  title="Actualizar"
+                >
+                  <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  Actualizar
+                </Button>
                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
                   <option value="todos">Todos los estados</option>
                   <option value="sin_asignar">⚠️ Sin Asignar</option>

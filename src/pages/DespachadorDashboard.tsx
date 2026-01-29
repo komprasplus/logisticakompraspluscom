@@ -213,11 +213,11 @@ const DespachadorDashboard = () => {
       if (dateFilter) {
         filtered = filtered.filter((p) => {
           if (!p.fecha_creacion) return false;
-          try {
-            return new Date(p.fecha_creacion).toISOString().split("T")[0] === dateFilter;
-          } catch {
-            return false;
-          }
+          // Compare only YYYY-MM-DD (ignore time + avoid UTC shifting)
+          const dateOnly = p.fecha_creacion.includes("T")
+            ? p.fecha_creacion.split("T")[0]
+            : p.fecha_creacion;
+          return dateOnly === dateFilter;
         });
       }
 
@@ -559,6 +559,18 @@ const DespachadorDashboard = () => {
                 onChange={(e) => setDateFilter(e.target.value)}
                 className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
               />
+
+              <Button
+                onClick={() => fetchPedidos()}
+                variant="outline"
+                size="sm"
+                disabled={loading}
+                className="gap-1.5"
+                title="Actualizar"
+              >
+                <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Actualizar
+              </Button>
               
               {/* NEW: "Ver solo para hoy" Quick Filter */}
               <button
