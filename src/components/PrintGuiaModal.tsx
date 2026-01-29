@@ -40,10 +40,14 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
 
   // Fetch store logo if pedido has client_user_id
   useEffect(() => {
+    let isMounted = true;
+
     const fetchStoreLogo = async () => {
       if (!pedido?.client_user_id) {
-        setStoreLogo(null);
-        setStoreName(null);
+        if (isMounted) {
+          setStoreLogo(null);
+          setStoreName(null);
+        }
         return;
       }
 
@@ -56,23 +60,33 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
 
         if (error) {
           console.error("Error fetching store logo:", error);
-          setStoreLogo(null);
-          setStoreName(null);
+          if (isMounted) {
+            setStoreLogo(null);
+            setStoreName(null);
+          }
           return;
         }
-        
-        setStoreLogo(profile?.logo_url || null);
-        setStoreName(profile?.store_name || null);
+
+        if (isMounted) {
+          setStoreLogo(profile?.logo_url || null);
+          setStoreName(profile?.store_name || null);
+        }
       } catch (error) {
         console.error("Error fetching store logo:", error);
-        setStoreLogo(null);
-        setStoreName(null);
+        if (isMounted) {
+          setStoreLogo(null);
+          setStoreName(null);
+        }
       }
     };
 
     if (isOpen && pedido) {
       fetchStoreLogo();
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [pedido, isOpen]);
 
   const handlePrint = useCallback(async () => {
