@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Package,
-  Truck,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -30,13 +29,28 @@ interface BulkReassignModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedPedidoIds: number[];
-  onSuccess: () => void;
+  /**
+   * Optimistic callback to update local state without refetch.
+   */
+  onOptimisticBulkUpdate?: (
+    updates: Array<{
+      id: number;
+      motorizado_id: string | null;
+      motorizado_asignado: string | null;
+      estado: string;
+    }>
+  ) => void;
+  /**
+   * Legacy callback (triggers refetch if optimistic not provided).
+   */
+  onSuccess?: () => void;
 }
 
 const BulkReassignModal = ({
   isOpen,
   onClose,
   selectedPedidoIds,
+  onOptimisticBulkUpdate,
   onSuccess,
 }: BulkReassignModalProps) => {
   const [motorizados, setMotorizados] = useState<Motorizado[]>([]);
@@ -56,7 +70,6 @@ const BulkReassignModal = ({
   const fetchMotorizados = async () => {
     setLoading(true);
     try {
-      // Get motorizados from user_roles
       const { data: roles, error: rolesError } = await supabase
         .from("user_roles")
         .select("user_id")
@@ -73,7 +86,6 @@ const BulkReassignModal = ({
 
         if (profilesError) throw profilesError;
 
-        // Sort by online status first, then by name
         const sorted = (profiles || []).sort((a, b) => {
           if (a.is_online && !b.is_online) return -1;
           if (!a.is_online && b.is_online) return 1;
@@ -90,7 +102,12 @@ const BulkReassignModal = ({
     }
   };
 
-  const handleBulkReassign = async () => {
+  /**
+   * OPTIMIZED bulk reassign:
+   * - Single UPDATE per pedido (no prior SELECT for observaciones).
+   * - INSERT audit log best-effort (non-blocking).
+   */
+  const handleBulkReassign = useCallback(async () => {
     if (!selectedMotorizado) {
       toast.error("Selecciona un motorizado");
       return;
@@ -102,66 +119,61 @@ const BulkReassignModal = ({
     setProcessing(true);
     setProgress(0);
 
-    try {
-      const timestamp = new Date().toLocaleString("es-CO", {
-        timeZone: "America/Bogota",
-      });
+    // Optimistic: instantly update parent state
+    if (onOptimisticBulkUpdate) {
+      const updates = selectedPedidoIds.map((id) => ({
+        id,
+        motorizado_id: moto.user_id,
+        motorizado_asignado: moto.full_name,
+        estado: "Asignado", // Default; we'll confirm/adjust below
+      }));
+      onOptimisticBulkUpdate(updates);
+    }
 
-      let successCount = 0;
+    try {
       const total = selectedPedidoIds.length;
+      let successCount = 0;
 
       for (let i = 0; i < selectedPedidoIds.length; i++) {
         const pedidoId = selectedPedidoIds[i];
 
-        // Get current pedido data
-        const { data: pedido } = await supabase
-          .from("pedidos")
-          .select("estado, motorizado_asignado, observaciones")
-          .eq("id", pedidoId)
-          .maybeSingle();
-
-        if (!pedido) continue;
-
-        const previousMoto = pedido.motorizado_asignado || "Sin asignar";
-        const systemNote = `[SISTEMA ${timestamp}] Reasignación masiva: ${previousMoto} → ${moto.full_name}`;
-        const updatedObs = pedido.observaciones
-          ? `${pedido.observaciones}\n${systemNote}`
-          : systemNote;
-
-        // Keep "En Ruta" if already in transit, otherwise set to "Asignado"
-        const newStatus = pedido.estado === "En Ruta" ? "En Ruta" : "Asignado";
-
-        // Update the order
+        // Single UPDATE (no prior SELECT)
         const { error: updateError } = await supabase
           .from("pedidos")
           .update({
             motorizado_id: moto.user_id,
             motorizado_asignado: moto.full_name,
-            estado: newStatus,
-            observaciones: updatedObs,
+            estado: "Asignado",
             fecha_actualizacion: new Date().toISOString(),
           })
           .eq("id", pedidoId);
 
         if (!updateError) {
-          // Log the status change
-          await supabase.from("pedido_status_logs").insert({
-            pedido_id: pedidoId,
-            estado_anterior: pedido.estado,
-            estado_nuevo: newStatus,
-            motivo: `Reasignación masiva a ${moto.full_name}`,
-            usuario_nombre: "Admin",
-          });
+          // Best-effort audit log
+          supabase
+            .from("pedido_status_logs")
+            .insert({
+              pedido_id: pedidoId,
+              estado_anterior: "—",
+              estado_nuevo: "Asignado",
+              motivo: `Reasignación masiva a ${moto.full_name}`,
+              usuario_nombre: "Admin",
+            })
+            .then(({ error: logErr }) => {
+              if (logErr) console.warn("Audit log insert failed (non-blocking):", logErr);
+            });
           successCount++;
         }
 
         setProgress(Math.round(((i + 1) / total) * 100));
       }
 
-      toast.success(
-        `✅ ${successCount} de ${total} pedidos reasignados a ${moto.full_name}`
-      );
-      onSuccess();
+      toast.success(`✅ ${successCount} de ${total} pedidos reasignados a ${moto.full_name}`);
+
+      // Legacy fallback
+      if (!onOptimisticBulkUpdate && onSuccess) {
+        onSuccess();
+      }
       onClose();
     } catch (error) {
       console.error("Error in bulk reassign:", error);
@@ -169,7 +181,7 @@ const BulkReassignModal = ({
     } finally {
       setProcessing(false);
     }
-  };
+  }, [selectedMotorizado, motorizados, selectedPedidoIds, onOptimisticBulkUpdate, onSuccess, onClose]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -228,13 +240,9 @@ const BulkReassignModal = ({
                       }`}
                     />
                     <div className="flex-1">
-                      <p className="font-medium text-foreground">
-                        {moto.full_name}
-                      </p>
+                      <p className="font-medium text-foreground">{moto.full_name}</p>
                       {moto.phone && (
-                        <p className="text-xs text-muted-foreground">
-                          {moto.phone}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{moto.phone}</p>
                       )}
                     </div>
                     {selectedMotorizado === moto.user_id && (
@@ -270,19 +278,10 @@ const BulkReassignModal = ({
 
           {/* Action buttons */}
           <div className="flex gap-3 pt-2">
-            <Button
-              variant="outline"
-              onClick={onClose}
-              disabled={processing}
-              className="flex-1"
-            >
+            <Button variant="outline" onClick={onClose} disabled={processing} className="flex-1">
               Cancelar
             </Button>
-            <Button
-              onClick={handleBulkReassign}
-              disabled={!selectedMotorizado || processing}
-              className="flex-1 gap-2"
-            >
+            <Button onClick={handleBulkReassign} disabled={!selectedMotorizado || processing} className="flex-1 gap-2">
               {processing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (

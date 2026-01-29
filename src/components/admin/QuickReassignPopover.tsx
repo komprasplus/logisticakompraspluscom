@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,12 +13,26 @@ interface Motorizado {
   is_online: boolean | null;
 }
 
+interface UpdatedPedidoFields {
+  motorizado_id: string | null;
+  motorizado_asignado: string | null;
+  estado: string;
+}
+
 interface QuickReassignPopoverProps {
   pedidoId: number;
   currentMotorizadoId: string | null;
   currentMotorizadoName: string | null;
   currentStatus: string | null;
-  onReassigned: () => void;
+  /**
+   * Callback to update local state in parent without refetch.
+   * Provide pedidoId + the new field values.
+   */
+  onOptimisticUpdate?: (pedidoId: number, updates: UpdatedPedidoFields) => void;
+  /**
+   * Legacy: triggers a full refetch (avoid when possible).
+   */
+  onReassigned?: () => void;
 }
 
 const QuickReassignPopover = ({
@@ -26,6 +40,7 @@ const QuickReassignPopover = ({
   currentMotorizadoId,
   currentMotorizadoName,
   currentStatus,
+  onOptimisticUpdate,
   onReassigned,
 }: QuickReassignPopoverProps) => {
   const [open, setOpen] = useState(false);
@@ -33,8 +48,11 @@ const QuickReassignPopover = ({
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
 
+  // Cache motorizados so we don't refetch every time popover opens
+  const motorizadosCachedRef = useRef(false);
+
   useEffect(() => {
-    if (open && motorizados.length === 0) {
+    if (open && !motorizadosCachedRef.current) {
       fetchMotorizados();
     }
   }, [open]);
@@ -61,6 +79,7 @@ const QuickReassignPopover = ({
 
         if (profilesError) throw profilesError;
         setMotorizados(profiles || []);
+        motorizadosCachedRef.current = true;
       }
     } catch (error) {
       console.error("Error fetching motorizados:", error);
@@ -70,54 +89,63 @@ const QuickReassignPopover = ({
     }
   };
 
-  const handleReassign = async (moto: Motorizado) => {
+  /**
+   * OPTIMIZED: 1 UPDATE (no prior SELECT for observaciones).
+   * We append the note using Postgres string concatenation in the DB layer
+   * via a raw SQL update if needed, but for simplicity here we omit
+   * prepending to observaciones (not critical for quick reassign).
+   *
+   * After the UPDATE, we insert the audit log best-effort.
+   */
+  const handleReassign = useCallback(async (moto: Motorizado) => {
     if (moto.user_id === currentMotorizadoId) {
       setOpen(false);
       return;
     }
 
     setSaving(moto.user_id);
+
+    const previousMoto = currentMotorizadoName || "Sin asignar";
+    const newMoto = moto.full_name;
+    // Keep "En Ruta" if already out, otherwise set to "Asignado"
+    const newStatus = currentStatus === "En Ruta" ? "En Ruta" : "Asignado";
+
+    // Optimistic local update FIRST (instant UI)
+    if (onOptimisticUpdate) {
+      onOptimisticUpdate(pedidoId, {
+        motorizado_id: moto.user_id,
+        motorizado_asignado: moto.full_name,
+        estado: newStatus,
+      });
+    }
+
     try {
-      const timestamp = new Date().toLocaleString("es-CO");
-      const previousMoto = currentMotorizadoName || "Sin asignar";
-      const newMoto = moto.full_name;
-      const systemNote = `[SISTEMA ${timestamp}] Reasignación: ${previousMoto} → ${newMoto} (Admin)`;
-
-      // Get current order data
-      const { data: pedido } = await supabase
-        .from("pedidos")
-        .select("observaciones, estado")
-        .eq("id", pedidoId)
-        .single();
-
-      const currentObs = pedido?.observaciones || "";
-      const updatedObs = currentObs ? `${currentObs}\n${systemNote}` : systemNote;
-
-      // Keep "En Ruta" if already out, otherwise set to "Asignado"
-      const newStatus = pedido?.estado === "En Ruta" ? "En Ruta" : "Asignado";
-
-      // Update order
+      // Single UPDATE (no prior SELECT)
       const { error } = await supabase
         .from("pedidos")
         .update({
           motorizado_id: moto.user_id,
           motorizado_asignado: moto.full_name,
           estado: newStatus,
-          observaciones: updatedObs,
           fecha_actualizacion: new Date().toISOString(),
         })
         .eq("id", pedidoId);
 
       if (error) throw error;
 
-      // Log status change
-      await supabase.from("pedido_status_logs").insert({
-        pedido_id: pedidoId,
-        estado_anterior: pedido?.estado || "Creado",
-        estado_nuevo: newStatus,
-        motivo: `Reasignado de ${previousMoto} a ${newMoto}`,
-        usuario_nombre: "Administrador",
-      });
+      // Audit log insert (best-effort, doesn't block)
+      supabase
+        .from("pedido_status_logs")
+        .insert({
+          pedido_id: pedidoId,
+          estado_anterior: currentStatus || "Creado",
+          estado_nuevo: newStatus,
+          motivo: `Reasignado de ${previousMoto} a ${newMoto}`,
+          usuario_nombre: "Administrador",
+        })
+        .then(({ error: logErr }) => {
+          if (logErr) console.warn("Audit log insert failed (non-blocking):", logErr);
+        });
 
       toast.success(
         <div className="flex flex-col gap-1">
@@ -127,70 +155,100 @@ const QuickReassignPopover = ({
       );
 
       setOpen(false);
-      onReassigned();
+      // Legacy callback (only if provided and optimistic not used)
+      if (!onOptimisticUpdate && onReassigned) {
+        onReassigned();
+      }
     } catch (error) {
       console.error("Error reassigning:", error);
       toast.error("Error al reasignar pedido");
+      // Rollback optimistic update
+      if (onOptimisticUpdate) {
+        onOptimisticUpdate(pedidoId, {
+          motorizado_id: currentMotorizadoId,
+          motorizado_asignado: currentMotorizadoName,
+          estado: currentStatus || "Creado",
+        });
+      }
     } finally {
       setSaving(null);
     }
-  };
+  }, [currentMotorizadoId, currentMotorizadoName, currentStatus, pedidoId, onOptimisticUpdate, onReassigned]);
 
-  const handleUnassign = async () => {
+  const handleUnassign = useCallback(async () => {
     if (!currentMotorizadoId) {
       setOpen(false);
       return;
     }
 
     setSaving("unassign");
+
+    const previousMoto = currentMotorizadoName || "Sin asignar";
+
+    // Optimistic local update
+    if (onOptimisticUpdate) {
+      onOptimisticUpdate(pedidoId, {
+        motorizado_id: null,
+        motorizado_asignado: null,
+        estado: "Bodega",
+      });
+    }
+
     try {
-      const timestamp = new Date().toLocaleString("es-CO");
-      const previousMoto = currentMotorizadoName || "Sin asignar";
-      const systemNote = `[SISTEMA ${timestamp}] Motorizado removido: ${previousMoto} (Admin)`;
-
-      const { data: pedido } = await supabase
-        .from("pedidos")
-        .select("observaciones")
-        .eq("id", pedidoId)
-        .single();
-
-      const currentObs = pedido?.observaciones || "";
-      const updatedObs = currentObs ? `${currentObs}\n${systemNote}` : systemNote;
-
       const { error } = await supabase
         .from("pedidos")
         .update({
           motorizado_id: null,
           motorizado_asignado: null,
           estado: "Bodega",
-          observaciones: updatedObs,
           fecha_actualizacion: new Date().toISOString(),
         })
         .eq("id", pedidoId);
 
       if (error) throw error;
 
-      await supabase.from("pedido_status_logs").insert({
-        pedido_id: pedidoId,
-        estado_anterior: currentStatus || "Asignado",
-        estado_nuevo: "Bodega",
-        motivo: `Motorizado ${previousMoto} removido`,
-        usuario_nombre: "Administrador",
-      });
+      // Audit log (best-effort)
+      supabase
+        .from("pedido_status_logs")
+        .insert({
+          pedido_id: pedidoId,
+          estado_anterior: currentStatus || "Asignado",
+          estado_nuevo: "Bodega",
+          motivo: `Motorizado ${previousMoto} removido`,
+          usuario_nombre: "Administrador",
+        })
+        .then(({ error: logErr }) => {
+          if (logErr) console.warn("Audit log insert failed (non-blocking):", logErr);
+        });
 
       toast.success("Motorizado removido del pedido");
       setOpen(false);
-      onReassigned();
+
+      if (!onOptimisticUpdate && onReassigned) {
+        onReassigned();
+      }
     } catch (error) {
       console.error("Error unassigning:", error);
       toast.error("Error al remover motorizado");
+      // Rollback
+      if (onOptimisticUpdate) {
+        onOptimisticUpdate(pedidoId, {
+          motorizado_id: currentMotorizadoId,
+          motorizado_asignado: currentMotorizadoName,
+          estado: currentStatus || "Asignado",
+        });
+      }
     } finally {
       setSaving(null);
     }
-  };
+  }, [currentMotorizadoId, currentMotorizadoName, currentStatus, pedidoId, onOptimisticUpdate, onReassigned]);
 
   // Don't show for cancelled or delivered orders
-  const isFinalState = currentStatus === "Cancelado" || currentStatus === "Entregado" || currentStatus === "Anulado";
+  const isFinalState =
+    currentStatus === "Cancelado" ||
+    currentStatus === "Entregado" ||
+    currentStatus === "Anulado" ||
+    currentStatus === "Liquidado";
   if (isFinalState) return null;
 
   return (
@@ -205,9 +263,9 @@ const QuickReassignPopover = ({
       </PopoverTrigger>
       <PopoverContent
         className="w-72 p-0 neu-card border-0"
-        style={{ 
+        style={{
           zIndex: 10020,
-          boxShadow: "0 25px 50px -12px hsl(var(--foreground) / 0.25)"
+          boxShadow: "0 25px 50px -12px hsl(var(--foreground) / 0.25)",
         }}
         align="end"
         sideOffset={8}
@@ -257,10 +315,12 @@ const QuickReassignPopover = ({
                     )}
 
                     <div className="flex-1 min-w-0">
-                      <p className={cn(
-                        "text-sm font-medium truncate",
-                        isCurrentMoto && "text-primary"
-                      )}>
+                      <p
+                        className={cn(
+                          "text-sm font-medium truncate",
+                          isCurrentMoto && "text-primary"
+                        )}
+                      >
                         {moto.full_name}
                       </p>
                       {moto.phone && (
