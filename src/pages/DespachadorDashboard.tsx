@@ -159,9 +159,74 @@ const DespachadorDashboard = () => {
     return () => { supabase.removeChannel(notificationChannel); };
   }, []);
 
+  // Memoized filter function to prevent unnecessary re-renders
+  const filterPedidos = useCallback(() => {
+    try {
+      let filtered = [...pedidos];
+
+      if (statusFilter === "sin_asignar") {
+        filtered = filtered.filter((p) => !p.motorizado_asignado && isOperationalStatus(p.estado));
+      } else if (statusFilter === "anulado") {
+        filtered = filtered.filter((p) => p.estado?.toLowerCase() === "anulado");
+      } else if (statusFilter !== "todos") {
+        filtered = filtered.filter((p) => p.estado?.toLowerCase() === statusFilter.toLowerCase());
+      } else {
+        filtered = filtered.filter((p) => isOperationalStatus(p.estado));
+      }
+
+      if (zonaFilter !== "todos") {
+        filtered = filtered.filter((p) => p.zona === zonaFilter);
+      }
+
+      if (storeFilter !== "todos") {
+        filtered = filtered.filter((p) => {
+          if (!p.client_user_id) return false;
+          const prof = clientProfiles[p.client_user_id];
+          return (prof?.store_name || prof?.full_name || "") === storeFilter;
+        });
+      }
+
+      if (dateFilter) {
+        filtered = filtered.filter((p) => {
+          if (!p.fecha_creacion) return false;
+          try {
+            return new Date(p.fecha_creacion).toISOString().split("T")[0] === dateFilter;
+          } catch {
+            return false;
+          }
+        });
+      }
+
+      // Filter for "Ver solo para hoy"
+      if (todayOnlyFilter) {
+        filtered = filtered.filter((p) => isTodayOrPastDeliveryDate(p.fecha_entrega));
+      }
+
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        filtered = filtered.filter((p) =>
+          p.numero_guia?.toLowerCase().includes(q) ||
+          p.cliente_nombre?.toLowerCase().includes(q) ||
+          p.motorizado_asignado?.toLowerCase().includes(q) ||
+          p.barrio?.toLowerCase().includes(q) ||
+          p.zona?.toLowerCase().includes(q)
+        );
+      }
+
+      // Sort by fecha_entrega ascending (nearest first) using centralized utility
+      filtered.sort((a, b) => compareDeliveryDates(a.fecha_entrega, b.fecha_entrega));
+
+      setFilteredPedidos(filtered);
+    } catch (error) {
+      console.error("Error filtering pedidos:", error);
+      setFilteredPedidos([]);
+    }
+  }, [pedidos, statusFilter, zonaFilter, storeFilter, dateFilter, todayOnlyFilter, searchQuery, clientProfiles]);
+
+  // Apply filters when dependencies change
   useEffect(() => {
     filterPedidos();
-  }, [statusFilter, zonaFilter, storeFilter, dateFilter, todayOnlyFilter, searchQuery, pedidos, clientProfiles]);
+  }, [filterPedidos]);
 
   const fetchPedidos = async () => {
     try {
@@ -206,65 +271,6 @@ const DespachadorDashboard = () => {
     } catch (error) {
       console.error("Error fetching client profiles:", error);
     }
-  };
-
-  // Helper to check if a fecha_entrega is for today or past - using centralized utility
-  const isTodayOrPast = useCallback((fechaEntrega: string | null) => {
-    return isTodayOrPastDeliveryDate(fechaEntrega);
-  }, []);
-
-  const filterPedidos = () => {
-    let filtered = [...pedidos];
-
-    if (statusFilter === "sin_asignar") {
-      filtered = filtered.filter((p) => !p.motorizado_asignado && isOperationalStatus(p.estado));
-    } else if (statusFilter === "anulado") {
-      filtered = filtered.filter((p) => p.estado?.toLowerCase() === "anulado");
-    } else if (statusFilter !== "todos") {
-      filtered = filtered.filter((p) => p.estado?.toLowerCase() === statusFilter.toLowerCase());
-    } else {
-      filtered = filtered.filter((p) => isOperationalStatus(p.estado));
-    }
-
-    if (zonaFilter !== "todos") {
-      filtered = filtered.filter((p) => p.zona === zonaFilter);
-    }
-
-    if (storeFilter !== "todos") {
-      filtered = filtered.filter((p) => {
-        if (!p.client_user_id) return false;
-        const prof = clientProfiles[p.client_user_id];
-        return (prof?.store_name || prof?.full_name || "") === storeFilter;
-      });
-    }
-
-    if (dateFilter) {
-      filtered = filtered.filter((p) => {
-        if (!p.fecha_creacion) return false;
-        return new Date(p.fecha_creacion).toISOString().split("T")[0] === dateFilter;
-      });
-    }
-
-    // NEW: Filter for "Ver solo para hoy"
-    if (todayOnlyFilter) {
-      filtered = filtered.filter((p) => isTodayOrPast(p.fecha_entrega));
-    }
-
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter((p) =>
-        p.numero_guia?.toLowerCase().includes(q) ||
-        p.cliente_nombre?.toLowerCase().includes(q) ||
-        p.motorizado_asignado?.toLowerCase().includes(q) ||
-        p.barrio?.toLowerCase().includes(q) ||
-        p.zona?.toLowerCase().includes(q)
-      );
-    }
-
-    // Sort by fecha_entrega ascending (nearest first) using centralized utility
-    filtered.sort((a, b) => compareDeliveryDates(a.fecha_entrega, b.fecha_entrega));
-
-    setFilteredPedidos(filtered);
   };
 
   // Initiate assignment - check for future date first

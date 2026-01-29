@@ -52,9 +52,14 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
           .from("profiles")
           .select("logo_url, store_name")
           .eq("user_id", pedido.client_user_id)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (error) {
+          console.error("Error fetching store logo:", error);
+          setStoreLogo(null);
+          setStoreName(null);
+          return;
+        }
         
         setStoreLogo(profile?.logo_url || null);
         setStoreName(profile?.store_name || null);
