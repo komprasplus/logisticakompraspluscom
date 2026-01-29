@@ -359,13 +359,9 @@ const NuevoPedidoModal = ({
       return;
     }
 
-    // Location validation - if user typed manual address but didn't use map, 
-    // we still need coordinates for motorizado navigation
-    if (!confirmedLat || !confirmedLng) {
-      // If user has direccionManual but no coordinates, prompt them to use map once
-      toast.error("Por favor busca un punto de referencia en el mapa (paso B) para obtener coordenadas de navegación");
-      return;
-    }
+    // EMERGENCY: Do not block order creation if Maps/coords fail.
+    // Coordinates are optional in DB; we allow null to restore store operations.
+    const hasCoords = confirmedLat !== null && confirmedLng !== null;
 
     setLoading(true);
 
@@ -390,7 +386,7 @@ const NuevoPedidoModal = ({
         return;
       }
 
-      const pedidoData = {
+       const pedidoData = {
         numero_guia: numeroGuia,
         cliente_nombre: clienteNombre.trim(),
         client_phone: clienteTelefono.replace(/[\s-]/g, ""),
@@ -408,8 +404,8 @@ const NuevoPedidoModal = ({
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
         observaciones: observaciones.trim() || null,
         estado: "pendiente",
-        latitud: confirmedLat,
-        longitud: confirmedLng,
+         latitud: confirmedLat ?? null,
+         longitud: confirmedLng ?? null,
         motorizado_asignado: isAdmin && motorizadoAsignado ? motorizadoAsignado : null,
         client_user_id: isAdmin ? (selectedStoreId || null) : currentUserId,
         // Inventory linking
@@ -423,36 +419,34 @@ const NuevoPedidoModal = ({
 
       if (error) throw error;
 
-      // CRITICAL: Deduct stock immediately on order creation to prevent overselling
-      if (inventoryItemId && quantity > 0) {
-        const { error: stockError } = await (supabase as any)
-          .from("inventory")
-          .update({ 
-            stock_available: (supabase as any).rpc ? 
-              // Ideally use RPC for atomic decrement, but fallback works
-              inventoryPrefill?.maxStock ? 
-                Math.max(0, (inventoryPrefill.maxStock - quantity)) : 0
-              : 0
-          })
-          .eq("id", inventoryItemId);
+       if (!hasCoords) {
+         toast.warning("Pedido creado sin coordenadas. Puedes editarlo luego para agregar ubicación.");
+       }
 
-        // Get current stock and update
-        const { data: currentItem } = await (supabase as any)
-          .from("inventory")
-          .select("stock_available")
-          .eq("id", inventoryItemId)
-          .single();
+       // Inventory stock decrement: best-effort only (never block order creation).
+       if (inventoryItemId && quantity > 0) {
+         try {
+           const { data: currentItem, error: currentItemErr } = await (supabase as any)
+             .from("inventory")
+             .select("stock_available")
+             .eq("id", inventoryItemId)
+             .maybeSingle();
 
-        if (currentItem) {
-          const newStock = Math.max(0, currentItem.stock_available - quantity);
-          await (supabase as any)
-            .from("inventory")
-            .update({ stock_available: newStock })
-            .eq("id", inventoryItemId);
-          
-          console.log(`📦 Stock deducted: ${currentItem.stock_available} → ${newStock}`);
-        }
-      }
+           if (currentItemErr) throw currentItemErr;
+
+           if (currentItem && typeof currentItem.stock_available === "number") {
+             const newStock = Math.max(0, currentItem.stock_available - quantity);
+             const { error: updateErr } = await (supabase as any)
+               .from("inventory")
+               .update({ stock_available: newStock })
+               .eq("id", inventoryItemId);
+             if (updateErr) throw updateErr;
+           }
+         } catch (invErr) {
+           console.warn("Inventory stock update failed (non-blocking):", invErr);
+           toast.warning("Pedido creado, pero no se pudo actualizar el inventario automáticamente.");
+         }
+       }
 
       toast.success(`Pedido creado exitosamente. Guía: ${numeroGuia}`);
       resetForm();

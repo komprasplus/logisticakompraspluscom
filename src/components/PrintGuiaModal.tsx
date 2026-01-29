@@ -8,6 +8,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 const defaultLogo = "/logo-oficial.png";
 
+const formatTodayDate = () => {
+  return new Date().toLocaleDateString("es-CO", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+};
+
 interface Pedido {
   id: number;
   numero_guia: string | null;
@@ -205,14 +213,6 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
   // Early return after all hooks
   if (!pedido) return null;
 
-  const formatDate = () => {
-    return new Date().toLocaleDateString("es-CO", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit"
-    });
-  };
-
   const guiaNumero = pedido.numero_guia || `KP-${pedido.id}`;
   const isPagado = pedido.metodo_pago === "anticipado";
   const displayStoreName = storeName || remitente || "Kompras Plus";
@@ -277,7 +277,7 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
                   GUÍA N°: {guiaNumero}
                 </div>
                 <div style={{ fontSize: "8pt", color: "#333" }}>
-                  FECHA: {formatDate()}
+                  FECHA: {formatTodayDate()}
                 </div>
               </div>
             </div>

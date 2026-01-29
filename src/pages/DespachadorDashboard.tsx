@@ -262,13 +262,32 @@ const DespachadorDashboard = () => {
     filterPedidos();
   }, [filterPedidos]);
 
-  // Select only columns needed for dispatcher table to avoid timeout
+  /**
+   * EMERGENCY PERFORMANCE MODE
+   * - Keep initial load ultra-light (no complex filters on load; those run client-side)
+   * - Fetch only the first 50 most recent orders
+   * - Select minimal columns needed to render the table without breaking UI
+   */
   const PEDIDO_COLUMNS = `
-    id, numero_guia, cliente_nombre, direccion_entrega, estado, corte_horario,
-    fecha_creacion, fecha_entrega, motorizado_asignado, motorizado_id,
-    latitud, longitud, barrio, metodo_pago, producto_nombre, valor_recaudar,
-    municipio, zona, tipo_novedad, foto_evidencia, foto_paquete, firma_cliente,
-    fecha_actualizacion, client_phone, client_user_id, guia_impresa, guia_impresa_at, observaciones
+    id,
+    numero_guia,
+    cliente_nombre,
+    direccion_entrega,
+    estado,
+    fecha_creacion,
+    fecha_entrega,
+    motorizado_asignado,
+    motorizado_id,
+    barrio,
+    zona,
+    municipio,
+    metodo_pago,
+    valor_recaudar,
+    client_phone,
+    client_user_id,
+    guia_impresa,
+    guia_impresa_at,
+    tipo_novedad
   `;
 
   const fetchPedidos = useCallback(async () => {
@@ -281,7 +300,7 @@ const DespachadorDashboard = () => {
         .from("pedidos")
         .select(PEDIDO_COLUMNS)
         .order("fecha_creacion", { ascending: false })
-        .limit(300);
+        .limit(50);
 
       if (error) throw error;
       const normalized = (data || []).map((p) => normalizePedido(p as Pedido));
@@ -293,11 +312,15 @@ const DespachadorDashboard = () => {
       } else {
         toast.error("Error al cargar los pedidos");
       }
+      // Never block rendering: keep previous data if any, otherwise show empty state.
+      if (isMountedRef.current && pedidos.length === 0) {
+        setPedidos([]);
+      }
     } finally {
       pedidosFetchInFlight.current = false;
       if (isMountedRef.current) setLoading(false);
     }
-  }, [normalizePedido]);
+  }, [normalizePedido, pedidos.length]);
 
   const fetchMotorizados = async () => {
     try {
