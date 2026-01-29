@@ -421,6 +421,26 @@ const DespachadorDashboard = () => {
     setSelectedForBulk((prev) => prev.includes(pedidoId) ? prev.filter((id) => id !== pedidoId) : [...prev, pedidoId]);
   };
 
+  /**
+   * Optimistic update callback for QuickReassignPopover.
+   * Updates local state instantly without refetching.
+   */
+  const handleOptimisticPedidoUpdate = useCallback(
+    (
+      pedidoId: number,
+      updates: { motorizado_id: string | null; motorizado_asignado: string | null; estado: string }
+    ) => {
+      setPedidos((prev) =>
+        prev.map((p) =>
+          p.id === pedidoId
+            ? { ...p, ...updates, fecha_actualizacion: new Date().toISOString() }
+            : p
+        )
+      );
+    },
+    []
+  );
+
   // Allow reprinting for any order except cancelled
   const canReprintGuia = (pedido: Pedido) => {
     const estado = pedido.estado?.toLowerCase();
@@ -752,7 +772,7 @@ const DespachadorDashboard = () => {
                                   currentMotorizadoId={pedido.motorizado_id}
                                   currentMotorizadoName={pedido.motorizado_asignado}
                                   currentStatus={pedido.estado}
-                                  onReassigned={fetchPedidos}
+                                  onOptimisticUpdate={handleOptimisticPedidoUpdate}
                                 />
 
                                 {/* Anulado indicator */}
@@ -865,8 +885,15 @@ const DespachadorDashboard = () => {
           pedidos={pedidos.filter((p) => selectedForBulk.includes(p.id) && canReprintGuia(p))}
           remitentes={remitentesMap}
           onPrintComplete={(ids) => {
+            // Mark guias as printed locally (no refetch needed)
+            setPedidos((prev) =>
+              prev.map((p) =>
+                ids.includes(p.id)
+                  ? { ...p, guia_impresa: true, guia_impresa_at: new Date().toISOString() }
+                  : p
+              )
+            );
             setSelectedForBulk([]);
-            fetchPedidos();
           }}
         />
       )}
@@ -876,9 +903,15 @@ const DespachadorDashboard = () => {
           isOpen={showBulkReassign}
           onClose={() => setShowBulkReassign(false)}
           selectedPedidoIds={selectedForBulk}
-          onSuccess={() => {
+          onOptimisticBulkUpdate={(updates) => {
+            // Apply optimistic updates locally
+            setPedidos((prev) =>
+              prev.map((p) => {
+                const upd = updates.find((u) => u.id === p.id);
+                return upd ? { ...p, ...upd, fecha_actualizacion: new Date().toISOString() } : p;
+              })
+            );
             setSelectedForBulk([]);
-            fetchPedidos();
           }}
         />
       )}
