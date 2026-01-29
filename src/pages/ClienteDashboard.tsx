@@ -50,7 +50,8 @@ const SUPPORT_PHONE = "324 222 3825";
 const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
 
 const ClienteDashboard = () => {
-  const [activeView, setActiveView] = useState<ClienteView>("dashboard");
+  // Emergency: prioritize order creation/operations over advanced views
+  const [activeView, setActiveView] = useState<ClienteView>("pedidos");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
