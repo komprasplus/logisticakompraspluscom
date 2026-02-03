@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Calendar, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getTodayString } from "@/lib/dateUtils";
 import {
   Popover,
   PopoverContent,
@@ -24,6 +25,7 @@ const PRESETS = [
     const today = new Date().toISOString().split("T")[0];
     return { from: today, to: today };
   }},
+  { label: "Desde siempre", getDates: () => ({ from: "2025-01-01", to: getTodayString() })},
   { label: "Última semana", getDates: () => {
     const today = new Date();
     const weekAgo = new Date(today);
@@ -42,7 +44,6 @@ const PRESETS = [
       to: today.toISOString().split("T")[0] 
     };
   }},
-  { label: "Todo 2025-2026", getDates: () => ({ from: "2025-01-01", to: "2026-12-31" })},
 ];
 
 export default function DateRangeFilter({ value, onChange, disabled }: DateRangeFilterProps) {
@@ -65,9 +66,7 @@ export default function DateRangeFilter({ value, onChange, disabled }: DateRange
 
   // Format display label
   const getDisplayLabel = () => {
-    if (value.from === "2025-01-01" && value.to === "2026-12-31") {
-      return "Todo 2025-2026";
-    }
+    if (value.from === "2025-01-01" && value.to === getTodayString()) return "Desde siempre";
     const formatDate = (d: string) => {
       const [y, m, day] = d.split("-");
       return `${day}/${m}/${y.slice(2)}`;
