@@ -41,6 +41,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 const logo = "/logo-oficial.png";
 import AdminMapGoogle from "@/components/AdminMapGoogle";
+import AuditOrdersPanel from "@/components/admin/AuditOrdersPanel";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 import CriticalErrorBoundary from "@/components/CriticalErrorBoundary";
 import EditPedidoModal from "@/components/EditPedidoModal";
@@ -76,6 +77,7 @@ import BulkReassignModal from "@/components/admin/BulkReassignModal";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import WarehouseInventoryPanel from "@/components/admin/WarehouseInventoryPanel";
+import { useAdminSearch } from "@/hooks/useAdminSearch";
 import EditStoreModal from "@/components/EditStoreModal";
 import DeliveryDateBadge from "@/components/DeliveryDateBadge";
 import FutureDateConfirmDialog from "@/components/FutureDateConfirmDialog";
@@ -160,6 +162,8 @@ const AdminDashboard = () => {
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null); // null = live/today
   const [searchQuery, setSearchQuery] = useState("");
+  const [isServerSearchActive, setIsServerSearchActive] = useState(false);
+  const { searchResults, isSearching, searchOrders, clearSearch } = useAdminSearch();
   const [users, setUsers] = useState<Profile[]>([]);
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -198,8 +202,11 @@ const AdminDashboard = () => {
   const pedidosFetchInFlight = useRef(false);
   const isMountedRef = useRef(true);
 
-  // Pagination for despacho table
-  const despachoPageState = usePagination({ items: filteredPedidos, itemsPerPage: 10 });
+  // Pagination for despacho table - use server search results if active
+  const displayPedidos = isServerSearchActive && searchResults.length > 0 
+    ? searchResults as Pedido[]
+    : filteredPedidos;
+  const despachoPageState = usePagination({ items: displayPedidos, itemsPerPage: 10 });
 
   // Fetch initial data
   useEffect(() => {
@@ -354,16 +361,44 @@ const AdminDashboard = () => {
     if (isMountedRef.current) setLoading(true);
 
     try {
-      const { data, error } = await supabase
-        .from("pedidos")
-        .select(PEDIDO_COLUMNS)
-        .order("fecha_creacion", { ascending: false })
-        // Emergency: ultra-light initial load
-        .limit(20);
+      // Strategy: Fetch recent orders (limit 50) + ALL novedades separately
+      // This ensures novedades are NEVER hidden regardless of date/order
+      const [recentResult, novedadesResult] = await Promise.all([
+        supabase
+          .from("pedidos")
+          .select(PEDIDO_COLUMNS)
+          .order("fecha_creacion", { ascending: false })
+          .limit(50),
+        supabase
+          .from("pedidos")
+          .select(PEDIDO_COLUMNS)
+          .ilike("estado", "%novedad%")
+          .order("fecha_creacion", { ascending: false })
+          .limit(100),
+      ]);
 
-      if (error) throw error;
+      if (recentResult.error) throw recentResult.error;
+      if (novedadesResult.error) throw novedadesResult.error;
 
-      const normalized = (data || []).map((p) => normalizePedido(p as Pedido));
+      // Merge and deduplicate by id
+      const allData = [...(recentResult.data || []), ...(novedadesResult.data || [])];
+      const seenIds = new Set<number>();
+      const mergedData: any[] = [];
+      for (const p of allData) {
+        if (!seenIds.has(p.id)) {
+          seenIds.add(p.id);
+          mergedData.push(p);
+        }
+      }
+
+      const normalized = mergedData.map((p) => normalizePedido(p as Pedido));
+      // Sort by fecha_creacion desc
+      normalized.sort((a, b) => {
+        const dateA = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
+        const dateB = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
+        return dateB - dateA;
+      });
+
       if (isMountedRef.current) setPedidos(normalized);
     } catch (error: any) {
       console.error("Error fetching pedidos:", error);
@@ -1075,17 +1110,62 @@ const AdminDashboard = () => {
                 </Button>
               </div>
 
-              {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Buscar por guía, cliente, motorizado o barrio..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
+              {/* Search - with server-side fallback for universal lookup */}
+              <div className="relative flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Buscar guía, cliente o teléfono (Enter = buscar en toda la BD)"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      // Clear server search when input changes
+                      if (isServerSearchActive && e.target.value.length < 2) {
+                        setIsServerSearchActive(false);
+                        clearSearch();
+                      }
+                    }}
+                    onKeyDown={async (e) => {
+                      if (e.key === "Enter" && searchQuery.trim().length >= 2) {
+                        // Trigger server-side search
+                        setIsServerSearchActive(true);
+                        await searchOrders(searchQuery);
+                      }
+                    }}
+                    className="w-full rounded-lg border border-border bg-card py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+                {isServerSearchActive && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsServerSearchActive(false);
+                      setSearchQuery("");
+                      clearSearch();
+                    }}
+                  >
+                    ✕ Limpiar
+                  </Button>
+                )}
+                {isSearching && (
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                )}
               </div>
+
+              {/* Server search results banner */}
+              {isServerSearchActive && searchResults.length > 0 && (
+                <div className="flex items-center gap-2 p-2 rounded-lg bg-primary/10 border border-primary/30 text-sm">
+                  <Search className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-primary">
+                    {searchResults.length} resultado(s) en toda la base de datos
+                  </span>
+                  <span className="text-muted-foreground">
+                    (ignorando filtros locales)
+                  </span>
+                </div>
+              )}
 
               {/* Filters Row */}
               <div className="flex flex-wrap gap-2 items-center">
@@ -1563,6 +1643,16 @@ const AdminDashboard = () => {
               }}
             />
           </motion.div>
+        );
+
+      case "auditoria":
+        return (
+          <AuditOrdersPanel
+            onPedidoClick={(p) => {
+              setSelectedPedidoForDetail(p as Pedido);
+              setShowDetailModal(true);
+            }}
+          />
         );
 
       default:

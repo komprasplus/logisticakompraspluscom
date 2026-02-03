@@ -12,6 +12,7 @@ import {
   Truck,
   LayoutDashboard,
   FileText,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -123,6 +124,14 @@ const menuItems = [
     description: "Ajustes del sistema",
     colorClass: "from-slate-500 to-gray-500",
     accentColor: "bg-slate-500/10"
+  },
+  { 
+    id: "auditoria", 
+    label: "Auditoría", 
+    icon: Database,
+    description: "Vista bruta de Supabase",
+    colorClass: "from-rose-500 to-pink-500",
+    accentColor: "bg-rose-500/10"
   },
 ];
 
