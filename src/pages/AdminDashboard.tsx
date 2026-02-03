@@ -242,6 +242,7 @@ const AdminDashboard = () => {
       barrio: p.barrio ?? "—",
       fecha_entrega: p.fecha_entrega ?? null,
     };
+  }, []);
 
   const fetchUserRoles = async () => {
     try {
