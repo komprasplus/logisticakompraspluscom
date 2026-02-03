@@ -28,7 +28,19 @@ const PageLoader = () => (
   </div>
 );
 
-const queryClient = new QueryClient();
+// Global QueryClient with aggressive caching to prevent Supabase CPU saturation
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30 * 1000, // 30 seconds - data considered fresh
+      gcTime: 5 * 60 * 1000, // 5 minutes - cache retained after unmount
+      refetchOnWindowFocus: false, // Prevent refetch loops on mobile tab switching
+      refetchOnReconnect: false, // Prevent burst on reconnect
+      retry: 1, // Only 1 retry to avoid hammering DB
+      retryDelay: 1000,
+    },
+  },
+});
 
 // Protected route component
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) => {
