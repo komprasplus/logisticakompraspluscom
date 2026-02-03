@@ -78,6 +78,8 @@ import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import WarehouseInventoryPanel from "@/components/admin/WarehouseInventoryPanel";
 import { useAdminSearch } from "@/hooks/useAdminSearch";
+import { useAdminPedidos, type DateRange, DEFAULT_DATE_RANGE } from "@/hooks/useAdminPedidos";
+import DateRangeFilter from "@/components/admin/DateRangeFilter";
 import EditStoreModal from "@/components/EditStoreModal";
 import DeliveryDateBadge from "@/components/DeliveryDateBadge";
 import FutureDateConfirmDialog from "@/components/FutureDateConfirmDialog";
@@ -88,8 +90,6 @@ import {
 } from "@/lib/dateUtils";
 
 // --- Emergency kill-switches (temporary) ---
-// Goal: restore platform access even if problematic UI widgets cause render loops.
-const EMERGENCY_DISABLE_DATE_FILTER_UI = true;
 const EMERGENCY_DISABLE_ADMIN_SOUND = true;
 
 interface Pedido {
@@ -147,9 +147,29 @@ interface UserRole {
 }
 
 const AdminDashboard = () => {
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  // ============ ALL HOOKS AT TOP - CRITICAL FOR REACT ============
+  const { signOut, profile } = useAuth();
+  const navigate = useNavigate();
+  
+  // Optimized pedidos hook with lazy loading and date range
+  const {
+    pedidos,
+    isLoading: loading,
+    isFetching,
+    isLoadingMore,
+    hasLoadedAll,
+    dateRange,
+    changeDateRange,
+    updatePedidoLocally,
+    forceRefresh: fetchPedidos,
+    totalLoaded,
+  } = useAdminPedidos();
+
+  // Server-side universal search
+  const { searchResults, isSearching, searchOrders, clearSearch } = useAdminSearch();
+
+  // UI state
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
-  const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<string>("analytics");
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
@@ -157,13 +177,11 @@ const AdminDashboard = () => {
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>("todos");
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [storeFilter, setStoreFilter] = useState<string>("todos");
-  const [dateFilter, setDateFilter] = useState<string>("");
-  const [todayOnlyFilter, setTodayOnlyFilter] = useState(false); // New filter for "Ver solo para hoy"
+  const [todayOnlyFilter, setTodayOnlyFilter] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
-  const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null); // null = live/today
+  const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isServerSearchActive, setIsServerSearchActive] = useState(false);
-  const { searchResults, isSearching, searchOrders, clearSearch } = useAdminSearch();
   const [users, setUsers] = useState<Profile[]>([]);
   const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
@@ -183,7 +201,7 @@ const AdminDashboard = () => {
   const [showPrintGuia, setShowPrintGuia] = useState(false);
   const [selectedPedidoForPrint, setSelectedPedidoForPrint] = useState<Pedido | null>(null);
   const [showBulkPrint, setShowBulkPrint] = useState(false);
-  const [selectedForPrint, setSelectedForPrint] = useState<number[]>([]); // Used only for bulk print modal
+  const [selectedForPrint, setSelectedForPrint] = useState<number[]>([]);
   const [showDeleteUser, setShowDeleteUser] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState<Profile | null>(null);
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
@@ -192,48 +210,29 @@ const AdminDashboard = () => {
   const [showBulkReassign, setShowBulkReassign] = useState(false);
   const [showEditStore, setShowEditStore] = useState(false);
   const [selectedStoreForEdit, setSelectedStoreForEdit] = useState<Profile | null>(null);
-  // Future date confirmation dialog state
   const [showFutureDateConfirm, setShowFutureDateConfirm] = useState(false);
   const [pendingAssignment, setPendingAssignment] = useState<{ pedidoId: number; motorizadoUserId: string; pedido: Pedido } | null>(null);
-  const { signOut, profile } = useAuth();
-  const navigate = useNavigate();
 
-  // Guards to avoid request storms / setState after unmount
-  const pedidosFetchInFlight = useRef(false);
+  // Refs for preventing race conditions
   const isMountedRef = useRef(true);
 
-  // Pagination for despacho table - use server search results if active
+  // Pagination for despacho table
   const displayPedidos = isServerSearchActive && searchResults.length > 0 
     ? searchResults as Pedido[]
     : filteredPedidos;
   const despachoPageState = usePagination({ items: displayPedidos, itemsPerPage: 10 });
 
-  // Fetch initial data
+  // Fetch supporting data on mount
   useEffect(() => {
     isMountedRef.current = true;
-
-    // Fire-and-forget, but each function is internally protected with try/catch
-    fetchPedidos();
     fetchUsers();
     fetchMotorizados();
     fetchClientProfiles();
     fetchUserRoles();
-
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  // Emergency: ensure disabled filters can't get stuck enabled
-  useEffect(() => {
-    if (!EMERGENCY_DISABLE_DATE_FILTER_UI) return;
-    // Keep state aligned with disabled UI
-    setDateFilter("");
-    setTodayOnlyFilter(false);
+    return () => { isMountedRef.current = false; };
   }, []);
 
   const normalizePedido = useCallback((p: Pedido): Pedido => {
-    // Defensive defaults so the table never breaks on null/undefined
     return {
       ...p,
       numero_guia: p.numero_guia ?? null,
@@ -243,7 +242,6 @@ const AdminDashboard = () => {
       barrio: p.barrio ?? "—",
       fecha_entrega: p.fecha_entrega ?? null,
     };
-  }, []);
 
   const fetchUserRoles = async () => {
     try {
@@ -281,43 +279,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // Emergency: stop realtime traffic while Supabase is under pressure
-  const EMERGENCY_DISABLE_REALTIME = true;
-
-  // Real-time subscription for pedidos (reduced)
-  useEffect(() => {
-    if (EMERGENCY_DISABLE_REALTIME) return;
-
-    const channel = supabase
-      .channel('pedidos-changes')
-      // Only INSERTs to avoid high-frequency UPDATE storms
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'pedidos' },
-        (payload) => {
-          const newPedido = payload.new as Pedido;
-          setPedidos((prev) => [newPedido, ...prev].slice(0, 20));
-          setNewOrdersCount((c) => c + 1);
-
-          // Play notification sound (disabled temporarily for stability)
-          if (!EMERGENCY_DISABLE_ADMIN_SOUND) {
-            playGlobalNotificationPing();
-          }
-
-          toast.success(`🔔 Nuevo pedido: ${newPedido.cliente_nombre || 'Cliente'}`, {
-            description: newPedido.direccion_entrega || 'Sin dirección',
-            duration: 5000,
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  // Listen for real-time reassignment notifications from motorizados
+  // Real-time notifications (disabled for stability)
   useEffect(() => {
     const notificationChannel = supabase
       .channel('admin-notifications')
@@ -329,90 +291,15 @@ const AdminDashboard = () => {
           new_motorizado: string;
           timestamp: string;
         };
-        
-        // Show toast notification for admin
         toast.info(`🔄 Reasignación por escaneo`, {
           description: `Guía ${data.numero_guia || `#${data.pedido_id}`}: ${data.previous_motorizado} → ${data.new_motorizado}`,
           duration: 8000,
         });
-        
-        console.log("📡 Notificación de reasignación recibida:", data);
       })
       .subscribe();
 
     return () => { supabase.removeChannel(notificationChannel); };
   }, []);
-
-  // Select only columns needed for admin table/map to avoid timeout
-  const PEDIDO_COLUMNS = `
-    id, numero_guia, cliente_nombre, direccion_entrega, estado, corte_horario,
-    fecha_creacion, fecha_entrega, motorizado_asignado, motorizado_id,
-    latitud, longitud, barrio, metodo_pago, producto_nombre, valor_recaudar,
-    valor_producto, valor_flete, utilidad, municipio, zona, tipo_novedad,
-    firma_cliente, foto_paquete, foto_evidencia, fecha_actualizacion,
-    client_phone, client_user_id, novedad_latitud, novedad_longitud,
-    guia_impresa, guia_impresa_at, observaciones
-  `;
-
-  const fetchPedidos = useCallback(async () => {
-    // Prevent concurrent fetch loops (e.g. remounts + realtime updates)
-    if (pedidosFetchInFlight.current) return;
-    pedidosFetchInFlight.current = true;
-    if (isMountedRef.current) setLoading(true);
-
-    try {
-      // Strategy: Fetch recent orders (limit 50) + ALL novedades separately
-      // This ensures novedades are NEVER hidden regardless of date/order
-      const [recentResult, novedadesResult] = await Promise.all([
-        supabase
-          .from("pedidos")
-          .select(PEDIDO_COLUMNS)
-          .order("fecha_creacion", { ascending: false })
-          .limit(50),
-        supabase
-          .from("pedidos")
-          .select(PEDIDO_COLUMNS)
-          .ilike("estado", "%novedad%")
-          .order("fecha_creacion", { ascending: false })
-          .limit(100),
-      ]);
-
-      if (recentResult.error) throw recentResult.error;
-      if (novedadesResult.error) throw novedadesResult.error;
-
-      // Merge and deduplicate by id
-      const allData = [...(recentResult.data || []), ...(novedadesResult.data || [])];
-      const seenIds = new Set<number>();
-      const mergedData: any[] = [];
-      for (const p of allData) {
-        if (!seenIds.has(p.id)) {
-          seenIds.add(p.id);
-          mergedData.push(p);
-        }
-      }
-
-      const normalized = mergedData.map((p) => normalizePedido(p as Pedido));
-      // Sort by fecha_creacion desc
-      normalized.sort((a, b) => {
-        const dateA = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
-        const dateB = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
-        return dateB - dateA;
-      });
-
-      if (isMountedRef.current) setPedidos(normalized);
-    } catch (error: any) {
-      console.error("Error fetching pedidos:", error);
-      if (error?.code === "57014") {
-        toast.error("La consulta tardó demasiado. Usa el botón Refrescar.");
-      } else {
-        toast.error("Error al cargar los pedidos");
-      }
-      // Don't reset pedidos on error to keep stale data visible
-    } finally {
-      pedidosFetchInFlight.current = false;
-      if (isMountedRef.current) setLoading(false);
-    }
-  }, [normalizePedido]);
 
   const fetchUsers = async () => {
     try {
@@ -495,17 +382,6 @@ const AdminDashboard = () => {
         });
       }
 
-      if (dateFilter) {
-        filtered = filtered.filter((p) => {
-          if (!p.fecha_creacion) return false;
-          // Compare only YYYY-MM-DD (ignore time + avoid UTC shifting)
-          const dateOnly = p.fecha_creacion.includes("T")
-            ? p.fecha_creacion.split("T")[0]
-            : p.fecha_creacion;
-          return dateOnly === dateFilter;
-        });
-      }
-
       // Filter for "Ver solo para hoy" - only show orders with fecha_entrega = today or past
       if (todayOnlyFilter) {
         filtered = filtered.filter((p) => isTodayOrPastDeliveryDate(p.fecha_entrega));
@@ -531,7 +407,7 @@ const AdminDashboard = () => {
       console.error("Error filtering pedidos:", error);
       setFilteredPedidos([]);
     }
-  }, [pedidos, statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, dateFilter, todayOnlyFilter, searchQuery, clientProfiles]);
+  }, [pedidos, statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, todayOnlyFilter, searchQuery, clientProfiles]);
 
   // Apply filters when dependencies change
   useEffect(() => {
@@ -575,13 +451,12 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      setPedidos((prev) =>
-        prev.map((p) =>
-          p.id === pedidoId
-            ? { ...p, motorizado_asignado: motorizado.full_name, motorizado_id: motorizadoUserId, estado: "Asignado" }
-            : p
-        )
-      );
+      // Optimistic update
+      updatePedidoLocally(pedidoId, {
+        motorizado_asignado: motorizado.full_name,
+        motorizado_id: motorizadoUserId,
+        estado: "Asignado",
+      });
 
       toast.success(`Pedido asignado a ${motorizado.full_name}`);
     } catch (error) {
@@ -633,13 +508,14 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      setPedidos((prev) =>
-        prev.map((p) =>
-          selectedForBulk.includes(p.id)
-            ? { ...p, motorizado_asignado: motorizado.full_name, motorizado_id: motorizadoUserId, estado: "Asignado" }
-            : p
-        )
-      );
+      // Optimistic updates for bulk
+      selectedForBulk.forEach((id) => {
+        updatePedidoLocally(id, {
+          motorizado_asignado: motorizado.full_name,
+          motorizado_id: motorizadoUserId,
+          estado: "Asignado",
+        });
+      });
 
       toast.success(`${selectedForBulk.length} pedidos asignados a ${motorizado.full_name}`);
       setSelectedForBulk([]);
@@ -716,14 +592,13 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      // Update local state
-      setPedidos((prev) =>
-        prev.map((p) =>
-          pedidoIds.includes(p.id)
-            ? { ...p, guia_impresa: true, guia_impresa_at: new Date().toISOString() }
-            : p
-        )
-      );
+      // Optimistic updates
+      pedidoIds.forEach((id) => {
+        updatePedidoLocally(id, {
+          guia_impresa: true,
+          guia_impresa_at: new Date().toISOString(),
+        });
+      });
 
       toast.success(`${pedidoIds.length} guía(s) marcada(s) como impresa(s)`);
     } catch (error) {
@@ -838,14 +713,8 @@ const AdminDashboard = () => {
 
       if (error) throw error;
 
-      // Update local state
-      setPedidos((prev) =>
-        prev.map((p) =>
-          p.id === pedidoId
-            ? { ...p, estado: "Anulado" }
-            : p
-        )
-      );
+      // Optimistic update
+      updatePedidoLocally(pedidoId, { estado: "Anulado" });
 
       // Notify the client via toast (in-app notification)
       toast.success(
@@ -1222,32 +1091,41 @@ const AdminDashboard = () => {
                   ))}
                 </select>
 
-                {!EMERGENCY_DISABLE_DATE_FILTER_UI && (
-                  <>
-                    <input
-                      type="date"
-                      value={dateFilter}
-                      onChange={(e) => setDateFilter(e.target.value)}
-                      className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                    />
+                {/* Date Range Filter - Universal */}
+                <DateRangeFilter
+                  value={dateRange}
+                  onChange={changeDateRange}
+                  disabled={loading || isFetching}
+                />
 
-                    {/* "Ver solo para hoy" Quick Filter */}
-                    <button
-                      onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                        todayOnlyFilter
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-card border-border hover:bg-muted"
-                      }`}
-                    >
-                      <CalendarCheck className="h-4 w-4" />
-                      Ver solo para hoy
-                    </button>
-                  </>
+                {/* "Ver solo para hoy" Quick Filter */}
+                <button
+                  onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                    todayOnlyFilter
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-card border-border hover:bg-muted"
+                  }`}
+                >
+                  <CalendarCheck className="h-4 w-4" />
+                  Ver solo para hoy
+                </button>
+
+                {/* Lazy loading indicator */}
+                {isLoadingMore && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Cargando más... ({totalLoaded})
+                  </span>
+                )}
+                {hasLoadedAll && totalLoaded > 30 && (
+                  <span className="text-xs text-muted-foreground">
+                    ✓ {totalLoaded} pedidos cargados
+                  </span>
                 )}
 
-                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || (!EMERGENCY_DISABLE_DATE_FILTER_UI && (dateFilter || todayOnlyFilter))) && (
-                  <button onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setDateFilter(""); setTodayOnlyFilter(false); }} className="text-sm text-primary hover:underline">
+                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || todayOnlyFilter) && (
+                  <button onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setTodayOnlyFilter(false); }} className="text-sm text-primary hover:underline">
                     Limpiar filtros
                   </button>
                 )}
