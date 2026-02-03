@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useMotorizadoPedidos } from "@/hooks/useMotorizadoPedidos";
 import { useAuth } from "@/hooks/useAuth";
 import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
 import useLocationTracking from "@/hooks/useLocationTracking";
@@ -89,10 +90,19 @@ const SUPPORT_PHONE = "324 222 3825";
 const GEOFENCE_RADIUS = 200; // 200 meters
 
 const MotorizadoDashboard = () => {
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  // React Query for orders - cached, no refetch loops
+  const { signOut, profile, refreshProfile, user } = useAuth();
+  const { 
+    pedidos: queryPedidos, 
+    isLoading: queryLoading, 
+    refetch: refetchPedidos,
+    updatePedidoLocally,
+    removePedidoLocally 
+  } = useMotorizadoPedidos(user?.id);
+
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Removed: const [loading, setLoading] - now using queryLoading
   const [updating, setUpdating] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
@@ -117,7 +127,6 @@ const MotorizadoDashboard = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const novedadPhotoRef = useRef<HTMLInputElement>(null);
   const packagePhotoRef = useRef<HTMLInputElement>(null);
-  const { signOut, profile, refreshProfile, user } = useAuth();
   const navigate = useNavigate();
 
   // Use geolocation with watch mode for real-time updates
@@ -133,6 +142,10 @@ const MotorizadoDashboard = () => {
     return null;
   }, [latitude, longitude]);
 
+  // Alias queryPedidos to pedidos for backward compatibility
+  const pedidos = queryPedidos;
+  const loading = queryLoading;
+
   // Track location every 30 seconds when online and has active orders
   const hasActiveOrders = pedidos.some(p => 
     p.estado?.toLowerCase() !== "entregado" && 
@@ -145,11 +158,7 @@ const MotorizadoDashboard = () => {
     intervalMs: 30000,
   });
 
-  useEffect(() => {
-    if (user?.id) {
-      fetchPedidos();
-    }
-  }, [user?.id]);
+  // Fetch on mount is handled by React Query - no useEffect needed
 
   // Setup offline sync and network status monitoring
   useEffect(() => {
@@ -167,7 +176,7 @@ const MotorizadoDashboard = () => {
           `✅ Sincronización completada: ${result.syncedDeliveries} entregas, ${result.syncedNovedades} novedades`,
           { duration: 5000 }
         );
-        fetchPedidos(); // Refresh data
+        refetchPedidos(); // Refresh data via React Query
       }
       setPendingSyncCount(await getPendingCount());
     });
@@ -236,34 +245,9 @@ const MotorizadoDashboard = () => {
     setFilteredPedidos(filtered);
   }, [activeFilter, pedidos, userLocation]);
 
-  const fetchPedidos = async () => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-    
-    try {
-      // Filter by motorizado_id (UUID) - RLS enforces this at database level
-      // No date filter - show all pending orders including from previous days
-      const { data, error } = await supabase
-        .from("pedidos")
-        .select("*")
-        .eq("motorizado_id", user.id)
-        .in("estado", ["Asignado", "En Ruta", "Novedad"])
-        .order("id", { ascending: true });
-
-      if (error) throw error;
-      // Filter out cancelled orders from motorizado view
-      const operationalPedidos = (data || []).filter(p => isOperationalStatus(p.estado));
-      setPedidos(operationalPedidos);
-      setFilteredPedidos(operationalPedidos);
-    } catch (error) {
-      console.error("Error fetching pedidos:", error);
-      toast.error("Error al cargar los pedidos");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // fetchPedidos is now handled by useMotorizadoPedidos React Query hook
+  // Legacy function kept as alias for backward compatibility
+  const fetchPedidos = refetchPedidos;
 
   const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -417,20 +401,13 @@ const MotorizadoDashboard = () => {
         );
       }
 
-      // Update local state
-      setPedidos((prev) =>
-        prev.map((p) =>
-          p.id === selectedPedido.id
-            ? { 
-                ...p, 
-                estado: "Entregado", 
-                foto_evidencia: capturedPhoto,
-                foto_paquete: packagePhoto,
-                firma_cliente: signature,
-              }
-            : p
-        )
-      );
+      // Update local state via React Query optimistic update
+      updatePedidoLocally(selectedPedido.id, { 
+        estado: "Entregado", 
+        foto_evidencia: capturedPhoto,
+        foto_paquete: packagePhoto,
+        firma_cliente: signature,
+      });
 
       setSelectedPedido(null);
       setShowPhotoModal(false);
@@ -523,18 +500,11 @@ const MotorizadoDashboard = () => {
       
       // If auto-return was triggered, update local state accordingly
       if (attemptResult.shouldMarkAsReturn) {
-        setPedidos((prev) =>
-          prev.map((p) =>
-            p.id === selectedPedido.id
-              ? { 
-                  ...p, 
-                  estado: "Devolución",
-                  tipo_novedad: selectedNovedadType,
-                  foto_evidencia: novedadPhoto || p.foto_evidencia,
-                }
-              : p
-          )
-        );
+        updatePedidoLocally(selectedPedido.id, { 
+          estado: "Devolución",
+          tipo_novedad: selectedNovedadType,
+          foto_evidencia: novedadPhoto || undefined,
+        });
         
         toast.warning(attemptResult.message, { duration: 6000 });
       } else {
@@ -563,18 +533,11 @@ const MotorizadoDashboard = () => {
 
         if (error) throw error;
 
-        setPedidos((prev) =>
-          prev.map((p) =>
-            p.id === selectedPedido.id
-              ? { 
-                  ...p, 
-                  estado: "Novedad",
-                  tipo_novedad: selectedNovedadType,
-                  foto_evidencia: novedadPhoto || p.foto_evidencia,
-                }
-              : p
-          )
-        );
+        updatePedidoLocally(selectedPedido.id, { 
+          estado: "Novedad",
+          tipo_novedad: selectedNovedadType,
+          foto_evidencia: novedadPhoto || undefined,
+        });
         
         toast.success(`⚠️ ${attemptResult.message}`);
       }
@@ -1557,12 +1520,8 @@ const MotorizadoDashboard = () => {
           isOpen={showQRScanner}
           onClose={() => setShowQRScanner(false)}
           onStartDelivery={(scannedPedido) => {
-            // Update local state with the started delivery
-            setPedidos((prev) =>
-              prev.map((p) =>
-                p.id === scannedPedido.id ? { ...p, estado: "En Ruta" } : p
-              )
-            );
+            // Update local state with the started delivery via React Query
+            updatePedidoLocally(scannedPedido.id, { estado: "En Ruta" });
             // Find the full pedido in local state to select it
             const fullPedido = pedidos.find(p => p.id === scannedPedido.id);
             if (fullPedido) {

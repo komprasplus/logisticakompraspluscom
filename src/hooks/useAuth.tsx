@@ -41,12 +41,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const lastFetchRef = useRef<{ userId: string; at: number } | null>(null);
   // Prevent role/profile re-fetch on TOKEN_REFRESHED events (happens frequently)
   const currentUserIdRef = useRef<string | null>(null);
+  // Track if initial load is complete to prevent blocking UI
+  const initialLoadDoneRef = useRef(false);
 
   const fetchUserData = useCallback(async (userId: string) => {
-    // De-dupe repeated calls for the same user within a short window
+    // De-dupe repeated calls for the same user within 5 second window (increased from 2s)
     const last = lastFetchRef.current;
     if (fetchInFlightRef.current) return;
-    if (last?.userId === userId && Date.now() - last.at < 2000) return;
+    if (last?.userId === userId && Date.now() - last.at < 5000) return;
 
     fetchInFlightRef.current = true;
     try {
