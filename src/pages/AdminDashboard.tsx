@@ -156,6 +156,7 @@ const AdminDashboard = () => {
     pedidos,
     isLoading: loading,
     isFetching,
+    error: pedidosError,
     isLoadingMore,
     hasLoadedAll,
     dateRange,
@@ -1174,8 +1175,19 @@ const AdminDashboard = () => {
             </div>
 
             {/* Orders Table */}
+            {pedidosError && (
+              <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
+                <div className="font-semibold text-destructive">Problema al cargar pedidos</div>
+                <div className="text-muted-foreground">
+                  Mostrando lo que se pudo recuperar (caché / carga parcial). Presiona “Actualizar” para reintentar.
+                </div>
+              </div>
+            )}
             {loading ? (
-              <div className="flex items-center justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              <div className="flex flex-col items-center justify-center gap-3 py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="text-sm text-muted-foreground">Cargando datos...</div>
+              </div>
             ) : (
               <div className="rounded-xl bg-card shadow-card overflow-hidden">
                 <div className="overflow-x-auto">

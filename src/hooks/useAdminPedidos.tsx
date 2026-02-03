@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { getTodayString } from "@/lib/dateUtils";
 
 /**
  * Optimized admin pedidos hook with:
@@ -62,14 +63,14 @@ const PEDIDO_COLUMNS = `
   guia_impresa, guia_impresa_at, observaciones
 `;
 
-// Default date range: 2025-01-01 to 2026-12-31
+// Default date range: from project start (2025-01-01) to *today* (local timezone)
 const DEFAULT_DATE_RANGE: DateRange = {
   from: "2025-01-01",
-  to: "2026-12-31",
+  to: getTodayString(),
 };
 
 /**
- * Fetch initial batch (most recent 30) + all novedades
+ * Fetch initial batch (most recent 50) + novedades (most recent 50)
  * This provides instant UI while background fetch loads more
  */
 async function fetchInitialBatch(dateRange: DateRange): Promise<Pedido[]> {
@@ -81,10 +82,12 @@ async function fetchInitialBatch(dateRange: DateRange): Promise<Pedido[]> {
         .gte("fecha_creacion", `${dateRange.from}T00:00:00`)
         .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
         .order("fecha_creacion", { ascending: false })
-        .limit(30),
+        .limit(50),
       supabase
         .from("pedidos")
         .select(PEDIDO_COLUMNS)
+        .gte("fecha_creacion", `${dateRange.from}T00:00:00`)
+        .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
         .ilike("estado", "%novedad%")
         .order("fecha_creacion", { ascending: false })
         .limit(50),
@@ -132,7 +135,7 @@ async function fetchInitialBatch(dateRange: DateRange): Promise<Pedido[]> {
 async function fetchMorePedidos(
   dateRange: DateRange,
   offset: number,
-  limit: number = 50
+  limit: number = 100
 ): Promise<{ data: Pedido[]; hasMore: boolean }> {
   try {
     const { data, error } = await supabase
@@ -210,7 +213,7 @@ export const useAdminPedidos = () => {
 
     let offset = allPedidos.length;
     let hasMore = true;
-    const maxIterations = 10; // Safety limit: max 500 more orders
+    const maxIterations = 5; // Safety limit: max 500 more orders (100 x 5)
     let iterations = 0;
 
     while (hasMore && iterations < maxIterations) {
