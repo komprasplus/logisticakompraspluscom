@@ -29,6 +29,27 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Clear corrupted session from localStorage to prevent infinite retry loops
+ * This handles "Failed to fetch" errors caused by invalid refresh tokens
+ */
+function clearCorruptedSession(): void {
+  try {
+    const storageKey = "sb-hhjygradtikonvfzarrn-auth-token";
+    const stored = localStorage.getItem(storageKey);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // If refresh_token looks truncated or invalid, clear the session
+      if (parsed?.refresh_token && parsed.refresh_token.length < 20) {
+        console.warn("[Auth] Detected corrupted session, clearing...");
+        localStorage.removeItem(storageKey);
+      }
+    }
+  } catch {
+    // Ignore parsing errors
+  }
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -41,11 +62,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const lastFetchRef = useRef<{ userId: string; at: number } | null>(null);
   // Prevent role/profile re-fetch on TOKEN_REFRESHED events (happens frequently)
   const currentUserIdRef = useRef<string | null>(null);
-  // Track if initial load is complete to prevent blocking UI
-  const initialLoadDoneRef = useRef(false);
+  // Track retry attempts to prevent infinite loops
+  const authErrorCountRef = useRef(0);
 
   const fetchUserData = useCallback(async (userId: string) => {
-    // De-dupe repeated calls for the same user within 5 second window (increased from 2s)
+    // De-dupe repeated calls for the same user within 5 second window
     const last = lastFetchRef.current;
     if (fetchInFlightRef.current) return;
     if (last?.userId === userId && Date.now() - last.at < 5000) return;
@@ -73,8 +94,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (roleData) {
         setRole(roleData.role as AppRole);
       }
+      
+      // Reset error count on success
+      authErrorCountRef.current = 0;
     } catch (error) {
       console.error("Error fetching user data:", error);
+      authErrorCountRef.current += 1;
+      
+      // If too many errors, clear potentially corrupted session
+      if (authErrorCountRef.current >= 3) {
+        console.warn("[Auth] Too many fetch errors, clearing session...");
+        clearCorruptedSession();
+      }
     } finally {
       lastFetchRef.current = { userId, at: Date.now() };
       fetchInFlightRef.current = false;
@@ -83,20 +114,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     setLoading(true);
+    
+    // CRITICAL: Clear corrupted session BEFORE initializing auth
+    clearCorruptedSession();
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
+        // Handle auth errors gracefully - don't let them cause infinite loops
         if (!session?.user) {
           currentUserIdRef.current = null;
+          setSession(null);
+          setUser(null);
           setRole(null);
           setProfile(null);
           setLoading(false);
           return;
         }
+
+        setSession(session);
+        setUser(session.user);
 
         const userId = session.user.id;
         const userChanged = currentUserIdRef.current !== userId;
@@ -118,6 +155,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             void fetchUserData(userId);
           }, 0);
         }
+        
+        // Ensure loading is set to false after processing
+        setLoading(false);
       }
     );
 
@@ -125,7 +165,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     (async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
+        
+        // Handle session fetch errors gracefully
+        if (error) {
+          console.warn("[Auth] Session fetch error:", error.message);
+          // If it's a network/fetch error, just continue without session
+          if (error.message?.includes("fetch") || error.message?.includes("network")) {
+            setLoading(false);
+            return;
+          }
+          throw error;
+        }
 
         const session = data.session;
         setSession(session);
@@ -142,6 +192,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error("Error reading auth session:", error);
         // Fail open: allow the UI to proceed to /auth instead of hanging forever
+        clearCorruptedSession();
       } finally {
         setLoading(false);
       }
@@ -157,22 +208,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [user?.id, fetchUserData]);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    // Reset error counter before new sign-in attempt
+    authErrorCountRef.current = 0;
+    
+    // Clear any potentially corrupted session before attempting new login
+    clearCorruptedSession();
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      return { error };
+    } catch (err) {
+      // Handle network errors gracefully
+      console.error("[Auth] Sign in error:", err);
+      return { 
+        error: new Error("Error de conexión. Por favor verifica tu red e intenta de nuevo.") 
+      };
+    }
   };
 
   const signOut = async () => {
     // Set offline before signing out
     if (user?.id) {
-      await supabase
-        .from("profiles")
-        .update({ is_online: false })
-        .eq("user_id", user.id);
+      try {
+        await supabase
+          .from("profiles")
+          .update({ is_online: false })
+          .eq("user_id", user.id);
+      } catch {
+        // Ignore errors during sign-out cleanup
+      }
     }
-    await supabase.auth.signOut();
+    
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // Force clear session even if signOut API fails
+      clearCorruptedSession();
+    }
+    
+    currentUserIdRef.current = null;
+    setSession(null);
+    setUser(null);
     setRole(null);
     setProfile(null);
   };

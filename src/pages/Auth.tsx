@@ -78,12 +78,18 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
       const { error: signInError } = await signIn(email, password);
       if (signInError) {
         const msg = signInError.message || "";
-        if (
+        
+        // Handle specific error types with user-friendly messages
+        if (msg.includes("Failed to fetch") || msg.includes("conexión") || msg.includes("network")) {
+          setError("Error de conexión. Verifica tu red e intenta de nuevo.");
+        } else if (
           msg.includes("Invalid login credentials") ||
           msg.toLowerCase().includes("email not confirmed") ||
           msg.toLowerCase().includes("not confirmed")
         ) {
           setError("Credenciales incorrectas. Verifica tu email y contraseña.");
+        } else if (msg.includes("Too many requests")) {
+          setError("Demasiados intentos. Espera un momento e intenta de nuevo.");
         } else {
           setError("No se pudo iniciar sesión. Verifica tus credenciales e intenta de nuevo.");
         }
@@ -92,10 +98,11 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
         // (If network is failing, fallback UI below will allow manual entry.)
         setTimeout(() => {
           void refreshProfile();
-        }, 0);
+        }, 100);
       }
     } catch (err) {
-      setError("Error al iniciar sesión. Por favor intenta de nuevo.");
+      console.error("[Auth] Login error:", err);
+      setError("Error al conectar con el servidor. Intenta de nuevo.");
     } finally {
       setLoading(false);
     }
