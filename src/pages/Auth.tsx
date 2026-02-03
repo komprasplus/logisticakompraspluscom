@@ -101,15 +101,8 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="neu-flat p-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </div>
-    );
-  }
+  // Show form immediately, overlay loading state only briefly
+  // Removed blocking spinner to improve perceived performance
 
   return (
     <div ref={ref} className="min-h-screen bg-background flex flex-col items-center justify-center px-4">
