@@ -4,17 +4,29 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { lazy, Suspense } from "react";
+import { Loader2 } from "lucide-react";
+
+// Eager-load lightweight pages
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
-import AdminDashboard from "./pages/AdminDashboard";
-import MotorizadoDashboard from "./pages/MotorizadoDashboard";
-import ClienteDashboard from "./pages/ClienteDashboard";
-import CustomerTracking from "./pages/CustomerTracking";
-import PublicTracking from "./pages/PublicTracking";
-import DespachadorDashboard from "./pages/DespachadorDashboard";
 import NotFound from "./pages/NotFound";
-import { Loader2 } from "lucide-react";
+
+// Lazy-load heavy dashboard pages for faster initial load
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
+const MotorizadoDashboard = lazy(() => import("./pages/MotorizadoDashboard"));
+const ClienteDashboard = lazy(() => import("./pages/ClienteDashboard"));
+const DespachadorDashboard = lazy(() => import("./pages/DespachadorDashboard"));
+const CustomerTracking = lazy(() => import("./pages/CustomerTracking"));
+const PublicTracking = lazy(() => import("./pages/PublicTracking"));
+
+// Shared loading fallback
+const PageLoader = () => (
+  <div className="min-h-screen bg-background flex items-center justify-center">
+    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+  </div>
+);
 
 const queryClient = new QueryClient();
 
@@ -51,15 +63,17 @@ const AppRoutes = () => {
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
-      <Route path="/rastreo" element={<CustomerTracking />} />
-      <Route path="/rastreo/:id_guia" element={<PublicTracking />} />
+      <Route path="/rastreo" element={<Suspense fallback={<PageLoader />}><CustomerTracking /></Suspense>} />
+      <Route path="/rastreo/:id_guia" element={<Suspense fallback={<PageLoader />}><PublicTracking /></Suspense>} />
       
-      {/* Protected Routes */}
+      {/* Protected Routes - wrapped in Suspense for lazy loading */}
       <Route
         path="/admin"
         element={
           <ProtectedRoute allowedRoles={["admin"]}>
-            <AdminDashboard />
+            <Suspense fallback={<PageLoader />}>
+              <AdminDashboard />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -67,7 +81,9 @@ const AppRoutes = () => {
         path="/motorizado"
         element={
           <ProtectedRoute allowedRoles={["motorizado"]}>
-            <MotorizadoDashboard />
+            <Suspense fallback={<PageLoader />}>
+              <MotorizadoDashboard />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -75,7 +91,9 @@ const AppRoutes = () => {
         path="/cliente"
         element={
           <ProtectedRoute allowedRoles={["cliente"]}>
-            <ClienteDashboard />
+            <Suspense fallback={<PageLoader />}>
+              <ClienteDashboard />
+            </Suspense>
           </ProtectedRoute>
         }
       />
@@ -83,7 +101,9 @@ const AppRoutes = () => {
         path="/despachador"
         element={
           <ProtectedRoute allowedRoles={["despachador"]}>
-            <DespachadorDashboard />
+            <Suspense fallback={<PageLoader />}>
+              <DespachadorDashboard />
+            </Suspense>
           </ProtectedRoute>
         }
       />

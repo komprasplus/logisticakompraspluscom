@@ -26,17 +26,42 @@ interface Pedido {
   tipo_novedad: string | null;
 }
 
+// Columns required for client dashboard - minimal for fast response
+const CLIENT_PEDIDO_COLUMNS = `
+  id,
+  numero_guia,
+  cliente_nombre,
+  client_phone,
+  direccion_entrega,
+  barrio,
+  zona,
+  municipio,
+  producto_nombre,
+  valor_recaudar,
+  valor_producto,
+  valor_flete,
+  fulfillment_cost,
+  utilidad,
+  metodo_pago,
+  fecha_entrega,
+  estado,
+  corte_horario,
+  fecha_creacion,
+  foto_evidencia,
+  tipo_novedad
+`;
+
 /**
  * Optimized fetcher with composite index (client_user_id, fecha_creacion DESC).
- * Returns at most 200 rows for fast response times.
+ * Returns at most 100 rows for fast response times (reduced from 200).
  */
 const fetchPedidosForClient = async (userId: string): Promise<Pedido[]> => {
   const { data, error } = await supabase
     .from("pedidos")
-    .select("*")
+    .select(CLIENT_PEDIDO_COLUMNS)
     .eq("client_user_id", userId)
     .order("fecha_creacion", { ascending: false })
-    .limit(200);
+    .limit(100);
 
   if (error) throw error;
   return data || [];
