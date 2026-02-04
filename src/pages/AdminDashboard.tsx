@@ -1068,8 +1068,8 @@ const AdminDashboard = () => {
 
                 <select value={barrioFilter} onChange={(e) => setBarrioFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
                   <option value="todos">Todos los barrios</option>
-                  {uniqueBarrios.map((barrio) => (
-                    <option key={barrio} value={barrio!}>{barrio}</option>
+                  {uniqueBarrios.map((barrio, idx) => (
+                    <option key={barrio || `barrio-${idx}`} value={barrio || ""}>{barrio}</option>
                   ))}
                 </select>
 
