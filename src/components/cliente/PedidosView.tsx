@@ -68,6 +68,8 @@ interface PedidosViewProps {
   onPrint: (pedido: Pedido) => void;
   onRespond: (pedido: Pedido) => void;
   onViewEvidence: (url: string) => void;
+  error?: Error | null;
+  hasCache?: boolean;
 }
 
 const PedidosView = ({
@@ -77,6 +79,8 @@ const PedidosView = ({
   onPrint,
   onRespond,
   onViewEvidence,
+  error,
+  hasCache,
 }: PedidosViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -420,6 +424,14 @@ const PedidosView = ({
         )}
       </div>
 
+      {/* Error state with cached data notice */}
+      {error && hasCache && pedidos.length > 0 && (
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <span>Mostrando datos guardados. Presiona "Sincronizar" para actualizar.</span>
+        </div>
+      )}
+
       {/* Grid - Clear loading state, show skeleton only on first load */}
       {loading && pedidos.length === 0 ? (
         <div className="space-y-4">
@@ -428,6 +440,14 @@ const PedidosView = ({
             <p className="text-muted-foreground font-medium">Cargando tus pedidos...</p>
           </div>
           <PedidosSkeleton />
+        </div>
+      ) : error && pedidos.length === 0 ? (
+        <div className="rounded-2xl neu-flat p-8 text-center">
+          <XCircle className="mx-auto h-12 w-12 text-destructive" />
+          <p className="mt-4 font-semibold text-foreground">Error de conexión</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            No se pudieron cargar tus pedidos. Verifica tu conexión y presiona "Sincronizar".
+          </p>
         </div>
       ) : totalItems === 0 ? (
         <div className="rounded-2xl neu-flat p-8 text-center">
