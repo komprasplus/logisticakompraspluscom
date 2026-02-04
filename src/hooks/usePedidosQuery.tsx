@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useCallback } from "react";
+import { useCallback, useRef, useEffect } from "react";
 
 interface Pedido {
   id: number;
@@ -26,7 +26,7 @@ interface Pedido {
   tipo_novedad: string | null;
 }
 
-// Columns required for client dashboard - minimal for fast response
+// Essential columns only - minimal payload for fast response
 const CLIENT_PEDIDO_COLUMNS = `
   id,
   numero_guia,
@@ -51,46 +51,110 @@ const CLIENT_PEDIDO_COLUMNS = `
   tipo_novedad
 `;
 
+// Local storage key for offline fallback
+const CACHE_KEY_PREFIX = "pedidos_cache_";
+
 /**
- * Fetches ALL orders from 2025-01-01 onwards for full visibility.
- * No arbitrary limits - clients see all their orders.
- * Includes date filter to prevent loading ancient data.
+ * Fetches orders for the client with timeout protection.
+ * Uses AbortController to prevent hanging requests.
  */
 const fetchPedidosForClient = async (userId: string): Promise<Pedido[]> => {
+  // Validate userId before making request
+  if (!userId || userId === "undefined" || userId === "null") {
+    console.warn("[usePedidosQuery] Invalid userId, skipping fetch");
+    return [];
+  }
+
   const startDate = "2025-01-01";
   
-  const { data, error } = await supabase
-    .from("pedidos")
-    .select(CLIENT_PEDIDO_COLUMNS)
-    .eq("client_user_id", userId)
-    .gte("fecha_creacion", startDate)
-    .order("fecha_creacion", { ascending: false });
+  try {
+    // Create timeout with AbortController
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-  if (error) throw error;
-  return data || [];
+    const { data, error } = await supabase
+      .from("pedidos")
+      .select(CLIENT_PEDIDO_COLUMNS)
+      .eq("client_user_id", userId)
+      .gte("fecha_creacion", startDate)
+      .order("fecha_creacion", { ascending: false })
+      .abortSignal(controller.signal);
+
+    clearTimeout(timeoutId);
+
+    if (error) {
+      console.error("[usePedidosQuery] Supabase error:", error.message);
+      throw error;
+    }
+
+    // Cache successful response for offline fallback
+    if (data && data.length > 0) {
+      try {
+        localStorage.setItem(
+          CACHE_KEY_PREFIX + userId,
+          JSON.stringify({ data, timestamp: Date.now() })
+        );
+      } catch {
+        // Ignore localStorage errors (quota exceeded, etc.)
+      }
+    }
+
+    return data || [];
+  } catch (err: unknown) {
+    // On timeout or network error, try to return cached data
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.warn("[usePedidosQuery] Fetch failed, trying cache:", errorMessage);
+    
+    try {
+      const cached = localStorage.getItem(CACHE_KEY_PREFIX + userId);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        // Accept cache if less than 1 hour old
+        if (Date.now() - timestamp < 60 * 60 * 1000) {
+          console.log("[usePedidosQuery] Using cached data from", new Date(timestamp).toISOString());
+          return data;
+        }
+      }
+    } catch {
+      // Ignore cache read errors
+    }
+    
+    throw err; // Re-throw if no valid cache
+  }
 };
 
 /**
  * SWR-style hook for client orders. Features:
  * - Instant display of cached data while background refresh occurs
- * - structuralSharing ensures React avoids unnecessary re-renders if data is identical
- * - staleTime prevents refetches within 30s window
- * - gcTime keeps data available for 5 minutes after unmount
+ * - 15-second timeout to prevent infinite loading states
+ * - LocalStorage fallback for offline/timeout scenarios
+ * - Validates userId before fetching
  */
 export const usePedidosQuery = (userId: string | undefined) => {
   const queryClient = useQueryClient();
+  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clear sync timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (syncTimeoutRef.current) {
+        clearTimeout(syncTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const query = useQuery({
     queryKey: ["pedidos", "cliente", userId],
     queryFn: () => fetchPedidosForClient(userId!),
-    enabled: !!userId,
-    staleTime: 60 * 1000, // 60 seconds - reduced refetch frequency
-    gcTime: 10 * 60 * 1000, // 10 minutes - longer cache
+    enabled: !!userId && userId !== "undefined" && userId !== "null",
+    staleTime: 2 * 60 * 1000, // 2 minutes - reduced refetch frequency
+    gcTime: 15 * 60 * 1000, // 15 minutes - longer cache retention
     refetchOnWindowFocus: false, // Disable auto-refetch to reduce CPU load
     refetchOnMount: true, // Refetch on mount but show stale data first
     placeholderData: (previousData) => previousData, // Instant UI transition
     structuralSharing: true, // Prevent re-renders if response is identical
-    retry: 2, // Limit retries to prevent infinite loops
+    retry: 1, // Single retry to prevent hammering DB during outages
+    retryDelay: 2000, // 2 second delay between retries
   });
 
   // Memoized refetch for manual sync button
@@ -105,5 +169,7 @@ export const usePedidosQuery = (userId: string | undefined) => {
     isStale: query.isStale,
     error: query.error,
     refetch,
+    // Expose cache age for UI feedback
+    hasCache: !!query.data && query.data.length > 0,
   };
 };

@@ -64,8 +64,19 @@ const ClienteDashboard = () => {
   const { signOut, profile, user } = useAuth();
   const navigate = useNavigate();
 
+  // Validate user.id exists before fetching - prevents empty panel issues
+  const validUserId = user?.id && user.id !== "undefined" ? user.id : undefined;
+
   // React Query with SWR pattern - shows cached data instantly, refetches in background
-  const { pedidos, isLoading, isFetching, refetch } = usePedidosQuery(user?.id);
+  // Added timeout protection and localStorage fallback for connection failures
+  const { pedidos, isLoading, isFetching, refetch, error, hasCache } = usePedidosQuery(validUserId);
+
+  // Log errors for debugging but don't crash
+  useEffect(() => {
+    if (error) {
+      console.warn("[ClienteDashboard] Query error:", error);
+    }
+  }, [error]);
 
   // Check warehouse status every minute
   useEffect(() => {
@@ -163,21 +174,27 @@ const ClienteDashboard = () => {
               <WarehouseStatus isOpen={isWarehouseOpen} address={WAREHOUSE_ADDRESS} />
             </div>
             <div className="flex gap-2 sm:w-auto w-full">
-              {/* Sync Button - prominent for manual refresh */}
+              {/* Sync Button - prominent for manual refresh with error feedback */}
               <motion.button
                 onClick={() => refetch()}
                 disabled={isFetching}
                 className={`relative group flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold overflow-hidden flex-1 sm:flex-none border-2 transition-colors ${
-                  isFetching 
-                    ? "border-muted bg-muted/50 text-muted-foreground cursor-not-allowed" 
-                    : "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20"
+                  error && !hasCache
+                    ? "border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-400"
+                    : isFetching 
+                      ? "border-muted bg-muted/50 text-muted-foreground cursor-not-allowed" 
+                      : "border-green-500/30 bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20"
                 }`}
                 whileHover={isFetching ? {} : { scale: 1.02 }}
                 whileTap={isFetching ? {} : { scale: 0.98 }}
               >
                 <RefreshCw className={`h-5 w-5 ${isFetching ? "animate-spin" : ""}`} />
                 <span className="hidden sm:inline">
-                  {isFetching ? "Sincronizando..." : "Sincronizar"}
+                  {error && !hasCache
+                    ? "Reintentar"
+                    : isFetching 
+                      ? "Sincronizando..." 
+                      : "Sincronizar"}
                 </span>
               </motion.button>
 
@@ -229,6 +246,8 @@ const ClienteDashboard = () => {
                 onPrint={setPrintingPedido}
                 onRespond={setInstructionsPedido}
                 onViewEvidence={setEvidencePhoto}
+                error={error}
+                hasCache={hasCache}
               />
             )}
 
