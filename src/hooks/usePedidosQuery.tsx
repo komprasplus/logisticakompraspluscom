@@ -53,7 +53,7 @@ const CLIENT_PEDIDO_COLUMNS = `
 
 /**
  * Optimized fetcher with composite index (client_user_id, fecha_creacion DESC).
- * Returns at most 100 rows for fast response times (reduced from 200).
+ * Returns at most 50 rows for fast response times (reduced from 100).
  */
 const fetchPedidosForClient = async (userId: string): Promise<Pedido[]> => {
   const { data, error } = await supabase
@@ -61,7 +61,7 @@ const fetchPedidosForClient = async (userId: string): Promise<Pedido[]> => {
     .select(CLIENT_PEDIDO_COLUMNS)
     .eq("client_user_id", userId)
     .order("fecha_creacion", { ascending: false })
-    .limit(100);
+    .limit(50);
 
   if (error) throw error;
   return data || [];

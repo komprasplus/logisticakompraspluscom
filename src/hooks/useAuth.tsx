@@ -183,7 +183,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         if (session?.user) {
           currentUserIdRef.current = session.user.id;
-          await fetchUserData(session.user.id);
+          // CRITICAL: Deferred fetch - don't block loading state
+          setTimeout(() => {
+            void fetchUserData(session.user.id);
+          }, 0);
         } else {
           currentUserIdRef.current = null;
           setRole(null);
@@ -194,6 +197,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Fail open: allow the UI to proceed to /auth instead of hanging forever
         clearCorruptedSession();
       } finally {
+        // CRITICAL: Unblock loading immediately - role/profile will load in background
         setLoading(false);
       }
     })();

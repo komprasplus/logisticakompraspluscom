@@ -59,7 +59,7 @@ const fetchMotorizadoPedidos = async (userId: string): Promise<Pedido[]> => {
     .eq("motorizado_id", userId)
     .in("estado", ["Asignado", "En Ruta", "Novedad"])
     .order("id", { ascending: true })
-    .limit(50);
+    .limit(30);
 
   if (error) throw error;
   

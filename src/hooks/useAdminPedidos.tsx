@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getTodayString } from "@/lib/dateUtils";
@@ -70,10 +70,10 @@ const DEFAULT_DATE_RANGE: DateRange = {
 };
 
 /**
- * Fetch initial batch (most recent 50) + novedades (most recent 50)
- * This provides instant UI while background fetch loads more
+ * Fetch ONLY 50 records total (no background loading).
+ * Combines recent orders + novedades to ensure visibility of problem orders.
  */
-async function fetchInitialBatch(dateRange: DateRange): Promise<Pedido[]> {
+async function fetchPedidos50(dateRange: DateRange): Promise<Pedido[]> {
   try {
     const [recentResult, novedadesResult] = await Promise.all([
       supabase
@@ -82,7 +82,7 @@ async function fetchInitialBatch(dateRange: DateRange): Promise<Pedido[]> {
         .gte("fecha_creacion", `${dateRange.from}T00:00:00`)
         .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
         .order("fecha_creacion", { ascending: false })
-        .limit(50),
+        .limit(30), // 30 most recent
       supabase
         .from("pedidos")
         .select(PEDIDO_COLUMNS)
@@ -90,32 +90,25 @@ async function fetchInitialBatch(dateRange: DateRange): Promise<Pedido[]> {
         .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
         .ilike("estado", "%novedad%")
         .order("fecha_creacion", { ascending: false })
-        .limit(50),
+        .limit(20), // 20 novedades
     ]);
 
-    // Graceful handling - return partial data if one fails
     const recentData = recentResult.error ? [] : (recentResult.data || []);
     const novedadesData = novedadesResult.error ? [] : (novedadesResult.data || []);
 
-    if (recentResult.error) {
-      console.warn("Error fetching recent pedidos:", recentResult.error);
-    }
-    if (novedadesResult.error) {
-      console.warn("Error fetching novedades:", novedadesResult.error);
-    }
+    if (recentResult.error) console.warn("Error fetching recent:", recentResult.error);
+    if (novedadesResult.error) console.warn("Error fetching novedades:", novedadesResult.error);
 
-    // Merge and deduplicate
-    const allData = [...recentData, ...novedadesData];
+    // Merge and deduplicate (max ~50 records)
     const seenIds = new Set<number>();
     const merged: Pedido[] = [];
-    for (const p of allData) {
-      if (!seenIds.has(p.id)) {
+    for (const p of [...recentData, ...novedadesData]) {
+      if (!seenIds.has(p.id) && merged.length < 50) {
         seenIds.add(p.id);
         merged.push(p as Pedido);
       }
     }
 
-    // Sort by fecha_creacion desc
     merged.sort((a, b) => {
       const dateA = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
       const dateB = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
@@ -124,179 +117,66 @@ async function fetchInitialBatch(dateRange: DateRange): Promise<Pedido[]> {
 
     return merged;
   } catch (error) {
-    console.error("Critical error in fetchInitialBatch:", error);
+    console.error("Critical error in fetchPedidos50:", error);
     return [];
   }
 }
 
-/**
- * Background fetch for remaining orders (offset-based pagination)
- */
-async function fetchMorePedidos(
-  dateRange: DateRange,
-  offset: number,
-  limit: number = 100
-): Promise<{ data: Pedido[]; hasMore: boolean }> {
-  try {
-    const { data, error } = await supabase
-      .from("pedidos")
-      .select(PEDIDO_COLUMNS)
-      .gte("fecha_creacion", `${dateRange.from}T00:00:00`)
-      .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
-      .order("fecha_creacion", { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      console.warn("Error fetching more pedidos:", error);
-      return { data: [], hasMore: false };
-    }
-
-    return {
-      data: (data || []) as Pedido[],
-      hasMore: (data?.length || 0) === limit,
-    };
-  } catch (error) {
-    console.error("Error in fetchMorePedidos:", error);
-    return { data: [], hasMore: false };
-  }
-}
+// Background fetch removed to prevent CPU saturation
 
 export const useAdminPedidos = () => {
   const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
-  const [allPedidos, setAllPedidos] = useState<Pedido[]>([]);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasLoadedAll, setHasLoadedAll] = useState(false);
-  const backgroundFetchRef = useRef(false);
 
-  // Initial query with React Query (cached, stale-while-revalidate)
+  // Main query - now fetches only 50 records total (no background loading)
   const {
-    data: initialData,
+    data,
     isLoading,
     isFetching,
     error,
     refetch,
   } = useQuery({
     queryKey: ["admin-pedidos", dateRange.from, dateRange.to],
-    queryFn: () => fetchInitialBatch(dateRange),
+    queryFn: () => fetchPedidos50(dateRange),
     staleTime: 60 * 1000, // 1 minute - data considered fresh
     gcTime: 10 * 60 * 1000, // 10 minutes cache retention
     refetchOnWindowFocus: false, // Disable to prevent DB hammering
     retry: 1,
   });
 
-  // Merge initial data with background-loaded data
-  useEffect(() => {
-    if (initialData && initialData.length > 0) {
-      setAllPedidos((prev) => {
-        // Merge without duplicates
-        const existingIds = new Set(prev.map((p) => p.id));
-        const newItems = initialData.filter((p) => !existingIds.has(p.id));
-        if (newItems.length === 0) return prev;
-
-        const merged = [...initialData, ...prev.filter((p) => !initialData.find((i) => i.id === p.id))];
-        merged.sort((a, b) => {
-          const dateA = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
-          const dateB = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
-          return dateB - dateA;
-        });
-        return merged;
-      });
-    }
-  }, [initialData]);
-
-  // Background lazy loading
-  const loadMoreInBackground = useCallback(async () => {
-    if (backgroundFetchRef.current || hasLoadedAll) return;
-    backgroundFetchRef.current = true;
-    setIsLoadingMore(true);
-
-    let offset = allPedidos.length;
-    let hasMore = true;
-    const maxIterations = 5; // Safety limit: max 500 more orders (100 x 5)
-    let iterations = 0;
-
-    while (hasMore && iterations < maxIterations) {
-      const result = await fetchMorePedidos(dateRange, offset);
-      
-      if (result.data.length > 0) {
-        setAllPedidos((prev) => {
-          const existingIds = new Set(prev.map((p) => p.id));
-          const newItems = result.data.filter((p) => !existingIds.has(p.id));
-          if (newItems.length === 0) return prev;
-
-          const merged = [...prev, ...newItems];
-          merged.sort((a, b) => {
-            const dateA = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
-            const dateB = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
-            return dateB - dateA;
-          });
-          return merged;
-        });
-        offset += result.data.length;
-      }
-
-      hasMore = result.hasMore;
-      iterations++;
-
-      // Small delay between batches to reduce DB pressure
-      if (hasMore) {
-        await new Promise((r) => setTimeout(r, 500));
-      }
-    }
-
-    setHasLoadedAll(true);
-    setIsLoadingMore(false);
-    backgroundFetchRef.current = false;
-  }, [allPedidos.length, dateRange, hasLoadedAll]);
-
-  // Trigger background loading once initial data is ready
-  useEffect(() => {
-    if (initialData && initialData.length > 0 && !hasLoadedAll && !isLoading) {
-      // Delay background fetch to prioritize UI responsiveness
-      const timer = setTimeout(() => {
-        loadMoreInBackground();
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [initialData, hasLoadedAll, isLoading, loadMoreInBackground]);
+  const pedidos = data || [];
 
   // Update a pedido locally (optimistic update)
   const updatePedidoLocally = useCallback((id: number, updates: Partial<Pedido>) => {
-    setAllPedidos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...updates } : p))
+    queryClient.setQueryData<Pedido[]>(
+      ["admin-pedidos", dateRange.from, dateRange.to],
+      (old) => old?.map((p) => (p.id === id ? { ...p, ...updates } : p)) ?? []
     );
-  }, []);
+  }, [queryClient, dateRange]);
 
   // Change date range and reset
   const changeDateRange = useCallback((newRange: DateRange) => {
     setDateRange(newRange);
-    setAllPedidos([]);
-    setHasLoadedAll(false);
-    backgroundFetchRef.current = false;
     queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
   }, [queryClient]);
 
   // Force refresh
   const forceRefresh = useCallback(() => {
-    setAllPedidos([]);
-    setHasLoadedAll(false);
-    backgroundFetchRef.current = false;
     refetch();
   }, [refetch]);
 
   return {
-    pedidos: allPedidos.length > 0 ? allPedidos : (initialData || []),
+    pedidos,
     isLoading,
     isFetching,
-    isLoadingMore,
-    hasLoadedAll,
+    isLoadingMore: false, // No background loading
+    hasLoadedAll: true, // Always true since we don't do background fetch
     error,
     dateRange,
     changeDateRange,
     updatePedidoLocally,
     forceRefresh,
-    totalLoaded: allPedidos.length,
+    totalLoaded: pedidos.length,
   };
 };
 
