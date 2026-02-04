@@ -123,13 +123,18 @@ const PedidosView = ({
   const canEditOrder = (status: string | null) => status?.toLowerCase() === "pendiente";
   const isDelivered = (status: string | null) => status?.toLowerCase() === "entregado" || status?.toLowerCase() === "liquidado";
   
-  const getNetProfit = (pedido: Pedido) => {
-    if (pedido.metodo_pago === "anticipado") return 0;
-    if (pedido.utilidad !== null && pedido.utilidad !== undefined) {
-      return pedido.utilidad;
+  // Safe calculation - never fails, returns 0 on error
+  const getNetProfit = (pedido: Pedido): number => {
+    try {
+      if (pedido.metodo_pago === "anticipado") return 0;
+      if (pedido.utilidad !== null && pedido.utilidad !== undefined) {
+        return pedido.utilidad;
+      }
+      const flete = pedido.valor_flete || 12000;
+      return (pedido.valor_recaudar || 0) - flete;
+    } catch {
+      return 0; // Never crash - show 0 if calculation fails
     }
-    const flete = pedido.valor_flete || 12000;
-    return (pedido.valor_recaudar || 0) - flete;
   };
 
   // Count active filters
@@ -415,16 +420,22 @@ const PedidosView = ({
         )}
       </div>
 
-      {/* Grid - Skeleton only on true first load, not background refetches */}
+      {/* Grid - Clear loading state, show skeleton only on first load */}
       {loading && pedidos.length === 0 ? (
-        <PedidosSkeleton />
+        <div className="space-y-4">
+          <div className="flex items-center justify-center gap-3 py-8">
+            <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <p className="text-muted-foreground font-medium">Cargando tus pedidos...</p>
+          </div>
+          <PedidosSkeleton />
+        </div>
       ) : totalItems === 0 ? (
         <div className="rounded-2xl neu-flat p-8 text-center">
           <Package className="mx-auto h-12 w-12 text-muted-foreground" />
           <p className="mt-4 text-muted-foreground">
             {searchQuery || statusFilter || activeFiltersCount > 0
               ? "No se encontraron pedidos con estos filtros"
-              : "No tienes pedidos registrados"}
+              : "No tienes pedidos registrados desde el 1 de Enero 2025"}
           </p>
         </div>
       ) : (

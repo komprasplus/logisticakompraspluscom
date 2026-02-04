@@ -52,16 +52,19 @@ const CLIENT_PEDIDO_COLUMNS = `
 `;
 
 /**
- * Optimized fetcher with composite index (client_user_id, fecha_creacion DESC).
- * Returns at most 50 rows for fast response times (reduced from 100).
+ * Fetches ALL orders from 2025-01-01 onwards for full visibility.
+ * No arbitrary limits - clients see all their orders.
+ * Includes date filter to prevent loading ancient data.
  */
 const fetchPedidosForClient = async (userId: string): Promise<Pedido[]> => {
+  const startDate = "2025-01-01";
+  
   const { data, error } = await supabase
     .from("pedidos")
     .select(CLIENT_PEDIDO_COLUMNS)
     .eq("client_user_id", userId)
-    .order("fecha_creacion", { ascending: false })
-    .limit(50);
+    .gte("fecha_creacion", startDate)
+    .order("fecha_creacion", { ascending: false });
 
   if (error) throw error;
   return data || [];
@@ -81,15 +84,16 @@ export const usePedidosQuery = (userId: string | undefined) => {
     queryKey: ["pedidos", "cliente", userId],
     queryFn: () => fetchPedidosForClient(userId!),
     enabled: !!userId,
-    staleTime: 30 * 1000, // 30 seconds - data considered fresh
-    gcTime: 5 * 60 * 1000, // 5 minutes - cache retained after unmount
-    refetchOnWindowFocus: true, // Sync when tab regains focus
-    refetchOnMount: "always", // Refetch on mount but show stale data first
+    staleTime: 60 * 1000, // 60 seconds - reduced refetch frequency
+    gcTime: 10 * 60 * 1000, // 10 minutes - longer cache
+    refetchOnWindowFocus: false, // Disable auto-refetch to reduce CPU load
+    refetchOnMount: true, // Refetch on mount but show stale data first
     placeholderData: (previousData) => previousData, // Instant UI transition
     structuralSharing: true, // Prevent re-renders if response is identical
+    retry: 2, // Limit retries to prevent infinite loops
   });
 
-  // Memoized refetch to avoid unnecessary closures
+  // Memoized refetch for manual sync button
   const refetch = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["pedidos", "cliente", userId] });
   }, [queryClient, userId]);
