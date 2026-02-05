@@ -77,6 +77,45 @@ export type Database = {
         }
         Relationships: []
       }
+      api_queue: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_message: string | null
+          id: string
+          max_attempts: number
+          payload: Json
+          priority: number
+          processed_at: string | null
+          source: string
+          status: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          payload: Json
+          priority?: number
+          processed_at?: string | null
+          source?: string
+          status?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_attempts?: number
+          payload?: Json
+          priority?: number
+          processed_at?: string | null
+          source?: string
+          status?: string
+        }
+        Relationships: []
+      }
       inventory: {
         Row: {
           client_user_id: string
@@ -227,11 +266,16 @@ export type Database = {
           corte_horario: string | null
           costo_devolucion: number | null
           devolucion_cobrada: boolean | null
+          dias_en_transito: number | null
           direccion_entrega: string | null
+          dropi_guia_id: string | null
+          dropi_sync_status: string | null
           estado: string | null
           fecha_actualizacion: string | null
+          fecha_cierre_logistico: string | null
           fecha_creacion: string | null
           fecha_entrega: string | null
+          fecha_recoleccion_real: string | null
           firma_cliente: string | null
           foto_evidencia: string | null
           foto_paquete: string | null
@@ -239,6 +283,7 @@ export type Database = {
           guia_impresa: boolean | null
           guia_impresa_at: string | null
           id: number
+          indicador_trayecto: string | null
           intentos_entrega: number | null
           inventory_item_id: string | null
           latitud: number | null
@@ -249,10 +294,14 @@ export type Database = {
           municipio: string | null
           novedad_latitud: number | null
           novedad_longitud: number | null
+          novedad_resuelta: boolean | null
+          novedad_tipo_clasificacion: string | null
           numero_guia: string | null
           observaciones: string | null
+          primer_intento_fecha: string | null
           producto_nombre: string | null
           quantity: number | null
+          sla_cumplido: boolean | null
           tipo_novedad: string | null
           utilidad: number | null
           valor_flete: number | null
@@ -268,11 +317,16 @@ export type Database = {
           corte_horario?: string | null
           costo_devolucion?: number | null
           devolucion_cobrada?: boolean | null
+          dias_en_transito?: number | null
           direccion_entrega?: string | null
+          dropi_guia_id?: string | null
+          dropi_sync_status?: string | null
           estado?: string | null
           fecha_actualizacion?: string | null
+          fecha_cierre_logistico?: string | null
           fecha_creacion?: string | null
           fecha_entrega?: string | null
+          fecha_recoleccion_real?: string | null
           firma_cliente?: string | null
           foto_evidencia?: string | null
           foto_paquete?: string | null
@@ -280,6 +334,7 @@ export type Database = {
           guia_impresa?: boolean | null
           guia_impresa_at?: string | null
           id?: number
+          indicador_trayecto?: string | null
           intentos_entrega?: number | null
           inventory_item_id?: string | null
           latitud?: number | null
@@ -290,10 +345,14 @@ export type Database = {
           municipio?: string | null
           novedad_latitud?: number | null
           novedad_longitud?: number | null
+          novedad_resuelta?: boolean | null
+          novedad_tipo_clasificacion?: string | null
           numero_guia?: string | null
           observaciones?: string | null
+          primer_intento_fecha?: string | null
           producto_nombre?: string | null
           quantity?: number | null
+          sla_cumplido?: boolean | null
           tipo_novedad?: string | null
           utilidad?: number | null
           valor_flete?: number | null
@@ -309,11 +368,16 @@ export type Database = {
           corte_horario?: string | null
           costo_devolucion?: number | null
           devolucion_cobrada?: boolean | null
+          dias_en_transito?: number | null
           direccion_entrega?: string | null
+          dropi_guia_id?: string | null
+          dropi_sync_status?: string | null
           estado?: string | null
           fecha_actualizacion?: string | null
+          fecha_cierre_logistico?: string | null
           fecha_creacion?: string | null
           fecha_entrega?: string | null
+          fecha_recoleccion_real?: string | null
           firma_cliente?: string | null
           foto_evidencia?: string | null
           foto_paquete?: string | null
@@ -321,6 +385,7 @@ export type Database = {
           guia_impresa?: boolean | null
           guia_impresa_at?: string | null
           id?: number
+          indicador_trayecto?: string | null
           intentos_entrega?: number | null
           inventory_item_id?: string | null
           latitud?: number | null
@@ -331,10 +396,14 @@ export type Database = {
           municipio?: string | null
           novedad_latitud?: number | null
           novedad_longitud?: number | null
+          novedad_resuelta?: boolean | null
+          novedad_tipo_clasificacion?: string | null
           numero_guia?: string | null
           observaciones?: string | null
+          primer_intento_fecha?: string | null
           producto_nombre?: string | null
           quantity?: number | null
+          sla_cumplido?: boolean | null
           tipo_novedad?: string | null
           utilidad?: number | null
           valor_flete?: number | null
@@ -435,7 +504,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      dropi_indicators: {
+        Row: {
+          entregas_en_sla: number | null
+          guias_con_novedad: number | null
+          guias_con_recaudo: number | null
+          guias_devueltas: number | null
+          guias_entregadas: number | null
+          guias_movilizadas: number | null
+          novedades_automaticas: number | null
+          novedades_manuales: number | null
+          porcentaje_entregas: number | null
+          porcentaje_sla_cumplido: number | null
+          primer_intento_exitoso: number | null
+          promedio_dias_transito: number | null
+          total_guias: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
