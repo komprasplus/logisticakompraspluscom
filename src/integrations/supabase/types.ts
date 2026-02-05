@@ -77,6 +77,50 @@ export type Database = {
         }
         Relationships: []
       }
+      api_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          credential_id: string | null
+          id: string
+          platform: string
+          request_payload: Json | null
+          response_message: string | null
+          response_status: number | null
+          success: boolean | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          credential_id?: string | null
+          id?: string
+          platform: string
+          request_payload?: Json | null
+          response_message?: string | null
+          response_status?: number | null
+          success?: boolean | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          credential_id?: string | null
+          id?: string
+          platform?: string
+          request_payload?: Json | null
+          response_message?: string | null
+          response_status?: number | null
+          success?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_logs_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "api_credentials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_queue: {
         Row: {
           attempts: number
@@ -481,6 +525,39 @@ export type Database = {
           updated_at?: string
           user_id?: string
           vehicle_plate?: string | null
+        }
+        Relationships: []
+      }
+      state_mappings: {
+        Row: {
+          created_at: string | null
+          external_code: string | null
+          external_state: string
+          id: string
+          internal_state: string
+          is_active: boolean | null
+          platform: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          external_code?: string | null
+          external_state: string
+          id?: string
+          internal_state: string
+          is_active?: boolean | null
+          platform: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          external_code?: string | null
+          external_state?: string
+          id?: string
+          internal_state?: string
+          is_active?: boolean | null
+          platform?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

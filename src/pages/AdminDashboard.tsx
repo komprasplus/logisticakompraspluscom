@@ -63,6 +63,7 @@ import BulkPrintGuiasModal from "@/components/BulkPrintGuiasModal";
 import LiquidacionesPanel from "@/components/LiquidacionesPanel";
 import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
  import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
+import IntegrationsPanel from "@/components/admin/IntegrationsPanel";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
 import UserManagementTabs from "@/components/UserManagementTabs";
@@ -1554,6 +1555,14 @@ const AdminDashboard = () => {
               setShowDetailModal(true);
             }}
           />
+        );
+
+      case "integraciones":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            <h2 className="font-bold text-foreground text-lg mb-4">🔗 API Keys & Integraciones</h2>
+            <IntegrationsPanel />
+          </motion.div>
         );
 
       default:
