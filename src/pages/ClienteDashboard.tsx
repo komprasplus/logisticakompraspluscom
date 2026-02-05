@@ -259,6 +259,7 @@ const ClienteDashboard = () => {
                 onRespond={setInstructionsPedido}
                 onPrint={setPrintingPedido}
                 onViewEvidence={setEvidencePhoto}
+                onRefresh={refetch}
               />
             )}
 

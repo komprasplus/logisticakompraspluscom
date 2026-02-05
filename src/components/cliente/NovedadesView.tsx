@@ -10,9 +10,21 @@ import {
   Phone,
   DollarSign,
   TrendingUp,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { formatCOP } from "@/lib/tarifas";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import { format, addDays } from "date-fns";
+import { es } from "date-fns/locale";
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Pedido {
   id: number;
@@ -41,6 +53,7 @@ interface NovedadesViewProps {
   onRespond: (pedido: Pedido) => void;
   onPrint: (pedido: Pedido) => void;
   onViewEvidence: (url: string) => void;
+  onRefresh?: () => void;
 }
 
 const NovedadesView = ({
@@ -49,8 +62,11 @@ const NovedadesView = ({
   onRespond,
   onPrint,
   onViewEvidence,
+  onRefresh,
 }: NovedadesViewProps) => {
   const novedades = pedidos.filter((p) => p.estado?.toLowerCase() === "novedad");
+  const [reschedulingId, setReschedulingId] = useState<number | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
 
   const getNetProfit = (pedido: Pedido) => {
     if (pedido.metodo_pago === "anticipado") return 0;
@@ -59,6 +75,47 @@ const NovedadesView = ({
     }
     const flete = pedido.valor_flete || 12000;
     return (pedido.valor_recaudar || 0) - flete;
+  };
+
+  const handleReschedule = async (pedidoId: number, newDate: Date) => {
+    setReschedulingId(pedidoId);
+    try {
+      const formattedDate = format(newDate, "yyyy-MM-dd");
+      const timestamp = new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" });
+      
+      // Get current observations
+      const { data: currentPedido } = await supabase
+        .from("pedidos")
+        .select("observaciones")
+        .eq("id", pedidoId)
+        .maybeSingle();
+      
+      const systemNote = `[SISTEMA ${timestamp}] Reprogramado por tienda para: ${format(newDate, "PPP", { locale: es })}`;
+      const newObs = currentPedido?.observaciones 
+        ? `${currentPedido.observaciones}\n${systemNote}`
+        : systemNote;
+      
+      const { error } = await supabase
+        .from("pedidos")
+        .update({
+          fecha_entrega: formattedDate,
+          estado: "Asignado", // Reset to Asignado for re-delivery
+          observaciones: newObs,
+          fecha_actualizacion: new Date().toISOString(),
+        })
+        .eq("id", pedidoId);
+
+      if (error) throw error;
+
+      toast.success(`Pedido reprogramado para ${format(newDate, "PPP", { locale: es })}`);
+      onRefresh?.();
+    } catch (error) {
+      console.error("Error rescheduling:", error);
+      toast.error("Error al reprogramar el pedido");
+    } finally {
+      setReschedulingId(null);
+      setSelectedDate(undefined);
+    }
   };
 
   return (
@@ -212,7 +269,9 @@ const NovedadesView = ({
                 </div>
 
                 {/* Card Footer - Actions */}
-                <div className="px-4 pb-4 pt-0 flex gap-2">
+                <div className="px-4 pb-4 pt-0 space-y-2">
+                  {/* Primary Action Row */}
+                  <div className="flex gap-2">
                   <Button
                     onClick={() => onRespond(pedido)}
                     className="flex-1 h-11 gap-2 bg-orange-500 hover:bg-orange-600 text-white font-semibold"
@@ -227,6 +286,39 @@ const NovedadesView = ({
                   >
                     <Printer className="h-4 w-4" />
                   </Button>
+                  </div>
+                  
+                  {/* Reschedule Action */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full h-10 gap-2 border-blue-300 text-blue-600 hover:bg-blue-50"
+                        disabled={reschedulingId === pedido.id}
+                      >
+                        {reschedulingId === pedido.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Calendar className="h-4 w-4" />
+                        )}
+                        Reprogramar Entrega
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="center">
+                      <CalendarPicker
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => {
+                          if (date) {
+                            handleReschedule(pedido.id, date);
+                          }
+                        }}
+                        disabled={(date) => date < addDays(new Date(), 1)}
+                        initialFocus
+                        locale={es}
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </motion.div>
             );

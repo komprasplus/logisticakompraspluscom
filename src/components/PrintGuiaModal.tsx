@@ -241,10 +241,11 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
   // Early return after all hooks
   if (!pedido) return null;
 
-  const guiaNumero = pedido.numero_guia || `KP-${pedido.id}`;
-  const isPagado = pedido.metodo_pago === "anticipado";
-  const displayStoreName = storeName || remitente || "Kompras Plus";
-  const displayLogo = storeLogo || defaultLogo;
+  // Use memoized values computed above (after hooks, before render)
+  const finalGuiaNumero = pedido.numero_guia || `KP-${pedido.id}`;
+  const finalIsPagado = pedido.metodo_pago === "anticipado";
+  const finalDisplayStoreName = storeName || remitente || "Kompras Plus";
+  const finalDisplayLogo = storeLogo || defaultLogo;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -282,8 +283,8 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
               {/* Store Logo - Left Corner */}
               <div style={{ display: "flex", alignItems: "center", gap: "2mm" }}>
                 <img 
-                  src={displayLogo} 
-                  alt={displayStoreName}
+                  src={finalDisplayLogo} 
+                  alt={finalDisplayStoreName}
                   style={{ 
                     height: "12mm", 
                     maxWidth: "35mm",
@@ -302,7 +303,7 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
                   fontWeight: "bold",
                   lineHeight: "1.1"
                 }}>
-                  GUÍA N°: {guiaNumero}
+                  GUÍA N°: {finalGuiaNumero}
                 </div>
                 <div style={{ fontSize: "8pt", color: "#333" }}>
                   FECHA: {formatTodayDate()}
@@ -324,7 +325,7 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
                 textTransform: "uppercase",
                 letterSpacing: "0.5px"
               }}>
-                {displayStoreName}
+                {finalDisplayStoreName}
               </div>
             </div>
 
@@ -441,7 +442,7 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
                 fontWeight: "bold",
                 letterSpacing: "1px"
               }}>
-                {isPagado ? "PAGADO" : `$${pedido.valor_recaudar?.toLocaleString("es-CO") || "0"}`}
+                {finalIsPagado ? "PAGADO" : `$${pedido.valor_recaudar?.toLocaleString("es-CO") || "0"}`}
               </div>
             </div>
 
