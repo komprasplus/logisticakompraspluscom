@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, User, Package, CheckCircle2, Loader2, AlertCircle, Bike, Banknote, TrendingUp, FileText } from "lucide-react";
+import { DollarSign, User, Package, CheckCircle2, Loader2, AlertCircle, Bike, Banknote, TrendingUp, FileText, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import PaginationControls from "@/components/PaginationControls";
+import { usePagination } from "@/hooks/usePagination";
 import {
   Table,
   TableBody,
@@ -43,15 +45,20 @@ interface LiquidacionesPanelProps {
 const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) => {
   const [liquidaciones, setLiquidaciones] = useState<MotorizadoLiquidacion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [processing, setProcessing] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [selectedMotorizado, setSelectedMotorizado] = useState<MotorizadoLiquidacion | null>(null);
+
+  // Pagination for liquidaciones
+  const paginationState = usePagination({ items: liquidaciones, itemsPerPage: 10 });
 
   useEffect(() => {
     fetchLiquidaciones();
   }, []);
 
   const fetchLiquidaciones = async () => {
+    setLoading(true);
     try {
       // Get all motorizados
       const { data: roles, error: rolesError } = await supabase
@@ -132,6 +139,13 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
     }
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchLiquidaciones();
+    setRefreshing(false);
+    toast.success("Liquidaciones actualizadas");
+  };
+
   const handleLiquidar = async () => {
     if (!selectedMotorizado) return;
 
@@ -194,13 +208,31 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">Cargando liquidaciones...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {/* Header with Refresh */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-foreground">Liquidaciones de Motorizados</h3>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          Actualizar
+        </Button>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 p-4 text-white shadow-lg">
@@ -266,7 +298,7 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {liquidaciones.map((liquidacion) => (
+                {paginationState.paginatedItems.map((liquidacion) => (
                   <TableRow key={liquidacion.id} className="hover:bg-muted/30">
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -326,6 +358,22 @@ const LiquidacionesPanel = ({ onLiquidacionComplete }: LiquidacionesPanelProps) 
               </TableBody>
             </Table>
           </div>
+          
+          {/* Pagination */}
+          {liquidaciones.length > 10 && (
+            <div className="p-4 border-t border-border">
+              <PaginationControls
+                currentPage={paginationState.currentPage}
+                totalPages={paginationState.totalPages}
+                onPageChange={paginationState.goToPage}
+                startIndex={paginationState.startIndex}
+                endIndex={paginationState.endIndex}
+                totalItems={paginationState.totalItems}
+                itemsPerPage={paginationState.itemsPerPage}
+                showItemsPerPage={false}
+              />
+            </div>
+          )}
         </div>
       )}
 

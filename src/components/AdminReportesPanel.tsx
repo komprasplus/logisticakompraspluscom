@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FileSpreadsheet, Store, Calendar, Download, Loader2, Filter } from "lucide-react";
+import { FileSpreadsheet, Store, Calendar, Download, Loader2, Filter, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -98,11 +98,44 @@ const AdminReportesPanel = () => {
         query = query.eq("client_user_id", selectedTienda);
       }
 
-      const { data: pedidos, error } = await query;
+      // Use chunked fetching for "todas" to avoid timeout
+      let allPedidos: Pedido[] = [];
+      
+      if (selectedTienda === "todas") {
+        // Fetch in chunks of 500 to prevent timeouts
+        const CHUNK_SIZE = 500;
+        let offset = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          const { data: chunk, error: chunkError } = await query
+            .range(offset, offset + CHUNK_SIZE - 1);
+          
+          if (chunkError) throw chunkError;
+          
+          if (!chunk || chunk.length === 0) {
+            hasMore = false;
+          } else {
+            allPedidos = [...allPedidos, ...chunk];
+            offset += CHUNK_SIZE;
+            // Stop if we got less than chunk size (last page)
+            if (chunk.length < CHUNK_SIZE) {
+              hasMore = false;
+            }
+          }
+          
+          // Progress toast for large datasets
+          if (allPedidos.length > 0 && allPedidos.length % 1000 === 0) {
+            toast.info(`Procesando... ${allPedidos.length} registros`);
+          }
+        }
+      } else {
+        const { data: pedidos, error } = await query;
+        if (error) throw error;
+        allPedidos = pedidos || [];
+      }
 
-      if (error) throw error;
-
-      if (!pedidos || pedidos.length === 0) {
+      if (allPedidos.length === 0) {
         toast.error("No hay pedidos en el rango seleccionado");
         setLoading(false);
         return;
@@ -111,12 +144,12 @@ const AdminReportesPanel = () => {
       // Find the tienda name for the report
       const tiendaNombre = selectedTienda === "todas" 
         ? "Todas las Tiendas"
-        : tiendas.find((t) => t.user_id === selectedTienda)?.store_name || 
+        : tiendas.find((t) => t.user_id === selectedTienda)?.store_name ||
           tiendas.find((t) => t.user_id === selectedTienda)?.full_name ||
           "Tienda";
 
       // Prepare Excel data
-      const excelData = pedidos.map((p: Pedido) => {
+      const excelData = allPedidos.map((p: Pedido) => {
         const recaudo = p.valor_recaudar || 0;
         const costoProducto = p.valor_producto || 0;
         const flete = p.valor_flete || 0;
@@ -195,7 +228,7 @@ const AdminReportesPanel = () => {
       const fileName = `Reporte_${tiendaNombre.replace(/\s+/g, "_")}_${startDate}_${endDate}.xlsx`;
       XLSX.writeFile(wb, fileName);
 
-      toast.success(`Reporte descargado: ${pedidos.length} pedidos`);
+      toast.success(`Reporte descargado: ${allPedidos.length} pedidos`);
     } catch (error) {
       console.error("Error generating report:", error);
       toast.error("Error al generar el reporte");

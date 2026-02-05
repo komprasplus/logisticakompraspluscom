@@ -44,6 +44,14 @@ const MUNICIPIOS = [
   { value: "Sibaté", label: "Sibaté" },
 ];
 
+// Internal warehouse option for guarantees
+const BODEGA_KOMPRAS_PLUS = {
+  user_id: "bodega_kp_internal",
+  store_name: "Bodega Kompras Plus",
+  full_name: "Bodega Kompras Plus (Garantías)",
+  fulfillment_rate: 0,
+};
+
 interface Profile {
   id: string;
   user_id: string;
@@ -218,10 +226,14 @@ const NuevoPedidoModal = ({
           .in("user_id", userIds)
           .eq("status", "activo");
 
-        setStores((profiles || []) as StoreOption[]);
+        // Add Bodega KP as first option for guarantees/internal dispatches
+        const allStores = [BODEGA_KOMPRAS_PLUS, ...(profiles || [])] as StoreOption[];
+        setStores(allStores);
       }
     } catch (error) {
       console.error("Error fetching stores:", error);
+      // Still add Bodega KP even if fetch fails
+      setStores([BODEGA_KOMPRAS_PLUS]);
     }
   };
 
@@ -245,6 +257,11 @@ const NuevoPedidoModal = ({
   // For admins, update fulfillment rate when store selection changes
   useEffect(() => {
     if (isAdmin && selectedStoreId) {
+      // Handle internal bodega option
+      if (selectedStoreId === "bodega_kp_internal") {
+        setFulfillmentInfo({ rate: 0, loaded: true });
+        return;
+      }
       const selectedStore = stores.find(s => s.user_id === selectedStoreId);
       if (selectedStore) {
         setFulfillmentInfo({ rate: selectedStore.fulfillment_rate ?? 1900, loaded: true });
@@ -407,7 +424,10 @@ const NuevoPedidoModal = ({
          latitud: confirmedLat ?? null,
          longitud: confirmedLng ?? null,
         motorizado_asignado: isAdmin && motorizadoAsignado ? motorizadoAsignado : null,
-        client_user_id: isAdmin ? (selectedStoreId || null) : currentUserId,
+        // Handle internal bodega option - set to null for internal warehouse
+        client_user_id: isAdmin 
+          ? (selectedStoreId === "bodega_kp_internal" ? null : selectedStoreId || null) 
+          : currentUserId,
         // Inventory linking
         inventory_item_id: inventoryItemId || null,
         quantity: quantity,
