@@ -10,11 +10,20 @@ export type OrderStatus =
   | "Liquidado"
   | "Anulado";
 
-export type NovedadType =
-  | "Cliente Ausente"
-  | "Dirección Errada"
-  | "Teléfono no Contesta"
-  | "Reprogramado";
+ export type NovedadType =
+   | "Cliente Ausente"
+   | "Dirección Errada"
+   | "Teléfono no Contesta"
+   | "Reprogramado"
+   | "Datos Incompletos"
+   | "Zona de Difícil Acceso"
+   | "Producto Dañado"
+   | "Cliente No Quiere Recibir"
+   | "Pedido Duplicado"
+   | "Fuera de Cobertura";
+ 
+ // Classification for Dropi indicators
+ export type NovedadClasificacion = "Automática" | "Manual";
 
 // Novedades that require photo evidence
 export const NOVEDADES_REQUIRE_PHOTO: NovedadType[] = [
@@ -113,11 +122,41 @@ export const ORDER_STATUS_CONFIG: Record<string, {
 };
 
 export const NOVEDAD_OPTIONS: { value: NovedadType; label: string; requiresPhoto: boolean }[] = [
-  { value: "Cliente Ausente", label: "Cliente Ausente", requiresPhoto: true },
-  { value: "Dirección Errada", label: "Dirección Errada", requiresPhoto: true },
-  { value: "Teléfono no Contesta", label: "Teléfono no Contesta", requiresPhoto: false },
-  { value: "Reprogramado", label: "Reprogramado", requiresPhoto: false },
+   { value: "Cliente Ausente", label: "Cliente Ausente", requiresPhoto: true },
+   { value: "Dirección Errada", label: "Dirección Errada", requiresPhoto: true },
+   { value: "Teléfono no Contesta", label: "Teléfono no Contesta", requiresPhoto: false },
+   { value: "Reprogramado", label: "Reprogramado", requiresPhoto: false },
+   { value: "Datos Incompletos", label: "Datos Incompletos", requiresPhoto: false },
+   { value: "Zona de Difícil Acceso", label: "Zona de Difícil Acceso", requiresPhoto: true },
+   { value: "Producto Dañado", label: "Producto Dañado", requiresPhoto: true },
+   { value: "Cliente No Quiere Recibir", label: "Cliente No Quiere Recibir", requiresPhoto: false },
+   { value: "Pedido Duplicado", label: "Pedido Duplicado", requiresPhoto: false },
+   { value: "Fuera de Cobertura", label: "Fuera de Cobertura", requiresPhoto: false },
 ];
+ 
+ // Classify novedades as per Dropi indicators (21-32)
+ export const NOVEDADES_AUTOMATICAS: NovedadType[] = [
+   "Dirección Errada",
+   "Datos Incompletos",
+   "Zona de Difícil Acceso",
+   "Fuera de Cobertura",
+ ];
+ 
+ export const NOVEDADES_MANUALES: NovedadType[] = [
+   "Cliente Ausente",
+   "Teléfono no Contesta",
+   "Reprogramado",
+   "Producto Dañado",
+   "Cliente No Quiere Recibir",
+   "Pedido Duplicado",
+ ];
+ 
+ export function getNovedadClasificacion(tipo: NovedadType | string | null): NovedadClasificacion | null {
+   if (!tipo) return null;
+   if (NOVEDADES_AUTOMATICAS.includes(tipo as NovedadType)) return "Automática";
+   if (NOVEDADES_MANUALES.includes(tipo as NovedadType)) return "Manual";
+   return "Manual"; // Default to manual for unknown types
+ }
 
 export const getStatusConfig = (status: string | null) => {
   if (!status) {

@@ -35,6 +35,7 @@ import {
   Upload,
   CalendarCheck,
 } from "lucide-react";
+ import { TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -61,6 +62,7 @@ import PrintGuiaModal from "@/components/PrintGuiaModal";
 import BulkPrintGuiasModal from "@/components/BulkPrintGuiasModal";
 import LiquidacionesPanel from "@/components/LiquidacionesPanel";
 import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
+ import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
 import UserManagementTabs from "@/components/UserManagementTabs";
@@ -1437,7 +1439,7 @@ const AdminDashboard = () => {
             </div>
             
             <Tabs defaultValue="motorizados" className="w-full">
-              <TabsList className="grid w-full grid-cols-2 mb-4">
+               <TabsList className="grid w-full grid-cols-3 mb-4">
                 <TabsTrigger value="motorizados" className="gap-2">
                   <Truck className="h-4 w-4" />
                   <span className="hidden sm:inline">Motorizados</span>
@@ -1447,6 +1449,10 @@ const AdminDashboard = () => {
                   <Store className="h-4 w-4" />
                   <span>Tiendas</span>
                 </TabsTrigger>
+                 <TabsTrigger value="dropi" className="gap-2">
+                   <TrendingUp className="h-4 w-4" />
+                   <span>Dropi</span>
+                 </TabsTrigger>
               </TabsList>
               
               <TabsContent value="motorizados" className="mt-0">
@@ -1484,6 +1490,10 @@ const AdminDashboard = () => {
                   <StoreLiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
                 </div>
               </TabsContent>
+               
+               <TabsContent value="dropi" className="mt-0">
+                 <DropiLiquidacionPanel />
+               </TabsContent>
             </Tabs>
           </motion.div>
         );

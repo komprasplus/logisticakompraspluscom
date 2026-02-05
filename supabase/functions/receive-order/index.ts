@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key",
+   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, x-queue-mode",
 };
 
 interface OrderPayload {
@@ -19,6 +19,7 @@ interface OrderPayload {
   latitud?: number;
   longitud?: number;
   fecha_entrega?: string;
+   indicador_trayecto?: string;
 }
 
 // Tariff configuration
@@ -129,6 +130,46 @@ Deno.serve(async (req) => {
       );
     }
 
+     // Check if queue mode is requested (for high volume)
+     const queueMode = req.headers.get("x-queue-mode") === "true";
+ 
+     if (queueMode) {
+       // Add to queue instead of processing directly (for high volume API calls)
+       const { data: queueItem, error: queueError } = await supabase
+         .from("api_queue")
+         .insert({
+           payload: {
+             ...orderPayload,
+             client_user_id: credential.client_user_id,
+             api_credential_id: credential.id,
+             api_label: credential.label,
+           },
+           source: "dropi",
+           status: "pending",
+           priority: 5,
+         })
+         .select("id")
+         .single();
+ 
+       if (queueError) {
+         console.error("Error adding to queue:", queueError);
+         return new Response(
+           JSON.stringify({ error: "Failed to queue order", code: "QUEUE_ERROR" }),
+           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+         );
+       }
+ 
+       return new Response(
+         JSON.stringify({
+           success: true,
+           queued: true,
+           queue_id: queueItem.id,
+           message: "Pedido añadido a la cola de procesamiento"
+         }),
+         { status: 202, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+       );
+     }
+ 
     // Fetch the store's fulfillment rate from profile (admin-controlled)
     const { data: storeProfile, error: profileError } = await supabase
       .from("profiles")
@@ -193,6 +234,8 @@ Deno.serve(async (req) => {
         devolucion_cobrada: false,
         guia_impresa: false,
         fulfillment_cost: fulfillmentCost, // Admin-controlled rate from store profile
+         indicador_trayecto: orderPayload.indicador_trayecto || "Local",
+         dropi_sync_status: "synced",
       })
       .select()
       .single();
