@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   FileText,
   Database,
+  Key,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -132,6 +133,14 @@ const menuItems = [
     description: "Vista bruta de Supabase",
     colorClass: "from-rose-500 to-pink-500",
     accentColor: "bg-rose-500/10"
+  },
+  { 
+    id: "integraciones", 
+    label: "API & Integraciones", 
+    icon: Key,
+    description: "Webhooks y llaves API",
+    colorClass: "from-cyan-500 to-teal-500",
+    accentColor: "bg-cyan-500/10"
   },
 ];
 
