@@ -70,10 +70,10 @@ const DEFAULT_DATE_RANGE: DateRange = {
 };
 
 /**
- * Fetch ONLY 50 records total (no background loading).
+ * Fetch up to 100 records total (no background loading).
  * Combines recent orders + novedades to ensure visibility of problem orders.
  */
-async function fetchPedidos50(dateRange: DateRange): Promise<Pedido[]> {
+async function fetchPedidos100(dateRange: DateRange): Promise<Pedido[]> {
   try {
     const [recentResult, novedadesResult] = await Promise.all([
       supabase
@@ -82,7 +82,7 @@ async function fetchPedidos50(dateRange: DateRange): Promise<Pedido[]> {
         .gte("fecha_creacion", `${dateRange.from}T00:00:00`)
         .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
         .order("fecha_creacion", { ascending: false })
-        .limit(30), // 30 most recent
+        .limit(100), // 100 most recent
       supabase
         .from("pedidos")
         .select(PEDIDO_COLUMNS)
@@ -90,7 +90,7 @@ async function fetchPedidos50(dateRange: DateRange): Promise<Pedido[]> {
         .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
         .ilike("estado", "%novedad%")
         .order("fecha_creacion", { ascending: false })
-        .limit(20), // 20 novedades
+        .limit(100), // 100 novedades
     ]);
 
     const recentData = recentResult.error ? [] : (recentResult.data || []);
@@ -99,16 +99,17 @@ async function fetchPedidos50(dateRange: DateRange): Promise<Pedido[]> {
     if (recentResult.error) console.warn("Error fetching recent:", recentResult.error);
     if (novedadesResult.error) console.warn("Error fetching novedades:", novedadesResult.error);
 
-    // Merge and deduplicate (max ~50 records)
+    // Merge and deduplicate
     const seenIds = new Set<number>();
     const merged: Pedido[] = [];
     for (const p of [...recentData, ...novedadesData]) {
-      if (!seenIds.has(p.id) && merged.length < 50) {
+      if (!seenIds.has(p.id)) {
         seenIds.add(p.id);
         merged.push(p as Pedido);
       }
     }
 
+    // Always sort by fecha_creacion descending (newest first)
     merged.sort((a, b) => {
       const dateA = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
       const dateB = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
@@ -128,7 +129,7 @@ export const useAdminPedidos = () => {
   const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
 
-  // Main query - now fetches only 50 records total (no background loading)
+  // Main query - fetches up to 100 records total (no background loading)
   const {
     data,
     isLoading,
@@ -137,7 +138,7 @@ export const useAdminPedidos = () => {
     refetch,
   } = useQuery({
     queryKey: ["admin-pedidos", dateRange.from, dateRange.to],
-    queryFn: () => fetchPedidos50(dateRange),
+    queryFn: () => fetchPedidos100(dateRange),
     staleTime: 60 * 1000, // 1 minute - data considered fresh
     gcTime: 10 * 60 * 1000, // 10 minutes cache retention
     refetchOnWindowFocus: false, // Disable to prevent DB hammering
