@@ -39,9 +39,10 @@ function clearCorruptedSession(): void {
     const stored = localStorage.getItem(storageKey);
     if (stored) {
       const parsed = JSON.parse(stored);
-      // If refresh_token looks truncated or invalid, clear the session
-      if (parsed?.refresh_token && parsed.refresh_token.length < 20) {
-        console.warn("[Auth] Detected corrupted session, clearing...");
+      // Only clear if refresh_token is clearly corrupted (empty/whitespace)
+      if (parsed?.refresh_token !== undefined && 
+          (typeof parsed.refresh_token !== "string" || parsed.refresh_token.trim().length === 0)) {
+        console.warn("[Auth] Detected corrupted session (empty token), clearing...");
         localStorage.removeItem(storageKey);
       }
     }

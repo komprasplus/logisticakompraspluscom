@@ -38,6 +38,7 @@ import {
  import { TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 const logo = "/logo-oficial.png";
@@ -153,6 +154,7 @@ const AdminDashboard = () => {
   // ============ ALL HOOKS AT TOP - CRITICAL FOR REACT ============
   const { signOut, profile } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   
   // Optimized pedidos hook with lazy loading and date range
   const {
@@ -969,7 +971,10 @@ const AdminDashboard = () => {
                   Nuevo Pedido
                 </button>
                 <Button
-                  onClick={() => fetchPedidos()}
+                  onClick={() => {
+                    queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
+                    fetchPedidos();
+                  }}
                   variant="outline"
                   size="sm"
                   disabled={loading}
@@ -1049,7 +1054,10 @@ const AdminDashboard = () => {
               <div className="flex flex-wrap gap-2 items-center">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <Button
-                  onClick={() => fetchPedidos()}
+                  onClick={() => {
+                    queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
+                    fetchPedidos();
+                  }}
                   variant="outline"
                   size="sm"
                   disabled={loading}

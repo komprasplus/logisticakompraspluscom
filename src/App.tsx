@@ -13,13 +13,23 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
-// Lazy-load heavy dashboard pages for faster initial load
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const MotorizadoDashboard = lazy(() => import("./pages/MotorizadoDashboard"));
-const ClienteDashboard = lazy(() => import("./pages/ClienteDashboard"));
-const DespachadorDashboard = lazy(() => import("./pages/DespachadorDashboard"));
-const CustomerTracking = lazy(() => import("./pages/CustomerTracking"));
-const PublicTracking = lazy(() => import("./pages/PublicTracking"));
+// Lazy-load heavy dashboard pages with retry for "Failed to fetch dynamically imported module"
+function lazyRetry(loader: () => Promise<{ default: React.ComponentType<any> }>) {
+  return lazy(() =>
+    loader().catch(() => {
+      // Force reload on chunk load failure (deploy mismatch)
+      window.location.reload();
+      return loader();
+    })
+  );
+}
+
+const AdminDashboard = lazyRetry(() => import("./pages/AdminDashboard"));
+const MotorizadoDashboard = lazyRetry(() => import("./pages/MotorizadoDashboard"));
+const ClienteDashboard = lazyRetry(() => import("./pages/ClienteDashboard"));
+const DespachadorDashboard = lazyRetry(() => import("./pages/DespachadorDashboard"));
+const CustomerTracking = lazyRetry(() => import("./pages/CustomerTracking"));
+const PublicTracking = lazyRetry(() => import("./pages/PublicTracking"));
 
 // Shared loading fallback
 const PageLoader = () => (
