@@ -224,7 +224,7 @@ const AdminDashboard = () => {
   const displayPedidos = isServerSearchActive && searchResults.length > 0 
     ? searchResults as Pedido[]
     : filteredPedidos;
-  const despachoPageState = usePagination({ items: displayPedidos, itemsPerPage: 10 });
+  const despachoPageState = usePagination({ items: displayPedidos, itemsPerPage: 100 });
 
   // Fetch supporting data on mount
   useEffect(() => {
@@ -404,8 +404,12 @@ const AdminDashboard = () => {
         );
       }
 
-      // Sort by fecha_entrega ascending (nearest first) using centralized utility
-      filtered.sort((a, b) => compareDeliveryDates(a.fecha_entrega, b.fecha_entrega));
+      // Sort by fecha_creacion descending (newest first)
+      filtered.sort((a, b) => {
+        const dateA = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
+        const dateB = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
+        return dateB - dateA;
+      });
 
       setFilteredPedidos(filtered);
     } catch (error) {
