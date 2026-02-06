@@ -75,6 +75,7 @@ const DEFAULT_DATE_RANGE: DateRange = {
  */
 async function fetchPedidos100(dateRange: DateRange): Promise<Pedido[]> {
   try {
+    // Two parallel queries: 200 most recent (all statuses) + 100 novedades (ensures visibility)
     const [recentResult, novedadesResult] = await Promise.all([
       supabase
         .from("pedidos")
@@ -82,7 +83,7 @@ async function fetchPedidos100(dateRange: DateRange): Promise<Pedido[]> {
         .gte("fecha_creacion", `${dateRange.from}T00:00:00`)
         .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
         .order("fecha_creacion", { ascending: false })
-        .limit(100), // 100 most recent
+        .limit(200), // 200 most recent across ALL statuses
       supabase
         .from("pedidos")
         .select(PEDIDO_COLUMNS)
@@ -90,7 +91,7 @@ async function fetchPedidos100(dateRange: DateRange): Promise<Pedido[]> {
         .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
         .ilike("estado", "%novedad%")
         .order("fecha_creacion", { ascending: false })
-        .limit(100), // 100 novedades
+        .limit(100), // 100 novedades as safety net
     ]);
 
     const recentData = recentResult.error ? [] : (recentResult.data || []);
@@ -161,10 +162,10 @@ export const useAdminPedidos = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
   }, [queryClient]);
 
-  // Force refresh
+  // Force refresh - invalidate cache first, then refetch
   const forceRefresh = useCallback(() => {
-    refetch();
-  }, [refetch]);
+    queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
+  }, [queryClient]);
 
   return {
     pedidos,

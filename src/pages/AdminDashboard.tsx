@@ -971,10 +971,7 @@ const AdminDashboard = () => {
                   Nuevo Pedido
                 </button>
                 <Button
-                  onClick={() => {
-                    queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
-                    fetchPedidos();
-                  }}
+                  onClick={() => fetchPedidos()}
                   variant="outline"
                   size="sm"
                   disabled={loading}
@@ -1054,10 +1051,7 @@ const AdminDashboard = () => {
               <div className="flex flex-wrap gap-2 items-center">
                 <Filter className="h-4 w-4 text-muted-foreground" />
                 <Button
-                  onClick={() => {
-                    queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
-                    fetchPedidos();
-                  }}
+                  onClick={() => fetchPedidos()}
                   variant="outline"
                   size="sm"
                   disabled={loading}
