@@ -4,11 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { getTodayString } from "@/lib/dateUtils";
 
 /**
- * Optimized admin pedidos hook with:
- * - Server-side pagination (lazy loading)
- * - Date range filtering at DB level
- * - React Query caching to prevent loops
- * - Graceful error handling
+ * Server-side paginated admin pedidos hook.
+ * Uses .range(offset, offset+limit-1) with count:'exact' for real pagination.
+ * React Query handles caching (staleTime 60s) to prevent CPU saturation.
  */
 
 interface Pedido {
@@ -63,74 +61,58 @@ const PEDIDO_COLUMNS = `
   guia_impresa, guia_impresa_at, observaciones
 `;
 
-// Default date range: from project start (2025-01-01) to *today* (local timezone)
 const DEFAULT_DATE_RANGE: DateRange = {
   from: "2025-01-01",
   to: getTodayString(),
 };
 
-/**
- * Fetch up to 100 records total (no background loading).
- * Combines recent orders + novedades to ensure visibility of problem orders.
- */
-async function fetchPedidos100(dateRange: DateRange): Promise<Pedido[]> {
-  try {
-    // Two parallel queries: 200 most recent (all statuses) + 100 novedades (ensures visibility)
-    const [recentResult, novedadesResult] = await Promise.all([
-      supabase
-        .from("pedidos")
-        .select(PEDIDO_COLUMNS)
-        .gte("fecha_creacion", `${dateRange.from}T00:00:00`)
-        .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
-        .order("fecha_creacion", { ascending: false })
-        .limit(200), // 200 most recent across ALL statuses
-      supabase
-        .from("pedidos")
-        .select(PEDIDO_COLUMNS)
-        .gte("fecha_creacion", `${dateRange.from}T00:00:00`)
-        .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
-        .ilike("estado", "%novedad%")
-        .order("fecha_creacion", { ascending: false })
-        .limit(100), // 100 novedades as safety net
-    ]);
+const PAGE_SIZE = 100;
 
-    const recentData = recentResult.error ? [] : (recentResult.data || []);
-    const novedadesData = novedadesResult.error ? [] : (novedadesResult.data || []);
-
-    if (recentResult.error) console.warn("Error fetching recent:", recentResult.error);
-    if (novedadesResult.error) console.warn("Error fetching novedades:", novedadesResult.error);
-
-    // Merge and deduplicate
-    const seenIds = new Set<number>();
-    const merged: Pedido[] = [];
-    for (const p of [...recentData, ...novedadesData]) {
-      if (!seenIds.has(p.id)) {
-        seenIds.add(p.id);
-        merged.push(p as Pedido);
-      }
-    }
-
-    // Always sort by fecha_creacion descending (newest first)
-    merged.sort((a, b) => {
-      const dateA = a.fecha_creacion ? new Date(a.fecha_creacion).getTime() : 0;
-      const dateB = b.fecha_creacion ? new Date(b.fecha_creacion).getTime() : 0;
-      return dateB - dateA;
-    });
-
-    return merged;
-  } catch (error) {
-    console.error("Critical error in fetchPedidos50:", error);
-    return [];
-  }
+interface FetchResult {
+  data: Pedido[];
+  totalCount: number;
 }
 
-// Background fetch removed to prevent CPU saturation
+/**
+ * Fetch a single page of pedidos using server-side pagination.
+ * Uses count:'exact' and .range() so the browser only receives PAGE_SIZE rows.
+ */
+async function fetchPedidosPage(
+  dateRange: DateRange,
+  page: number,
+): Promise<FetchResult> {
+  try {
+    const offset = (page - 1) * PAGE_SIZE;
+
+    const { data, error, count } = await supabase
+      .from("pedidos")
+      .select(PEDIDO_COLUMNS, { count: "exact" })
+      .gte("fecha_creacion", `${dateRange.from}T00:00:00`)
+      .lte("fecha_creacion", `${dateRange.to}T23:59:59`)
+      .order("fecha_creacion", { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+
+    if (error) {
+      console.error("Error fetching pedidos page:", error);
+      return { data: [], totalCount: 0 };
+    }
+
+    return {
+      data: (data ?? []) as Pedido[],
+      totalCount: count ?? 0,
+    };
+  } catch (error) {
+    console.error("Critical error in fetchPedidosPage:", error);
+    return { data: [], totalCount: 0 };
+  }
+}
 
 export const useAdminPedidos = () => {
   const queryClient = useQueryClient();
   const [dateRange, setDateRange] = useState<DateRange>(DEFAULT_DATE_RANGE);
+  const [serverPage, setServerPage] = useState(1);
 
-  // Main query - fetches up to 100 records total (no background loading)
+  // Main query — server-side paginated, 100 rows per page
   const {
     data,
     isLoading,
@@ -138,31 +120,52 @@ export const useAdminPedidos = () => {
     error,
     refetch,
   } = useQuery({
-    queryKey: ["admin-pedidos", dateRange.from, dateRange.to],
-    queryFn: () => fetchPedidos100(dateRange),
-    staleTime: 60 * 1000, // 1 minute - data considered fresh
-    gcTime: 10 * 60 * 1000, // 10 minutes cache retention
-    refetchOnWindowFocus: false, // Disable to prevent DB hammering
+    queryKey: ["admin-pedidos", dateRange.from, dateRange.to, serverPage],
+    queryFn: () => fetchPedidosPage(dateRange, serverPage),
+    staleTime: 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
     retry: 1,
   });
 
-  const pedidos = data || [];
+  const pedidos = data?.data ?? [];
+  const totalCount = data?.totalCount ?? 0;
+  const totalServerPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  // Update a pedido locally (optimistic update)
-  const updatePedidoLocally = useCallback((id: number, updates: Partial<Pedido>) => {
-    queryClient.setQueryData<Pedido[]>(
-      ["admin-pedidos", dateRange.from, dateRange.to],
-      (old) => old?.map((p) => (p.id === id ? { ...p, ...updates } : p)) ?? []
-    );
-  }, [queryClient, dateRange]);
+  // Optimistic local update (within current cached page)
+  const updatePedidoLocally = useCallback(
+    (id: number, updates: Partial<Pedido>) => {
+      queryClient.setQueryData<FetchResult>(
+        ["admin-pedidos", dateRange.from, dateRange.to, serverPage],
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            data: old.data.map((p) => (p.id === id ? { ...p, ...updates } : p)),
+          };
+        },
+      );
+    },
+    [queryClient, dateRange, serverPage],
+  );
 
-  // Change date range and reset
-  const changeDateRange = useCallback((newRange: DateRange) => {
-    setDateRange(newRange);
-    queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
-  }, [queryClient]);
+  // Navigate to a server page
+  const goToServerPage = useCallback((page: number) => {
+    const clamped = Math.max(1, Math.min(page, totalServerPages || 1));
+    setServerPage(clamped);
+  }, [totalServerPages]);
 
-  // Force refresh - invalidate cache first, then refetch
+  // Change date range → reset to page 1
+  const changeDateRange = useCallback(
+    (newRange: DateRange) => {
+      setDateRange(newRange);
+      setServerPage(1);
+      queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
+    },
+    [queryClient],
+  );
+
+  // Force refresh — blow away cache and refetch
   const forceRefresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ["admin-pedidos"] });
   }, [queryClient]);
@@ -171,16 +174,23 @@ export const useAdminPedidos = () => {
     pedidos,
     isLoading,
     isFetching,
-    isLoadingMore: false, // No background loading
-    hasLoadedAll: true, // Always true since we don't do background fetch
     error,
     dateRange,
     changeDateRange,
     updatePedidoLocally,
     forceRefresh,
     totalLoaded: pedidos.length,
+    // Server-side pagination
+    serverPage,
+    totalServerPages,
+    totalCount,
+    goToServerPage,
+    pageSize: PAGE_SIZE,
+    // Legacy compat
+    isLoadingMore: false,
+    hasLoadedAll: true,
   };
 };
 
 export type { Pedido, DateRange };
-export { DEFAULT_DATE_RANGE };
+export { DEFAULT_DATE_RANGE, PAGE_SIZE };

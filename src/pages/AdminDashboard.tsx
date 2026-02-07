@@ -157,19 +157,22 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
-  // Optimized pedidos hook with lazy loading and date range
+  // Server-side paginated pedidos hook
   const {
     pedidos,
     isLoading: loading,
     isFetching,
     error: pedidosError,
-    isLoadingMore,
-    hasLoadedAll,
     dateRange,
     changeDateRange,
     updatePedidoLocally,
     forceRefresh: fetchPedidos,
     totalLoaded,
+    serverPage,
+    totalServerPages,
+    totalCount,
+    goToServerPage,
+    pageSize,
   } = useAdminPedidos();
 
   // Server-side universal search
@@ -234,11 +237,10 @@ const AdminDashboard = () => {
     return () => { isMountedRef.current = false; };
   }, []);
 
-  // Pagination for despacho table
+  // Display pedidos — server search results override filtered list
   const displayPedidos = isServerSearchActive && searchResults.length > 0 
     ? searchResults as Pedido[]
     : filteredPedidos;
-  const despachoPageState = usePagination({ items: displayPedidos, itemsPerPage: 100 });
 
   // normalizePedido helper
   const normalizePedido = useCallback((p: Pedido): Pedido => {
@@ -464,15 +466,15 @@ const AdminDashboard = () => {
     return estado === "recibido en bodega" || estado === "asignado";
   };
 
-  // Get selectable orders for the current page (non-cancelled, non-finalized)
+  // Get selectable orders on current view (server already paginates)
   const getSelectableOrdersOnPage = useCallback(() => {
-    return despachoPageState.paginatedItems.filter(
+    return displayPedidos.filter(
       (p) =>
         p.estado?.toLowerCase() !== "anulado" &&
         p.estado?.toLowerCase() !== "entregado" &&
         p.estado?.toLowerCase() !== "liquidado"
     );
-  }, [despachoPageState.paginatedItems]);
+  }, [displayPedidos]);
 
   // Check if all selectable items on current page are selected
   const allPageSelected = useCallback(() => {
@@ -1027,16 +1029,10 @@ const AdminDashboard = () => {
                   Ver solo para hoy
                 </button>
 
-                {/* Lazy loading indicator */}
-                {isLoadingMore && (
-                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    Cargando más... ({totalLoaded})
-                  </span>
-                )}
-                {hasLoadedAll && totalLoaded > 30 && (
+                {/* Server-side pagination indicator */}
+                {totalCount > 0 && (
                   <span className="text-xs text-muted-foreground">
-                    ✓ {totalLoaded} pedidos cargados
+                    Página {serverPage}/{totalServerPages} · {totalCount} pedidos totales
                   </span>
                 )}
 
@@ -1090,11 +1086,15 @@ const AdminDashboard = () => {
 
             {/* Orders Table */}
             {pedidosError && (
-              <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm">
-                <div className="font-semibold text-destructive">Problema al cargar pedidos</div>
-                <div className="text-muted-foreground">
-                  Mostrando lo que se pudo recuperar (caché / carga parcial). Presiona “Actualizar” para reintentar.
+              <div className="mb-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-semibold text-destructive">Problema al cargar pedidos</div>
+                  <div className="text-muted-foreground">La conexion fallo. Intenta forzar una recarga.</div>
                 </div>
+                <Button onClick={() => fetchPedidos()} variant="destructive" size="sm" className="gap-1.5 shrink-0">
+                  <RotateCcw className="h-4 w-4" />
+                  Forzar Recarga
+                </Button>
               </div>
             )}
             {loading ? (
@@ -1131,7 +1131,7 @@ const AdminDashboard = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {despachoPageState.paginatedItems.map((pedido) => {
+                      {displayPedidos.map((pedido) => {
                         const isPendingAssignment = !pedido.motorizado_asignado;
                         const isSelected = selectedForBulk.includes(pedido.id);
                         const isCancelled = pedido.estado?.toLowerCase() === "anulado";
@@ -1304,18 +1304,17 @@ const AdminDashboard = () => {
                   <div className="p-8 text-center text-muted-foreground">No se encontraron pedidos con los filtros seleccionados</div>
                 )}
                 
-                {/* Pagination */}
-                {filteredPedidos.length > 0 && (
+                {/* Server-side Pagination */}
+                {totalCount > 0 && (
                   <div className="p-4 border-t border-border">
                     <PaginationControls
-                      currentPage={despachoPageState.currentPage}
-                      totalPages={despachoPageState.totalPages}
-                      onPageChange={despachoPageState.goToPage}
-                      startIndex={despachoPageState.startIndex}
-                      endIndex={despachoPageState.endIndex}
-                      totalItems={despachoPageState.totalItems}
-                      itemsPerPage={despachoPageState.itemsPerPage}
-                      onItemsPerPageChange={despachoPageState.setItemsPerPage}
+                      currentPage={serverPage}
+                      totalPages={totalServerPages}
+                      onPageChange={goToServerPage}
+                      startIndex={(serverPage - 1) * pageSize + 1}
+                      endIndex={Math.min(serverPage * pageSize, totalCount)}
+                      totalItems={totalCount}
+                      itemsPerPage={pageSize}
                     />
                   </div>
                 )}
