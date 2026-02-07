@@ -83,6 +83,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import WarehouseInventoryPanel from "@/components/admin/WarehouseInventoryPanel";
 import { useAdminSearch } from "@/hooks/useAdminSearch";
 import { useAdminPedidos, type DateRange, DEFAULT_DATE_RANGE } from "@/hooks/useAdminPedidos";
+import { useAdminSupportData } from "@/hooks/useAdminSupportData";
 import DateRangeFilter from "@/components/admin/DateRangeFilter";
 import EditStoreModal from "@/components/EditStoreModal";
 import DeliveryDateBadge from "@/components/DeliveryDateBadge";
@@ -174,6 +175,15 @@ const AdminDashboard = () => {
   // Server-side universal search
   const { searchResults, isSearching, searchOrders, clearSearch } = useAdminSearch();
 
+  // Centralized supporting data via React Query (replaces raw useEffect fetches)
+  const {
+    users,
+    motorizados,
+    clientProfiles,
+    userRoles,
+    refreshAll: refreshSupportData,
+  } = useAdminSupportData();
+
   // UI state
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [activeSection, setActiveSection] = useState<string>("analytics");
@@ -188,8 +198,6 @@ const AdminDashboard = () => {
   const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isServerSearchActive, setIsServerSearchActive] = useState(false);
-  const [users, setUsers] = useState<Profile[]>([]);
-  const [motorizados, setMotorizados] = useState<Profile[]>([]);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -199,7 +207,6 @@ const AdminDashboard = () => {
   const [selectedPedidoForCancel, setSelectedPedidoForCancel] = useState<Pedido | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedPedidoForDetail, setSelectedPedidoForDetail] = useState<Pedido | null>(null);
-  const [clientProfiles, setClientProfiles] = useState<Record<string, { store_name: string | null; full_name: string }>>({});
   const [newOrdersCount, setNewOrdersCount] = useState(0);
   const [assigningPedido, setAssigningPedido] = useState<number | null>(null);
   const [bulkAssigning, setBulkAssigning] = useState(false);
@@ -210,7 +217,6 @@ const AdminDashboard = () => {
   const [selectedForPrint, setSelectedForPrint] = useState<number[]>([]);
   const [showDeleteUser, setShowDeleteUser] = useState(false);
   const [selectedUserForDelete, setSelectedUserForDelete] = useState<Profile | null>(null);
-  const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [showEditPedido, setShowEditPedido] = useState(false);
   const [selectedPedidoForEdit, setSelectedPedidoForEdit] = useState<Pedido | null>(null);
   const [showBulkReassign, setShowBulkReassign] = useState(false);
@@ -222,22 +228,19 @@ const AdminDashboard = () => {
   // Refs for preventing race conditions
   const isMountedRef = useRef(true);
 
+  // Cleanup ref on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
+
   // Pagination for despacho table
   const displayPedidos = isServerSearchActive && searchResults.length > 0 
     ? searchResults as Pedido[]
     : filteredPedidos;
   const despachoPageState = usePagination({ items: displayPedidos, itemsPerPage: 100 });
 
-  // Fetch supporting data on mount
-  useEffect(() => {
-    isMountedRef.current = true;
-    fetchUsers();
-    fetchMotorizados();
-    fetchClientProfiles();
-    fetchUserRoles();
-    return () => { isMountedRef.current = false; };
-  }, []);
-
+  // normalizePedido helper
   const normalizePedido = useCallback((p: Pedido): Pedido => {
     return {
       ...p,
@@ -249,104 +252,6 @@ const AdminDashboard = () => {
       fecha_entrega: p.fecha_entrega ?? null,
     };
   }, []);
-
-  const fetchUserRoles = async () => {
-    try {
-      const { data, error } = await supabase.from("user_roles").select("user_id, role");
-      if (error) throw error;
-      setUserRoles(data || []);
-    } catch (error) {
-      console.error("Error fetching user roles:", error);
-    }
-  };
-
-  const fetchClientProfiles = async () => {
-    try {
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "cliente");
-
-      if (roles && roles.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, store_name, full_name")
-          .in("user_id", roles.map(r => r.user_id));
-
-        if (profiles) {
-          const profileMap: Record<string, { store_name: string | null; full_name: string }> = {};
-          profiles.forEach(p => {
-            profileMap[p.user_id] = { store_name: p.store_name, full_name: p.full_name };
-          });
-          setClientProfiles(profileMap);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching client profiles:", error);
-    }
-  };
-
-  // Real-time notifications (disabled for stability)
-  useEffect(() => {
-    const notificationChannel = supabase
-      .channel('admin-notifications')
-      .on('broadcast', { event: 'order-reassigned' }, (payload) => {
-        const data = payload.payload as {
-          pedido_id: number;
-          numero_guia: string | null;
-          previous_motorizado: string;
-          new_motorizado: string;
-          timestamp: string;
-        };
-        toast.info(`🔄 Reasignación por escaneo`, {
-          description: `Guía ${data.numero_guia || `#${data.pedido_id}`}: ${data.previous_motorizado} → ${data.new_motorizado}`,
-          duration: 8000,
-        });
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(notificationChannel); };
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      const { data, error } = await supabase.from("profiles").select("*");
-      if (error) throw error;
-      setUsers(data || []);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-    }
-  };
-
-  const fetchMotorizados = async () => {
-    try {
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "motorizado");
-
-      if (rolesError) throw rolesError;
-
-      if (roles && roles.length > 0) {
-        const motorizadoIds = roles.map((r) => r.user_id);
-        
-        const { data: profiles, error: profilesError } = await supabase
-          .from("profiles")
-          .select("*")
-          .in("user_id", motorizadoIds)
-          .eq("status", "activo");
-
-        if (profilesError) throw profilesError;
-
-        setMotorizados(profiles || []);
-      } else {
-        setMotorizados([]);
-      }
-    } catch (error) {
-      console.error("Error fetching motorizados:", error);
-      toast.error("Error al cargar motorizados");
-    }
-  };
 
   // Memoized filter function to prevent unnecessary re-renders
   const filterPedidos = useCallback(() => {
@@ -1648,7 +1553,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Modals */}
-      <CreateUserModal isOpen={showCreateUser} onClose={() => setShowCreateUser(false)} onUserCreated={() => { fetchUsers(); fetchUserRoles(); }} />
+      <CreateUserModal isOpen={showCreateUser} onClose={() => setShowCreateUser(false)} onUserCreated={() => { refreshSupportData(); }} />
       <ResetUserPasswordModal 
         isOpen={showResetPassword} 
         onClose={() => {
@@ -1664,7 +1569,7 @@ const AdminDashboard = () => {
           setSelectedUserForDelete(null);
         }}
         user={selectedUserForDelete}
-        onUserDeleted={() => { fetchUsers(); fetchUserRoles(); }}
+        onUserDeleted={() => { refreshSupportData(); }}
       />
       <NuevoPedidoModal isOpen={showNuevoPedido} onClose={() => setShowNuevoPedido(false)} onSuccess={fetchPedidos} isAdmin={true} />
       <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} onSuccess={fetchPedidos} />
@@ -1754,7 +1659,7 @@ const AdminDashboard = () => {
         }}
         store={selectedStoreForEdit}
         onSuccess={() => {
-          fetchUsers();
+          refreshSupportData();
         }}
       />
       
