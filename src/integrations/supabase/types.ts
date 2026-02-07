@@ -561,6 +561,42 @@ export type Database = {
         }
         Relationships: []
       }
+      transacciones_billetera: {
+        Row: {
+          client_user_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          monto: number
+          notas: string | null
+          saldo_anterior: number
+          saldo_nuevo: number
+          tipo: string
+        }
+        Insert: {
+          client_user_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monto: number
+          notas?: string | null
+          saldo_anterior?: number
+          saldo_nuevo?: number
+          tipo?: string
+        }
+        Update: {
+          client_user_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          monto?: number
+          notas?: string | null
+          saldo_anterior?: number
+          saldo_nuevo?: number
+          tipo?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
