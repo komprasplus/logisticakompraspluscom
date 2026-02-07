@@ -61,10 +61,14 @@ const PEDIDO_COLUMNS = `
   guia_impresa, guia_impresa_at, observaciones
 `;
 
-const DEFAULT_DATE_RANGE: DateRange = {
-  from: "2025-01-01",
-  to: getTodayString(),
-};
+// Default to last 30 days to prevent DB timeouts on large tables
+const DEFAULT_DATE_RANGE: DateRange = (() => {
+  const today = getTodayString();
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const from = thirtyDaysAgo.toISOString().split("T")[0];
+  return { from, to: today };
+})();
 
 const PAGE_SIZE = 100;
 

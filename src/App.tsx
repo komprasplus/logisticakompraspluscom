@@ -57,19 +57,19 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   const { user, role, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
 
-  if (role && !allowedRoles.includes(role)) {
-    // Redirect to appropriate dashboard based on role
+  // Role is still loading from background fetch — show loader instead of blocking/redirecting
+  if (!role) {
+    return <PageLoader />;
+  }
+
+  if (!allowedRoles.includes(role)) {
     if (role === "admin") return <Navigate to="/admin" replace />;
     if (role === "motorizado") return <Navigate to="/motorizado" replace />;
     if (role === "cliente") return <Navigate to="/cliente" replace />;

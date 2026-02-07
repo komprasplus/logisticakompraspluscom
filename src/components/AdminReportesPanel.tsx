@@ -86,53 +86,44 @@ const AdminReportesPanel = () => {
     setLoading(true);
 
     try {
-      let query = supabase
-        .from("pedidos")
-        .select("*")
-        .gte("fecha_creacion", `${startDate}T00:00:00`)
-        .lte("fecha_creacion", `${endDate}T23:59:59`)
-        .order("fecha_creacion", { ascending: false });
 
-      // Filter by tienda if selected
-      if (selectedTienda !== "todas") {
-        query = query.eq("client_user_id", selectedTienda);
-      }
-
-      // Use chunked fetching for "todas" to avoid timeout
+      // Use chunked fetching with FRESH queries per chunk to avoid query builder mutation
       let allPedidos: Pedido[] = [];
+      const CHUNK_SIZE = 500;
+      let offset = 0;
+      let hasMore = true;
       
-      if (selectedTienda === "todas") {
-        // Fetch in chunks of 500 to prevent timeouts
-        const CHUNK_SIZE = 500;
-        let offset = 0;
-        let hasMore = true;
+      while (hasMore) {
+        // CRITICAL: Build a fresh query for each chunk to avoid Supabase builder mutation
+        let chunkQuery = supabase
+          .from("pedidos")
+          .select("*")
+          .gte("fecha_creacion", `${startDate}T00:00:00`)
+          .lte("fecha_creacion", `${endDate}T23:59:59`)
+          .order("fecha_creacion", { ascending: false })
+          .range(offset, offset + CHUNK_SIZE - 1);
+
+        if (selectedTienda !== "todas") {
+          chunkQuery = chunkQuery.eq("client_user_id", selectedTienda);
+        }
+
+        const { data: chunk, error: chunkError } = await chunkQuery;
         
-        while (hasMore) {
-          const { data: chunk, error: chunkError } = await query
-            .range(offset, offset + CHUNK_SIZE - 1);
-          
-          if (chunkError) throw chunkError;
-          
-          if (!chunk || chunk.length === 0) {
+        if (chunkError) throw chunkError;
+        
+        if (!chunk || chunk.length === 0) {
+          hasMore = false;
+        } else {
+          allPedidos = [...allPedidos, ...chunk];
+          offset += CHUNK_SIZE;
+          if (chunk.length < CHUNK_SIZE) {
             hasMore = false;
-          } else {
-            allPedidos = [...allPedidos, ...chunk];
-            offset += CHUNK_SIZE;
-            // Stop if we got less than chunk size (last page)
-            if (chunk.length < CHUNK_SIZE) {
-              hasMore = false;
-            }
-          }
-          
-          // Progress toast for large datasets
-          if (allPedidos.length > 0 && allPedidos.length % 1000 === 0) {
-            toast.info(`Procesando... ${allPedidos.length} registros`);
           }
         }
-      } else {
-        const { data: pedidos, error } = await query;
-        if (error) throw error;
-        allPedidos = pedidos || [];
+        
+        if (allPedidos.length > 0 && allPedidos.length % 1000 === 0) {
+          toast.info(`Procesando... ${allPedidos.length} registros`);
+        }
       }
 
       if (allPedidos.length === 0) {
