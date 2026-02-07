@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { DollarSign, Store, Package, CheckCircle2, Loader2, AlertCircle, ArrowLeft, TrendingUp, Truck } from "lucide-react";
+import { DollarSign, Store, Package, CheckCircle2, Loader2, AlertCircle, ArrowLeft, TrendingUp, Truck, Banknote, RefreshCw } from "lucide-react";
+import RegistrarPagoModal from "@/components/admin/RegistrarPagoModal";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ const StoreLiquidacionesPanel = ({ onLiquidacionComplete }: StoreLiquidacionesPa
   const [processing, setProcessing] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [selectedStore, setSelectedStore] = useState<StoreLiquidacion | null>(null);
+  const [showPagoModal, setShowPagoModal] = useState(false);
 
   useEffect(() => {
     fetchStores();
@@ -194,6 +196,30 @@ const StoreLiquidacionesPanel = ({ onLiquidacionComplete }: StoreLiquidacionesPa
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {/* Header with actions */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-foreground">Liquidaciones de Tiendas</h3>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setLoading(true); fetchStores(); }}
+            className="gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Actualizar
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setShowPagoModal(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+          >
+            <Banknote className="h-4 w-4" />
+            Registrar Pago Realizado
+          </Button>
+        </div>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 p-4 text-white shadow-lg">
@@ -378,6 +404,16 @@ const StoreLiquidacionesPanel = ({ onLiquidacionComplete }: StoreLiquidacionesPa
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Registrar Pago Modal */}
+      <RegistrarPagoModal
+        open={showPagoModal}
+        onOpenChange={setShowPagoModal}
+        onPaymentComplete={() => {
+          fetchStores();
+          onLiquidacionComplete?.();
+        }}
+      />
     </motion.div>
   );
 };
