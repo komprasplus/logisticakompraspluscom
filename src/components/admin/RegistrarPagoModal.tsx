@@ -79,10 +79,11 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
         .in("user_id", clientIds)
         .eq("status", "activo");
 
+      // Fetch orders with pending balance: Entregado or Liquidado
       const { data: pedidos } = await supabase
         .from("pedidos")
         .select("id, client_user_id, utilidad")
-        .eq("estado", "Liquidado")
+        .in("estado", ["Entregado", "Liquidado"])
         .in("client_user_id", clientIds);
 
       const storeData: StoreBalance[] = (profiles || []).map((p) => {
