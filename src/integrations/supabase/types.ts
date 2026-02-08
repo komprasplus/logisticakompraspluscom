@@ -564,6 +564,7 @@ export type Database = {
       transacciones_billetera: {
         Row: {
           client_user_id: string
+          comprobante_url: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -575,6 +576,7 @@ export type Database = {
         }
         Insert: {
           client_user_id: string
+          comprobante_url?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -586,6 +588,7 @@ export type Database = {
         }
         Update: {
           client_user_id?: string
+          comprobante_url?: string | null
           created_at?: string
           created_by?: string | null
           id?: string

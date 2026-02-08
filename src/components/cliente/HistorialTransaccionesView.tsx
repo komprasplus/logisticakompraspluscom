@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { DollarSign, Loader2, FileText, ArrowDownCircle } from "lucide-react";
+import { DollarSign, Loader2, FileText, ArrowDownCircle, Download, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import EvidencePhotoModal from "@/components/EvidencePhotoModal";
 import {
   Table,
   TableBody,
@@ -21,12 +22,14 @@ interface Transaccion {
   saldo_anterior: number;
   saldo_nuevo: number;
   notas: string | null;
+  comprobante_url: string | null;
   created_at: string;
 }
 
 const HistorialTransaccionesView = () => {
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTransacciones = async () => {
@@ -46,6 +49,16 @@ const HistorialTransaccionesView = () => {
 
     fetchTransacciones();
   }, []);
+
+  const isImageUrl = (url: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
+
+  const handleComprobanteClick = (url: string) => {
+    if (isImageUrl(url)) {
+      setPreviewImage(url);
+    } else {
+      window.open(url, "_blank");
+    }
+  };
 
   if (loading) {
     return (
@@ -81,6 +94,7 @@ const HistorialTransaccionesView = () => {
                     <TableHead className="text-right">Saldo Anterior</TableHead>
                     <TableHead className="text-right">Saldo Nuevo</TableHead>
                     <TableHead>Notas</TableHead>
+                    <TableHead className="text-center">Soporte</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -107,6 +121,22 @@ const HistorialTransaccionesView = () => {
                       <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
                         {tx.notas || "—"}
                       </TableCell>
+                      <TableCell className="text-center">
+                        {tx.comprobante_url ? (
+                          <button
+                            onClick={() => handleComprobanteClick(tx.comprobante_url!)}
+                            className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                          >
+                            {isImageUrl(tx.comprobante_url) ? (
+                              <><ExternalLink className="h-3.5 w-3.5" /> Ver</>
+                            ) : (
+                              <><Download className="h-3.5 w-3.5" /> PDF</>
+                            )}
+                          </button>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -115,6 +145,13 @@ const HistorialTransaccionesView = () => {
           )}
         </CardContent>
       </Card>
+
+      <EvidencePhotoModal
+        imageUrl={previewImage}
+        isOpen={!!previewImage}
+        onClose={() => setPreviewImage(null)}
+        title="Comprobante de Pago"
+      />
     </motion.div>
   );
 };
