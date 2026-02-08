@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { DollarSign, Loader2, AlertTriangle, Store } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { DollarSign, Loader2, AlertTriangle, Store, Upload, FileText, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,9 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
   const [notas, setNotas] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetchingStores, setFetchingStores] = useState(false);
+  const [comprobanteFile, setComprobanteFile] = useState<File | null>(null);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const selectedStore = stores.find((s) => s.user_id === selectedStoreId);
 
@@ -51,6 +54,7 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
       setSelectedStoreId("");
       setMonto("");
       setNotas("");
+      setComprobanteFile(null);
     }
   }, [open]);
 
@@ -110,6 +114,40 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
   const exceedsSaldo = selectedStore && montoNumerico > selectedStore.saldoPendiente;
   const nuevoSaldo = selectedStore ? selectedStore.saldoPendiente - montoNumerico : 0;
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      toast.error("El archivo no puede superar 10MB");
+      return;
+    }
+    setComprobanteFile(file);
+  };
+
+  const uploadComprobante = async (clientUserId: string): Promise<string | null> => {
+    if (!comprobanteFile) return null;
+    setUploadingFile(true);
+    try {
+      const ext = comprobanteFile.name.split(".").pop() || "pdf";
+      const fileName = `${clientUserId}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage
+        .from("comprobantes-pagos")
+        .upload(fileName, comprobanteFile);
+      if (error) throw error;
+      const { data: urlData } = supabase.storage
+        .from("comprobantes-pagos")
+        .getPublicUrl(fileName);
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error("Error uploading comprobante:", error);
+      toast.error("Error al subir el comprobante");
+      return null;
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!selectedStore || montoNumerico <= 0) return;
 
@@ -120,7 +158,10 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
 
     setLoading(true);
     try {
-      // 1. Record the transaction
+      // Upload comprobante if present
+      const comprobanteUrl = await uploadComprobante(selectedStore.user_id);
+
+      // Record the transaction
       const { error: txError } = await supabase
         .from("transacciones_billetera")
         .insert({
@@ -130,11 +171,12 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
           saldo_anterior: selectedStore.saldoPendiente,
           saldo_nuevo: nuevoSaldo,
           notas: notas.trim() || null,
+          comprobante_url: comprobanteUrl,
         });
 
       if (txError) throw txError;
 
-      // 2. If payment covers full balance, mark orders as Pagado
+      // If payment covers full balance, mark orders as Pagado
       if (nuevoSaldo <= 0) {
         const { data: liquidados } = await supabase
           .from("pedidos")
@@ -183,7 +225,7 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
             Registrar Pago Realizado
           </DialogTitle>
           <DialogDescription>
-            Selecciona la tienda, ingresa el monto pagado y registra el comprobante.
+            Selecciona la tienda, ingresa el monto pagado y adjunta el comprobante.
           </DialogDescription>
         </DialogHeader>
 
@@ -261,6 +303,42 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
             )}
           </div>
 
+          {/* Comprobante Upload */}
+          <div className="space-y-2">
+            <Label>Cargar Comprobante (PDF/Imagen)</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            {comprobanteFile ? (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-2">
+                <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                <span className="text-sm truncate flex-1">{comprobanteFile.name}</span>
+                <button
+                  type="button"
+                  onClick={() => { setComprobanteFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full gap-2"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="h-4 w-4" />
+                Seleccionar archivo
+              </Button>
+            )}
+          </div>
+
           {/* Notes */}
           <div className="space-y-2">
             <Label>Notas / Comprobante</Label>
@@ -279,13 +357,13 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={loading || !selectedStoreId || montoNumerico <= 0 || !!exceedsSaldo}
+            disabled={loading || uploadingFile || !selectedStoreId || montoNumerico <= 0 || !!exceedsSaldo}
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
           >
-            {loading ? (
+            {loading || uploadingFile ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Procesando...
+                {uploadingFile ? "Subiendo..." : "Procesando..."}
               </>
             ) : (
               "Registrar Pago"
