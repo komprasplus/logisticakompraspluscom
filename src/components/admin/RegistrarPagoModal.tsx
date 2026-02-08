@@ -86,14 +86,25 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
         .in("estado", ["Entregado", "Liquidado"])
         .in("client_user_id", clientIds);
 
+      // Fetch all previous payments to subtract from balance
+      const { data: pagos } = await supabase
+        .from("transacciones_billetera")
+        .select("client_user_id, monto")
+        .in("client_user_id", clientIds);
+
       const storeData: StoreBalance[] = (profiles || []).map((p) => {
         const clientPedidos = (pedidos || []).filter(
           (ped) => ped.client_user_id === p.user_id
         );
-        const saldoPendiente = clientPedidos.reduce(
+        const totalUtilidad = clientPedidos.reduce(
           (sum, ped) => sum + (ped.utilidad || 0),
           0
         );
+        // Subtract payments already made
+        const totalPagado = (pagos || [])
+          .filter((pago) => pago.client_user_id === p.user_id)
+          .reduce((sum, pago) => sum + (pago.monto || 0), 0);
+        const saldoPendiente = totalUtilidad - totalPagado;
         return {
           user_id: p.user_id,
           store_name: p.store_name,

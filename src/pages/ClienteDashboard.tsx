@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Plus, Upload, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { usePedidosQuery } from "@/hooks/usePedidosQuery";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import EditPedidoModal from "@/components/EditPedidoModal";
@@ -87,6 +88,21 @@ const ClienteDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch total payments made to subtract from balance
+  const [totalPagado, setTotalPagado] = useState(0);
+  useEffect(() => {
+    const fetchPagos = async () => {
+      if (!validUserId) return;
+      const { data } = await supabase
+        .from("transacciones_billetera")
+        .select("monto")
+        .eq("client_user_id", validUserId);
+      const total = (data || []).reduce((sum, p) => sum + (p.monto || 0), 0);
+      setTotalPagado(total);
+    };
+    fetchPagos();
+  }, [validUserId, pedidos]);
+
   // Calculate stats - Wallet only shows liquidated orders
   const stats = useMemo(() => {
     const now = new Date();
@@ -104,30 +120,26 @@ const ClienteDashboard = () => {
       (p) => p.estado?.toLowerCase() === "entregado" || p.estado?.toLowerCase() === "liquidado"
     ).length;
 
-    // Saldo Disponible: Only liquidated orders count as available balance
-    const availableBalance = pedidos
-      .filter((p) => p.estado?.toLowerCase() === "liquidado" && p.metodo_pago !== "anticipado")
+    // Total utilidad from Entregado + Liquidado orders
+    const totalUtilidad = pedidos
+      .filter((p) => 
+        (p.estado?.toLowerCase() === "entregado" || p.estado?.toLowerCase() === "liquidado") && 
+        p.metodo_pago !== "anticipado"
+      )
       .reduce((sum, p) => {
-        // Use stored utilidad or calculate from flete
         const utilidad = p.utilidad ?? ((p.valor_recaudar || 0) - (p.valor_flete || 12000));
         return sum + utilidad;
       }, 0);
 
-    // Saldo Pendiente: Entregado but not yet liquidated
-    const pendingBalance = pedidos
-      .filter((p) => p.estado?.toLowerCase() === "entregado" && p.metodo_pago !== "anticipado")
-      .reduce((sum, p) => {
-        const utilidad = p.utilidad ?? ((p.valor_recaudar || 0) - (p.valor_flete || 12000));
-        return sum + utilidad;
-      }, 0);
+    // Subtract payments already received
+    const pendingBalance = totalUtilidad - totalPagado;
 
     return { 
       totalMonth, 
       deliveredCount, 
       pendingBalance: Math.max(0, pendingBalance),
-      availableBalance: Math.max(0, availableBalance)
     };
-  }, [pedidos]);
+  }, [pedidos, totalPagado]);
 
   const novedadesCount = useMemo(() => {
     return pedidos.filter((p) => p.estado?.toLowerCase() === "novedad").length;
