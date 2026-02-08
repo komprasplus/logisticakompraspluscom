@@ -11,6 +11,7 @@ import {
   Phone,
   Warehouse,
   Store,
+  MessageCircle,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
@@ -26,6 +27,8 @@ interface Pedido {
   corte_horario: string | null;
   motorizado_asignado: string | null;
   client_user_id: string | null;
+  latitud: number | null;
+  longitud: number | null;
 }
 
 interface StoreProfile {
@@ -41,7 +44,9 @@ interface MotorizadoProfile {
 }
 
 const SUPPORT_PHONE = "324 222 3825";
+const SUPPORT_PHONE_CLEAN = "3242223825";
 const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
+const GOOGLE_MAPS_API_KEY = "AIzaSyDvV2fL5jv0OIp45Si4m4-gaWSt9gIXznA";
 
 const PublicTracking = () => {
   const { id_guia } = useParams<{ id_guia: string }>();
@@ -63,7 +68,7 @@ const PublicTracking = () => {
       try {
         const { data, error: fetchError } = await supabase
           .from("pedidos")
-          .select("id, numero_guia, cliente_nombre, direccion_entrega, estado, corte_horario, motorizado_asignado, client_user_id")
+          .select("id, numero_guia, cliente_nombre, direccion_entrega, estado, corte_horario, motorizado_asignado, client_user_id, latitud, longitud")
           .ilike("numero_guia", `%${id_guia.trim()}%`)
           .limit(1)
           .maybeSingle();
@@ -471,6 +476,41 @@ const PublicTracking = () => {
                     </div>
                   </motion.div>
                 )}
+
+                {/* Static Map when En Ruta */}
+                {(getStatusInfo(orderResult.estado).step === 3) && orderResult.latitud && orderResult.longitud && (
+                  <motion.div
+                    className="mt-6 rounded-xl overflow-hidden border border-border"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 1.2 }}
+                  >
+                    <img
+                      src={`https://maps.googleapis.com/maps/api/staticmap?center=${orderResult.latitud},${orderResult.longitud}&zoom=14&size=600x200&scale=2&markers=color:red%7C${orderResult.latitud},${orderResult.longitud}&key=${GOOGLE_MAPS_API_KEY}`}
+                      alt="Ubicación de entrega"
+                      className="w-full h-40 sm:h-48 object-cover"
+                      loading="lazy"
+                    />
+                  </motion.div>
+                )}
+
+                {/* WhatsApp Support Button */}
+                <motion.div
+                  className="mt-6"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 1.3 }}
+                >
+                  <a
+                    href={`https://wa.me/57${SUPPORT_PHONE_CLEAN}?text=${encodeURIComponent(`Hola, quiero información sobre mi pedido con guía ${orderResult.numero_guia || orderResult.id}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-center gap-2 w-full rounded-xl bg-[#25D366] py-3 px-4 font-bold text-white transition-all active:scale-[0.98] shadow-sm hover:shadow-md"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    <span>Contactar Soporte por WhatsApp</span>
+                  </a>
+                </motion.div>
               </div>
             </motion.div>
           )}

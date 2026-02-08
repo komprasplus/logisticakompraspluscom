@@ -137,14 +137,17 @@ const BulkOrderUploadModal = ({ isOpen, onClose, onSuccess, clientUserId, storeN
     const direccion = String(row.Direccion || row.direccion || "").trim();
     const barrio = String(row.Barrio || row.barrio || "").trim();
     const ciudad = String(row.Ciudad || row.ciudad || "").trim();
-    const valorRecaudo = Number(row.Valor_Recaudo || row.valor_recaudo || 0);
+    const rawRecaudo = row.Valor_Recaudo ?? row.valor_recaudo ?? "";
+    const valorRecaudo = Number(rawRecaudo);
     const detalles = String(row.Detalles || row.detalles || "").trim();
 
     if (!cliente) errors.push("Cliente vacío");
     if (!celular) errors.push("Celular vacío");
+    else if (!/^\d{10}$/.test(celular.replace(/\s/g, ""))) errors.push("Celular debe tener 10 dígitos");
     if (!direccion) errors.push("Dirección vacía");
     if (!barrio) errors.push("Barrio vacío");
     if (!ciudad) errors.push("Ciudad vacía");
+    if (rawRecaudo !== "" && rawRecaudo !== 0 && (isNaN(valorRecaudo) || valorRecaudo < 0)) errors.push("Recaudo debe ser numérico");
 
     return {
       id: `row-${index}-${Date.now()}`,
@@ -153,7 +156,7 @@ const BulkOrderUploadModal = ({ isOpen, onClose, onSuccess, clientUserId, storeN
       direccion,
       barrio,
       ciudad,
-      valor_recaudo: valorRecaudo,
+      valor_recaudo: isNaN(valorRecaudo) ? 0 : valorRecaudo,
       detalles,
       isValid: errors.length === 0,
       errors,
@@ -291,6 +294,7 @@ const BulkOrderUploadModal = ({ isOpen, onClose, onSuccess, clientUserId, storeN
       const errors: string[] = [];
       if (!updated.cliente) errors.push("Cliente vacío");
       if (!updated.celular) errors.push("Celular vacío");
+      else if (!/^\d{10}$/.test(updated.celular.replace(/\s/g, ""))) errors.push("Celular debe tener 10 dígitos");
       if (!updated.direccion) errors.push("Dirección vacía");
       if (!updated.barrio) errors.push("Barrio vacío");
       if (!updated.ciudad) errors.push("Ciudad vacía");
@@ -552,6 +556,25 @@ const BulkOrderUploadModal = ({ isOpen, onClose, onSuccess, clientUserId, storeN
                 <p className="text-sm text-muted-foreground mt-2">
                   {geocodeProgress.current} de {geocodeProgress.total} direcciones procesadas
                 </p>
+              </div>
+            )}
+
+            {/* Pre-validation Error Summary */}
+            {parsedRows.length > 0 && !isGeocoding && failedCount > 0 && (
+              <div className="mb-4 p-4 rounded-2xl bg-destructive/5 border border-destructive/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertCircle className="h-5 w-5 text-destructive" />
+                  <h3 className="font-bold text-foreground">Pre-validación: {failedCount} fila{failedCount !== 1 ? 's' : ''} con errores</h3>
+                </div>
+                <ul className="space-y-1 max-h-32 overflow-y-auto">
+                  {parsedRows.filter(r => !r.isValid).map((row, idx) => (
+                    <li key={row.id} className="text-sm text-destructive flex items-start gap-2">
+                      <span className="font-mono font-bold min-w-[2rem]">#{parsedRows.indexOf(row) + 1}</span>
+                      <span>{row.errors.join(" · ")}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-3 text-xs text-muted-foreground">Corrige los errores editando cada fila antes de procesar.</p>
               </div>
             )}
 
