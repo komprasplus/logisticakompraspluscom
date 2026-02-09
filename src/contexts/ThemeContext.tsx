@@ -18,8 +18,8 @@ const DEFAULT_BRANDING: OrgBranding = {
   nombre: "Kompras Plus",
   slug: "kompras-plus",
   logo_url: "/logo-kompras-plus.png",
-  color_primario: "#6366f1",
-  color_secundario: "#8b5cf6",
+  color_primario: "#00D1FF",
+  color_secundario: "#0099CC",
   dominio_personalizado: null,
   plan_activo: true,
 };
