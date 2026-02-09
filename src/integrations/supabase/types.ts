@@ -297,6 +297,45 @@ export type Database = {
         }
         Relationships: []
       }
+      organizaciones: {
+        Row: {
+          color_primario: string | null
+          color_secundario: string | null
+          created_at: string | null
+          dominio_personalizado: string | null
+          id: string
+          logo_url: string | null
+          nombre: string
+          plan_activo: boolean | null
+          slug: string
+          updated_at: string | null
+        }
+        Insert: {
+          color_primario?: string | null
+          color_secundario?: string | null
+          created_at?: string | null
+          dominio_personalizado?: string | null
+          id?: string
+          logo_url?: string | null
+          nombre: string
+          plan_activo?: boolean | null
+          slug: string
+          updated_at?: string | null
+        }
+        Update: {
+          color_primario?: string | null
+          color_secundario?: string | null
+          created_at?: string | null
+          dominio_personalizado?: string | null
+          id?: string
+          logo_url?: string | null
+          nombre?: string
+          plan_activo?: boolean | null
+          slug?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       pedido_messages: {
         Row: {
           created_at: string
