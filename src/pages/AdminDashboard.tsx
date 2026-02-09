@@ -65,6 +65,8 @@ import LiquidacionesPanel from "@/components/LiquidacionesPanel";
 import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
  import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
 import IntegrationsPanel from "@/components/admin/IntegrationsPanel";
+import MonitorFlexPanel from "@/components/admin/MonitorFlexPanel";
+import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
 import UserManagementTabs from "@/components/UserManagementTabs";
@@ -198,6 +200,7 @@ const AdminDashboard = () => {
   const [storeFilter, setStoreFilter] = useState<string>("todos");
   const [todayOnlyFilter, setTodayOnlyFilter] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [showFlexScanner, setShowFlexScanner] = useState(false);
   const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isServerSearchActive, setIsServerSearchActive] = useState(false);
@@ -1505,6 +1508,20 @@ const AdminDashboard = () => {
           </motion.div>
         );
 
+      case "flex":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <div className="p-4 border-b border-border flex items-center justify-between">
+              <h2 className="font-bold text-foreground text-lg">⚡ Monitor Mercado Libre Flex</h2>
+              <Button size="sm" onClick={() => setShowFlexScanner(true)} className="gap-1 bg-amber-500 hover:bg-amber-600 text-white">
+                <ScanLine className="h-4 w-4" />
+                Recepción Flex
+              </Button>
+            </div>
+            <MonitorFlexPanel />
+          </motion.div>
+        );
+
       default:
         return null;
     }
@@ -1602,6 +1619,7 @@ const AdminDashboard = () => {
       />
       <NuevoPedidoModal isOpen={showNuevoPedido} onClose={() => setShowNuevoPedido(false)} onSuccess={fetchPedidos} isAdmin={true} />
       <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} onSuccess={fetchPedidos} />
+      <FlexReceptionScanner isOpen={showFlexScanner} onClose={() => setShowFlexScanner(false)} onSuccess={fetchPedidos} />
       <CancelOrderModal 
         isOpen={showCancelOrder} 
         onClose={() => {

@@ -85,6 +85,7 @@ interface Pedido {
   inventory_item_id?: string | null;
   quantity?: number | null;
   client_user_id?: string | null;
+  canal?: string | null;
 }
 
 // Warehouse coordinates for sorting
@@ -335,13 +336,27 @@ const MotorizadoDashboard = () => {
   const confirmDelivery = async () => {
     if (!selectedPedido) return;
 
-    // Check if we have at least the evidence photo (mandatory for deviations)
-    if (!capturedPhoto) {
-      toast.error(isDeviationDelivery 
-        ? "⚠️ FOTO DE EVIDENCIA OBLIGATORIA - Estás fuera del rango GPS"
-        : "Debes tomar una foto de evidencia"
-      );
-      return;
+    const isFlexOrder = selectedPedido.canal === "FLEX";
+
+    // Flex orders: mandatory photo AND GPS
+    if (isFlexOrder) {
+      if (!capturedPhoto) {
+        toast.error("📸 FLEX: La foto de evidencia es OBLIGATORIA para pedidos Flex");
+        return;
+      }
+      if (!userLocation) {
+        toast.error("📍 FLEX: La ubicación GPS es OBLIGATORIA para pedidos Flex. Habilita el GPS.");
+        return;
+      }
+    } else {
+      // Standard orders: photo required for deviations
+      if (!capturedPhoto) {
+        toast.error(isDeviationDelivery 
+          ? "⚠️ FOTO DE EVIDENCIA OBLIGATORIA - Estás fuera del rango GPS"
+          : "Debes tomar una foto de evidencia"
+        );
+        return;
+      }
     }
 
     setUpdating(true);
@@ -1282,6 +1297,13 @@ const MotorizadoDashboard = () => {
                 </button>
               )}
 
+              {/* Flex badge */}
+              {selectedPedido.canal === "FLEX" && (
+                <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/30 p-2 text-center">
+                  <p className="text-xs font-bold text-amber-600">⚡ PEDIDO FLEX — Foto + GPS obligatorios</p>
+                </div>
+              )}
+
               {/* Action Buttons - Only show if order is in "En Ruta" status */}
               {selectedPedido.estado?.toLowerCase() === "en ruta" && (
                 <div className="mt-3 grid grid-cols-2 gap-3">
@@ -1294,7 +1316,8 @@ const MotorizadoDashboard = () => {
                   </button>
                   <button
                     onClick={openPhotoCapture}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-bold text-white transition-all active:scale-95 shadow-md"
+                    disabled={selectedPedido.canal === "FLEX" && !userLocation}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-bold text-white transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Camera className="h-5 w-5" />
                     Entregar

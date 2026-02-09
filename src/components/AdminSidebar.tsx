@@ -14,6 +14,7 @@ import {
   FileText,
   Database,
   Key,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -134,13 +135,21 @@ const menuItems = [
     colorClass: "from-rose-500 to-pink-500",
     accentColor: "bg-rose-500/10"
   },
-  { 
+  {
     id: "integraciones", 
     label: "API & Integraciones", 
     icon: Key,
     description: "Webhooks y llaves API",
     colorClass: "from-cyan-500 to-teal-500",
     accentColor: "bg-cyan-500/10"
+  },
+  {
+    id: "flex",
+    label: "Monitor Flex",
+    icon: Zap,
+    description: "Mercado Libre Flex",
+    colorClass: "from-amber-500 to-yellow-500",
+    accentColor: "bg-amber-500/10"
   },
 ];
 

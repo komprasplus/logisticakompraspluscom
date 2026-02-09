@@ -23,6 +23,7 @@ interface Pedido {
   metodo_pago?: string | null;
   inventory_item_id?: string | null;
   quantity?: number | null;
+  canal?: string | null;
 }
 
 // Minimal columns for motorizado performance
@@ -46,7 +47,8 @@ const MOTORIZADO_PEDIDO_COLUMNS = `
   metodo_pago,
   inventory_item_id,
   quantity,
-  client_user_id
+  client_user_id,
+  canal
 `;
 
 /**
