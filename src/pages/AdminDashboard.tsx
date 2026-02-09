@@ -1139,8 +1139,22 @@ const AdminDashboard = () => {
                         const isSelectable = !isCancelled && pedido.estado?.toLowerCase() !== "entregado" && pedido.estado?.toLowerCase() !== "liquidado";
                         const isGuiaImpresa = pedido.guia_impresa;
                         
+                        // SLA Traffic Light logic
+                        const isActiveNovedad = pedido.estado?.toLowerCase() === "novedad";
+                        const lastUpdate = pedido.fecha_actualizacion || pedido.fecha_creacion;
+                        const hoursSinceUpdate = lastUpdate ? (Date.now() - new Date(lastUpdate).getTime()) / (1000 * 60 * 60) : 0;
+                        const isFinished = ["entregado", "liquidado", "anulado", "devolución"].includes(pedido.estado?.toLowerCase() || "");
+                        const slaRed = !isFinished && (isActiveNovedad || hoursSinceUpdate >= 24);
+                        const slaOrange = !isFinished && !slaRed && hoursSinceUpdate >= 12;
+                        
+                        const slaRowClass = slaRed
+                          ? "bg-red-100 dark:bg-red-950/40 border-l-4 border-l-red-500"
+                          : slaOrange
+                          ? "bg-orange-50 dark:bg-orange-950/30 border-l-4 border-l-orange-400"
+                          : "";
+                        
                         return (
-                          <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${isPendingAssignment && !isCancelled ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""} ${isCancelled ? "opacity-60" : ""}`}>
+                          <tr key={pedido.id} className={`hover:bg-muted/30 transition-colors ${slaRowClass} ${isPendingAssignment && !isCancelled && !slaRed && !slaOrange ? "bg-amber-50 dark:bg-amber-950/20" : ""} ${isSelected ? "bg-primary/10" : ""} ${isCancelled ? "opacity-60" : ""}`}>
                             {/* Unified checkbox for selection */}
                             <td className="px-2 py-3">
                               {isSelectable && (
@@ -1196,7 +1210,23 @@ const AdminDashboard = () => {
                                   defaultValue=""
                                 >
                                   <option value="" disabled>{assigningPedido === pedido.id ? "Asignando..." : "⚠️ Asignar"}</option>
-                                  {motorizados.map((m) => (<option key={m.id} value={m.user_id}>{m.full_name}</option>))}
+                                  {/* Suggested motorizados first (same zone) */}
+                                  {pedido.zona && motorizados.some(m => {
+                                    const mZoneOrders = pedidos.filter(p => p.motorizado_id === m.user_id && p.zona === pedido.zona && isOperationalStatus(p.estado));
+                                    return mZoneOrders.length > 0;
+                                  }) && (
+                                    <optgroup label={`⭐ Sugeridos (Zona ${pedido.zona})`}>
+                                      {motorizados
+                                        .filter(m => pedidos.some(p => p.motorizado_id === m.user_id && p.zona === pedido.zona && isOperationalStatus(p.estado)))
+                                        .map((m) => {
+                                          const zoneCount = pedidos.filter(p => p.motorizado_id === m.user_id && p.zona === pedido.zona && isOperationalStatus(p.estado)).length;
+                                          return <option key={`sug-${m.id}`} value={m.user_id}>⭐ {m.full_name} ({zoneCount} en zona)</option>;
+                                        })}
+                                    </optgroup>
+                                  )}
+                                  <optgroup label="Todos los motorizados">
+                                    {motorizados.map((m) => (<option key={m.id} value={m.user_id}>{m.full_name}</option>))}
+                                  </optgroup>
                                 </select>
                               ) : (
                                 <span className="text-muted-foreground">{pedido.motorizado_asignado}</span>
