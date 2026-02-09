@@ -121,7 +121,25 @@ const AdminStatusEditor = ({ pedidoId, currentStatus, onStatusChange }: AdminSta
 
       if (logError) {
         console.error("Error logging status change:", logError);
-        // Don't fail the operation if logging fails
+      }
+
+      // Fire outbound webhook notification (non-blocking)
+      const { data: pedidoData } = await supabase
+        .from("pedidos")
+        .select("numero_guia, client_user_id")
+        .eq("id", pedidoId)
+        .maybeSingle();
+
+      if (pedidoData?.client_user_id) {
+        supabase.functions.invoke("notify-webhook", {
+          body: {
+            pedido_id: pedidoId,
+            estado_anterior: currentStatus,
+            estado_nuevo: newStatus,
+            numero_guia: pedidoData.numero_guia,
+            client_user_id: pedidoData.client_user_id,
+          },
+        }).catch((err) => console.warn("Webhook notification failed:", err));
       }
 
       toast.success("Estado actualizado exitosamente", {

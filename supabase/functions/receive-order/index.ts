@@ -104,6 +104,43 @@ Deno.serve(async (req) => {
       );
     }
 
+    // --- Rate Limiting: 60 requests per minute per credential ---
+    const now = new Date();
+    const windowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes()).toISOString();
+    
+    const { data: rateData } = await supabase
+      .from("api_rate_limits")
+      .select("request_count")
+      .eq("credential_id", credential.id)
+      .eq("window_start", windowStart)
+      .maybeSingle();
+
+    const currentCount = rateData?.request_count || 0;
+    if (currentCount >= 60) {
+      console.warn("Rate limit exceeded for credential:", credential.id);
+      return new Response(
+        JSON.stringify({ 
+          error: "Rate limit exceeded. Max 60 requests per minute.", 
+          code: "RATE_LIMIT",
+          retry_after_seconds: 60 - now.getSeconds()
+        }),
+        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Increment counter (upsert)
+    if (rateData) {
+      await supabase
+        .from("api_rate_limits")
+        .update({ request_count: currentCount + 1 })
+        .eq("credential_id", credential.id)
+        .eq("window_start", windowStart);
+    } else {
+      await supabase
+        .from("api_rate_limits")
+        .insert({ credential_id: credential.id, window_start: windowStart, request_count: 1 });
+    }
+
     // Parse and validate order payload
     let orderPayload: OrderPayload;
     try {

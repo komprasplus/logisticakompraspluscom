@@ -45,7 +45,8 @@ const MOTORIZADO_PEDIDO_COLUMNS = `
   valor_recaudar,
   metodo_pago,
   inventory_item_id,
-  quantity
+  quantity,
+  client_user_id
 `;
 
 /**

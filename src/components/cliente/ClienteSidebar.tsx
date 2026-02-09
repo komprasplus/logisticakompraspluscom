@@ -10,11 +10,12 @@ import {
   RotateCcw,
   Plug,
   Boxes,
-  Wallet
+  Wallet,
+  Book
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type ClienteView = "dashboard" | "pedidos" | "novedades" | "devoluciones" | "reportes" | "tienda" | "integraciones" | "inventario" | "billetera";
+export type ClienteView = "dashboard" | "pedidos" | "novedades" | "devoluciones" | "reportes" | "tienda" | "integraciones" | "inventario" | "billetera" | "docs";
 
 interface ClienteSidebarProps {
   activeView: ClienteView;
@@ -87,6 +88,13 @@ const navItems = [
     icon: Plug,
     gradient: "from-cyan-500 to-cyan-600",
     shadow: "shadow-cyan-500/30",
+  },
+  {
+    key: "docs" as ClienteView,
+    label: "Documentación",
+    icon: Book,
+    gradient: "from-gray-500 to-gray-600",
+    shadow: "shadow-gray-500/30",
   },
 ];
 
