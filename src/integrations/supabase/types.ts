@@ -363,6 +363,7 @@ export type Database = {
       pedidos: {
         Row: {
           barrio: string | null
+          canal: string | null
           client_phone: string | null
           client_user_id: string | null
           cliente_nombre: string | null
@@ -385,7 +386,9 @@ export type Database = {
           fulfillment_cost: number | null
           guia_impresa: boolean | null
           guia_impresa_at: string | null
+          hora_cierre_flex: string | null
           id: number
+          id_externo: string | null
           indicador_trayecto: string | null
           intentos_entrega: number | null
           inventory_item_id: string | null
@@ -414,6 +417,7 @@ export type Database = {
         }
         Insert: {
           barrio?: string | null
+          canal?: string | null
           client_phone?: string | null
           client_user_id?: string | null
           cliente_nombre?: string | null
@@ -436,7 +440,9 @@ export type Database = {
           fulfillment_cost?: number | null
           guia_impresa?: boolean | null
           guia_impresa_at?: string | null
+          hora_cierre_flex?: string | null
           id?: number
+          id_externo?: string | null
           indicador_trayecto?: string | null
           intentos_entrega?: number | null
           inventory_item_id?: string | null
@@ -465,6 +471,7 @@ export type Database = {
         }
         Update: {
           barrio?: string | null
+          canal?: string | null
           client_phone?: string | null
           client_user_id?: string | null
           cliente_nombre?: string | null
@@ -487,7 +494,9 @@ export type Database = {
           fulfillment_cost?: number | null
           guia_impresa?: boolean | null
           guia_impresa_at?: string | null
+          hora_cierre_flex?: string | null
           id?: number
+          id_externo?: string | null
           indicador_trayecto?: string | null
           intentos_entrega?: number | null
           inventory_item_id?: string | null
