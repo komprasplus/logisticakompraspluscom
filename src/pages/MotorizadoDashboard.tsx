@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
@@ -23,6 +23,8 @@ import {
   Cloud,
   Truck,
   ClipboardList,
+  MessageCircle,
+  Route,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +51,8 @@ import LoadManifest from "@/components/motorizado/LoadManifest";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
 import { deductInventoryOnDelivery } from "@/lib/inventoryService";
+import PedidoChat from "@/components/PedidoChat";
+import { optimizeRouteNearestNeighbor, calculateTotalRouteDistance } from "@/lib/routeOptimizer";
 import { 
   savePendingDeliveryOffline, 
   savePendingNovedadOffline, 
@@ -124,6 +128,8 @@ const MotorizadoDashboard = () => {
   const [networkOnline, setNetworkOnline] = useState(navigator.onLine);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [chatOpenForPedido, setChatOpenForPedido] = useState<number | null>(null);
+  const [isRouteOptimized, setIsRouteOptimized] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const novedadPhotoRef = useRef<HTMLInputElement>(null);
   const packagePhotoRef = useRef<HTMLInputElement>(null);
@@ -199,51 +205,61 @@ const MotorizadoDashboard = () => {
       filtered = filtered.filter((p) => p.corte_horario === activeFilter);
     }
 
-    // Get reference point (user location or bodega)
-    const refLat = userLocation?.lat ?? BODEGA_LAT;
-    const refLng = userLocation?.lng ?? BODEGA_LNG;
+    // Separate delivered/novedad from active
+    const delivered = filtered.filter(p => p.estado?.toLowerCase() === "entregado");
+    const novedades = filtered.filter(p => p.estado?.toLowerCase().includes("novedad") && p.estado?.toLowerCase() !== "entregado");
+    const active = filtered.filter(p => p.estado?.toLowerCase() !== "entregado" && !p.estado?.toLowerCase().includes("novedad"));
 
-    // Sort by proximity
-    filtered.sort((a, b) => {
-      // First, prioritize non-delivered orders
-      const aDelivered = a.estado?.toLowerCase() === "entregado";
-      const bDelivered = b.estado?.toLowerCase() === "entregado";
-      if (aDelivered && !bDelivered) return 1;
-      if (!aDelivered && bDelivered) return -1;
+    if (isRouteOptimized && userLocation) {
+      // TSP nearest-neighbor ordering for active orders
+      const optimized = optimizeRouteNearestNeighbor(active, userLocation.lat, userLocation.lng);
+      setFilteredPedidos([...optimized, ...novedades, ...delivered]);
+    } else {
+      // Default: sort by proximity from current point
+      const refLat = userLocation?.lat ?? BODEGA_LAT;
+      const refLng = userLocation?.lng ?? BODEGA_LNG;
 
-      // Then prioritize non-novedad orders
-      const aNovedad = a.estado?.toLowerCase().includes("novedad");
-      const bNovedad = b.estado?.toLowerCase().includes("novedad");
-      if (aNovedad && !bNovedad) return 1;
-      if (!aNovedad && bNovedad) return -1;
+      active.sort((a, b) => {
+        const aHasCoords = a.latitud != null && a.longitud != null;
+        const bHasCoords = b.latitud != null && b.longitud != null;
+        if (aHasCoords && bHasCoords) {
+          const distA = calculateDistance(refLat, refLng, a.latitud!, a.longitud!);
+          const distB = calculateDistance(refLat, refLng, b.latitud!, b.longitud!);
+          return distA - distB;
+        }
+        if (aHasCoords && !bHasCoords) return -1;
+        if (!aHasCoords && bHasCoords) return 1;
+        const corteOrder: { [key: string]: number } = { "Corte 1": 1, "Corte 2": 2, "Corte 3": 3 };
+        return (corteOrder[a.corte_horario || ""] || 99) - (corteOrder[b.corte_horario || ""] || 99);
+      });
 
-      // If both have coordinates, sort by distance
-      const aHasCoords = a.latitud != null && a.longitud != null;
-      const bHasCoords = b.latitud != null && b.longitud != null;
+      setFilteredPedidos([...active, ...novedades, ...delivered]);
+    }
+  }, [activeFilter, pedidos, userLocation, isRouteOptimized]);
 
-      if (aHasCoords && bHasCoords) {
-        const distA = calculateDistance(refLat, refLng, a.latitud!, a.longitud!);
-        const distB = calculateDistance(refLat, refLng, b.latitud!, b.longitud!);
-        return distA - distB;
-      }
+  // Route optimization handler
+  const handleOptimizeRoute = useCallback(() => {
+    if (!userLocation) {
+      toast.error("Se necesita tu ubicación GPS para optimizar la ruta");
+      return;
+    }
+    const activePedidos = pedidos.filter(p => 
+      p.estado?.toLowerCase() !== "entregado" && !p.estado?.toLowerCase().includes("novedad")
+    );
+    if (activePedidos.length < 2) {
+      toast.info("Necesitas al menos 2 pedidos activos para optimizar");
+      return;
+    }
 
-      // Orders with coordinates first
-      if (aHasCoords && !bHasCoords) return -1;
-      if (!aHasCoords && bHasCoords) return 1;
-
-      // Fallback to corte_horario
-      const corteOrder: { [key: string]: number } = {
-        "Corte 1": 1,
-        "Corte 2": 2,
-        "Corte 3": 3,
-      };
-      const orderA = corteOrder[a.corte_horario || ""] || 99;
-      const orderB = corteOrder[b.corte_horario || ""] || 99;
-      return orderA - orderB;
-    });
-
-    setFilteredPedidos(filtered);
-  }, [activeFilter, pedidos, userLocation]);
+    setIsRouteOptimized(true);
+    
+    const beforeDist = calculateTotalRouteDistance(activePedidos, userLocation.lat, userLocation.lng);
+    const optimized = optimizeRouteNearestNeighbor(activePedidos, userLocation.lat, userLocation.lng);
+    const afterDist = calculateTotalRouteDistance(optimized, userLocation.lat, userLocation.lng);
+    const savedKm = ((beforeDist - afterDist) / 1000).toFixed(1);
+    
+    toast.success(`🗺️ Ruta optimizada — ${savedKm}km ahorrados`, { duration: 4000 });
+  }, [pedidos, userLocation]);
 
   // fetchPedidos is now handled by useMotorizadoPedidos React Query hook
   // Legacy function kept as alias for backward compatibility
@@ -960,6 +976,33 @@ const MotorizadoDashboard = () => {
           ))}
         </motion.div>
 
+        {/* Optimize Route Button */}
+        <motion.div
+          className="mb-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.15 }}
+        >
+          <button
+            onClick={() => {
+              if (isRouteOptimized) {
+                setIsRouteOptimized(false);
+                toast.info("Orden por defecto restaurado");
+              } else {
+                handleOptimizeRoute();
+              }
+            }}
+            className={`flex items-center justify-center gap-2 w-full rounded-xl py-3 px-4 font-bold transition-all active:scale-[0.98] shadow-card ${
+              isRouteOptimized
+                ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
+            }`}
+          >
+            <Route className="h-5 w-5" />
+            <span>{isRouteOptimized ? "✓ Ruta Optimizada — Toca para restablecer" : "Optimizar Mi Ruta"}</span>
+          </button>
+        </motion.div>
+
         {/* Loading State */}
         {loading ? (
           <div className="flex items-center justify-center py-12">
@@ -976,7 +1019,9 @@ const MotorizadoDashboard = () => {
             <h2 className="text-lg font-bold text-foreground">
               Mis Entregas de Hoy ({filteredPedidos.length})
             </h2>
-            <p className="text-xs text-muted-foreground">Agrupadas por zona para optimizar tu ruta</p>
+            <p className="text-xs text-muted-foreground">
+              {isRouteOptimized ? "🗺️ Ordenadas por ruta óptima (TSP)" : "Agrupadas por zona para optimizar tu ruta"}
+            </p>
 
             {filteredPedidos.length === 0 ? (
               <div className="rounded-2xl bg-card p-8 text-center shadow-card">
@@ -1269,6 +1314,22 @@ const MotorizadoDashboard = () => {
                   />
                 </div>
               )}
+
+              {/* Chat Button */}
+              <button
+                onClick={() => setChatOpenForPedido(chatOpenForPedido === selectedPedido.id ? null : selectedPedido.id)}
+                className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-muted py-3 font-medium text-foreground hover:bg-muted/80 transition-all active:scale-[0.98]"
+              >
+                <MessageCircle className="h-5 w-5 text-primary" />
+                {chatOpenForPedido === selectedPedido.id ? "Cerrar Chat" : "Chat con Tienda"}
+              </button>
+
+              {/* Inline Chat */}
+              <PedidoChat
+                pedidoId={selectedPedido.id}
+                isOpen={chatOpenForPedido === selectedPedido.id}
+                onClose={() => setChatOpenForPedido(null)}
+              />
             </motion.div>
           </motion.div>
         )}
