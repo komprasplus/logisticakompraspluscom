@@ -30,6 +30,7 @@ const ClienteDashboard = lazyRetry(() => import("./pages/ClienteDashboard"));
 const DespachadorDashboard = lazyRetry(() => import("./pages/DespachadorDashboard"));
 const CustomerTracking = lazyRetry(() => import("./pages/CustomerTracking"));
 const PublicTracking = lazyRetry(() => import("./pages/PublicTracking"));
+const RecepcionFlex = lazyRetry(() => import("./pages/RecepcionFlex"));
 
 // Shared loading fallback
 const PageLoader = () => (
@@ -125,6 +126,16 @@ const AppRoutes = () => {
           <ProtectedRoute allowedRoles={["despachador"]}>
             <Suspense fallback={<PageLoader />}>
               <DespachadorDashboard />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/recepcion-flex"
+        element={
+          <ProtectedRoute allowedRoles={["admin"]}>
+            <Suspense fallback={<PageLoader />}>
+              <RecepcionFlex />
             </Suspense>
           </ProtectedRoute>
         }
