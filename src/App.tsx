@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { lazy, Suspense } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -31,6 +32,7 @@ const DespachadorDashboard = lazyRetry(() => import("./pages/DespachadorDashboar
 const CustomerTracking = lazyRetry(() => import("./pages/CustomerTracking"));
 const PublicTracking = lazyRetry(() => import("./pages/PublicTracking"));
 const RecepcionFlex = lazyRetry(() => import("./pages/RecepcionFlex"));
+const SuperAdminMaster = lazyRetry(() => import("./pages/SuperAdminMaster"));
 
 // Shared loading fallback
 const PageLoader = () => (
@@ -75,6 +77,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     if (role === "motorizado") return <Navigate to="/motorizado" replace />;
     if (role === "cliente") return <Navigate to="/cliente" replace />;
     if (role === "despachador") return <Navigate to="/despachador" replace />;
+    if (role === "super_admin") return <Navigate to="/super-admin-master" replace />;
   }
 
   return <>{children}</>;
@@ -141,6 +144,17 @@ const AppRoutes = () => {
         }
       />
       
+      <Route
+        path="/super-admin-master"
+        element={
+          <ProtectedRoute allowedRoles={["super_admin"]}>
+            <Suspense fallback={<PageLoader />}>
+              <SuperAdminMaster />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      
       {/* Legacy route redirect */}
       <Route path="/repartidor" element={<Navigate to="/motorizado" replace />} />
       
@@ -153,11 +167,13 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
+        <ThemeProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </ThemeProvider>
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>

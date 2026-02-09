@@ -2,7 +2,7 @@ import { useState, useEffect, createContext, useContext, ReactNode, useCallback,
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "admin" | "motorizado" | "cliente" | "despachador";
+export type AppRole = "admin" | "motorizado" | "cliente" | "despachador" | "super_admin";
 
 interface ProfileData {
   full_name: string;
@@ -14,6 +14,7 @@ interface ProfileData {
   store_name?: string | null;
   logo_url?: string | null;
   nit_rut?: string | null;
+  organizacion_id?: string | null;
 }
 
 interface AuthContextType {
@@ -77,7 +78,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Fetch profile
       const { data: profileData } = await supabase
         .from("profiles")
-        .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut")
+        .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut, organizacion_id")
         .eq("user_id", userId)
         .maybeSingle();
 
