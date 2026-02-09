@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Loader2, UserPlus, Mail, Lock, User, Shield, Store, Eye, EyeOff } from "lucide-react";
+import { X, Loader2, UserPlus, Mail, Lock, User, Shield, Store, Eye, EyeOff, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 interface CreateUserModalProps {
@@ -12,7 +13,17 @@ interface CreateUserModalProps {
 
 type AppRole = "admin" | "motorizado" | "cliente" | "despachador";
 
+interface Organizacion {
+  id: string;
+  nombre: string;
+}
+
+const DEFAULT_ORG_ID = "a0000000-0000-0000-0000-000000000001";
+
 const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProps) => {
+  const { role: currentRole, profile } = useAuth();
+  const isSuperAdmin = currentRole === "super_admin";
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -21,6 +32,34 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
   const [storeName, setStoreName] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Org selector state (super_admin only)
+  const [orgs, setOrgs] = useState<Organizacion[]>([]);
+  const [selectedOrgId, setSelectedOrgId] = useState(DEFAULT_ORG_ID);
+  const [loadingOrgs, setLoadingOrgs] = useState(false);
+
+  // Load orgs for super_admin
+  useEffect(() => {
+    if (!isOpen || !isSuperAdmin) return;
+    setLoadingOrgs(true);
+    supabase
+      .from("organizaciones")
+      .select("id, nombre")
+      .order("nombre")
+      .then(({ data }) => {
+        setOrgs(data || []);
+        if (data && data.length > 0) {
+          const defaultOrg = data.find(o => o.id === DEFAULT_ORG_ID);
+          setSelectedOrgId(defaultOrg ? DEFAULT_ORG_ID : data[0].id);
+        }
+        setLoadingOrgs(false);
+      });
+  }, [isOpen, isSuperAdmin]);
+
+  // Determine which org_id to use
+  const resolvedOrgId = isSuperAdmin
+    ? selectedOrgId
+    : profile?.organizacion_id || DEFAULT_ORG_ID;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,7 +74,6 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
       return;
     }
 
-    // Validate store name for clients
     if (role === "cliente" && !storeName.trim()) {
       toast.error("El nombre de la tienda es obligatorio para clientes");
       return;
@@ -44,7 +82,6 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
     setLoading(true);
 
     try {
-      // Get current session token
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
 
@@ -54,7 +91,6 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
         return;
       }
 
-      // Call edge function to create user with admin API (bypasses email confirmation)
       const response = await fetch(
         `https://hhjygradtikonvfzarrn.supabase.co/functions/v1/create-user`,
         {
@@ -70,6 +106,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
             phone,
             role,
             storeName: role === "cliente" ? storeName.trim() : null,
+            organizacionId: resolvedOrgId,
           }),
         }
       );
@@ -77,7 +114,12 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Error al crear el usuario");
+        if (result.error?.includes("RLS") || result.error?.includes("policy")) {
+          toast.error(`Error de permisos (RLS): ${result.error}`);
+        } else {
+          throw new Error(result.error || "Error al crear el usuario");
+        }
+        return;
       }
 
       toast.success(`Usuario ${fullName} creado exitosamente como ${role}`);
@@ -99,6 +141,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
     setPhone("");
     setRole("motorizado");
     setStoreName("");
+    setSelectedOrgId(DEFAULT_ORG_ID);
   };
 
   return (
@@ -133,6 +176,31 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Organization selector - super_admin only */}
+              {isSuperAdmin && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                >
+                  <label className="block text-sm font-medium text-foreground mb-1">
+                    Asignar a Organización *
+                  </label>
+                  <div className="relative">
+                    <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <select
+                      value={selectedOrgId}
+                      onChange={(e) => setSelectedOrgId(e.target.value)}
+                      disabled={loadingOrgs}
+                      className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    >
+                      {orgs.map(org => (
+                        <option key={org.id} value={org.id}>{org.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                </motion.div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">
                   Nombre completo *
@@ -218,7 +286,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
                     className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                   >
                     <option value="motorizado">Motorizado</option>
-                    <option value="cliente">Cliente</option>
+                    <option value="cliente">Cliente (Tienda)</option>
                     <option value="despachador">Despachador</option>
                     <option value="admin">Administrador</option>
                   </select>

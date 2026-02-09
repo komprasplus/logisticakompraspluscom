@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useCallback } from "react";
 
 interface Profile {
@@ -13,6 +14,7 @@ interface Profile {
   avatar_url?: string | null;
   is_online?: boolean;
   fulfillment_rate?: number | null;
+  organizacion_id?: string | null;
 }
 
 interface UserRole {
@@ -22,17 +24,23 @@ interface UserRole {
 
 /**
  * Centralized React Query hook for admin supporting data.
- * Replaces raw useEffect fetches for users, motorizados, client profiles, and roles.
- * Data is cached and only refetched when stale.
+ * Super admins see all users; regular admins see only their org.
  */
 export const useAdminSupportData = () => {
   const queryClient = useQueryClient();
+  const { role, profile: authProfile } = useAuth();
+  const isSuperAdmin = role === "super_admin";
+  const myOrgId = authProfile?.organizacion_id;
 
-  // All users
+  // All users (filtered by org for non-super admins)
   const usersQuery = useQuery({
-    queryKey: ["admin-users"],
+    queryKey: ["admin-users", isSuperAdmin, myOrgId],
     queryFn: async (): Promise<Profile[]> => {
-      const { data, error } = await supabase.from("profiles").select("*");
+      let query = supabase.from("profiles").select("*");
+      if (!isSuperAdmin && myOrgId) {
+        query = query.eq("organizacion_id", myOrgId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },

@@ -6,13 +6,11 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify the requester is authenticated and is an admin
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(
@@ -21,7 +19,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create Supabase client with anon key first to verify the user
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -30,7 +27,6 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    // Verify the token and get the user
     const token = authHeader.replace("Bearer ", "");
     const { data: claimsData, error: claimsError } = await userClient.auth.getUser(token);
     
@@ -42,15 +38,14 @@ Deno.serve(async (req) => {
     }
 
     const requesterId = claimsData.user.id;
-
-    // Check if requester is an admin using the service role client
     const adminClient = createClient(supabaseUrl, supabaseServiceKey);
     
+    // Check if requester is admin OR super_admin
     const { data: roleData, error: roleError } = await adminClient
       .from("user_roles")
       .select("role")
       .eq("user_id", requesterId)
-      .eq("role", "admin")
+      .in("role", ["admin", "super_admin"])
       .maybeSingle();
 
     if (roleError || !roleData) {
@@ -60,8 +55,10 @@ Deno.serve(async (req) => {
       );
     }
 
+    const requesterIsSuperAdmin = roleData.role === "super_admin";
+
     // Parse request body
-    const { email, password, fullName, phone, role, storeName } = await req.json();
+    const { email, password, fullName, phone, role, storeName, organizacionId } = await req.json();
 
     if (!email || !password || !fullName || !role) {
       return new Response(
@@ -70,7 +67,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate role
     const validRoles = ["admin", "motorizado", "cliente", "despachador"];
     if (!validRoles.includes(role)) {
       return new Response(
@@ -79,7 +75,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Validate store name for clients
     if (role === "cliente" && !storeName) {
       return new Response(
         JSON.stringify({ error: "El nombre de la tienda es obligatorio para clientes" }),
@@ -87,11 +82,27 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create user using admin API - this bypasses email confirmation
+    // Determine organizacion_id:
+    // - super_admin can specify any org
+    // - regular admin uses their own org
+    let resolvedOrgId: string;
+    if (requesterIsSuperAdmin && organizacionId) {
+      resolvedOrgId = organizacionId;
+    } else {
+      // Get requester's own org
+      const { data: requesterProfile } = await adminClient
+        .from("profiles")
+        .select("organizacion_id")
+        .eq("user_id", requesterId)
+        .maybeSingle();
+      resolvedOrgId = requesterProfile?.organizacion_id || "a0000000-0000-0000-0000-000000000001";
+    }
+
+    // Create user
     const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // Auto-confirm email
+      email_confirm: true,
       user_metadata: {
         full_name: fullName,
       },
@@ -118,23 +129,25 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Create profile with store name for clients
-    const { error: profileError } = await adminClient.from("profiles").insert({
+    // Create profile with organizacion_id
+    const { error: profileError } = await adminClient.from("profiles").upsert({
       user_id: newUser.user.id,
       full_name: fullName,
       email,
       phone: phone || null,
       store_name: role === "cliente" ? storeName : null,
-    });
+      organizacion_id: resolvedOrgId,
+    }, { onConflict: "user_id" });
 
     if (profileError) {
       console.error("Profile creation error:", profileError);
     }
 
-    // Assign role
+    // Assign role with organizacion_id
     const { error: assignRoleError } = await adminClient.from("user_roles").insert({
       user_id: newUser.user.id,
       role,
+      organizacion_id: resolvedOrgId,
     });
 
     if (assignRoleError) {
@@ -148,7 +161,8 @@ Deno.serve(async (req) => {
           id: newUser.user.id, 
           email: newUser.user.email,
           fullName,
-          role 
+          role,
+          organizacionId: resolvedOrgId,
         } 
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
