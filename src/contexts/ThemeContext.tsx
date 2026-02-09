@@ -121,20 +121,20 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  const orgId = profile?.organizacion_id ?? null;
+
   useEffect(() => {
-    const orgId = (profile as any)?.organizacion_id;
     if (orgId) {
       fetchBranding(orgId);
     } else {
       // Reset to default
       applyBrandingCSS(DEFAULT_BRANDING);
     }
-  }, [(profile as any)?.organizacion_id]);
+  }, [orgId, fetchBranding]);
 
   const refreshBranding = useCallback(async () => {
-    const orgId = (profile as any)?.organizacion_id;
     if (orgId) await fetchBranding(orgId);
-  }, [(profile as any)?.organizacion_id, fetchBranding]);
+  }, [orgId, fetchBranding]);
 
   return (
     <ThemeContext.Provider value={{ branding, loading, refreshBranding }}>
