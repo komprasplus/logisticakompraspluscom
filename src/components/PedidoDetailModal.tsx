@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Package, User, MapPin, CreditCard, Truck, Calendar, 
-  Phone, Store, Camera, FileText, Clock, Calculator, DollarSign 
+  Phone, Store, Camera, FileText, Clock, Calculator, DollarSign, MessageCircle 
 } from "lucide-react";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
@@ -12,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import AdminStatusEditor from "./AdminStatusEditor";
 import PedidoStatusHistory from "./PedidoStatusHistory";
 import MotorizadoSelector from "./admin/MotorizadoSelector";
+import PedidoChat from "./PedidoChat";
 
 interface Pedido {
   id: number;
@@ -51,6 +53,8 @@ interface PedidoDetailModalProps {
 const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange }: PedidoDetailModalProps) => {
   const { role } = useAuth();
   const isAdmin = role === "admin";
+  const [chatOpen, setChatOpen] = useState(false);
+  
   if (!pedido) return null;
 
   const statusConfig = getStatusConfig(pedido.estado);
@@ -68,6 +72,23 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
   };
 
   const isPagado = pedido.metodo_pago === "anticipado";
+
+  const ChatInline = ({ pedidoId }: { pedidoId: number }) => (
+    <div className="mt-2">
+      <button
+        onClick={() => setChatOpen(!chatOpen)}
+        className="flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+      >
+        <MessageCircle className="h-4 w-4" />
+        {chatOpen ? "Cerrar Chat" : "Abrir Chat del Pedido"}
+      </button>
+      <PedidoChat
+        pedidoId={pedidoId}
+        isOpen={chatOpen}
+        onClose={() => setChatOpen(false)}
+      />
+    </div>
+  );
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -316,6 +337,9 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
                 </div>
               </div>
             )}
+
+            {/* Chat Section */}
+            <ChatInline pedidoId={pedido.id} />
           </div>
         </ScrollArea>
       </DialogContent>

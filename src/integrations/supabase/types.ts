@@ -268,6 +268,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pedido_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          pedido_id: number
+          sender_id: string
+          sender_name: string
+          sender_role: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          pedido_id: number
+          sender_id: string
+          sender_name: string
+          sender_role: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          pedido_id?: number
+          sender_id?: string
+          sender_name?: string
+          sender_role?: string
+        }
+        Relationships: []
+      }
       pedido_status_logs: {
         Row: {
           created_at: string
