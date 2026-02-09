@@ -19,6 +19,7 @@ import ReportesView from "@/components/cliente/ReportesView";
 import MiTiendaView from "@/components/cliente/MiTiendaView";
 import DevolucionesView from "@/components/cliente/DevolucionesView";
 import IntegracionesView from "@/components/cliente/IntegracionesView";
+import ApiDocsView from "@/components/cliente/ApiDocsView";
 import InventarioView from "@/components/cliente/InventarioView";
 import HistorialTransaccionesView from "@/components/cliente/HistorialTransaccionesView";
 import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
@@ -290,6 +291,10 @@ const ClienteDashboard = () => {
 
             {activeView === "integraciones" && user?.id && (
               <IntegracionesView key="integraciones" clientUserId={user.id} />
+            )}
+
+            {activeView === "docs" && (
+              <ApiDocsView key="docs" />
             )}
 
             {activeView === "inventario" && (

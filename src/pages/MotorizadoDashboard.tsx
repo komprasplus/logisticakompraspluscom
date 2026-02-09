@@ -84,6 +84,7 @@ interface Pedido {
   metodo_pago?: string | null;
   inventory_item_id?: string | null;
   quantity?: number | null;
+  client_user_id?: string | null;
 }
 
 // Warehouse coordinates for sorting
@@ -415,7 +416,20 @@ const MotorizadoDashboard = () => {
             ? "⚠️ Pedido entregado con DESVIACIÓN GPS registrada"
             : "✅ Pedido entregado exitosamente con firma y evidencia"
         );
-      }
+        }
+
+        // Fire outbound webhook notification (non-blocking)
+        if (selectedPedido.client_user_id) {
+          supabase.functions.invoke("notify-webhook", {
+            body: {
+              pedido_id: selectedPedido.id,
+              estado_anterior: selectedPedido.estado,
+              estado_nuevo: "Entregado",
+              numero_guia: selectedPedido.numero_guia,
+              client_user_id: selectedPedido.client_user_id,
+            },
+          }).catch((err) => console.warn("Webhook notification failed:", err));
+        }
 
       // Update local state via React Query optimistic update
       updatePedidoLocally(selectedPedido.id, { 

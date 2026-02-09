@@ -160,6 +160,35 @@ export type Database = {
         }
         Relationships: []
       }
+      api_rate_limits: {
+        Row: {
+          credential_id: string
+          id: string
+          request_count: number
+          window_start: string
+        }
+        Insert: {
+          credential_id: string
+          id?: string
+          request_count?: number
+          window_start?: string
+        }
+        Update: {
+          credential_id?: string
+          id?: string
+          request_count?: number
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_rate_limits_credential_id_fkey"
+            columns: ["credential_id"]
+            isOneToOne: false
+            referencedRelation: "api_credentials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inventory: {
         Row: {
           client_user_id: string
@@ -645,6 +674,51 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      webhook_endpoints: {
+        Row: {
+          client_user_id: string
+          created_at: string
+          events: string[] | null
+          failure_count: number
+          id: string
+          is_active: boolean
+          label: string | null
+          last_status_code: number | null
+          last_triggered_at: string | null
+          secret: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          client_user_id: string
+          created_at?: string
+          events?: string[] | null
+          failure_count?: number
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          last_status_code?: number | null
+          last_triggered_at?: string | null
+          secret?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          client_user_id?: string
+          created_at?: string
+          events?: string[] | null
+          failure_count?: number
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          last_status_code?: number | null
+          last_triggered_at?: string | null
+          secret?: string | null
+          updated_at?: string
+          url?: string
         }
         Relationships: []
       }

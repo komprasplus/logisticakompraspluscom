@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import WebhookConfigPanel from "./WebhookConfigPanel";
 
 interface ApiCredential {
   id: string;
@@ -550,6 +551,9 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
           )}
         </CardContent>
       </Card>
+
+      {/* Webhook Configuration */}
+      <WebhookConfigPanel clientUserId={clientUserId} />
 
       {/* Webhook Info */}
       <Card className="border-primary/20 bg-primary/5">
