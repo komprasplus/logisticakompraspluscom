@@ -15,6 +15,7 @@ import {
   Database,
   Key,
   Zap,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,7 @@ interface AdminSidebarProps {
   activeSection: string;
   onSectionChange: (section: string) => void;
   novedadesCount?: number;
+  userRole?: string | null;
 }
 
 // 3D Icon wrapper component with neumorphic depth effect
@@ -153,7 +155,19 @@ const menuItems = [
   },
 ];
 
-const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: AdminSidebarProps) => {
+const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, userRole }: AdminSidebarProps) => {
+  const isSuperAdmin = userRole === "super_admin";
+
+  const allMenuItems = isSuperAdmin
+    ? [...menuItems, {
+        id: "super-admin",
+        label: "Súper Admin",
+        icon: ShieldCheck,
+        description: "Gestión de organizaciones",
+        colorClass: "from-yellow-500 to-amber-600",
+        accentColor: "bg-yellow-500/10",
+      }]
+    : menuItems;
   const [collapsed, setCollapsed] = useState(false);
 
   return (
@@ -190,7 +204,7 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0 }: Ad
 
       {/* Navigation */}
       <nav className="flex-1 p-4 space-y-3">
-        {menuItems.map((item) => {
+        {allMenuItems.map((item) => {
           const isActive = activeSection === item.id;
           
           return (
