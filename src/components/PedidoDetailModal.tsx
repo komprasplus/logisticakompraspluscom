@@ -52,7 +52,7 @@ interface PedidoDetailModalProps {
 
 const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange }: PedidoDetailModalProps) => {
   const { role } = useAuth();
-  const isAdmin = role === "admin";
+  const isAdmin = role === "admin" || role === "super_admin";
   const [chatOpen, setChatOpen] = useState(false);
   
   if (!pedido) return null;
