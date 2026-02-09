@@ -96,7 +96,7 @@ const AppRoutes = () => {
       <Route
         path="/admin"
         element={
-          <ProtectedRoute allowedRoles={["admin"]}>
+        <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
             <Suspense fallback={<PageLoader />}>
               <AdminDashboard />
             </Suspense>

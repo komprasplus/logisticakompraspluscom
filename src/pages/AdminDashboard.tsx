@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from "react";
 import { playGlobalNotificationPing } from "@/hooks/useNotificationSound";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -90,6 +90,7 @@ import DateRangeFilter from "@/components/admin/DateRangeFilter";
 import EditStoreModal from "@/components/EditStoreModal";
 import DeliveryDateBadge from "@/components/DeliveryDateBadge";
 import FutureDateConfirmDialog from "@/components/FutureDateConfirmDialog";
+const SuperAdminMasterEmbed = lazy(() => import("@/components/admin/SuperAdminPanel"));
 import {
   isFutureDeliveryDate,
   isTodayOrPastDeliveryDate,
@@ -155,7 +156,7 @@ interface UserRole {
 
 const AdminDashboard = () => {
   // ============ ALL HOOKS AT TOP - CRITICAL FOR REACT ============
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, role: userRole } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
@@ -1522,6 +1523,15 @@ const AdminDashboard = () => {
           </motion.div>
         );
 
+      case "super-admin":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              <SuperAdminMasterEmbed />
+            </Suspense>
+          </motion.div>
+        );
+
       default:
         return null;
     }
@@ -1534,6 +1544,7 @@ const AdminDashboard = () => {
         activeSection={activeSection} 
         onSectionChange={setActiveSection}
         novedadesCount={stats.novedad}
+        userRole={userRole}
       />
 
       {/* Main Content */}
