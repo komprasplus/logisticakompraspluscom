@@ -267,14 +267,20 @@ const MotorizadoDashboard = () => {
   // Legacy function kept as alias for backward compatibility
   const fetchPedidos = refetchPedidos;
 
-  const handlePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCapturedPhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const { compressImage, formatFileSize } = await import("@/lib/imageCompression");
+        const result = await compressImage(file);
+        console.log(`📸 Foto comprimida: ${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)}`);
+        setCapturedPhoto(result.base64);
+      } catch {
+        // Fallback to raw read
+        const reader = new FileReader();
+        reader.onloadend = () => setCapturedPhoto(reader.result as string);
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -484,25 +490,33 @@ const MotorizadoDashboard = () => {
     setNovedadPhoto(null);
   };
 
-  const handleNovedadPhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleNovedadPhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setNovedadPhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const { compressImage } = await import("@/lib/imageCompression");
+        const result = await compressImage(file);
+        setNovedadPhoto(result.base64);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => setNovedadPhoto(reader.result as string);
+        reader.readAsDataURL(file);
+      }
     }
   };
 
-  const handlePackagePhotoCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePackagePhotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPackagePhoto(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const { compressImage } = await import("@/lib/imageCompression");
+        const result = await compressImage(file);
+        setPackagePhoto(result.base64);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => setPackagePhoto(reader.result as string);
+        reader.readAsDataURL(file);
+      }
     }
   };
 

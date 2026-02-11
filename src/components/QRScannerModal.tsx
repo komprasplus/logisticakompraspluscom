@@ -46,15 +46,38 @@ const QRScannerModal = ({ isOpen, onClose, onSuccess }: QRScannerModalProps) => 
     setProcessing(true);
 
     try {
-      // Expected format: "PEDIDO:123"
-      const match = qrData.match(/PEDIDO:(\d+)/);
-      if (!match) {
+      // Flexible QR format: "PEDIDO:123", bare number, URL with id param
+      let pedidoId: number | null = null;
+      const matchPedido = qrData.match(/PEDIDO:(\d+)/i);
+      const matchBareNumber = qrData.match(/^(\d{1,10})$/);
+      const matchUrl = qrData.match(/[?&]id=(\d+)/);
+
+      if (matchPedido) {
+        pedidoId = parseInt(matchPedido[1], 10);
+      } else if (matchUrl) {
+        pedidoId = parseInt(matchUrl[1], 10);
+      } else if (matchBareNumber) {
+        pedidoId = parseInt(matchBareNumber[1], 10);
+      } else {
+        // Try searching by guia number
+        const guiaMatch = qrData.match(/^(PE-\d+|[A-Z]{2,4}-?\d{4,})/i);
+        if (guiaMatch) {
+          const { data: guiaPedido } = await supabase
+            .from("pedidos")
+            .select("id")
+            .eq("numero_guia", guiaMatch[0].toUpperCase())
+            .maybeSingle();
+          if (guiaPedido) {
+            pedidoId = guiaPedido.id;
+          }
+        }
+      }
+
+      if (!pedidoId) {
         setLastResult({ success: false, message: "Código QR no reconocido" });
         setProcessing(false);
         return;
       }
-
-      const pedidoId = parseInt(match[1], 10);
 
       // Check current status
       const { data: pedido, error: fetchError } = await supabase
