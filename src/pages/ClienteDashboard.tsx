@@ -164,6 +164,8 @@ const ClienteDashboard = () => {
         supportPhone={SUPPORT_PHONE}
         onSignOut={handleSignOut}
         isWarehouseOpen={isWarehouseOpen}
+        userName={profile?.full_name}
+        avatarUrl={profile?.avatar_url}
       />
 
       {/* Sidebar */}

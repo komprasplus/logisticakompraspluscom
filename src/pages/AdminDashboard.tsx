@@ -82,6 +82,7 @@ import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 import BulkReassignModal from "@/components/admin/BulkReassignModal";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import WarehouseInventoryPanel from "@/components/admin/WarehouseInventoryPanel";
 import { useAdminSearch } from "@/hooks/useAdminSearch";
 import { useAdminPedidos, type DateRange, DEFAULT_DATE_RANGE } from "@/hooks/useAdminPedidos";
@@ -885,10 +886,10 @@ const AdminDashboard = () => {
                   onClick={() => fetchPedidos()}
                   variant="outline"
                   size="sm"
-                  disabled={loading}
+                  disabled={loading || isFetching}
                   className="gap-1.5"
                 >
-                  <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  <RotateCcw className={`h-4 w-4 ${(loading || isFetching) ? "animate-spin" : ""}`} />
                   Refrescar
                 </Button>
                 <Button onClick={() => setShowBulkUpload(true)} variant="outline" className="gap-2">
@@ -965,11 +966,11 @@ const AdminDashboard = () => {
                   onClick={() => fetchPedidos()}
                   variant="outline"
                   size="sm"
-                  disabled={loading}
+                  disabled={loading || isFetching}
                   className="gap-1.5"
                   title="Actualizar"
                 >
-                  <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  <RotateCcw className={`h-4 w-4 ${(loading || isFetching) ? "animate-spin" : ""}`} />
                   Actualizar
                 </Button>
                 <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
@@ -1586,10 +1587,20 @@ const AdminDashboard = () => {
                   <span className="text-sm font-bold">{newOrdersCount} nuevo(s)</span>
                 </button>
               )}
-              <span className="text-sm text-muted-foreground hidden sm:inline">{profile?.full_name}</span>
+              {/* User Profile */}
+              <div className="flex items-center gap-2">
+                <Avatar className="h-9 w-9 border-2 border-primary/20 shadow-sm">
+                  <AvatarImage src={profile?.avatar_url || undefined} alt={profile?.full_name || ""} />
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+                    {profile?.full_name ? profile.full_name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) : "?"}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-bold text-foreground hidden sm:inline">{profile?.full_name}</span>
+              </div>
+              {/* Sign Out */}
               <button
                 onClick={handleSignOut}
-                className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/80 transition-colors"
+                className="flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-950/30 px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors border border-red-200 dark:border-red-800"
               >
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Salir</span>
