@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Plus, Upload, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { usePedidosQuery } from "@/hooks/usePedidosQuery";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import EditPedidoModal from "@/components/EditPedidoModal";
 import PrintGuiaModal from "@/components/PrintGuiaModal";
@@ -90,29 +91,25 @@ const ClienteDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch total payments made to subtract from balance
-  // CRITICAL: organizacion_id filter not needed here - RLS uses client_user_id = auth.uid()
-  const [totalPagado, setTotalPagado] = useState(0);
-  const fetchPagos = useCallback(async () => {
-    if (!validUserId) return;
-    try {
+  // Wallet query - React Query for caching, runs in PARALLEL with pedidos query
+  const queryClient = useQueryClient();
+  const walletQuery = useQuery({
+    queryKey: ["billetera", "total", validUserId],
+    queryFn: async () => {
       const { data, error: fetchError } = await supabase
         .from("transacciones_billetera")
         .select("monto")
-        .eq("client_user_id", validUserId);
-      if (fetchError) {
-        console.warn("[Billetera] Supabase error:", fetchError.message);
-        return;
-      }
-      const total = (data || []).reduce((sum, p) => sum + (p.monto || 0), 0);
-      setTotalPagado(total);
-    } catch (e) {
-      console.warn("[Billetera] Error fetching pagos:", e);
-    }
-  }, [validUserId]);
-  useEffect(() => {
-    fetchPagos();
-  }, [fetchPagos]);
+        .eq("client_user_id", validUserId!);
+      if (fetchError) throw fetchError;
+      return (data || []).reduce((sum, p) => sum + (p.monto || 0), 0);
+    },
+    enabled: !!validUserId,
+    staleTime: 2 * 60 * 1000, // 2 min cache
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+  const totalPagado = walletQuery.data ?? 0;
 
   // Calculate stats - Wallet only shows liquidated orders
   const stats = useMemo(() => {
@@ -214,7 +211,7 @@ const ClienteDashboard = () => {
             <div className="flex gap-2 sm:w-auto w-full">
               {/* Sync Button - prominent for manual refresh with error feedback */}
               <motion.button
-                onClick={() => { refetch(); fetchPagos(); }}
+                onClick={() => { refetch(); queryClient.invalidateQueries({ queryKey: ["billetera", "total", validUserId] }); }}
                 disabled={isFetching}
                 className={`relative group flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold overflow-hidden flex-1 sm:flex-none border-2 transition-colors ${
                   error && !hasCache
