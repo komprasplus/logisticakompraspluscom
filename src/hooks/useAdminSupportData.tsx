@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 
 interface Profile {
   id: string;
@@ -128,11 +128,17 @@ export const useAdminSupportData = () => {
     queryClient.invalidateQueries({ queryKey: ["admin-client-profiles"] });
   }, [queryClient]);
 
+  // CRITICAL: Stable references for empty defaults to prevent infinite re-render loops
+  // Without useMemo, `?? {}` creates a new object every render, destabilizing useCallback deps
+  const EMPTY_ARRAY: Profile[] = useMemo(() => [], []);
+  const EMPTY_ROLES: UserRole[] = useMemo(() => [], []);
+  const EMPTY_MAP: Record<string, { store_name: string | null; full_name: string }> = useMemo(() => ({}), []);
+
   return {
-    users: usersQuery.data ?? [],
-    motorizados: motorizadosQuery.data ?? [],
-    clientProfiles: clientProfilesQuery.data ?? {},
-    userRoles: rolesQuery.data ?? [],
+    users: usersQuery.data ?? EMPTY_ARRAY,
+    motorizados: motorizadosQuery.data ?? EMPTY_ARRAY,
+    clientProfiles: clientProfilesQuery.data ?? EMPTY_MAP,
+    userRoles: rolesQuery.data ?? EMPTY_ROLES,
     isLoading: usersQuery.isLoading || rolesQuery.isLoading || motorizadosQuery.isLoading,
     refreshAll,
   };
