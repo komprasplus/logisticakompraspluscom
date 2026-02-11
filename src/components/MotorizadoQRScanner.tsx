@@ -95,16 +95,53 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
     setIsAlreadyOwned(false);
 
     try {
-      // Expected format: "PEDIDO:123"
-      const match = qrData.match(/PEDIDO:(\d+)/);
-      if (!match) {
+      // Flexible QR format: "PEDIDO:123", bare number, URL with id param, or guia number
+      let pedidoId: number | null = null;
+      let guiaSearch: string | null = null;
+
+      const matchPedido = qrData.match(/PEDIDO:(\d+)/i);
+      const matchBareNumber = qrData.match(/^(\d{1,10})$/);
+      const matchUrl = qrData.match(/[?&]id=(\d+)/);
+      const matchGuia = qrData.match(/^(PE-\d+|[A-Z]{2,4}-?\d{4,})/i);
+
+      if (matchPedido) {
+        pedidoId = parseInt(matchPedido[1], 10);
+      } else if (matchUrl) {
+        pedidoId = parseInt(matchUrl[1], 10);
+      } else if (matchBareNumber) {
+        pedidoId = parseInt(matchBareNumber[1], 10);
+      } else if (matchGuia) {
+        guiaSearch = matchGuia[0].toUpperCase();
+      } else {
         playErrorSound();
-        setErrorMessage("Código QR no reconocido. Asegúrate de escanear una guía de Plus Envíos.");
+        setErrorMessage("Código QR no reconocido. Formatos aceptados: PEDIDO:123, número de guía, o código numérico.");
         setProcessing(false);
         return;
       }
 
-      const pedidoId = parseInt(match[1], 10);
+      // If we have a guia search instead of ID, look it up
+      if (!pedidoId && guiaSearch) {
+        const { data: guiaPedido } = await supabase
+          .from("pedidos")
+          .select("id")
+          .eq("numero_guia", guiaSearch)
+          .maybeSingle();
+        if (guiaPedido) {
+          pedidoId = guiaPedido.id;
+        } else {
+          playErrorSound();
+          setErrorMessage(`Guía "${guiaSearch}" no encontrada en el sistema.`);
+          setProcessing(false);
+          return;
+        }
+      }
+
+      if (!pedidoId) {
+        playErrorSound();
+        setErrorMessage("No se pudo identificar el pedido del código escaneado.");
+        setProcessing(false);
+        return;
+      }
 
       // Fetch the pedido details
       const { data: pedido, error: fetchError } = await supabase
@@ -295,7 +332,7 @@ const MotorizadoQRScanner = ({ isOpen, onClose, onStartDelivery, motorizadoId, m
       // Small delay to ensure modal is rendered
       const timer = setTimeout(() => {
         startScanner();
-      }, 100);
+      }, 50);
       return () => clearTimeout(timer);
     } else if (!isOpen) {
       stopScanner();
