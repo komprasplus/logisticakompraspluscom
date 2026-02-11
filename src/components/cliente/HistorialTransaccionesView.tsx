@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { DollarSign, Loader2, FileText, ArrowDownCircle, Download, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import EvidencePhotoModal from "@/components/EvidencePhotoModal";
@@ -30,12 +31,17 @@ const HistorialTransaccionesView = () => {
   const [transacciones, setTransacciones] = useState<Transaccion[]>([]);
   const [loading, setLoading] = useState(true);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
-    const fetchTransacciones = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    // CRITICAL: Wait for auth to be fully ready before fetching
+    if (authLoading) return;
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
 
+    const fetchTransacciones = async () => {
       const { data, error } = await supabase
         .from("transacciones_billetera")
         .select("*")
@@ -43,12 +49,16 @@ const HistorialTransaccionesView = () => {
         .order("created_at", { ascending: false })
         .limit(50);
 
-      if (!error) setTransacciones(data || []);
+      if (error) {
+        console.warn("[HistorialTransacciones] Error:", error.message);
+      } else {
+        setTransacciones(data || []);
+      }
       setLoading(false);
     };
 
     fetchTransacciones();
-  }, []);
+  }, [user?.id, authLoading]);
 
   const isImageUrl = (url: string) => /\.(jpg|jpeg|png|gif|webp)$/i.test(url);
 

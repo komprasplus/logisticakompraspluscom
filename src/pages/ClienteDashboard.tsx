@@ -64,11 +64,12 @@ const ClienteDashboard = () => {
   const [evidencePhoto, setEvidencePhoto] = useState<string | null>(null);
   const [isWarehouseOpen, setIsWarehouseOpen] = useState(checkWarehouseOpen());
 
-  const { signOut, profile, user } = useAuth();
+  const { signOut, profile, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  // Validate user.id exists before fetching - prevents empty panel issues
-  const validUserId = user?.id && user.id !== "undefined" ? user.id : undefined;
+  // CRITICAL: Wait for auth to be fully ready before allowing data fetches
+  // This prevents queries from firing with no auth token, which causes RLS to reject them
+  const validUserId = !authLoading && user?.id && user.id !== "undefined" ? user.id : undefined;
 
   // React Query with SWR pattern - shows cached data instantly, refetches in background
   // Added timeout protection and localStorage fallback for connection failures
@@ -163,6 +164,18 @@ const ClienteDashboard = () => {
   // Get store info from profile
   const storeName = profile?.store_name || profile?.full_name || "Mi Tienda";
   const logoUrl = (profile as { logo_url?: string })?.logo_url || null;
+
+  // Show loading state while auth initializes to prevent premature empty states
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground text-sm">Cargando tu panel...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
