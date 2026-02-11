@@ -1,11 +1,11 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/contexts/ThemeContext";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 
 // Eager-load lightweight pages
@@ -54,6 +54,51 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Cache invalidation on auth state change — prevents stale data on desktop after login/refresh
+const AuthCacheSync = () => {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const prevUserRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const currentId = user?.id ?? null;
+    const prevId = prevUserRef.current;
+
+    // User just signed in (was null, now has id) → blow away stale caches
+    if (currentId && currentId !== prevId) {
+      queryClient.invalidateQueries();
+    }
+
+    // User signed out → clear all cached data
+    if (!currentId && prevId) {
+      queryClient.clear();
+    }
+
+    prevUserRef.current = currentId;
+  }, [user?.id, queryClient]);
+
+  return null;
+};
+
+// Connection error interceptor — clears corrupted session on desktop
+const ConnectionErrorGuard = () => {
+  useEffect(() => {
+    const handleAuthError = (event: Event) => {
+      const detail = (event as CustomEvent)?.detail;
+      if (detail?.status === 401 || detail?.status === 403) {
+        console.warn("[Auth] Session rejected, clearing and redirecting...");
+        const storageKey = "sb-hhjygradtikonvfzarrn-auth-token";
+        localStorage.removeItem(storageKey);
+        window.location.href = "/auth";
+      }
+    };
+    window.addEventListener("supabase-auth-error", handleAuthError);
+    return () => window.removeEventListener("supabase-auth-error", handleAuthError);
+  }, []);
+
+  return null;
+};
 
 // Protected route component
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) => {
@@ -168,6 +213,8 @@ const App = () => (
     <TooltipProvider>
       <AuthProvider>
         <ThemeProvider>
+          <AuthCacheSync />
+          <ConnectionErrorGuard />
           <Toaster />
           <Sonner />
           <BrowserRouter>

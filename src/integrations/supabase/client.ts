@@ -13,5 +13,19 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-  }
+  },
+  global: {
+    fetch: async (url, options) => {
+      const response = await fetch(url, options);
+      // Dispatch auth error event for 401/403 on non-auth endpoints
+      // This allows the ConnectionErrorGuard to clear corrupted sessions on desktop
+      if ((response.status === 401 || response.status === 403) && 
+          !String(url).includes("/auth/")) {
+        window.dispatchEvent(new CustomEvent("supabase-auth-error", { 
+          detail: { status: response.status, url: String(url) } 
+        }));
+      }
+      return response;
+    },
+  },
 });
