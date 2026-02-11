@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { LogOut, Phone, Store, Truck } from "lucide-react";
 import WeatherWidget from "@/components/WeatherWidget";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface ClienteHeaderProps {
   storeName: string | null;
@@ -8,6 +9,8 @@ interface ClienteHeaderProps {
   supportPhone: string;
   onSignOut: () => void;
   isWarehouseOpen: boolean;
+  userName?: string | null;
+  avatarUrl?: string | null;
 }
 
 const ClienteHeader = ({
@@ -16,7 +19,11 @@ const ClienteHeader = ({
   supportPhone,
   onSignOut,
   isWarehouseOpen,
+  userName,
+  avatarUrl,
 }: ClienteHeaderProps) => {
+  const getInitials = (name: string) =>
+    name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   return (
     <header className="fixed top-0 left-0 right-0 z-50 glass-strong border-b border-white/20">
       {/* Main Header Row */}
@@ -82,27 +89,26 @@ const ClienteHeader = ({
             {supportPhone}
           </a>
 
-          {/* Mobile Store Logo */}
-          <div className="flex md:hidden items-center">
-            {logoUrl ? (
-              <img
-                src={logoUrl}
-                alt="Logo tienda"
-                className="h-9 w-9 rounded-xl object-cover border-2 border-white/30 shadow-md"
-              />
-            ) : (
-              <div className="h-9 w-9 rounded-xl neu-flat flex items-center justify-center">
-                <Store className="h-4 w-4 text-primary" />
-              </div>
-            )}
+          {/* User Profile */}
+          <div className="flex items-center gap-2">
+            <Avatar className="h-9 w-9 border-2 border-primary/20 shadow-sm">
+              <AvatarImage src={avatarUrl || undefined} alt={userName || ""} />
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs font-bold">
+                {userName ? getInitials(userName) : "?"}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-bold text-foreground hidden sm:inline truncate max-w-[120px]">
+              {userName || "Usuario"}
+            </span>
           </div>
 
-          {/* Sign Out - Neumorphic */}
+          {/* Sign Out - Red */}
           <button
             onClick={onSignOut}
-            className="flex h-11 w-11 items-center justify-center rounded-2xl neu-flat hover:shadow-elevated transition-all"
+            className="flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-950/30 px-4 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors border border-red-200 dark:border-red-800"
           >
-            <LogOut className="h-5 w-5 text-muted-foreground" />
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Salir</span>
           </button>
         </div>
       </div>
