@@ -91,16 +91,20 @@ const ClienteDashboard = () => {
 
   // Fetch total payments made to subtract from balance
   const [totalPagado, setTotalPagado] = useState(0);
-  useEffect(() => {
-    const fetchPagos = async () => {
-      if (!validUserId) return;
+  const fetchPagos = async () => {
+    if (!validUserId) return;
+    try {
       const { data } = await supabase
         .from("transacciones_billetera")
         .select("monto")
         .eq("client_user_id", validUserId);
       const total = (data || []).reduce((sum, p) => sum + (p.monto || 0), 0);
       setTotalPagado(total);
-    };
+    } catch (e) {
+      console.warn("[Billetera] Error fetching pagos:", e);
+    }
+  };
+  useEffect(() => {
     fetchPagos();
   }, [validUserId, pedidos]);
 
@@ -192,7 +196,7 @@ const ClienteDashboard = () => {
             <div className="flex gap-2 sm:w-auto w-full">
               {/* Sync Button - prominent for manual refresh with error feedback */}
               <motion.button
-                onClick={() => refetch()}
+                onClick={() => { refetch(); fetchPagos(); }}
                 disabled={isFetching}
                 className={`relative group flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold overflow-hidden flex-1 sm:flex-none border-2 transition-colors ${
                   error && !hasCache

@@ -109,14 +109,14 @@ const HistorialTransaccionesView = () => {
                           Pago Recibido
                         </span>
                       </TableCell>
-                      <TableCell className="text-right font-bold text-emerald-600">
-                        ${tx.monto.toLocaleString("es-CO")}
+      <TableCell className="text-right font-bold text-emerald-600">
+                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(tx.monto)}
                       </TableCell>
                       <TableCell className="text-right text-sm text-muted-foreground">
-                        ${tx.saldo_anterior.toLocaleString("es-CO")}
+                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(tx.saldo_anterior)}
                       </TableCell>
                       <TableCell className="text-right text-sm font-medium">
-                        ${tx.saldo_nuevo.toLocaleString("es-CO")}
+                        {new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }).format(tx.saldo_nuevo)}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">
                         {tx.notas || "—"}
