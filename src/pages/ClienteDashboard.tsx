@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Plus, Upload, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -90,23 +90,28 @@ const ClienteDashboard = () => {
   }, []);
 
   // Fetch total payments made to subtract from balance
+  // CRITICAL: organizacion_id filter not needed here - RLS uses client_user_id = auth.uid()
   const [totalPagado, setTotalPagado] = useState(0);
-  const fetchPagos = async () => {
+  const fetchPagos = useCallback(async () => {
     if (!validUserId) return;
     try {
-      const { data } = await supabase
+      const { data, error: fetchError } = await supabase
         .from("transacciones_billetera")
         .select("monto")
         .eq("client_user_id", validUserId);
+      if (fetchError) {
+        console.warn("[Billetera] Supabase error:", fetchError.message);
+        return;
+      }
       const total = (data || []).reduce((sum, p) => sum + (p.monto || 0), 0);
       setTotalPagado(total);
     } catch (e) {
       console.warn("[Billetera] Error fetching pagos:", e);
     }
-  };
+  }, [validUserId]);
   useEffect(() => {
     fetchPagos();
-  }, [validUserId, pedidos]);
+  }, [fetchPagos]);
 
   // Calculate stats - Wallet only shows liquidated orders
   const stats = useMemo(() => {
