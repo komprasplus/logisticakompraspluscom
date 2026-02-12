@@ -344,7 +344,7 @@ const WarehouseInventoryPanel = () => {
         Ahora se inserta en una tabla de audit log (best-effort).
       */
       if (adjustmentModal.reason.trim()) {
-        supabase
+        (supabase as any)
           .from("inventory_adjustment_logs")
           .insert({
             inventory_id: adjustmentModal.item.id,
