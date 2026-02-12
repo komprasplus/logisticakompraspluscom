@@ -1,32 +1,10 @@
 import { useMemo } from "react";
 import { motion } from "framer-motion";
-import {
-  DollarSign,
-  TrendingUp,
-  Users,
-  Clock,
-  MapPin,
-  Trophy,
-  Truck,
-  Package,
-  AlertTriangle,
-  CheckCircle,
-} from "lucide-react";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import { DollarSign, TrendingUp, Truck, Clock, Trophy, CheckCircle } from "lucide-react";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Pedido {
   id: number;
@@ -54,7 +32,59 @@ interface AnalyticsControlTowerProps {
   motorizados: Motorizado[];
 }
 
-// Neumorphic KPI Card
+// ─── Constantes (fuera del componente para evitar recreación en cada render) ──
+
+/** Estados normalizados — editar aquí si el backend cambia algún valor */
+const ESTADOS = {
+  EN_RUTA: "en ruta",
+  EN_CAMINO: "en camino",
+  ENTREGADO: "entregado",
+  ASIGNADO: "asignado",
+  PENDIENTE: "pendiente",
+  RECIBIDO_BODEGA: "recibido en bodega",
+  NOVEDAD: "novedad",
+  RECHAZADO: "rechazado",
+  DEVOLUCION: "devolución",
+} as const;
+
+/** Métodos de pago contra-entrega */
+const METODOS_COD = ["efectivo", "contra entrega", "cod"] as const;
+
+const CHART_COLORS = [
+  "hsl(var(--primary))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+];
+
+/** Formatea un número como moneda COP */
+const formatCurrency = (value: number) =>
+  new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    maximumFractionDigits: 0,
+  }).format(value);
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const isEstado = (estado: string | null, ...valores: string[]) => valores.includes(estado?.toLowerCase() ?? "");
+
+const isCOD = (metodo: string | null) => METODOS_COD.includes(metodo?.toLowerCase() as (typeof METODOS_COD)[number]);
+
+/** Obtiene la hora local en Colombia a partir de una fecha ISO (evita bug de UTC) */
+const getHourColombia = (isoDate: string): number =>
+  parseInt(
+    new Date(isoDate).toLocaleString("en-US", {
+      timeZone: "America/Bogota",
+      hour: "numeric",
+      hour12: false,
+    }),
+    10,
+  );
+
+// ─── Sub-componentes ──────────────────────────────────────────────────────────
+
 const KPICard = ({
   title,
   value,
@@ -78,36 +108,31 @@ const KPICard = ({
     transition={{ duration: 0.4, delay }}
     className="neu-card p-5 rounded-3xl relative overflow-hidden group"
   >
-    {/* Gradient accent */}
+    {/*
+      FIX: antes el inline style `opacity: 0.05` sobreescribía siempre las
+      clases de Tailwind, así que el efecto hover nunca se veía.
+      Ahora se usan solo clases Tailwind para que la transición funcione.
+    */}
     <div
       className={cn(
-        "absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500",
-        `bg-gradient-to-br ${colorClass}`
+        "absolute inset-0 opacity-[0.04] group-hover:opacity-[0.12] transition-opacity duration-500",
+        `bg-gradient-to-br ${colorClass}`,
       )}
-      style={{ opacity: 0.05 }}
     />
 
     <div className="flex items-start justify-between relative z-10">
       <div className="flex-1">
-        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-          {title}
-        </p>
-        <p className="text-3xl font-black text-foreground tracking-tight">
-          {value}
-        </p>
-        {subtitle && (
-          <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
-        )}
+        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">{title}</p>
+        <p className="text-3xl font-black text-foreground tracking-tight">{value}</p>
+        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
         {trend && (
           <div
             className={cn(
               "flex items-center gap-1 mt-2 text-xs font-semibold",
-              trend.isPositive ? "text-emerald-500" : "text-red-500"
+              trend.isPositive ? "text-emerald-500" : "text-red-500",
             )}
           >
-            <TrendingUp
-              className={cn("h-3 w-3", !trend.isPositive && "rotate-180")}
-            />
+            <TrendingUp className={cn("h-3 w-3", !trend.isPositive && "rotate-180")} />
             <span>{trend.value}% vs ayer</span>
           </div>
         )}
@@ -116,7 +141,7 @@ const KPICard = ({
       <div
         className={cn(
           "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg",
-          `bg-gradient-to-br ${colorClass}`
+          `bg-gradient-to-br ${colorClass}`,
         )}
       >
         <Icon className="h-7 w-7 text-white" strokeWidth={2} />
@@ -125,7 +150,6 @@ const KPICard = ({
   </motion.div>
 );
 
-// Chart Card wrapper
 const ChartCard = ({
   title,
   children,
@@ -143,101 +167,86 @@ const ChartCard = ({
     transition={{ duration: 0.4, delay }}
     className={cn("neu-card rounded-3xl p-5", className)}
   >
-    <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-      {title}
-    </h3>
+    <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">{title}</h3>
     {children}
   </motion.div>
 );
 
-const AnalyticsControlTower = ({
-  pedidos,
-  motorizados,
-}: AnalyticsControlTowerProps) => {
-  // Today's date for filtering
-  const today = new Date().toISOString().split("T")[0];
+// ─── Componente principal ─────────────────────────────────────────────────────
 
-  // Filter today's pedidos
-  const todayPedidos = useMemo(() => {
-    return pedidos.filter((p) => {
-      const createdDate = p.fecha_creacion?.split("T")[0];
-      const deliveryDate = p.fecha_entrega;
-      return createdDate === today || deliveryDate === today;
-    });
-  }, [pedidos, today]);
+const AnalyticsControlTower = ({ pedidos, motorizados }: AnalyticsControlTowerProps) => {
+  // FIX: timezone correcta para Colombia en lugar de usar el reloj del browser
+  const today = useMemo(() => new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" }), []);
 
-  // KPI Calculations
+  // Pedidos del día actual
+  const todayPedidos = useMemo(
+    () =>
+      pedidos.filter((p) => {
+        const createdDate = p.fecha_creacion?.split("T")[0];
+        const deliveryDate = p.fecha_entrega;
+        return createdDate === today || deliveryDate === today;
+      }),
+    [pedidos, today],
+  );
+
+  // ── KPIs ────────────────────────────────────────────────────────────────────
+
   const kpis = useMemo(() => {
-    // 1. Efectivo en Calle - COD orders currently "En Ruta"
-    const enRutaOrders = pedidos.filter(
-      (p) =>
-        p.estado?.toLowerCase() === "en ruta" ||
-        p.estado?.toLowerCase() === "en camino"
-    );
+    // Efectivo en calle: órdenes COD actualmente en ruta
+    const enRutaOrders = pedidos.filter((p) => isEstado(p.estado, ESTADOS.EN_RUTA, ESTADOS.EN_CAMINO));
     const efectivoEnCalle = enRutaOrders
-      .filter(
-        (p) =>
-          p.metodo_pago?.toLowerCase() === "efectivo" ||
-          p.metodo_pago?.toLowerCase() === "contra entrega" ||
-          p.metodo_pago?.toLowerCase() === "cod"
-      )
-      .reduce((sum, p) => sum + (p.valor_recaudar || 0), 0);
+      .filter((p) => isCOD(p.metodo_pago))
+      .reduce((sum, p) => sum + (p.valor_recaudar ?? 0), 0);
 
-    // 2. Eficiencia de Entrega - Today's success rate
-    const todayDelivered = todayPedidos.filter(
-      (p) => p.estado?.toLowerCase() === "entregado"
-    ).length;
+    // Eficiencia: entregas exitosas sobre intentos finalizados del día
+    const todayDelivered = todayPedidos.filter((p) => isEstado(p.estado, ESTADOS.ENTREGADO)).length;
     const todayNovedades = todayPedidos.filter(
       (p) =>
-        p.estado?.toLowerCase().includes("novedad") ||
-        p.estado?.toLowerCase() === "rechazado" ||
-        p.estado?.toLowerCase() === "devolución"
+        p.estado?.toLowerCase().includes(ESTADOS.NOVEDAD) || isEstado(p.estado, ESTADOS.RECHAZADO, ESTADOS.DEVOLUCION),
     ).length;
     const todayAttempted = todayDelivered + todayNovedades;
-    const eficiencia =
-      todayAttempted > 0 ? Math.round((todayDelivered / todayAttempted) * 100) : 0;
 
-    // 3. Flota Activa - Motorizados with assigned orders right now
+    /*
+      FIX de lógica: si hay menos de 5 intentos la métrica no es
+      representativa (a las 8am puede mostrar 100% con 1 entrega).
+      Devolvemos -1 como señal para mostrar "Sin datos suficientes".
+    */
+    const eficiencia = todayAttempted >= 5 ? Math.round((todayDelivered / todayAttempted) * 100) : -1;
+
+    // Flota activa: motorizados con pedidos en curso ahora mismo
     const activeMotorizadoIds = new Set(
       pedidos
-        .filter(
-          (p) =>
-            p.motorizado_id &&
-            (p.estado?.toLowerCase() === "en ruta" ||
-              p.estado?.toLowerCase() === "asignado" ||
-              p.estado?.toLowerCase() === "en camino")
-        )
-        .map((p) => p.motorizado_id)
+        .filter((p) => p.motorizado_id && isEstado(p.estado, ESTADOS.EN_RUTA, ESTADOS.ASIGNADO, ESTADOS.EN_CAMINO))
+        .map((p) => p.motorizado_id),
     );
-    const flotaActiva = activeMotorizadoIds.size;
 
-    // 4. Órdenes Pendientes - Not assigned or not scanned
+    // Órdenes pendientes: sin asignar o recién recibidas en bodega
     const ordenesPendientes = pedidos.filter(
-      (p) =>
-        !p.motorizado_asignado ||
-        p.estado?.toLowerCase() === "recibido en bodega" ||
-        p.estado?.toLowerCase() === "pendiente"
+      (p) => !p.motorizado_asignado || isEstado(p.estado, ESTADOS.RECIBIDO_BODEGA, ESTADOS.PENDIENTE),
     ).length;
 
     return {
       efectivoEnCalle,
       eficiencia,
-      flotaActiva,
+      eficienciaLabel: eficiencia === -1 ? "Sin datos suficientes" : `${eficiencia}% (${todayAttempted} intentos)`,
+      flotaActiva: activeMotorizadoIds.size,
       ordenesPendientes,
       totalFlota: motorizados.length,
     };
   }, [pedidos, todayPedidos, motorizados]);
 
-  // Deliveries by Hour (today)
+  // ── Gráfico: pedidos por hora ────────────────────────────────────────────────
+
   const deliveriesByHour = useMemo(() => {
     const hourCounts: Record<number, number> = {};
     for (let i = 6; i <= 20; i++) hourCounts[i] = 0;
 
     todayPedidos.forEach((p) => {
       if (p.fecha_creacion) {
-        const hour = new Date(p.fecha_creacion).getHours();
+        // FIX: usar timezone Colombia para no desplazar las horas por UTC
+        const hour = getHourColombia(p.fecha_creacion);
         if (hour >= 6 && hour <= 20) {
-          hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+          hourCounts[hour] = (hourCounts[hour] ?? 0) + 1;
         }
       }
     });
@@ -248,13 +257,14 @@ const AnalyticsControlTower = ({
     }));
   }, [todayPedidos]);
 
-  // Top 5 Zones by demand
+  // ── Top 5 zonas ──────────────────────────────────────────────────────────────
+
   const topZones = useMemo(() => {
     const zoneCounts: Record<string, number> = {};
 
     todayPedidos.forEach((p) => {
-      const zone = p.zona || p.municipio || p.barrio || "Sin zona";
-      zoneCounts[zone] = (zoneCounts[zone] || 0) + 1;
+      const zone = p.zona ?? p.municipio ?? p.barrio ?? "Sin zona";
+      zoneCounts[zone] = (zoneCounts[zone] ?? 0) + 1;
     });
 
     return Object.entries(zoneCounts)
@@ -267,7 +277,8 @@ const AnalyticsControlTower = ({
       }));
   }, [todayPedidos]);
 
-  // Top 5 Motorizados by successful deliveries
+  // ── Top 5 motorizados ────────────────────────────────────────────────────────
+
   const topMotorizados = useMemo(() => {
     const motoCounts: Record<string, { delivered: number; total: number }> = {};
 
@@ -277,7 +288,7 @@ const AnalyticsControlTower = ({
           motoCounts[p.motorizado_asignado] = { delivered: 0, total: 0 };
         }
         motoCounts[p.motorizado_asignado].total += 1;
-        if (p.estado?.toLowerCase() === "entregado") {
+        if (isEstado(p.estado, ESTADOS.ENTREGADO)) {
           motoCounts[p.motorizado_asignado].delivered += 1;
         }
       }
@@ -290,26 +301,22 @@ const AnalyticsControlTower = ({
         nombre: name,
         entregados: stats.delivered,
         total: stats.total,
-        eficiencia:
-          stats.total > 0 ? Math.round((stats.delivered / stats.total) * 100) : 0,
+        eficiencia: stats.total > 0 ? Math.round((stats.delivered / stats.total) * 100) : 0,
         rank: index + 1,
       }));
   }, [todayPedidos]);
 
-  // Collections by Motorizado (real-time)
+  // ── Monitor de recaudos ──────────────────────────────────────────────────────
+  /*
+    NOTA: usa `pedidos` completos (no solo `todayPedidos`) para rastrear
+    la deuda histórica pendiente de cada motorizado, no solo la del día.
+    Si solo se quiere ver el día, cambiar `pedidos` por `todayPedidos`.
+  */
   const collectionsByMoto = useMemo(() => {
-    const collections: Record<
-      string,
-      { name: string; collected: number; pending: number; orders: number }
-    > = {};
+    const collections: Record<string, { name: string; collected: number; pending: number; orders: number }> = {};
 
     pedidos.forEach((p) => {
-      if (
-        p.motorizado_asignado &&
-        (p.metodo_pago?.toLowerCase() === "efectivo" ||
-          p.metodo_pago?.toLowerCase() === "contra entrega" ||
-          p.metodo_pago?.toLowerCase() === "cod")
-      ) {
+      if (p.motorizado_asignado && isCOD(p.metodo_pago)) {
         if (!collections[p.motorizado_asignado]) {
           collections[p.motorizado_asignado] = {
             name: p.motorizado_asignado,
@@ -321,60 +328,33 @@ const AnalyticsControlTower = ({
 
         collections[p.motorizado_asignado].orders += 1;
 
-        if (p.estado?.toLowerCase() === "entregado") {
-          collections[p.motorizado_asignado].collected += p.valor_recaudar || 0;
-        } else if (
-          p.estado?.toLowerCase() === "en ruta" ||
-          p.estado?.toLowerCase() === "asignado"
-        ) {
-          collections[p.motorizado_asignado].pending += p.valor_recaudar || 0;
+        if (isEstado(p.estado, ESTADOS.ENTREGADO)) {
+          collections[p.motorizado_asignado].collected += p.valor_recaudar ?? 0;
+        } else if (isEstado(p.estado, ESTADOS.EN_RUTA, ESTADOS.ASIGNADO)) {
+          collections[p.motorizado_asignado].pending += p.valor_recaudar ?? 0;
         }
       }
     });
 
-    return Object.values(collections).sort(
-      (a, b) => b.collected + b.pending - (a.collected + a.pending)
-    );
+    return Object.values(collections).sort((a, b) => b.collected + b.pending - (a.collected + a.pending));
   }, [pedidos]);
 
-  // Chart colors
-  const CHART_COLORS = [
-    "hsl(var(--primary))",
-    "hsl(var(--chart-2))",
-    "hsl(var(--chart-3))",
-    "hsl(var(--chart-4))",
-    "hsl(var(--chart-5))",
-  ];
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-CO", {
-      style: "currency",
-      currency: "COP",
-      maximumFractionDigits: 0,
-    }).format(value);
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="p-4 md:p-6 space-y-6 overflow-y-auto h-full">
       {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        className="flex items-center gap-3"
-      >
+      <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg">
           <TrendingUp className="h-6 w-6 text-white" />
         </div>
         <div>
-          <h1 className="text-xl font-black text-foreground">
-            Control Tower Analytics
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Visión en tiempo real de las operaciones
-          </p>
+          <h1 className="text-xl font-black text-foreground">Control Tower Analytics</h1>
+          <p className="text-sm text-muted-foreground">Visión en tiempo real de las operaciones</p>
         </div>
       </motion.div>
 
-      {/* KPI Cards Row */}
+      {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KPICard
           title="Efectivo en Calle"
@@ -386,8 +366,8 @@ const AnalyticsControlTower = ({
         />
         <KPICard
           title="Eficiencia de Entrega"
-          value={`${kpis.eficiencia}%`}
-          subtitle="Éxito hoy (Entregados vs Novedades)"
+          value={kpis.eficiencia === -1 ? "—" : `${kpis.eficiencia}%`}
+          subtitle={kpis.eficienciaLabel}
           icon={CheckCircle}
           colorClass="from-blue-500 to-cyan-500"
           delay={0.1}
@@ -412,16 +392,18 @@ const AnalyticsControlTower = ({
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Deliveries by Hour */}
+        {/* Pedidos por hora */}
         <ChartCard title="📊 Volumen de Pedidos por Hora" delay={0.4}>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={deliveriesByHour}>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  stroke="hsl(var(--border))"
-                  vertical={false}
-                />
+                <defs>
+                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" />
+                    <stop offset="100%" stopColor="hsl(217 91% 60%)" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis
                   dataKey="hora"
                   tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
@@ -442,29 +424,17 @@ const AnalyticsControlTower = ({
                   }}
                   labelStyle={{ color: "hsl(var(--foreground))" }}
                 />
-                <Bar
-                  dataKey="pedidos"
-                  fill="url(#barGradient)"
-                  radius={[8, 8, 0, 0]}
-                />
-                <defs>
-                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" />
-                    <stop offset="100%" stopColor="hsl(217 91% 60%)" />
-                  </linearGradient>
-                </defs>
+                <Bar dataKey="pedidos" fill="url(#barGradient)" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </ChartCard>
 
-        {/* Top Zones */}
+        {/* Top Zonas */}
         <ChartCard title="🔥 Top 5 Zonas con Mayor Demanda" delay={0.5}>
           <div className="space-y-3">
             {topZones.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No hay datos de zonas para hoy
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-8">No hay datos de zonas para hoy</p>
             ) : (
               topZones.map((zone, index) => (
                 <motion.div
@@ -483,15 +453,13 @@ const AnalyticsControlTower = ({
                           ? "bg-gradient-to-br from-slate-300 to-slate-400 text-slate-800"
                           : index === 2
                             ? "bg-gradient-to-br from-amber-600 to-amber-800 text-white"
-                            : "bg-muted text-muted-foreground"
+                            : "bg-muted text-muted-foreground",
                     )}
                   >
                     {zone.rank}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold text-foreground">
-                      {zone.zona}
-                    </p>
+                    <p className="text-sm font-semibold text-foreground">{zone.zona}</p>
                     <div className="w-full bg-muted rounded-full h-2 mt-1">
                       <div
                         className="h-2 rounded-full bg-gradient-to-r from-primary to-blue-500"
@@ -501,9 +469,7 @@ const AnalyticsControlTower = ({
                       />
                     </div>
                   </div>
-                  <span className="text-sm font-bold text-foreground">
-                    {zone.pedidos}
-                  </span>
+                  <span className="text-sm font-bold text-foreground">{zone.pedidos}</span>
                 </motion.div>
               ))
             )}
@@ -517,9 +483,7 @@ const AnalyticsControlTower = ({
         <ChartCard title="🏆 Ranking de Desempeño - Top 5" delay={0.6}>
           <div className="space-y-3">
             {topMotorizados.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No hay datos de motorizados para hoy
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-8">No hay datos de motorizados para hoy</p>
             ) : (
               topMotorizados.map((moto, index) => (
                 <motion.div
@@ -538,28 +502,19 @@ const AnalyticsControlTower = ({
                           ? "bg-gradient-to-br from-slate-300 to-slate-400"
                           : index === 2
                             ? "bg-gradient-to-br from-amber-600 to-amber-800"
-                            : "bg-muted"
+                            : "bg-muted",
                     )}
                   >
-                    <Trophy
-                      className={cn(
-                        "h-5 w-5",
-                        index < 3 ? "text-white" : "text-muted-foreground"
-                      )}
-                    />
+                    <Trophy className={cn("h-5 w-5", index < 3 ? "text-white" : "text-muted-foreground")} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-foreground truncate">
-                      {moto.nombre}
-                    </p>
+                    <p className="text-sm font-bold text-foreground truncate">{moto.nombre}</p>
                     <p className="text-xs text-muted-foreground">
                       {moto.entregados} de {moto.total} entregas
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-lg font-black text-primary">
-                      {moto.eficiencia}%
-                    </p>
+                    <p className="text-lg font-black text-primary">{moto.eficiencia}%</p>
                     <p className="text-xs text-muted-foreground">eficiencia</p>
                   </div>
                 </motion.div>
@@ -568,43 +523,38 @@ const AnalyticsControlTower = ({
           </div>
         </ChartCard>
 
-        {/* Collections Monitor */}
+        {/* Monitor de Recaudos */}
         <ChartCard title="💰 Monitor de Recaudos en Tiempo Real" delay={0.7}>
           <div className="overflow-x-auto">
             {collectionsByMoto.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                No hay recaudos pendientes
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-8">No hay recaudos pendientes</p>
             ) : (
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    <th className="text-left py-2 px-2 font-semibold text-muted-foreground">
-                      Motorizado
-                    </th>
-                    <th className="text-right py-2 px-2 font-semibold text-muted-foreground">
-                      Recaudado
-                    </th>
-                    <th className="text-right py-2 px-2 font-semibold text-muted-foreground">
-                      Pendiente
-                    </th>
-                    <th className="text-right py-2 px-2 font-semibold text-muted-foreground">
-                      Total
-                    </th>
+                    <th className="text-left py-2 px-2 font-semibold text-muted-foreground">Motorizado</th>
+                    <th className="text-right py-2 px-2 font-semibold text-muted-foreground">Recaudado</th>
+                    <th className="text-right py-2 px-2 font-semibold text-muted-foreground">Pendiente</th>
+                    <th className="text-right py-2 px-2 font-semibold text-muted-foreground">Total</th>
                   </tr>
                 </thead>
                 <tbody>
+                  {/*
+                    FIX: reemplazado <motion.tr> por <tr> con CSS animation.
+                    Framer Motion sobre elementos de tabla puede generar HTML
+                    inválido en algunos browsers (tr necesita estar dentro de
+                    tbody/thead directamente, sin wrappers extra).
+                  */}
                   {collectionsByMoto.slice(0, 8).map((moto, index) => (
-                    <motion.tr
+                    <tr
                       key={moto.name}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.7 + index * 0.05 }}
                       className="border-b border-border/50 hover:bg-muted/50 transition-colors"
+                      style={{
+                        opacity: 0,
+                        animation: `fadeIn 0.3s ease ${0.7 + index * 0.05}s forwards`,
+                      }}
                     >
-                      <td className="py-2 px-2 font-medium text-foreground truncate max-w-[120px]">
-                        {moto.name}
-                      </td>
+                      <td className="py-2 px-2 font-medium text-foreground truncate max-w-[120px]">{moto.name}</td>
                       <td className="py-2 px-2 text-right text-emerald-500 font-semibold">
                         {formatCurrency(moto.collected)}
                       </td>
@@ -614,31 +564,20 @@ const AnalyticsControlTower = ({
                       <td className="py-2 px-2 text-right font-bold text-foreground">
                         {formatCurrency(moto.collected + moto.pending)}
                       </td>
-                    </motion.tr>
+                    </tr>
                   ))}
                 </tbody>
                 <tfoot>
                   <tr className="bg-muted/30">
-                    <td className="py-2 px-2 font-bold text-foreground">
-                      TOTAL
-                    </td>
+                    <td className="py-2 px-2 font-bold text-foreground">TOTAL</td>
                     <td className="py-2 px-2 text-right text-emerald-500 font-bold">
-                      {formatCurrency(
-                        collectionsByMoto.reduce((sum, m) => sum + m.collected, 0)
-                      )}
+                      {formatCurrency(collectionsByMoto.reduce((sum, m) => sum + m.collected, 0))}
                     </td>
                     <td className="py-2 px-2 text-right text-amber-500 font-bold">
-                      {formatCurrency(
-                        collectionsByMoto.reduce((sum, m) => sum + m.pending, 0)
-                      )}
+                      {formatCurrency(collectionsByMoto.reduce((sum, m) => sum + m.pending, 0))}
                     </td>
                     <td className="py-2 px-2 text-right font-black text-foreground">
-                      {formatCurrency(
-                        collectionsByMoto.reduce(
-                          (sum, m) => sum + m.collected + m.pending,
-                          0
-                        )
-                      )}
+                      {formatCurrency(collectionsByMoto.reduce((sum, m) => sum + m.collected + m.pending, 0))}
                     </td>
                   </tr>
                 </tfoot>
@@ -647,6 +586,14 @@ const AnalyticsControlTower = ({
           </div>
         </ChartCard>
       </div>
+
+      {/* Keyframe global para la animación de las filas de la tabla */}
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 };
