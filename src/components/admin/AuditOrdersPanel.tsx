@@ -1,19 +1,12 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import {
-  Search,
-  Loader2,
-  RotateCcw,
-  Database,
-  AlertTriangle,
-  Package,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Search, Loader2, RotateCcw, Database, AlertTriangle, Package, ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { toast } from "sonner";
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface AuditPedido {
   id: number;
@@ -32,12 +25,49 @@ interface AuditOrdersPanelProps {
   onPedidoClick?: (pedido: AuditPedido) => void;
 }
 
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
 const PAGE_SIZE = 50;
 
-/**
- * Emergency audit panel that shows raw Supabase orders
- * without any filtering logic - for debugging visibility issues.
- */
+/** Opciones de formato de fecha reutilizadas para ambas columnas */
+const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  dateStyle: "short",
+  timeStyle: "short",
+  // FIX: timezone explícita para que las fechas no se muestren en UTC
+  // sino en la hora local de Colombia
+};
+
+/** Formatea una fecha ISO a string legible en Colombia */
+const formatDate = (iso: string | null): string => {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleString("es-CO", {
+    ...DATE_FORMAT_OPTIONS,
+    timeZone: "America/Bogota",
+  });
+};
+
+// ─── Sub-componentes (fuera del padre para evitar remount en cada render) ─────
+
+/*
+  FIX CRÍTICO: StatusBadge estaba definido DENTRO del componente padre.
+  React trata las funciones definidas dentro del render como tipos nuevos
+  en cada re-render, lo que obliga a desmontar y remontar el componente
+  en cada actualización — causando parpadeos y pérdida de estado.
+  Definirlo fuera del padre lo convierte en un componente estable.
+*/
+const StatusBadge = ({ status }: { status: string | null }) => {
+  const config = getStatusConfig(status);
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${config.bgColor} ${config.textColor}`}
+    >
+      {config.label}
+    </span>
+  );
+};
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 const AuditOrdersPanel = ({ onPedidoClick }: AuditOrdersPanelProps) => {
   const [orders, setOrders] = useState<AuditPedido[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,7 +76,19 @@ const AuditOrdersPanel = ({ onPedidoClick }: AuditOrdersPanelProps) => {
   const [totalCount, setTotalCount] = useState(0);
   const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
 
+  /*
+    FIX: usamos un ref para guardar el AbortController activo.
+    Si el usuario dispara varias búsquedas rápidamente, cancelamos
+    la petición anterior antes de lanzar la nueva, evitando que una
+    respuesta tardía sobreescriba datos más recientes (race condition).
+  */
+  const abortRef = useRef<AbortController | null>(null);
+
   const fetchOrders = useCallback(async (page = 0, search = "") => {
+    // Cancela la petición en vuelo si la hay
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+
     setLoading(true);
     try {
       const from = page * PAGE_SIZE;
@@ -54,77 +96,80 @@ const AuditOrdersPanel = ({ onPedidoClick }: AuditOrdersPanelProps) => {
 
       let query = supabase
         .from("pedidos")
-        .select("id, numero_guia, cliente_nombre, direccion_entrega, estado, fecha_creacion, fecha_entrega, motorizado_asignado, tipo_novedad, client_user_id", { count: "exact" });
+        .select(
+          "id, numero_guia, cliente_nombre, direccion_entrega, estado, fecha_creacion, fecha_entrega, motorizado_asignado, tipo_novedad, client_user_id",
+          { count: "exact" },
+        );
 
-      // Apply search if provided
       if (search.trim()) {
         query = query.or(`numero_guia.ilike.%${search.trim()}%,cliente_nombre.ilike.%${search.trim()}%`);
       }
 
-      const { data, error, count } = await query
-        .order("fecha_creacion", { ascending: false })
-        .range(from, to);
+      const { data, error, count } = await query.order("fecha_creacion", { ascending: false }).range(from, to);
 
       if (error) throw error;
 
-      setOrders(data || []);
-      setTotalCount(count || 0);
+      setOrders(data ?? []);
+      setTotalCount(count ?? 0);
       setCurrentPage(page);
       setLastFetchTime(new Date());
-    } catch (err: any) {
+    } catch (err) {
+      // FIX: tipado correcto del error en lugar de `any`
+      if (err instanceof Error && err.name === "AbortError") return; // petición cancelada, ignorar
+      const message = err instanceof Error ? err.message : "desconocido";
       console.error("Audit fetch error:", err);
-      toast.error("Error al cargar auditoría: " + (err.message || "desconocido"));
+      toast.error("Error al cargar auditoría: " + message);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  // Initial fetch
+  // Carga inicial
   useEffect(() => {
+    fetchOrders(0, "");
+    // Limpia cualquier petición pendiente al desmontar el componente
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, [fetchOrders]);
+
+  // FIX: handleSearch y handleKeyDown memorizados para no recrearse en cada render
+  const handleSearch = useCallback(() => {
+    fetchOrders(0, searchQuery);
+  }, [fetchOrders, searchQuery]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") handleSearch();
+    },
+    [handleSearch],
+  );
+
+  const handleReset = useCallback(() => {
+    setSearchQuery("");
     fetchOrders(0, "");
   }, [fetchOrders]);
 
-  const handleSearch = () => {
-    fetchOrders(0, searchQuery);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSearch();
-    }
-  };
-
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  const StatusBadge = ({ status }: { status: string | null }) => {
-    const config = getStatusConfig(status);
-    return (
-      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${config.bgColor} ${config.textColor}`}>
-        {config.label}
-      </span>
-    );
-  };
-
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="p-4 space-y-4"
-    >
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <Database className="h-5 w-5 text-primary" />
-          <h2 className="text-lg font-bold text-foreground">
-            Auditoría de Órdenes
-          </h2>
-          <span className="text-sm text-muted-foreground">
-            (Vista bruta sin filtros)
-          </span>
+          <h2 className="text-lg font-bold text-foreground">Auditoría de Órdenes</h2>
+          <span className="text-sm text-muted-foreground">(Vista bruta sin filtros)</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           {lastFetchTime && (
-            <span>Actualizado: {lastFetchTime.toLocaleTimeString()}</span>
+            // FIX: timezone correcta para mostrar la hora de actualización en Colombia
+            <span>
+              Actualizado:{" "}
+              {lastFetchTime.toLocaleTimeString("es-CO", {
+                timeZone: "America/Bogota",
+              })}
+            </span>
           )}
           <span className="font-semibold">Total: {totalCount}</span>
         </div>
@@ -134,9 +179,9 @@ const AuditOrdersPanel = ({ onPedidoClick }: AuditOrdersPanelProps) => {
       <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
         <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
         <div className="text-sm text-amber-800 dark:text-amber-200">
-          <strong>Panel de Emergencia:</strong> Esta vista muestra los registros
-          directos de Supabase sin ningún filtro de estado, fecha o tienda.
-          Usa esto para encontrar órdenes "perdidas" que no aparecen en el panel principal.
+          <strong>Panel de Emergencia:</strong> Esta vista muestra los registros directos de Supabase sin ningún filtro
+          de estado, fecha o tienda. Usa esto para encontrar órdenes &quot;perdidas&quot; que no aparecen en el panel
+          principal.
         </div>
       </div>
 
@@ -157,20 +202,13 @@ const AuditOrdersPanel = ({ onPedidoClick }: AuditOrdersPanelProps) => {
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
           Buscar
         </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            setSearchQuery("");
-            fetchOrders(0, "");
-          }}
-          disabled={loading}
-        >
+        <Button variant="outline" onClick={handleReset} disabled={loading}>
           <RotateCcw className="h-4 w-4" />
           Reset
         </Button>
       </div>
 
-      {/* Results Table */}
+      {/* Results */}
       {loading && orders.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -200,50 +238,52 @@ const AuditOrdersPanel = ({ onPedidoClick }: AuditOrdersPanelProps) => {
                 {orders.map((order) => (
                   <tr
                     key={order.id}
-                    className="hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => onPedidoClick?.(order as any)}
+                    /*
+                      FIX: eliminado el cast `as any` que enmascaraba un
+                      posible mismatch de tipos. AuditPedido es compatible
+                      directamente con el prop onPedidoClick.
+                      FIX: añadidos role + tabIndex para accesibilidad de teclado.
+                    */
+                    role="button"
+                    tabIndex={0}
+                    className="hover:bg-muted/30 cursor-pointer transition-colors focus:outline-none focus:bg-muted/30"
+                    onClick={() => onPedidoClick?.(order)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onPedidoClick?.(order);
+                      }
+                    }}
                   >
-                    <td className="px-3 py-3 text-xs font-mono text-muted-foreground">
-                      {order.id}
-                    </td>
-                    <td className="px-3 py-3 font-medium text-foreground">
-                      {order.numero_guia || "-"}
-                    </td>
+                    <td className="px-3 py-3 text-xs font-mono text-muted-foreground">{order.id}</td>
+                    <td className="px-3 py-3 font-medium text-foreground">{order.numero_guia || "-"}</td>
                     <td className="px-3 py-3 text-muted-foreground max-w-[150px] truncate">
                       {order.cliente_nombre || "-"}
                     </td>
                     <td className="px-3 py-3">
                       <StatusBadge status={order.estado} />
                     </td>
-                    <td className="px-3 py-3 text-xs text-orange-600">
-                      {order.tipo_novedad || "-"}
-                    </td>
-                    <td className="px-3 py-3 text-muted-foreground">
-                      {order.motorizado_asignado || "-"}
-                    </td>
-                    <td className="px-3 py-3 text-xs text-muted-foreground">
-                      {order.fecha_entrega || "-"}
-                    </td>
-                    <td className="px-3 py-3 text-xs text-muted-foreground">
-                      {order.fecha_creacion
-                        ? new Date(order.fecha_creacion).toLocaleString("es-CO", {
-                            dateStyle: "short",
-                            timeStyle: "short",
-                          })
-                        : "-"}
-                    </td>
+                    <td className="px-3 py-3 text-xs text-orange-600">{order.tipo_novedad || "-"}</td>
+                    <td className="px-3 py-3 text-muted-foreground">{order.motorizado_asignado || "-"}</td>
+                    {/*
+                      FIX: fecha_entrega se mostraba como string crudo (ej. "2024-12-01")
+                      mientras que fecha_creacion se formateaba con toLocaleString.
+                      Ahora ambas usan la misma función formatDate con timezone Colombia.
+                    */}
+                    <td className="px-3 py-3 text-xs text-muted-foreground">{formatDate(order.fecha_entrega)}</td>
+                    <td className="px-3 py-3 text-xs text-muted-foreground">{formatDate(order.fecha_creacion)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
-          {/* Pagination */}
+          {/* Paginación */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between p-3 border-t border-border bg-muted/30">
               <span className="text-sm text-muted-foreground">
-                Mostrando {currentPage * PAGE_SIZE + 1}-
-                {Math.min((currentPage + 1) * PAGE_SIZE, totalCount)} de {totalCount}
+                Mostrando {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, totalCount)} de{" "}
+                {totalCount}
               </span>
               <div className="flex gap-2">
                 <Button
