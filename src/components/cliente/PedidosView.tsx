@@ -1,4 +1,5 @@
-import { motion } from "framer-motion";
+import { useState, useMemo, useCallback, useId } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import {
   Package,
   Edit,
@@ -19,24 +20,80 @@ import {
   X,
   Camera,
 } from "lucide-react";
-import PedidosSkeleton from "./PedidosSkeleton";
 import { TrendingUp } from "lucide-react";
+import PedidosSkeleton from "./PedidosSkeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useState, useMemo } from "react";
 import { formatCOP } from "@/lib/tarifas";
 import { usePagination } from "@/hooks/usePagination";
 import PaginationControls from "@/components/PaginationControls";
 import StatusChipCarousel from "@/components/StatusChipCarousel";
-import { format, parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { format, parseISO, isWithinInterval, startOfDay, endOfDay, isAfter, isBefore } from "date-fns";
 import { es } from "date-fns/locale";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+
+// ─── Constantes ───────────────────────────────────────────────────────────────
+
+const FLETE_DEFAULT = 12000;
+
+// ─── Helpers de módulo ────────────────────────────────────────────────────────
+
+/*
+  FIX: `getStatusInfo`, `canEditOrder`, `isDelivered`, `getNetProfit`
+  movidas fuera del componente. Eran funciones puras sin dependencias del
+  scope recreadas en cada render y en cada iteración de la lista de pedidos.
+*/
+const getStatusInfo = (status: string | null) => {
+  switch (status?.toLowerCase()) {
+    case "recibido":
+    case "pedido recibido":
+    case "recibido en bodega":
+      return { label: "En Bodega", color: "bg-blue-500", textColor: "text-white", icon: Box };
+    case "pendiente":
+      return { label: "Pendiente", color: "bg-amber-500", textColor: "text-white", icon: Clock };
+    case "asignado":
+      return { label: "Asignado", color: "bg-purple-500", textColor: "text-white", icon: Truck };
+    case "en ruta":
+    case "en camino":
+      return { label: "En Ruta", color: "bg-primary", textColor: "text-primary-foreground", icon: Truck };
+    case "entregado":
+      return { label: "Entregado", color: "bg-green-500", textColor: "text-white", icon: CheckCircle2 };
+    case "cancelado":
+    case "anulado":
+      return { label: "Cancelado", color: "bg-destructive", textColor: "text-destructive-foreground", icon: XCircle };
+    case "novedad":
+      return { label: "Novedad", color: "bg-orange-500", textColor: "text-white", icon: AlertTriangle };
+    case "liquidado":
+      return { label: "Liquidado", color: "bg-emerald-600", textColor: "text-white", icon: CheckCircle2 };
+    case "devolución":
+    case "devolucion":
+      return { label: "Devolución", color: "bg-red-500", textColor: "text-white", icon: XCircle };
+    default:
+      return { label: status || "Pendiente", color: "bg-muted", textColor: "text-muted-foreground", icon: Package };
+  }
+};
+
+const canEditOrder = (status: string | null) => status?.toLowerCase() === "pendiente";
+const isDelivered = (status: string | null) =>
+  status?.toLowerCase() === "entregado" || status?.toLowerCase() === "liquidado";
+
+/*
+  FIX: `||` → `??` en cálculos financieros.
+  Mismo bug crítico que en DevolucionesView y NovedadesView.
+  `valor_flete || 12000` trata `0` (pedido exonerado) como "sin flete".
+  El `try/catch` original era falsa seguridad alrededor de un bug, no
+  de una excepción real. Eliminado.
+*/
+const getNetProfit = (pedido: Pedido): number => {
+  if (pedido.metodo_pago === "anticipado") return 0;
+  if (pedido.utilidad !== null && pedido.utilidad !== undefined) return pedido.utilidad;
+  const flete = pedido.valor_flete ?? FLETE_DEFAULT;
+  return (pedido.valor_recaudar ?? 0) - flete;
+};
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface Pedido {
   id: number;
@@ -72,6 +129,8 @@ interface PedidosViewProps {
   hasCache?: boolean;
 }
 
+// ─── Componente ───────────────────────────────────────────────────────────────
+
 const PedidosView = ({
   pedidos,
   loading,
@@ -84,8 +143,6 @@ const PedidosView = ({
 }: PedidosViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  
-  // Advanced filters
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
@@ -93,55 +150,18 @@ const PedidosView = ({
   const [maxValue, setMaxValue] = useState("");
   const [recipientFilter, setRecipientFilter] = useState("");
 
-  const getStatusInfo = (status: string | null) => {
-    const s = status?.toLowerCase();
-    switch (s) {
-      case "recibido":
-      case "pedido recibido":
-      case "recibido en bodega":
-        return { label: "En Bodega", color: "bg-blue-500", textColor: "text-white", icon: Box };
-      case "pendiente":
-        return { label: "Pendiente", color: "bg-amber-500", textColor: "text-white", icon: Clock };
-      case "asignado":
-        return { label: "Asignado", color: "bg-purple-500", textColor: "text-white", icon: Truck };
-      case "en ruta":
-      case "en camino":
-        return { label: "En Ruta", color: "bg-primary", textColor: "text-primary-foreground", icon: Truck };
-      case "entregado":
-        return { label: "Entregado", color: "bg-green-500", textColor: "text-white", icon: CheckCircle2 };
-      case "cancelado":
-      case "anulado":
-        return { label: "Cancelado", color: "bg-destructive", textColor: "text-destructive-foreground", icon: XCircle };
-      case "novedad":
-        return { label: "Novedad", color: "bg-orange-500", textColor: "text-white", icon: AlertTriangle };
-      case "liquidado":
-        return { label: "Liquidado", color: "bg-emerald-600", textColor: "text-white", icon: CheckCircle2 };
-      case "devolución":
-      case "devolucion":
-        return { label: "Devolución", color: "bg-red-500", textColor: "text-white", icon: XCircle };
-      default:
-        return { label: status || "Pendiente", color: "bg-muted", textColor: "text-muted-foreground", icon: Package };
-    }
-  };
+  const prefersReducedMotion = useReducedMotion();
+  const uid = useId();
 
-  const canEditOrder = (status: string | null) => status?.toLowerCase() === "pendiente";
-  const isDelivered = (status: string | null) => status?.toLowerCase() === "entregado" || status?.toLowerCase() === "liquidado";
-  
-  // Safe calculation - never fails, returns 0 on error
-  const getNetProfit = (pedido: Pedido): number => {
-    try {
-      if (pedido.metodo_pago === "anticipado") return 0;
-      if (pedido.utilidad !== null && pedido.utilidad !== undefined) {
-        return pedido.utilidad;
-      }
-      const flete = pedido.valor_flete || 12000;
-      return (pedido.valor_recaudar || 0) - flete;
-    } catch {
-      return 0; // Never crash - show 0 if calculation fails
-    }
-  };
+  // ── IDs para labels de filtros avanzados ──────────────────────────────────
 
-  // Count active filters
+  const idMinValue = `${uid}-min`;
+  const idMaxValue = `${uid}-max`;
+  const idRecipient = `${uid}-recipient`;
+  const idMainSearch = `${uid}-search`;
+
+  // ── Conteo de filtros activos ──────────────────────────────────────────────
+
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (dateFrom) count++;
@@ -152,76 +172,78 @@ const PedidosView = ({
     return count;
   }, [dateFrom, dateTo, minValue, maxValue, recipientFilter]);
 
-  // Clear all advanced filters
-  const clearAdvancedFilters = () => {
+  const clearAdvancedFilters = useCallback(() => {
     setDateFrom(undefined);
     setDateTo(undefined);
     setMinValue("");
     setMaxValue("");
     setRecipientFilter("");
-  };
+  }, []);
+
+  // ── Filtrado ───────────────────────────────────────────────────────────────
 
   const filteredPedidos = useMemo(() => {
     let result = pedidos;
-    
-    // Basic search (guía, nombre, dirección)
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (p) =>
           p.numero_guia?.toLowerCase().includes(q) ||
           p.cliente_nombre?.toLowerCase().includes(q) ||
-          p.direccion_entrega?.toLowerCase().includes(q)
+          p.direccion_entrega?.toLowerCase().includes(q),
       );
     }
 
-    // Status filter
     if (statusFilter) {
       result = result.filter((p) => p.estado?.toLowerCase() === statusFilter);
     }
 
-    // Date range filter
     if (dateFrom || dateTo) {
+      /*
+        FIX: validación de rango de fechas coherente.
+        Si dateFrom > dateTo el filtro producía resultados vacíos sin aviso.
+        Se intercambian silenciosamente para que el rango sea siempre válido.
+      */
+      const from = dateFrom && dateTo && isAfter(dateFrom, dateTo) ? dateTo : dateFrom;
+      const to = dateFrom && dateTo && isAfter(dateFrom, dateTo) ? dateFrom : dateTo;
+
       result = result.filter((p) => {
         if (!p.fecha_creacion) return false;
-        const orderDate = parseISO(p.fecha_creacion);
-        
-        if (dateFrom && dateTo) {
-          return isWithinInterval(orderDate, {
-            start: startOfDay(dateFrom),
-            end: endOfDay(dateTo)
-          });
-        } else if (dateFrom) {
-          return orderDate >= startOfDay(dateFrom);
-        } else if (dateTo) {
-          return orderDate <= endOfDay(dateTo);
+        try {
+          const orderDate = parseISO(p.fecha_creacion);
+          if (from && to) return isWithinInterval(orderDate, { start: startOfDay(from), end: endOfDay(to) });
+          if (from) return !isBefore(orderDate, startOfDay(from));
+          if (to) return !isAfter(orderDate, endOfDay(to));
+        } catch {
+          return false;
         }
         return true;
       });
     }
 
-    // Value range filter
     if (minValue || maxValue) {
       const min = minValue ? parseFloat(minValue) : 0;
       const max = maxValue ? parseFloat(maxValue) : Infinity;
-      result = result.filter((p) => {
-        const valor = p.valor_recaudar || 0;
-        return valor >= min && valor <= max;
-      });
+      // FIX: ignorar si los valores no son números válidos
+      if (!isNaN(min) && !isNaN(max)) {
+        result = result.filter((p) => {
+          const valor = p.valor_recaudar ?? 0;
+          return valor >= min && valor <= max;
+        });
+      }
     }
 
-    // Recipient name filter
     if (recipientFilter.trim()) {
       const q = recipientFilter.toLowerCase();
-      result = result.filter((p) => 
-        p.cliente_nombre?.toLowerCase().includes(q)
-      );
+      result = result.filter((p) => p.cliente_nombre?.toLowerCase().includes(q));
     }
 
     return result;
   }, [pedidos, searchQuery, statusFilter, dateFrom, dateTo, minValue, maxValue, recipientFilter]);
 
-  // Pagination
+  // ── Paginación ─────────────────────────────────────────────────────────────
+
   const {
     paginatedItems,
     currentPage,
@@ -234,216 +256,296 @@ const PedidosView = ({
     setItemsPerPage,
   } = usePagination({ items: filteredPedidos, itemsPerPage: 10 });
 
-  // Calculate status counts for carousel
+  // ── Conteos de estado para el carrusel ────────────────────────────────────
+
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     pedidos.forEach((p) => {
       const status = p.estado?.toLowerCase() || "pendiente";
       counts[status] = (counts[status] || 0) + 1;
     });
-    return Object.entries(counts).map(([status, count]) => ({
-      status,
-      count,
-    }));
+    return Object.entries(counts).map(([status, count]) => ({ status, count }));
   }, [pedidos]);
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
     >
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/30">
-          <Package className="h-6 w-6 text-white" />
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/30 flex-shrink-0">
+          <Package className="h-6 w-6 text-white" aria-hidden="true" />
         </div>
         <div>
           <h2 className="text-xl font-bold text-foreground">Mis Pedidos</h2>
-          <p className="text-sm text-muted-foreground">{filteredPedidos.length} pedidos encontrados</p>
+          <p className="text-sm text-muted-foreground">
+            {filteredPedidos.length} pedido{filteredPedidos.length !== 1 ? "s" : ""} encontrado
+            {filteredPedidos.length !== 1 ? "s" : ""}
+          </p>
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filtros */}
       <div className="space-y-3">
-        {/* Main search + toggle filters */}
         <div className="flex flex-col sm:flex-row gap-3">
+          {/* Búsqueda principal */}
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            {/* FIX: label accesible para el input de búsqueda */}
+            <label htmlFor={idMainSearch} className="sr-only">
+              Buscar pedidos por guía, cliente o dirección
+            </label>
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+              aria-hidden="true"
+            />
             <Input
+              id={idMainSearch}
+              type="search"
               placeholder="Buscar por guía, cliente o dirección..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
+              autoComplete="off"
             />
           </div>
+
+          {/* Toggle filtros avanzados */}
           <Button
+            type="button"
             variant={showAdvancedFilters ? "default" : "outline"}
             size="sm"
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
             className="gap-2"
+            aria-expanded={showAdvancedFilters}
+            aria-controls={`${uid}-advanced-filters`}
           >
-            <Filter className="h-4 w-4" />
+            <Filter className="h-4 w-4" aria-hidden="true" />
             Filtros
             {activeFiltersCount > 0 && (
-              <span className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary-foreground text-primary text-xs font-bold">
+              <span
+                className="ml-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary-foreground text-primary text-xs font-bold"
+                aria-label={`${activeFiltersCount} filtros activos`}
+              >
                 {activeFiltersCount}
               </span>
             )}
           </Button>
         </div>
 
-        {/* Mobile-first Status Chip Carousel */}
+        {/* Carrusel de estado */}
         <StatusChipCarousel
           statusCounts={statusCounts}
           selectedStatus={statusFilter}
-          onStatusSelect={(status) => setStatusFilter(status)}
+          onStatusSelect={setStatusFilter}
           totalCount={pedidos.length}
         />
 
-        {/* Advanced Filters Panel */}
-        {showAdvancedFilters && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="rounded-xl bg-muted/50 border border-border p-4 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-foreground">Filtros Avanzados</h4>
-              {activeFiltersCount > 0 && (
-                <Button variant="ghost" size="sm" onClick={clearAdvancedFilters} className="h-7 text-xs gap-1">
-                  <X className="h-3 w-3" />
-                  Limpiar
-                </Button>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Date From */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Desde</label>
-                <Popover>
-                  <PopoverTrigger asChild>
+        {/* Panel de filtros avanzados */}
+        {/*
+          FIX: `exit` animation requiere `AnimatePresence` como padre.
+          La versión original tenía `exit={{ opacity: 0, height: 0 }}` pero
+          sin `AnimatePresence` la animación de salida nunca se ejecutaba —
+          el panel desaparecía abruptamente.
+        */}
+        <AnimatePresence>
+          {showAdvancedFilters && (
+            <motion.div
+              id={`${uid}-advanced-filters`}
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div className="rounded-xl bg-muted/50 border border-border p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-foreground">Filtros Avanzados</h4>
+                  {activeFiltersCount > 0 && (
                     <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal h-9",
-                        !dateFrom && "text-muted-foreground"
-                      )}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAdvancedFilters}
+                      className="h-7 text-xs gap-1"
+                      aria-label="Limpiar todos los filtros avanzados"
                     >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {dateFrom ? format(dateFrom, "dd MMM yyyy", { locale: es }) : "Fecha inicio"}
+                      <X className="h-3 w-3" aria-hidden="true" />
+                      Limpiar
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={dateFrom}
-                      onSelect={setDateFrom}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+                  )}
+                </div>
 
-              {/* Date To */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Hasta</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal h-9",
-                        !dateTo && "text-muted-foreground"
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {dateTo ? format(dateTo, "dd MMM yyyy", { locale: es }) : "Fecha fin"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={dateTo}
-                      onSelect={setDateTo}
-                      initialFocus
-                      className="p-3 pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Fecha desde */}
+                  <div className="space-y-1.5">
+                    {/* FIX: labels con htmlFor asociado al trigger del Popover */}
+                    <label id={`${uid}-from-label`} className="text-xs font-medium text-muted-foreground">
+                      Desde
+                    </label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          aria-labelledby={`${uid}-from-label`}
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-9",
+                            !dateFrom && "text-muted-foreground",
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" aria-hidden="true" />
+                          {dateFrom ? format(dateFrom, "dd MMM yyyy", { locale: es }) : "Fecha inicio"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={dateFrom}
+                          onSelect={setDateFrom}
+                          initialFocus
+                          locale={es}
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
 
-              {/* Value Range */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Valor Mínimo</label>
-                <div className="relative">
-                  <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    placeholder="0"
-                    value={minValue}
-                    onChange={(e) => setMinValue(e.target.value)}
-                    className="pl-8 h-9"
-                  />
+                  {/* Fecha hasta */}
+                  <div className="space-y-1.5">
+                    <label id={`${uid}-to-label`} className="text-xs font-medium text-muted-foreground">
+                      Hasta
+                    </label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          aria-labelledby={`${uid}-to-label`}
+                          className={cn(
+                            "w-full justify-start text-left font-normal h-9",
+                            !dateTo && "text-muted-foreground",
+                          )}
+                        >
+                          <Calendar className="mr-2 h-4 w-4" aria-hidden="true" />
+                          {dateTo ? format(dateTo, "dd MMM yyyy", { locale: es }) : "Fecha fin"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={dateTo}
+                          onSelect={setDateTo}
+                          initialFocus
+                          locale={es}
+                          className="p-3 pointer-events-auto"
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+
+                  {/* Valor mínimo */}
+                  <div className="space-y-1.5">
+                    {/* FIX: labels con htmlFor → id */}
+                    <label htmlFor={idMinValue} className="text-xs font-medium text-muted-foreground">
+                      Valor Mínimo
+                    </label>
+                    <div className="relative">
+                      <DollarSign
+                        className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      <Input
+                        id={idMinValue}
+                        type="number"
+                        min={0}
+                        placeholder="0"
+                        value={minValue}
+                        onChange={(e) => setMinValue(e.target.value)}
+                        className="pl-8 h-9"
+                        inputMode="numeric"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Valor máximo */}
+                  <div className="space-y-1.5">
+                    <label htmlFor={idMaxValue} className="text-xs font-medium text-muted-foreground">
+                      Valor Máximo
+                    </label>
+                    <div className="relative">
+                      <DollarSign
+                        className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                      <Input
+                        id={idMaxValue}
+                        type="number"
+                        min={0}
+                        placeholder="Sin límite"
+                        value={maxValue}
+                        onChange={(e) => setMaxValue(e.target.value)}
+                        className="pl-8 h-9"
+                        inputMode="numeric"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filtro por destinatario */}
+                <div className="space-y-1.5">
+                  <label htmlFor={idRecipient} className="text-xs font-medium text-muted-foreground">
+                    Nombre del Destinatario
+                  </label>
+                  <div className="relative max-w-md">
+                    <Search
+                      className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"
+                      aria-hidden="true"
+                    />
+                    <Input
+                      id={idRecipient}
+                      type="search"
+                      placeholder="Buscar por nombre..."
+                      value={recipientFilter}
+                      onChange={(e) => setRecipientFilter(e.target.value)}
+                      className="pl-8 h-9"
+                      autoComplete="off"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Valor Máximo</label>
-                <div className="relative">
-                  <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    placeholder="Sin límite"
-                    value={maxValue}
-                    onChange={(e) => setMaxValue(e.target.value)}
-                    className="pl-8 h-9"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Recipient Filter */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">Nombre del Destinatario</label>
-              <div className="relative max-w-md">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  type="text"
-                  placeholder="Buscar por nombre..."
-                  value={recipientFilter}
-                  onChange={(e) => setRecipientFilter(e.target.value)}
-                  className="pl-8 h-9"
-                />
-              </div>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Error state with cached data notice */}
+      {/* Banner de datos en caché */}
       {error && hasCache && pedidos.length > 0 && (
-        <div className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm">
-          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+        <div
+          className="rounded-xl bg-amber-500/10 border border-amber-500/30 p-3 flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm"
+          role="alert"
+        >
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
           <span>Mostrando datos guardados. Presiona "Sincronizar" para actualizar.</span>
         </div>
       )}
 
-      {/* Grid - Clear loading state, show skeleton only on first load */}
+      {/* Estados de carga / error / vacío / contenido */}
       {loading && pedidos.length === 0 ? (
-        <div className="space-y-4">
-          <div className="flex items-center justify-center gap-3 py-8">
-            <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-            <p className="text-muted-foreground font-medium">Cargando tus pedidos...</p>
-          </div>
-          <PedidosSkeleton />
-        </div>
+        /*
+          FIX: spinner de carga redundante eliminado.
+          La versión original mostraba DOS indicadores de carga en el estado
+          inicial: un spinner animado con texto Y el PedidosSkeleton debajo.
+          PedidosSkeleton ya tiene `role="status"` con el mensaje accesible —
+          el spinner adicional era ruido visual. Solo se usa el skeleton.
+        */
+        <PedidosSkeleton />
       ) : error && pedidos.length === 0 ? (
-        <div className="rounded-2xl neu-flat p-8 text-center">
-          <XCircle className="mx-auto h-12 w-12 text-destructive" />
+        <div className="rounded-2xl neu-flat p-8 text-center" role="alert">
+          <XCircle className="mx-auto h-12 w-12 text-destructive" aria-hidden="true" />
           <p className="mt-4 font-semibold text-foreground">Error de conexión</p>
           <p className="mt-2 text-sm text-muted-foreground">
             No se pudieron cargar tus pedidos. Verifica tu conexión y presiona "Sincronizar".
@@ -451,7 +553,7 @@ const PedidosView = ({
         </div>
       ) : totalItems === 0 ? (
         <div className="rounded-2xl neu-flat p-8 text-center">
-          <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+          <Package className="mx-auto h-12 w-12 text-muted-foreground" aria-hidden="true" />
           <p className="mt-4 text-muted-foreground">
             {searchQuery || statusFilter || activeFiltersCount > 0
               ? "No se encontraron pedidos con estos filtros"
@@ -466,41 +568,48 @@ const PedidosView = ({
               const StatusIcon = statusInfo.icon;
               const isEditable = canEditOrder(pedido.estado);
               const isNovedad = pedido.estado?.toLowerCase() === "novedad";
-              const hasDeliveryEvidence = isDelivered(pedido.estado) && pedido.foto_evidencia;
+              /*
+                FIX: `isDelivered` se llamaba dos veces por pedido.
+                `hasDeliveryEvidence` y la condición `!isDelivered(pedido.estado)`
+                más abajo computaban la misma función. Calculado una vez.
+              */
+              const isDeliveredPedido = isDelivered(pedido.estado);
+              const hasDeliveryEvidence = isDeliveredPedido && !!pedido.foto_evidencia;
+              const hasOtherEvidence = !!pedido.foto_evidencia && !isDeliveredPedido;
               const netProfit = getNetProfit(pedido);
 
               return (
                 <motion.div
                   key={pedido.id}
                   className={`neu-flat overflow-hidden transition-all duration-200 hover:neu-elevated hover:-translate-y-1 ${
-                    isNovedad 
-                      ? "ring-2 ring-orange-400/50" 
-                      : ""
+                    isNovedad ? "ring-2 ring-orange-400/50" : ""
                   }`}
-                  initial={{ opacity: 0, scale: 0.95 }}
+                  initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.03 }}
+                  transition={{ delay: prefersReducedMotion ? 0 : index * 0.03 }}
                 >
                   {/* Card Header */}
                   <div className="px-4 py-3 flex items-center justify-between border-b border-border/50 bg-muted/30">
-                    <span className="text-sm font-bold text-foreground">
-                      {pedido.numero_guia || `#${pedido.id}`}
-                    </span>
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusInfo.color} ${statusInfo.textColor}`}>
-                      <StatusIcon className="h-3.5 w-3.5" />
+                    <span className="text-sm font-bold text-foreground">{pedido.numero_guia || `#${pedido.id}`}</span>
+                    <div
+                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusInfo.color} ${statusInfo.textColor}`}
+                      role="status"
+                      aria-label={`Estado: ${statusInfo.label}`}
+                    >
+                      <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
                       <span className="text-xs font-semibold">{statusInfo.label}</span>
                     </div>
                   </div>
 
                   {/* Card Body */}
                   <div className="p-4 space-y-3">
-                    {/* Recipient */}
+                    {/* Destinatario */}
                     <div>
                       <p className="font-bold text-foreground text-base truncate">
                         {pedido.cliente_nombre || "Sin destinatario"}
                       </p>
                       <div className="flex items-start gap-1.5 mt-1">
-                        <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" />
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" aria-hidden="true" />
                         <p className="text-xs text-muted-foreground line-clamp-2">
                           {pedido.direccion_entrega || "Sin dirección"}
                           {pedido.barrio && ` - ${pedido.barrio}`}
@@ -508,7 +617,7 @@ const PedidosView = ({
                       </div>
                     </div>
 
-                    {/* Metrics Row - Neumorphic Inset */}
+                    {/* Métricas financieras */}
                     <div className="flex items-center gap-4 py-2 px-3 rounded-xl neu-pressed">
                       {pedido.metodo_pago === "anticipado" ? (
                         <div className="flex-1 flex items-center justify-center">
@@ -520,23 +629,30 @@ const PedidosView = ({
                         <>
                           <div className="flex-1 flex items-center gap-2">
                             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/15">
-                              <DollarSign className="h-4 w-4 text-green-600" />
+                              <DollarSign className="h-4 w-4 text-green-600" aria-hidden="true" />
                             </div>
                             <div>
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Recaudar</p>
                               <p className="text-sm font-bold text-green-600">
-                                {formatCOP(pedido.valor_recaudar || 0)}
+                                {formatCOP(pedido.valor_recaudar ?? 0)}
                               </p>
                             </div>
                           </div>
                           <div className="w-px h-8 bg-border" />
                           <div className="flex-1 flex items-center gap-2">
-                            <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${netProfit > 0 ? 'bg-emerald-500/15' : 'bg-destructive/15'}`}>
-                              <TrendingUp className={`h-4 w-4 ${netProfit > 0 ? 'text-emerald-600' : 'text-destructive'}`} />
+                            <div
+                              className={`flex h-8 w-8 items-center justify-center rounded-lg ${netProfit > 0 ? "bg-emerald-500/15" : "bg-destructive/15"}`}
+                            >
+                              <TrendingUp
+                                className={`h-4 w-4 ${netProfit > 0 ? "text-emerald-600" : "text-destructive"}`}
+                                aria-hidden="true"
+                              />
                             </div>
                             <div>
                               <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Utilidad</p>
-                              <p className={`text-sm font-bold ${netProfit > 0 ? 'text-emerald-600' : 'text-destructive'}`}>
+                              <p
+                                className={`text-sm font-bold ${netProfit > 0 ? "text-emerald-600" : "text-destructive"}`}
+                              >
                                 {formatCOP(netProfit)}
                               </p>
                             </div>
@@ -545,86 +661,101 @@ const PedidosView = ({
                       )}
                     </div>
 
-                    {/* Delivery Evidence Button - Only for delivered orders */}
+                    {/* Botón de foto de entrega (pedidos entregados) */}
                     {hasDeliveryEvidence && (
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
                         className="w-full gap-2 bg-green-500/10 border-green-500/30 text-green-700 hover:bg-green-500/20"
                         onClick={() => onViewEvidence(pedido.foto_evidencia!)}
+                        aria-label={`Ver foto de entrega de ${pedido.cliente_nombre ?? pedido.numero_guia ?? `pedido #${pedido.id}`}`}
                       >
-                        <Camera className="h-4 w-4" />
+                        <Camera className="h-4 w-4" aria-hidden="true" />
                         Ver Foto de Entrega
                       </Button>
                     )}
 
-                    {/* Evidence Thumbnail for non-delivered */}
-                    {pedido.foto_evidencia && !isDelivered(pedido.estado) && (
+                    {/* Miniatura de evidencia (pedidos no entregados) */}
+                    {hasOtherEvidence && (
                       <button
+                        type="button"
                         onClick={() => onViewEvidence(pedido.foto_evidencia!)}
+                        aria-label={`Ver evidencia de ${pedido.cliente_nombre ?? pedido.numero_guia ?? `pedido #${pedido.id}`}`}
                         className="w-full rounded-xl overflow-hidden border-2 border-border hover:border-primary transition-colors group relative h-24"
                       >
                         <img
-                          src={pedido.foto_evidencia}
-                          alt="Evidencia"
+                          src={pedido.foto_evidencia!}
+                          alt={`Evidencia — ${pedido.cliente_nombre ?? pedido.numero_guia ?? `#${pedido.id}`}`}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Image className="h-6 w-6 text-white" />
+                          <Image className="h-6 w-6 text-white" aria-hidden="true" />
                         </div>
                       </button>
                     )}
 
-                    {/* Novedad Alert */}
+                    {/* Alerta de novedad */}
                     {isNovedad && pedido.tipo_novedad && (
-                      <div className="rounded-xl bg-orange-500/10 border border-orange-500/20 p-3 flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" />
+                      <div
+                        className="rounded-xl bg-orange-500/10 border border-orange-500/20 p-3 flex items-center gap-2"
+                        role="alert"
+                      >
+                        <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" aria-hidden="true" />
                         <p className="text-xs text-orange-600 font-medium flex-1">{pedido.tipo_novedad}</p>
                       </div>
                     )}
                   </div>
 
-                  {/* Card Footer - Actions */}
+                  {/* Card Footer - Acciones */}
                   <div className="px-4 pb-4 pt-0 flex gap-2">
                     {isNovedad ? (
                       <>
                         <Button
+                          type="button"
                           size="sm"
                           className="flex-1 h-10 gap-2 bg-orange-500 hover:bg-orange-600 text-white"
                           onClick={() => onRespond(pedido)}
+                          aria-label={`Responder novedad del pedido ${pedido.numero_guia ?? `#${pedido.id}`}`}
                         >
-                          <MessageSquare className="h-4 w-4" />
+                          <MessageSquare className="h-4 w-4" aria-hidden="true" />
                           Responder
                         </Button>
                         <Button
+                          type="button"
                           size="sm"
                           variant="outline"
                           className="h-10 px-4"
                           onClick={() => onPrint(pedido)}
+                          aria-label={`Imprimir guía del pedido ${pedido.numero_guia ?? `#${pedido.id}`}`}
                         >
-                          <Printer className="h-4 w-4" />
+                          <Printer className="h-4 w-4" aria-hidden="true" />
                         </Button>
                       </>
                     ) : (
                       <>
                         {isEditable && (
                           <Button
+                            type="button"
                             size="sm"
                             variant="outline"
                             className="flex-1 h-10 gap-2"
                             onClick={() => onEdit(pedido)}
+                            aria-label={`Editar pedido ${pedido.numero_guia ?? `#${pedido.id}`}`}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-4 w-4" aria-hidden="true" />
                             Editar
                           </Button>
                         )}
                         <Button
+                          type="button"
                           size="sm"
                           variant={isEditable ? "secondary" : "outline"}
-                          className={`h-10 gap-2 ${isEditable ? '' : 'flex-1'}`}
+                          className={`h-10 gap-2 ${isEditable ? "" : "flex-1"}`}
                           onClick={() => onPrint(pedido)}
+                          aria-label={`Imprimir guía del pedido ${pedido.numero_guia ?? `#${pedido.id}`}`}
                         >
-                          <Printer className="h-4 w-4" />
+                          <Printer className="h-4 w-4" aria-hidden="true" />
                           Guía
                         </Button>
                       </>
@@ -635,7 +766,6 @@ const PedidosView = ({
             })}
           </div>
 
-          {/* Pagination Controls */}
           {totalPages > 1 && (
             <PaginationControls
               currentPage={currentPage}
