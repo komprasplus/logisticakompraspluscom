@@ -85,7 +85,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import WarehouseInventoryPanel from "@/components/admin/WarehouseInventoryPanel";
 import { useAdminSearch } from "@/hooks/useAdminSearch";
-import { useAdminPedidos, type DateRange, DEFAULT_DATE_RANGE } from "@/hooks/useAdminPedidos";
+import { useAdminPedidos, type DateRange, getDefaultDateRange } from "@/hooks/useAdminPedidos";
 import { useAdminSupportData } from "@/hooks/useAdminSupportData";
 import DateRangeFilter from "@/components/admin/DateRangeFilter";
 import EditStoreModal from "@/components/EditStoreModal";
