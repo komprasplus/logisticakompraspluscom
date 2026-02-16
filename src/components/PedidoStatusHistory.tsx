@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { formatInTimeZone, formatDistanceToNow } from "date-fns-tz";
+import { formatInTimeZone } from "date-fns-tz";
+import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
