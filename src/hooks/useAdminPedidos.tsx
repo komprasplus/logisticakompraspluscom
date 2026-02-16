@@ -161,7 +161,7 @@ async function fetchPedidosPage(dateRange: DateRange, page: number): Promise<Fet
   }
 
   return {
-    data: (data ?? []) as Pedido[],
+    data: (data ?? []) as unknown as Pedido[],
     totalCount: count ?? 0,
   };
 }
