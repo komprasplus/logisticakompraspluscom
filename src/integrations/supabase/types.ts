@@ -805,6 +805,51 @@ export type Database = {
           },
         ]
       }
+      user_payment_methods: {
+        Row: {
+          account_number: string | null
+          account_type: string | null
+          bank_name: string | null
+          bre_b_key: string | null
+          created_at: string
+          id: string
+          is_primary: boolean
+          key_type: string | null
+          method_type: string
+          organizacion_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_number?: string | null
+          account_type?: string | null
+          bank_name?: string | null
+          bre_b_key?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          key_type?: string | null
+          method_type?: string
+          organizacion_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_number?: string | null
+          account_type?: string | null
+          bank_name?: string | null
+          bre_b_key?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          key_type?: string | null
+          method_type?: string
+          organizacion_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -886,6 +931,53 @@ export type Database = {
             columns: ["organizacion_id"]
             isOneToOne: false
             referencedRelation: "organizaciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      withdrawal_requests: {
+        Row: {
+          admin_notes: string | null
+          amount: number
+          created_at: string
+          id: string
+          organizacion_id: string | null
+          payment_method_id: string | null
+          processed_at: string | null
+          requested_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          amount: number
+          created_at?: string
+          id?: string
+          organizacion_id?: string | null
+          payment_method_id?: string | null
+          processed_at?: string | null
+          requested_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          amount?: number
+          created_at?: string
+          id?: string
+          organizacion_id?: string | null
+          payment_method_id?: string | null
+          processed_at?: string | null
+          requested_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_requests_payment_method_id_fkey"
+            columns: ["payment_method_id"]
+            isOneToOne: false
+            referencedRelation: "user_payment_methods"
             referencedColumns: ["id"]
           },
         ]

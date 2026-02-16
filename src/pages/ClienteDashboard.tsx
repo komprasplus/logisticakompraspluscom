@@ -23,6 +23,7 @@ import IntegracionesView from "@/components/cliente/IntegracionesView";
 import ApiDocsView from "@/components/cliente/ApiDocsView";
 import InventarioView from "@/components/cliente/InventarioView";
 import HistorialTransaccionesView from "@/components/cliente/HistorialTransaccionesView";
+import BilleteraRetirosView from "@/components/cliente/BilleteraRetirosView";
 import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { AnimatePresence } from "framer-motion";
@@ -324,6 +325,10 @@ const ClienteDashboard = () => {
 
             {activeView === "billetera" && (
               <HistorialTransaccionesView key="billetera" />
+            )}
+
+            {activeView === "retiros" && (
+              <BilleteraRetirosView key="retiros" />
             )}
           </AnimatePresence>
         </div>
