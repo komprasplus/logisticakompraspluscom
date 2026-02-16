@@ -65,6 +65,7 @@ import LiquidacionesPanel from "@/components/LiquidacionesPanel";
 import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
  import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
 import IntegrationsPanel from "@/components/admin/IntegrationsPanel";
+import AdminFinanzasPanel from "@/components/admin/AdminFinanzasPanel";
 import MonitorFlexPanel from "@/components/admin/MonitorFlexPanel";
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
@@ -1501,6 +1502,9 @@ const AdminDashboard = () => {
             }}
           />
         );
+
+      case "finanzas":
+        return <AdminFinanzasPanel />;
 
       case "integraciones":
         return (

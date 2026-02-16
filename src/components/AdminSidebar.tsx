@@ -138,6 +138,14 @@ const menuItems = [
     accentColor: "bg-rose-500/10"
   },
   {
+    id: "finanzas",
+    label: "Admin Finanzas",
+    icon: DollarSign,
+    description: "Retiros y pagos a tiendas",
+    colorClass: "from-emerald-500 to-green-600",
+    accentColor: "bg-emerald-500/10"
+  },
+  {
     id: "integraciones", 
     label: "API & Integraciones", 
     icon: Key,
