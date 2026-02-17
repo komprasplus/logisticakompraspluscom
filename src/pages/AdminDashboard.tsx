@@ -1208,6 +1208,8 @@ const AdminDashboard = () => {
                             <td className="px-3 py-3 text-xs sm:text-sm">
                               {isCancelled ? (
                                 <span className="text-muted-foreground">-</span>
+                              ) : isPendingAssignment && isFinished ? (
+                                <span className="text-muted-foreground italic text-xs">No registrado</span>
                               ) : isPendingAssignment ? (
                                 <select
                                   disabled={assigningPedido === pedido.id}
