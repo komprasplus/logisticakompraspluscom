@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Wallet,
@@ -45,26 +45,70 @@ import { es } from "date-fns/locale";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const COLOMBIAN_BANKS = [
+const BOLD_BANKS = [
+  "Bold CF",
+  "Bancamia S.A.",
   "Bancolombia",
-  "Banco de Bogotá",
-  "Davivienda",
-  "BBVA Colombia",
-  "Banco de Occidente",
-  "Banco Popular",
-  "Banco AV Villas",
-  "Banco Caja Social",
-  "Scotiabank Colpatria",
+  "Bancoldex",
+  "Ban100",
   "Banco Agrario",
+  "Banco AV Villas",
+  "Banco Btg Pactual Colombia S.A.",
+  "Banco Caja Social",
+  "Banco Citibank",
+  "Banco Contactar",
+  "Banco Coopcentral",
+  "Banco Davivienda",
+  "Banco de Bogotá",
+  "Banco de Occidente",
   "Banco Falabella",
-  "Banco Pichincha",
   "Banco GNB Sudameris",
   "Banco Itaú",
-  "Nequi",
+  "Banco JP Morgan",
+  "Banco Mundo Mujer",
+  "Banco Pichincha S.A.",
+  "Banco Popular",
+  "Banco Santander de Negocios",
+  "Banco Serfinanza",
+  "Banco Union",
+  "Banco W S.A.",
+  "Bancoomeva",
+  "BBVA Colombia",
+  "CFA COOPERATIVA FINANCIERA",
+  "Coink",
+  "Coltefinanciera",
+  "Confiar Cooperativa Financiera",
+  "Crezcamos S.A. Compañía de Financiamiento",
   "Daviplata",
+  "Ding Tecnipagos SA",
+  "GLOBAL66",
+  "Iris",
+  "JFK Cooperativa Financiera",
   "Lulo Bank",
-  "Nu Colombia",
+  "Movii SA",
+  "Nequi",
+  "NU",
+  "Pibank",
+  "Powwi",
   "Rappipay",
+  "Santander Consumer",
+  "Scotiabank Colpatria",
+  "Uala",
+];
+
+const DOC_TYPES = [
+  { value: "CEDULA", label: "Cédula de Ciudadanía" },
+  { value: "NIT", label: "NIT" },
+  { value: "CEDULA_EXTRANJERIA", label: "Cédula de Extranjería" },
+  { value: "PASAPORTE", label: "Pasaporte" },
+  { value: "PPT", label: "PPT" },
+  { value: "REGISTRO_CIVIL", label: "Registro Civil" },
+];
+
+const ACCOUNT_TYPES = [
+  "Cuenta de ahorros",
+  "Cuenta corriente",
+  "Depósito electrónico",
 ];
 
 const formatCOP = new Intl.NumberFormat("es-CO", {
@@ -85,6 +129,10 @@ interface PaymentMethod {
   key_type: string | null;
   is_primary: boolean;
   method_type: string;
+  payment_mode: string;
+  recipient_doc_type: string | null;
+  recipient_doc_number: string | null;
+  recipient_name: string | null;
   created_at: string;
 }
 
@@ -109,14 +157,20 @@ const BilleteraRetirosView = () => {
   // Local state
   const [showAddMethod, setShowAddMethod] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
-  const [addMethodTab, setAddMethodTab] = useState<"bank" | "breb">("bank");
+  const [addMethodTab, setAddMethodTab] = useState<"BANK_ACCOUNT" | "KEY">("BANK_ACCOUNT");
 
-  // Form state for adding payment method
+  // Common fields
+  const [recipientDocType, setRecipientDocType] = useState("");
+  const [recipientDocNumber, setRecipientDocNumber] = useState("");
+  const [recipientName, setRecipientName] = useState("");
+
+  // Bank fields
   const [bankName, setBankName] = useState("");
   const [accountType, setAccountType] = useState("");
   const [accountNumber, setAccountNumber] = useState("");
-  const [breBKey, setBreBKey] = useState("");
-  const [keyType, setKeyType] = useState("");
+
+  // Key fields
+  const [keyValue, setKeyValue] = useState("");
 
   // Withdrawal form
   const [withdrawAmount, setWithdrawAmount] = useState("");
@@ -124,11 +178,9 @@ const BilleteraRetirosView = () => {
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
-  // Balance query (sum of transacciones_billetera)
   const balanceQuery = useQuery({
     queryKey: ["wallet-balance", userId],
     queryFn: async () => {
-      // Get total utilidad from delivered/liquidated orders
       const { data: pedidos } = await supabase
         .from("pedidos")
         .select("utilidad, valor_recaudar, valor_flete, metodo_pago, estado")
@@ -142,7 +194,6 @@ const BilleteraRetirosView = () => {
           return sum + utilidad;
         }, 0);
 
-      // Get total payments already received
       const { data: txs } = await supabase
         .from("transacciones_billetera")
         .select("monto")
@@ -150,7 +201,6 @@ const BilleteraRetirosView = () => {
 
       const totalPagado = (txs ?? []).reduce((sum, t) => sum + (t.monto || 0), 0);
 
-      // Get total approved withdrawals
       const { data: withdrawals } = await supabase
         .from("withdrawal_requests")
         .select("amount, status")
@@ -159,7 +209,6 @@ const BilleteraRetirosView = () => {
 
       const totalWithdrawn = (withdrawals ?? []).reduce((sum, w) => sum + (w.amount || 0), 0);
 
-      // Get total pending withdrawals (locked funds)
       const { data: pendingW } = await supabase
         .from("withdrawal_requests")
         .select("amount")
@@ -175,7 +224,6 @@ const BilleteraRetirosView = () => {
     staleTime: 60_000,
   });
 
-  // Payment methods query
   const methodsQuery = useQuery({
     queryKey: ["payment-methods", userId],
     queryFn: async () => {
@@ -191,7 +239,6 @@ const BilleteraRetirosView = () => {
     staleTime: 2 * 60_000,
   });
 
-  // Withdrawal history query
   const withdrawalsQuery = useQuery({
     queryKey: ["withdrawal-requests", userId],
     queryFn: async () => {
@@ -212,21 +259,37 @@ const BilleteraRetirosView = () => {
 
   const addMethodMutation = useMutation({
     mutationFn: async () => {
+      if (!recipientDocType || !recipientDocNumber || !recipientName) {
+        throw new Error("Completa los datos del destinatario (documento y nombre)");
+      }
+      if (recipientDocNumber.length < 4 || recipientDocNumber.length > 15) {
+        throw new Error("El número de documento debe tener entre 4 y 15 caracteres");
+      }
+      if (recipientName.length > 100) {
+        throw new Error("El nombre no puede superar 100 caracteres");
+      }
+
       const payload: Record<string, unknown> = {
         user_id: userId,
-        method_type: addMethodTab,
+        method_type: addMethodTab === "BANK_ACCOUNT" ? "bank" : "breb",
+        payment_mode: addMethodTab,
         is_primary: (methodsQuery.data?.length ?? 0) === 0,
+        recipient_doc_type: recipientDocType,
+        recipient_doc_number: recipientDocNumber.trim(),
+        recipient_name: recipientName.trim(),
       };
 
-      if (addMethodTab === "bank") {
-        if (!bankName || !accountType || !accountNumber) throw new Error("Completa todos los campos");
+      if (addMethodTab === "BANK_ACCOUNT") {
+        if (!bankName || !accountType || !accountNumber) throw new Error("Completa todos los campos bancarios");
+        if (accountNumber.length < 4 || accountNumber.length > 17) throw new Error("El número de cuenta debe tener entre 4 y 17 dígitos");
         payload.bank_name = bankName;
         payload.account_type = accountType;
         payload.account_number = accountNumber;
       } else {
-        if (!keyType || !breBKey) throw new Error("Completa todos los campos");
-        payload.key_type = keyType;
-        payload.bre_b_key = breBKey;
+        if (!keyValue) throw new Error("Ingresa la llave (celular o identificador)");
+        if (keyValue.length < 4 || keyValue.length > 50) throw new Error("La llave debe tener entre 4 y 50 caracteres");
+        payload.bre_b_key = keyValue;
+        payload.key_type = "Celular";
       }
 
       const { error } = await supabase.from("user_payment_methods").insert(payload as any);
@@ -256,7 +319,7 @@ const BilleteraRetirosView = () => {
   const withdrawMutation = useMutation({
     mutationFn: async () => {
       const amt = parseFloat(withdrawAmount);
-      if (isNaN(amt) || amt <= 0) throw new Error("Ingresa un monto válido");
+      if (isNaN(amt) || amt < 1000) throw new Error("El monto mínimo de retiro es $1.000");
       if (amt > (balanceQuery.data?.available ?? 0)) throw new Error("El monto supera tu saldo disponible");
       if (!selectedMethodId) throw new Error("Selecciona un método de pago");
 
@@ -287,16 +350,18 @@ const BilleteraRetirosView = () => {
     setBankName("");
     setAccountType("");
     setAccountNumber("");
-    setBreBKey("");
-    setKeyType("");
-    setAddMethodTab("bank");
+    setKeyValue("");
+    setRecipientDocType("");
+    setRecipientDocNumber("");
+    setRecipientName("");
+    setAddMethodTab("BANK_ACCOUNT");
   };
 
   const getMethodLabel = (m: PaymentMethod) => {
-    if (m.method_type === "bank") {
-      return `${m.bank_name} · ${m.account_type} · ****${(m.account_number ?? "").slice(-4)}`;
+    if (m.payment_mode === "BANK_ACCOUNT" || m.method_type === "bank") {
+      return `${m.bank_name ?? "—"} · ${m.account_type ?? ""} · ****${(m.account_number ?? "").slice(-4)}`;
     }
-    return `Bre-B (${m.key_type}) · ${m.bre_b_key}`;
+    return `Llave · ${m.bre_b_key ?? "—"}`;
   };
 
   const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive"; icon: typeof Clock }> = {
@@ -392,14 +457,15 @@ const BilleteraRetirosView = () => {
                   className="flex items-center gap-3 p-4 rounded-2xl border bg-card hover:bg-muted/30 transition-colors"
                 >
                   <div className={`flex items-center justify-center w-10 h-10 rounded-xl ${
-                    m.method_type === "bank" ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
+                    (m.payment_mode === "BANK_ACCOUNT" || m.method_type === "bank") ? "bg-blue-100 text-blue-600" : "bg-purple-100 text-purple-600"
                   }`}>
-                    {m.method_type === "bank" ? <Building2 className="h-5 w-5" /> : <Smartphone className="h-5 w-5" />}
+                    {(m.payment_mode === "BANK_ACCOUNT" || m.method_type === "bank") ? <Building2 className="h-5 w-5" /> : <Smartphone className="h-5 w-5" />}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{getMethodLabel(m)}</p>
                     <p className="text-xs text-muted-foreground">
-                      {m.method_type === "bank" ? "Cuenta Bancaria" : "Bre-B · Pago Inmediato"}
+                      {m.recipient_name ? `${m.recipient_name} · ` : ""}
+                      {(m.payment_mode === "BANK_ACCOUNT" || m.method_type === "bank") ? "Cuenta Bancaria" : "Llave · Pago Inmediato"}
                     </p>
                   </div>
                   {m.is_primary && (
@@ -421,7 +487,6 @@ const BilleteraRetirosView = () => {
             </div>
           )}
 
-          {/* Security message */}
           <div className="flex items-center gap-2 mt-5 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400">
             <Shield className="h-4 w-4 flex-shrink-0" />
             <p className="text-xs">Tus datos bancarios están encriptados y seguros</p>
@@ -498,34 +563,74 @@ const BilleteraRetirosView = () => {
 
       {/* ─── Modal: Add Payment Method ───────────────────────────────────── */}
       <Dialog open={showAddMethod} onOpenChange={setShowAddMethod}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+        <DialogContent className="sm:max-w-lg rounded-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5 text-primary" />
               Agregar Método de Pago
             </DialogTitle>
             <DialogDescription>
-              Registra una cuenta bancaria o llave Bre-B para recibir tus retiros.
+              Registra una cuenta bancaria o llave para recibir tus retiros. Los datos deben coincidir con el formato Bold.
             </DialogDescription>
           </DialogHeader>
 
-          <Tabs value={addMethodTab} onValueChange={(v) => setAddMethodTab(v as "bank" | "breb")} className="mt-2">
+          {/* Common recipient fields */}
+          <div className="space-y-4 mt-2">
+            <div className="p-3 rounded-xl bg-muted/50 border space-y-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del Destinatario</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Tipo de Documento</Label>
+                  <Select value={recipientDocType} onValueChange={setRecipientDocType}>
+                    <SelectTrigger className="h-9"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                    <SelectContent>
+                      {DOC_TYPES.map((d) => (
+                        <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Número de Documento</Label>
+                  <Input
+                    placeholder="Ej: 1234567890"
+                    value={recipientDocNumber}
+                    onChange={(e) => setRecipientDocNumber(e.target.value.replace(/[^0-9a-zA-Z]/g, "").slice(0, 15))}
+                    maxLength={15}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Nombre del Destinatario</Label>
+                <Input
+                  placeholder="Nombre completo o razón social"
+                  value={recipientName}
+                  onChange={(e) => setRecipientName(e.target.value.slice(0, 100))}
+                  maxLength={100}
+                  className="h-9"
+                />
+              </div>
+            </div>
+          </div>
+
+          <Tabs value={addMethodTab} onValueChange={(v) => setAddMethodTab(v as "BANK_ACCOUNT" | "KEY")} className="mt-2">
             <TabsList className="w-full">
-              <TabsTrigger value="bank" className="flex-1 gap-1.5">
+              <TabsTrigger value="BANK_ACCOUNT" className="flex-1 gap-1.5">
                 <Building2 className="h-4 w-4" /> Cuenta Bancaria
               </TabsTrigger>
-              <TabsTrigger value="breb" className="flex-1 gap-1.5">
-                <Smartphone className="h-4 w-4" /> Bre-B
+              <TabsTrigger value="KEY" className="flex-1 gap-1.5">
+                <Smartphone className="h-4 w-4" /> Llave / Bre-B
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="bank" className="space-y-4 mt-4">
+            <TabsContent value="BANK_ACCOUNT" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label>Banco</Label>
+                <Label>Banco Destino</Label>
                 <Select value={bankName} onValueChange={setBankName}>
                   <SelectTrigger><SelectValue placeholder="Selecciona un banco" /></SelectTrigger>
-                  <SelectContent>
-                    {COLOMBIAN_BANKS.map((b) => (
+                  <SelectContent className="max-h-60">
+                    {BOLD_BANKS.map((b) => (
                       <SelectItem key={b} value={b}>{b}</SelectItem>
                     ))}
                   </SelectContent>
@@ -536,42 +641,33 @@ const BilleteraRetirosView = () => {
                 <Select value={accountType} onValueChange={setAccountType}>
                   <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Ahorros">Ahorros</SelectItem>
-                    <SelectItem value="Corriente">Corriente</SelectItem>
+                    {ACCOUNT_TYPES.map((t) => (
+                      <SelectItem key={t} value={t}>{t}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Número de Cuenta</Label>
                 <Input
-                  placeholder="Ej: 123456789"
+                  placeholder="Ej: 12345678901"
                   value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ""))}
-                  maxLength={20}
+                  onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, 17))}
+                  maxLength={17}
                 />
               </div>
             </TabsContent>
 
-            <TabsContent value="breb" className="space-y-4 mt-4">
+            <TabsContent value="KEY" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label>Tipo de Llave</Label>
-                <Select value={keyType} onValueChange={setKeyType}>
-                  <SelectTrigger><SelectValue placeholder="Tipo de llave" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Celular">Celular</SelectItem>
-                    <SelectItem value="Email">Email</SelectItem>
-                    <SelectItem value="NIT">NIT / Documento</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Valor de la Llave</Label>
+                <Label>Llave (Celular o Identificador)</Label>
                 <Input
-                  placeholder={keyType === "Email" ? "correo@ejemplo.com" : keyType === "NIT" ? "123456789" : "3001234567"}
-                  value={breBKey}
-                  onChange={(e) => setBreBKey(e.target.value)}
+                  placeholder="Ej: 3001234567"
+                  value={keyValue}
+                  onChange={(e) => setKeyValue(e.target.value.slice(0, 50))}
                   maxLength={50}
                 />
+                <p className="text-xs text-muted-foreground">Ingresa el número de celular o identificador registrado en Bold/Bre-B</p>
               </div>
             </TabsContent>
           </Tabs>
@@ -632,9 +728,10 @@ const BilleteraRetirosView = () => {
                 placeholder="$ 0"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
-                min={1}
+                min={1000}
                 max={balance}
               />
+              <p className="text-xs text-muted-foreground">Monto mínimo: $1.000</p>
               {parseFloat(withdrawAmount) > balance && (
                 <p className="text-xs text-destructive flex items-center gap-1">
                   <AlertCircle className="h-3 w-3" /> El monto supera tu saldo disponible
