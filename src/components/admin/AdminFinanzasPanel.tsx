@@ -10,6 +10,7 @@ import {
   Building2,
   Smartphone,
   Filter,
+  Key,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -68,6 +69,10 @@ interface PaymentMethodRow {
   bre_b_key: string | null;
   key_type: string | null;
   method_type: string;
+  payment_mode: string;
+  recipient_doc_type: string | null;
+  recipient_doc_number: string | null;
+  recipient_name: string | null;
 }
 
 interface ProfileRow {
@@ -94,10 +99,17 @@ const formatDate = (iso: string) => {
 
 const getMethodLabel = (m: PaymentMethodRow | undefined) => {
   if (!m) return "—";
-  if (m.method_type === "bank") {
+  if (m.payment_mode === "BANK_ACCOUNT" || m.method_type === "bank") {
     return `${m.bank_name ?? "—"} · ${m.account_type ?? ""} · ****${(m.account_number ?? "").slice(-4)}`;
   }
-  return `Bre-B (${m.key_type ?? ""}) · ${m.bre_b_key ?? ""}`;
+  return `Llave · ${m.bre_b_key ?? "—"}`;
+};
+
+const escapeCSV = (val: string) => {
+  if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+    return `"${val.replace(/"/g, '""')}"`;
+  }
+  return `"${val}"`;
 };
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -132,7 +144,7 @@ const AdminFinanzasPanel = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_payment_methods")
-        .select("id, user_id, bank_name, account_type, account_number, bre_b_key, key_type, method_type");
+        .select("id, user_id, bank_name, account_type, account_number, bre_b_key, key_type, method_type, payment_mode, recipient_doc_type, recipient_doc_number, recipient_name");
       if (error) throw error;
       const map: Record<string, PaymentMethodRow> = {};
       (data ?? []).forEach((m) => { map[m.id] = m as PaymentMethodRow; });
@@ -206,36 +218,101 @@ const AdminFinanzasPanel = () => {
     return withdrawals.filter((w) => w.status === statusFilter);
   }, [withdrawals, statusFilter]);
 
-  // ── CSV Export ──────────────────────────────────────────────────────────────
+  // ── CSV Export: ACH (Bank Accounts) ────────────────────────────────────────
 
-  const exportCSV = () => {
+  const exportACH = () => {
     const pending = withdrawals.filter((w) => w.status === "Pending");
-    if (pending.length === 0) {
-      toast.info("No hay solicitudes pendientes para exportar");
+    const achRows = pending.filter((w) => {
+      const m = w.payment_method_id ? methods[w.payment_method_id] : undefined;
+      return m && (m.payment_mode === "BANK_ACCOUNT" || m.method_type === "bank");
+    });
+
+    if (achRows.length === 0) {
+      toast.info("No hay solicitudes pendientes con cuenta bancaria para exportar");
       return;
     }
 
-    const header = "Cuenta Destino,Banco,Monto,Referencia";
-    const rows = pending.map((w) => {
-      const m = w.payment_method_id ? methods[w.payment_method_id] : undefined;
-      const cuenta = m?.method_type === "bank"
-        ? m.account_number ?? ""
-        : m?.bre_b_key ?? "";
-      const banco = m?.method_type === "bank"
-        ? m.bank_name ?? ""
-        : `Bre-B (${m?.key_type ?? ""})`;
-      return `${cuenta},${banco},${w.amount},${w.id}`;
+    const header = [
+      "Tipo de documento del destinatario",
+      "Número de documento del destinatario",
+      "Nombre del destinatario",
+      "Banco destino",
+      "Tipo de cuenta del destinatario",
+      "Número de cuenta destino",
+      "Valor a enviar",
+      "Referencia de pago",
+      "Descripción",
+    ].map(escapeCSV).join(",");
+
+    const rows = achRows.map((w) => {
+      const m = methods[w.payment_method_id!]!;
+      return [
+        escapeCSV((m.recipient_doc_type ?? "CEDULA").toUpperCase()),
+        escapeCSV(m.recipient_doc_number ?? ""),
+        escapeCSV(m.recipient_name ?? ""),
+        escapeCSV(m.bank_name ?? ""),
+        escapeCSV(m.account_type ?? "Cuenta de ahorros"),
+        escapeCSV(m.account_number ?? ""),
+        String(Math.round(w.amount)),
+        escapeCSV(w.id),
+        escapeCSV("Pago Plus Envios"),
+      ].join(",");
     });
 
     const csv = [header, ...rows].join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    downloadCSV(csv, `lote_cuentas_ACH_${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success(`${achRows.length} transferencias ACH exportadas`);
+  };
+
+  // ── CSV Export: Keys (Bre-B) ──────────────────────────────────────────────
+
+  const exportKeys = () => {
+    const pending = withdrawals.filter((w) => w.status === "Pending");
+    const keyRows = pending.filter((w) => {
+      const m = w.payment_method_id ? methods[w.payment_method_id] : undefined;
+      return m && (m.payment_mode === "KEY" || m.method_type === "breb");
+    });
+
+    if (keyRows.length === 0) {
+      toast.info("No hay solicitudes pendientes con llave/Bre-B para exportar");
+      return;
+    }
+
+    const header = [
+      "Tipo de documento del destinatario",
+      "Número de documento del destinatario",
+      "Llave",
+      "Valor a enviar",
+      "Referencia de pago",
+      "Descripción",
+    ].map(escapeCSV).join(",");
+
+    const rows = keyRows.map((w) => {
+      const m = methods[w.payment_method_id!]!;
+      return [
+        escapeCSV((m.recipient_doc_type ?? "CEDULA").toUpperCase()),
+        escapeCSV(m.recipient_doc_number ?? ""),
+        escapeCSV(m.bre_b_key ?? ""),
+        String(Math.round(w.amount)),
+        escapeCSV(w.id),
+        escapeCSV("Pago Plus Envios"),
+      ].join(",");
+    });
+
+    const csv = [header, ...rows].join("\n");
+    downloadCSV(csv, `lote_llaves_BreB_${new Date().toISOString().slice(0, 10)}.csv`);
+    toast.success(`${keyRows.length} transferencias con llave exportadas`);
+  };
+
+  const downloadCSV = (csv: string, filename: string) => {
+    const bom = "\uFEFF";
+    const blob = new Blob([bom + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `retiros_pendientes_${new Date().toISOString().slice(0, 10)}.csv`;
+    link.download = filename;
     link.click();
     URL.revokeObjectURL(url);
-    toast.success(`${pending.length} solicitudes exportadas`);
   };
 
   // ── Status badge ───────────────────────────────────────────────────────────
@@ -290,10 +367,16 @@ const AdminFinanzasPanel = () => {
             Gestiona las solicitudes de retiro de las tiendas
           </p>
         </div>
-        <Button onClick={exportCSV} className="gap-2 rounded-xl" variant="outline">
-          <Download className="h-4 w-4" />
-          Exportar CSV para Bold
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={exportACH} className="gap-2 rounded-xl" variant="outline">
+            <Building2 className="h-4 w-4" />
+            Exportar Lote Cuentas (ACH)
+          </Button>
+          <Button onClick={exportKeys} className="gap-2 rounded-xl" variant="outline">
+            <Key className="h-4 w-4" />
+            Exportar Lote Llaves (Bre-B)
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}
@@ -380,7 +463,7 @@ const AdminFinanzasPanel = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2 text-sm">
-                          {method?.method_type === "bank" ? (
+                          {(method?.payment_mode === "BANK_ACCOUNT" || method?.method_type === "bank") ? (
                             <Building2 className="h-4 w-4 text-blue-500 flex-shrink-0" />
                           ) : (
                             <Smartphone className="h-4 w-4 text-purple-500 flex-shrink-0" />

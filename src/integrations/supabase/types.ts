@@ -817,6 +817,10 @@ export type Database = {
           key_type: string | null
           method_type: string
           organizacion_id: string | null
+          payment_mode: string
+          recipient_doc_number: string | null
+          recipient_doc_type: string | null
+          recipient_name: string | null
           updated_at: string
           user_id: string
         }
@@ -831,6 +835,10 @@ export type Database = {
           key_type?: string | null
           method_type?: string
           organizacion_id?: string | null
+          payment_mode?: string
+          recipient_doc_number?: string | null
+          recipient_doc_type?: string | null
+          recipient_name?: string | null
           updated_at?: string
           user_id: string
         }
@@ -845,6 +853,10 @@ export type Database = {
           key_type?: string | null
           method_type?: string
           organizacion_id?: string | null
+          payment_mode?: string
+          recipient_doc_number?: string | null
+          recipient_doc_type?: string | null
+          recipient_name?: string | null
           updated_at?: string
           user_id?: string
         }
