@@ -97,10 +97,15 @@ const ClienteDashboard = () => {
   const walletQuery = useQuery({
     queryKey: ["billetera", "total", validUserId],
     queryFn: async () => {
+      // Only count PAGO_TIENDA records (admin payments to the store).
+      // CREDITO_ENTREGA rows are delivery credits — those are already
+      // captured via pedidos.utilidad in the stats calculation, so
+      // summing them here would double-count earnings.
       const { data, error: fetchError } = await supabase
         .from("transacciones_billetera")
-        .select("monto")
-        .eq("client_user_id", validUserId!);
+        .select("monto, tipo")
+        .eq("client_user_id", validUserId!)
+        .eq("tipo", "PAGO_TIENDA");
       if (fetchError) throw fetchError;
       return (data || []).reduce((sum, p) => sum + (p.monto || 0), 0);
     },
