@@ -181,17 +181,19 @@ const BilleteraRetirosView = () => {
   const balanceQuery = useQuery({
     queryKey: ["wallet-balance", userId],
     queryFn: async () => {
-      // Run all 3 queries in parallel for performance
-      const [pedidosRes, txsRes, withdrawalsRes, pendingWRes] = await Promise.all([
-        supabase
-          .from("pedidos")
-          .select("utilidad, valor_recaudar, valor_flete, metodo_pago, estado")
-          .eq("client_user_id", userId!)
-          .in("estado", ["Entregado", "Liquidado"]),
-        // Only PAGO_TIENDA = payments the admin has already sent to the store
+      // Source of truth: transacciones_billetera
+      //   CREDITO_ENTREGA = money earned from each delivered order (inserted by trigger)
+      //   PAGO_TIENDA     = payments admin has already sent to the store
+      // Available = Total Credits − Total Paid − Approved Withdrawals − Pending Withdrawals
+      const [creditosRes, pagosRes, withdrawalsRes, pendingWRes] = await Promise.all([
         supabase
           .from("transacciones_billetera")
-          .select("monto, tipo")
+          .select("monto")
+          .eq("client_user_id", userId!)
+          .eq("tipo", "CREDITO_ENTREGA"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
           .eq("client_user_id", userId!)
           .eq("tipo", "PAGO_TIENDA"),
         supabase
@@ -206,16 +208,11 @@ const BilleteraRetirosView = () => {
           .eq("status", "Pending"),
       ]);
 
-      // Total earnings from delivered orders (excluding prepaid)
-      const totalUtilidad = (pedidosRes.data ?? [])
-        .filter((p) => p.metodo_pago !== "anticipado")
-        .reduce((sum, p) => {
-          const utilidad = p.utilidad ?? ((p.valor_recaudar ?? 0) - (p.valor_flete ?? 12000));
-          return sum + utilidad;
-        }, 0);
+      // Total earned from deliveries (auto-created by DB trigger on estado→Entregado/Liquidado)
+      const totalCreditos = (creditosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
 
       // Payments already sent by admin to this store
-      const totalPagado = (txsRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalPagado = (pagosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
 
       // Approved withdrawal requests (already paid out)
       const totalWithdrawn = (withdrawalsRes.data ?? []).reduce((sum, w) => sum + (w.amount ?? 0), 0);
@@ -223,11 +220,12 @@ const BilleteraRetirosView = () => {
       // Pending withdrawal requests (reserved, not yet paid)
       const totalPending = (pendingWRes.data ?? []).reduce((sum, w) => sum + (w.amount ?? 0), 0);
 
-      const available = Math.max(0, totalUtilidad - totalPagado - totalWithdrawn - totalPending);
+      const available = Math.max(0, totalCreditos - totalPagado - totalWithdrawn - totalPending);
       return { available, totalPending };
     },
     enabled: !!userId,
     staleTime: 60_000,
+    refetchInterval: 2 * 60_000, // auto-refresh every 2 min
   });
 
   const methodsQuery = useQuery({
