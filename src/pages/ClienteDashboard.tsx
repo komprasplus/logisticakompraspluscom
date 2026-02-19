@@ -24,6 +24,7 @@ import ApiDocsView from "@/components/cliente/ApiDocsView";
 import InventarioView from "@/components/cliente/InventarioView";
 import HistorialTransaccionesView from "@/components/cliente/HistorialTransaccionesView";
 import BilleteraRetirosView from "@/components/cliente/BilleteraRetirosView";
+import LedgerDrawer from "@/components/cliente/LedgerDrawer";
 import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { AnimatePresence } from "framer-motion";
@@ -57,6 +58,7 @@ const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
 const ClienteDashboard = () => {
   // Emergency: prioritize order creation/operations over advanced views
   const [activeView, setActiveView] = useState<ClienteView>("pedidos");
+  const [showLedger, setShowLedger] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
@@ -282,6 +284,7 @@ const ClienteDashboard = () => {
                 pendingBalance={stats.pendingBalance}
                 onCreatePedido={() => setShowNuevoPedido(true)}
                 onNavigate={setActiveView}
+                onOpenLedger={() => setShowLedger(true)}
               />
             )}
 
@@ -393,6 +396,9 @@ const ClienteDashboard = () => {
         clientUserId={user?.id}
         storeName={storeName}
       />
+
+      {/* Ledger Drawer — historial de movimientos de billetera */}
+      <LedgerDrawer isOpen={showLedger} onClose={() => setShowLedger(false)} />
     </div>
   );
 };
