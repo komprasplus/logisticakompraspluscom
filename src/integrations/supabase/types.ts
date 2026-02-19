@@ -759,12 +759,15 @@ export type Database = {
         Row: {
           client_user_id: string
           comprobante_url: string | null
+          concepto: string | null
           created_at: string
           created_by: string | null
           id: string
+          metadata: Json | null
           monto: number
           notas: string | null
           organizacion_id: string | null
+          pedido_id: number | null
           saldo_anterior: number
           saldo_nuevo: number
           tipo: string
@@ -772,12 +775,15 @@ export type Database = {
         Insert: {
           client_user_id: string
           comprobante_url?: string | null
+          concepto?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          metadata?: Json | null
           monto: number
           notas?: string | null
           organizacion_id?: string | null
+          pedido_id?: number | null
           saldo_anterior?: number
           saldo_nuevo?: number
           tipo?: string
@@ -785,12 +791,15 @@ export type Database = {
         Update: {
           client_user_id?: string
           comprobante_url?: string | null
+          concepto?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
+          metadata?: Json | null
           monto?: number
           notas?: string | null
           organizacion_id?: string | null
+          pedido_id?: number | null
           saldo_anterior?: number
           saldo_nuevo?: number
           tipo?: string
@@ -801,6 +810,13 @@ export type Database = {
             columns: ["organizacion_id"]
             isOneToOne: false
             referencedRelation: "organizaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transacciones_billetera_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
             referencedColumns: ["id"]
           },
         ]
@@ -1026,6 +1042,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      recalcular_billeteras_faltantes: {
+        Args: { p_desde_fecha?: string; p_dry_run?: boolean }
+        Returns: Json
+      }
     }
     Enums: {
       app_role:

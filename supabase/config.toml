@@ -20,3 +20,7 @@ verify_jwt = false
 
 [functions.notify-webhook]
 verify_jwt = false
+
+[functions.recalcular-billeteras]
+verify_jwt = false
+

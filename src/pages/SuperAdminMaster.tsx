@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Building2, Palette, Globe, Loader2, LogOut } from "lucide-react";
+import { Plus, Building2, Palette, Globe, Loader2, LogOut, DatabaseZap } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
+import RecalcularBilleterasButton from "@/components/admin/RecalcularBilleterasButton";
 
 interface Organizacion {
   id: string;
@@ -206,6 +207,17 @@ const SuperAdminMaster = () => {
             ))}
           </div>
         )}
+
+        {/* ── Finanzas / Sincronización ──────────────────────────────────── */}
+        <div className="mt-10">
+          <h2 className="text-lg font-semibold text-foreground flex items-center gap-2 mb-4">
+            <DatabaseZap className="h-5 w-5 text-primary" />
+            Finanzas — Sincronización
+          </h2>
+          <div className="max-w-2xl">
+            <RecalcularBilleterasButton />
+          </div>
+        </div>
       </main>
     </div>
   );
