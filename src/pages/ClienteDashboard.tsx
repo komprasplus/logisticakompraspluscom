@@ -97,22 +97,39 @@ const ClienteDashboard = () => {
   const walletQuery = useQuery({
     queryKey: ["billetera", "total", validUserId],
     queryFn: async () => {
-      // Only count PAGO_TIENDA records (admin payments to the store).
-      // CREDITO_ENTREGA rows are delivery credits — those are already
-      // captured via pedidos.utilidad in the stats calculation, so
-      // summing them here would double-count earnings.
-      const { data, error: fetchError } = await supabase
-        .from("transacciones_billetera")
-        .select("monto, tipo")
-        .eq("client_user_id", validUserId!)
-        .eq("tipo", "PAGO_TIENDA");
-      if (fetchError) throw fetchError;
-      return (data || []).reduce((sum, p) => sum + (p.monto || 0), 0);
+      // Available balance = CREDITO_ENTREGA (deliveries) − PAGO_TIENDA (admin payments to store)
+      // CREDITO_ENTREGA records are auto-created by DB trigger on pedido estado change.
+      // Using the transactions table ensures consistency with BilleteraRetirosView.
+      const [creditosRes, pagosRes, withdrawalsRes] = await Promise.all([
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", validUserId!)
+          .eq("tipo", "CREDITO_ENTREGA"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", validUserId!)
+          .eq("tipo", "PAGO_TIENDA"),
+        supabase
+          .from("withdrawal_requests")
+          .select("amount")
+          .eq("user_id", validUserId!)
+          .in("status", ["Approved", "Pending"]),
+      ]);
+      if (creditosRes.error) throw creditosRes.error;
+
+      const totalCreditos = (creditosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalPagado   = (pagosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalRetirado = (withdrawalsRes.data ?? []).reduce((sum, w) => sum + (w.amount ?? 0), 0);
+
+      return Math.max(0, totalCreditos - totalPagado - totalRetirado);
     },
     enabled: !!validUserId,
-    staleTime: 2 * 60 * 1000, // 2 min cache
+    staleTime: 2 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchInterval: 2 * 60 * 1000,
     retry: 1,
   });
   const totalPagado = walletQuery.data ?? 0;
@@ -134,19 +151,9 @@ const ClienteDashboard = () => {
       (p) => p.estado?.toLowerCase() === "entregado" || p.estado?.toLowerCase() === "liquidado"
     ).length;
 
-    // Total utilidad from Entregado + Liquidado orders
-    const totalUtilidad = pedidos
-      .filter((p) => 
-        (p.estado?.toLowerCase() === "entregado" || p.estado?.toLowerCase() === "liquidado") && 
-        p.metodo_pago !== "anticipado"
-      )
-      .reduce((sum, p) => {
-        const utilidad = p.utilidad ?? ((p.valor_recaudar || 0) - (p.valor_flete || 12000));
-        return sum + utilidad;
-      }, 0);
-
-    // Subtract payments already received
-    const pendingBalance = totalUtilidad - totalPagado;
+    // pendingBalance comes directly from walletQuery (CREDITO_ENTREGA − PAGO_TIENDA − withdrawals)
+    // This is the single source of truth — consistent with BilleteraRetirosView.
+    const pendingBalance = totalPagado; // totalPagado is now walletQuery.data = available balance
 
     return { 
       totalMonth, 
