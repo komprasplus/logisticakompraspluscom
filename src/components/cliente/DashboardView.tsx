@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Package, TrendingUp, Wallet, Plus, ArrowRight } from "lucide-react";
+import { Package, TrendingUp, Wallet, Plus, ArrowRight, History } from "lucide-react";
 import { ClienteView } from "./ClienteSidebar";
 import { formatCOP } from "@/lib/tarifas";
 
@@ -12,6 +12,7 @@ interface DashboardViewProps {
   pendingBalance: number;
   onCreatePedido: () => void;
   onNavigate: (view: ClienteView) => void;
+  onOpenLedger?: () => void;
 }
 
 // ─── Componente ───────────────────────────────────────────────────────────────
@@ -22,6 +23,7 @@ const DashboardView = ({
   pendingBalance,
   onCreatePedido,
   onNavigate,
+  onOpenLedger,
 }: DashboardViewProps) => {
   const prefersReducedMotion = useReducedMotion();
 
@@ -81,7 +83,8 @@ const DashboardView = ({
         shadow: "shadow-amber-500/30",
         bgIcon: "bg-amber-500/10",
         navigateTo: "billetera" as ClienteView,
-        ariaLabel: `Balance pendiente: ${formatCOP(pendingBalance)}. Ver billetera`,
+        isLedger: true,
+        ariaLabel: `Balance pendiente: ${formatCOP(pendingBalance)}. Ver historial de movimientos`,
       },
     ],
     [totalMonth, successRate, pendingBalance],
@@ -101,18 +104,17 @@ const DashboardView = ({
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {kpiCards.map((card, index) => {
+      {kpiCards.map((card, index) => {
           const Icon = card.icon;
+          const handleClick = () =>
+            (card as { isLedger?: boolean }).isLedger && onOpenLedger
+              ? onOpenLedger()
+              : onNavigate(card.navigateTo);
           return (
             <motion.button
               key={card.title}
-              /*
-                FIX: `type="button"` explícito y `onClick` real.
-                Antes eran `<div>` con cursor-pointer sin acción — inaccesibles
-                por teclado y engañosos para el usuario.
-              */
               type="button"
-              onClick={() => onNavigate(card.navigateTo)}
+              onClick={handleClick}
               aria-label={card.ariaLabel}
               className="relative group cursor-pointer text-left w-full"
               initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 30 }}
@@ -136,6 +138,12 @@ const DashboardView = ({
                   </div>
                   <p className="text-sm font-medium text-white/80 mb-1">{card.title}</p>
                   <p className="text-3xl font-extrabold">{card.value}</p>
+                  {(card as { isLedger?: boolean }).isLedger && (
+                    <p className="text-xs text-white/60 mt-1 flex items-center gap-1">
+                      <History className="h-3 w-3" aria-hidden="true" />
+                      Ver historial
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.button>
