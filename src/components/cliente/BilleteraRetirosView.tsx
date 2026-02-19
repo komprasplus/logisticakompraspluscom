@@ -181,41 +181,47 @@ const BilleteraRetirosView = () => {
   const balanceQuery = useQuery({
     queryKey: ["wallet-balance", userId],
     queryFn: async () => {
-      const { data: pedidos } = await supabase
-        .from("pedidos")
-        .select("utilidad, valor_recaudar, valor_flete, metodo_pago, estado")
-        .eq("client_user_id", userId!)
-        .in("estado", ["Entregado", "Liquidado"]);
+      // Run all 3 queries in parallel for performance
+      const [pedidosRes, txsRes, withdrawalsRes, pendingWRes] = await Promise.all([
+        supabase
+          .from("pedidos")
+          .select("utilidad, valor_recaudar, valor_flete, metodo_pago, estado")
+          .eq("client_user_id", userId!)
+          .in("estado", ["Entregado", "Liquidado"]),
+        // Only PAGO_TIENDA = payments the admin has already sent to the store
+        supabase
+          .from("transacciones_billetera")
+          .select("monto, tipo")
+          .eq("client_user_id", userId!)
+          .eq("tipo", "PAGO_TIENDA"),
+        supabase
+          .from("withdrawal_requests")
+          .select("amount")
+          .eq("user_id", userId!)
+          .eq("status", "Approved"),
+        supabase
+          .from("withdrawal_requests")
+          .select("amount")
+          .eq("user_id", userId!)
+          .eq("status", "Pending"),
+      ]);
 
-      const totalUtilidad = (pedidos ?? [])
+      // Total earnings from delivered orders (excluding prepaid)
+      const totalUtilidad = (pedidosRes.data ?? [])
         .filter((p) => p.metodo_pago !== "anticipado")
         .reduce((sum, p) => {
-          const utilidad = p.utilidad ?? ((p.valor_recaudar || 0) - (p.valor_flete || 12000));
+          const utilidad = p.utilidad ?? ((p.valor_recaudar ?? 0) - (p.valor_flete ?? 12000));
           return sum + utilidad;
         }, 0);
 
-      const { data: txs } = await supabase
-        .from("transacciones_billetera")
-        .select("monto")
-        .eq("client_user_id", userId!);
+      // Payments already sent by admin to this store
+      const totalPagado = (txsRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
 
-      const totalPagado = (txs ?? []).reduce((sum, t) => sum + (t.monto || 0), 0);
+      // Approved withdrawal requests (already paid out)
+      const totalWithdrawn = (withdrawalsRes.data ?? []).reduce((sum, w) => sum + (w.amount ?? 0), 0);
 
-      const { data: withdrawals } = await supabase
-        .from("withdrawal_requests")
-        .select("amount, status")
-        .eq("user_id", userId!)
-        .eq("status", "Approved");
-
-      const totalWithdrawn = (withdrawals ?? []).reduce((sum, w) => sum + (w.amount || 0), 0);
-
-      const { data: pendingW } = await supabase
-        .from("withdrawal_requests")
-        .select("amount")
-        .eq("user_id", userId!)
-        .eq("status", "Pending");
-
-      const totalPending = (pendingW ?? []).reduce((sum, w) => sum + (w.amount || 0), 0);
+      // Pending withdrawal requests (reserved, not yet paid)
+      const totalPending = (pendingWRes.data ?? []).reduce((sum, w) => sum + (w.amount ?? 0), 0);
 
       const available = Math.max(0, totalUtilidad - totalPagado - totalWithdrawn - totalPending);
       return { available, totalPending };
