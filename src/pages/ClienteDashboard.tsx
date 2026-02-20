@@ -96,22 +96,24 @@ const ClienteDashboard = () => {
 
   // Wallet query - React Query for caching, runs in PARALLEL with pedidos query
   const queryClient = useQueryClient();
+  const orgId = profile?.organizacion_id;
   const walletQuery = useQuery({
-    queryKey: ["billetera", "total", validUserId],
+    queryKey: ["billetera", "total", validUserId, orgId],
     queryFn: async () => {
-      // Available balance = CREDITO_ENTREGA (deliveries) − PAGO_TIENDA (admin payments to store)
-      // CREDITO_ENTREGA records are auto-created by DB trigger on pedido estado change.
-      // Using the transactions table ensures consistency with BilleteraRetirosView.
+      // Available balance = CREDITO_ENTREGA − PAGO_TIENDA − withdrawals
+      // All queries include organizacion_id for multi-tenant RLS compliance
       const [creditosRes, pagosRes, withdrawalsRes] = await Promise.all([
         supabase
           .from("transacciones_billetera")
           .select("monto")
           .eq("client_user_id", validUserId!)
+          .eq("organizacion_id", orgId!)
           .eq("tipo", "CREDITO_ENTREGA"),
         supabase
           .from("transacciones_billetera")
           .select("monto")
           .eq("client_user_id", validUserId!)
+          .eq("organizacion_id", orgId!)
           .eq("tipo", "PAGO_TIENDA"),
         supabase
           .from("withdrawal_requests")
@@ -127,7 +129,7 @@ const ClienteDashboard = () => {
 
       return Math.max(0, totalCreditos - totalPagado - totalRetirado);
     },
-    enabled: !!validUserId,
+    enabled: !!validUserId && !!orgId,
     staleTime: 2 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: false,

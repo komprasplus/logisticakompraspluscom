@@ -72,10 +72,10 @@ const AdminStatusEditor = ({ pedidoId, currentStatus, onStatusChange }: AdminSta
         minute: "2-digit"
       })} - Admin cambió estado de "${currentStatus}" a "${newStatus}". Motivo: ${motivo.trim()}`;
 
-      // Update the order status and add system comment to observaciones
+      // Fetch current order data including organizacion_id for multi-tenant compliance
       const { data: currentOrder, error: fetchError } = await supabase
         .from("pedidos")
-        .select("observaciones")
+        .select("observaciones, organizacion_id")
         .eq("id", pedidoId)
         .single();
 
@@ -107,7 +107,7 @@ const AdminStatusEditor = ({ pedidoId, currentStatus, onStatusChange }: AdminSta
 
       if (updateError) throw updateError;
 
-      // Log the status change for audit
+      // Log the status change for audit (include organizacion_id for RLS)
       const { error: logError } = await supabase
         .from("pedido_status_logs")
         .insert({
@@ -117,6 +117,7 @@ const AdminStatusEditor = ({ pedidoId, currentStatus, onStatusChange }: AdminSta
           usuario_id: user?.id,
           usuario_nombre: profile?.full_name || "Administrador",
           motivo: motivo.trim(),
+          organizacion_id: currentOrder?.organizacion_id ?? profile?.organizacion_id,
         });
 
       if (logError) {
