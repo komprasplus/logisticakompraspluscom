@@ -150,7 +150,7 @@ interface WithdrawalRequest {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const BilleteraRetirosView = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
   const userId = user?.id;
 
@@ -178,23 +178,25 @@ const BilleteraRetirosView = () => {
 
   // ── Queries ───────────────────────────────────────────────────────────────
 
+  const orgId = profile?.organizacion_id;
+
   const balanceQuery = useQuery({
-    queryKey: ["wallet-balance", userId],
+    queryKey: ["wallet-balance", userId, orgId],
     queryFn: async () => {
       // Source of truth: transacciones_billetera
-      //   CREDITO_ENTREGA = money earned from each delivered order (inserted by trigger)
-      //   PAGO_TIENDA     = payments admin has already sent to the store
-      // Available = Total Credits − Total Paid − Approved Withdrawals − Pending Withdrawals
+      // All queries include organizacion_id for multi-tenant RLS compliance
       const [creditosRes, pagosRes, withdrawalsRes, pendingWRes] = await Promise.all([
         supabase
           .from("transacciones_billetera")
           .select("monto")
           .eq("client_user_id", userId!)
+          .eq("organizacion_id", orgId!)
           .eq("tipo", "CREDITO_ENTREGA"),
         supabase
           .from("transacciones_billetera")
           .select("monto")
           .eq("client_user_id", userId!)
+          .eq("organizacion_id", orgId!)
           .eq("tipo", "PAGO_TIENDA"),
         supabase
           .from("withdrawal_requests")
@@ -223,9 +225,9 @@ const BilleteraRetirosView = () => {
       const available = Math.max(0, totalCreditos - totalPagado - totalWithdrawn - totalPending);
       return { available, totalPending };
     },
-    enabled: !!userId,
+    enabled: !!userId && !!orgId,
     staleTime: 60_000,
-    refetchInterval: 2 * 60_000, // auto-refresh every 2 min
+    refetchInterval: 2 * 60_000,
   });
 
   const methodsQuery = useQuery({
