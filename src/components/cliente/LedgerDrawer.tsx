@@ -40,6 +40,14 @@ const fmtDate = (iso: string) =>
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+interface TxMetadata {
+  valor_recaudar?: number;
+  valor_flete?: number;
+  valor_producto?: number;
+  utilidad?: number;
+  [key: string]: unknown;
+}
+
 interface Transaccion {
   id: string;
   tipo: string;
@@ -49,6 +57,7 @@ interface Transaccion {
   comprobante_url: string | null;
   created_at: string;
   pedido_id: number | null;
+  metadata: TxMetadata | null;
 }
 
 interface LedgerDrawerProps {
@@ -104,7 +113,7 @@ const LedgerDrawer = ({ isOpen, onClose }: LedgerDrawerProps) => {
       const { data, error, count } = await supabase
         .from("transacciones_billetera")
         .select(
-          "id, tipo, monto, concepto, notas, comprobante_url, created_at, pedido_id",
+          "id, tipo, monto, concepto, notas, comprobante_url, created_at, pedido_id, metadata",
           { count: "exact" }
         )
         .eq("client_user_id", user.id)
@@ -120,7 +129,7 @@ const LedgerDrawer = ({ isOpen, onClose }: LedgerDrawerProps) => {
         return;
       }
 
-      setTxs(data ?? []);
+      setTxs((data as unknown as Transaccion[]) ?? []);
       setTotalCount(count ?? 0);
     },
     [user?.id, profile?.organizacion_id]
@@ -280,6 +289,14 @@ const LedgerDrawer = ({ isOpen, onClose }: LedgerDrawerProps) => {
                           >
                             {concepto}
                           </p>
+                          {/* Desglose de utilidad */}
+                          {isCredito && tx.metadata && typeof tx.metadata === 'object' && tx.metadata.valor_recaudar != null && (
+                            <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                              <span>Recaudo: {formatCOP(tx.metadata.valor_recaudar ?? 0)}</span>
+                              <span>- Envío: {formatCOP(tx.metadata.valor_flete ?? 0)}</span>
+                              <span>- Producto: {formatCOP(tx.metadata.valor_producto ?? 0)}</span>
+                            </div>
+                          )}
                           {tx.notas && (
                             <p
                               className="text-xs text-muted-foreground truncate"
