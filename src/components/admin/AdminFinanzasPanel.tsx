@@ -233,6 +233,7 @@ const AdminFinanzasPanel = () => {
       return;
     }
 
+    // Bold template exact headers — "Transferencias ACH y Bold" sheet
     const header = [
       "Tipo de documento del destinatario",
       "Número de documento del destinatario",
@@ -255,7 +256,7 @@ const AdminFinanzasPanel = () => {
         escapeCSV(m.account_type ?? "Cuenta de ahorros"),
         escapeCSV(m.account_number ?? ""),
         String(Math.round(w.amount)),
-        escapeCSV(w.id),
+        escapeCSV(w.id.slice(0, 50)),
         escapeCSV("Pago Plus Envios"),
       ].join(",");
     });

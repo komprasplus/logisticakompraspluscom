@@ -45,6 +45,7 @@ import { es } from "date-fns/locale";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// Bold-official bank list — exact names from Bold dispersal template (Parámetros sheet)
 const BOLD_BANKS = [
   "Bold CF",
   "Bancamia S.A.",
@@ -78,37 +79,44 @@ const BOLD_BANKS = [
   "Coink",
   "Coltefinanciera",
   "Confiar Cooperativa Financiera",
+  "CREDIFAMILA",
   "Crezcamos S.A. Compañía de Financiamiento",
+  "DAVIBank S.A.",
   "Daviplata",
   "Ding Tecnipagos SA",
   "GLOBAL66",
   "Iris",
+  "Itaú*",
   "JFK Cooperativa Financiera",
+  "KOA C.F",
   "Lulo Bank",
   "Movii SA",
   "Nequi",
   "NU",
   "Pibank",
   "Powwi",
+  "PYCASH",
   "Rappipay",
+  "Ria Money Transfer",
   "Santander Consumer",
-  "Scotiabank Colpatria",
   "Uala",
 ];
 
+// Bold-official doc types — exact values from Bold template
 const DOC_TYPES = [
-  { value: "CEDULA", label: "Cédula de Ciudadanía" },
+  { value: "CEDULA", label: "Cédula de Ciudadanía (CC)" },
   { value: "NIT", label: "NIT" },
-  { value: "CEDULA_EXTRANJERIA", label: "Cédula de Extranjería" },
-  { value: "PASAPORTE", label: "Pasaporte" },
-  { value: "PPT", label: "PPT" },
+  { value: "CEDULA_EXTRANJERIA", label: "Cédula de Extranjería (CE)" },
+  { value: "PASAPORTE", label: "Pasaporte (PP)" },
   { value: "REGISTRO_CIVIL", label: "Registro Civil" },
+  { value: "PPT", label: "PPT" },
 ];
 
+// Bold-official account types — stored exactly as Bold expects in CSV
 const ACCOUNT_TYPES = [
-  { value: "Ahorros", label: "Cuenta de ahorros" },
-  { value: "Corriente", label: "Cuenta corriente" },
-  { value: "Deposito electronico", label: "Depósito electrónico" },
+  { value: "Cuenta de ahorros", label: "Cuenta de ahorros" },
+  { value: "Cuenta corriente", label: "Cuenta corriente" },
+  { value: "Depósito electrónico", label: "Depósito electrónico" },
 ];
 
 const formatCOP = new Intl.NumberFormat("es-CO", {
