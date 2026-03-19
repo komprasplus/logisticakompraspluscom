@@ -106,9 +106,9 @@ const DOC_TYPES = [
 ];
 
 const ACCOUNT_TYPES = [
-  "Cuenta de ahorros",
-  "Cuenta corriente",
-  "Depósito electrónico",
+  { value: "Ahorros", label: "Cuenta de ahorros" },
+  { value: "Corriente", label: "Cuenta corriente" },
+  { value: "Deposito electronico", label: "Depósito electrónico" },
 ];
 
 const formatCOP = new Intl.NumberFormat("es-CO", {
