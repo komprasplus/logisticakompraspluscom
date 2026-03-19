@@ -100,7 +100,8 @@ const formatDate = (iso: string) => {
 const getMethodLabel = (m: PaymentMethodRow | undefined) => {
   if (!m) return "—";
   if (m.payment_mode === "BANK_ACCOUNT" || m.method_type === "bank") {
-    return `${m.bank_name ?? "—"} · ${m.account_type ?? ""} · ****${(m.account_number ?? "").slice(-4)}`;
+    const acctShort = (m.account_number ?? "").slice(-4);
+    return `${m.bank_name ?? "—"} · ${m.account_type ?? ""} · ****${acctShort}`;
   }
   return `Llave · ${m.bre_b_key ?? "—"}`;
 };
