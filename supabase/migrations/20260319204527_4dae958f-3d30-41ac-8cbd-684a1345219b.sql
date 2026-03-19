@@ -1,0 +1,1 @@
+ALTER TABLE public.user_payment_methods DROP CONSTRAINT user_payment_methods_account_type_check;
