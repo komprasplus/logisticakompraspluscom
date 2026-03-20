@@ -24,3 +24,6 @@ verify_jwt = false
 [functions.recalcular-billeteras]
 verify_jwt = false
 
+[functions.receive-webhook]
+verify_jwt = false
+

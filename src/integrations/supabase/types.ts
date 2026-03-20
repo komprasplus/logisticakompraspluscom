@@ -963,6 +963,33 @@ export type Database = {
           },
         ]
       }
+      webhook_logs_incoming: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          payload: Json
+          processing_status: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          processing_status?: string
+          source?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          processing_status?: string
+          source?: string
+        }
+        Relationships: []
+      }
       withdrawal_requests: {
         Row: {
           admin_notes: string | null

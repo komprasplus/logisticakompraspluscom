@@ -67,6 +67,7 @@ import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
 import IntegrationsPanel from "@/components/admin/IntegrationsPanel";
 import AdminFinanzasPanel from "@/components/admin/AdminFinanzasPanel";
 import MonitorFlexPanel from "@/components/admin/MonitorFlexPanel";
+const WebhookMonitorDashboard = lazy(() => import("@/components/admin/WebhookMonitorDashboard"));
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
@@ -1527,6 +1528,15 @@ const AdminDashboard = () => {
               </Button>
             </div>
             <MonitorFlexPanel />
+          </motion.div>
+        );
+
+      case "webhook-monitor":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              <WebhookMonitorDashboard />
+            </Suspense>
           </motion.div>
         );
 
