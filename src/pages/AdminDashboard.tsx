@@ -67,6 +67,7 @@ import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
 import IntegrationsPanel from "@/components/admin/IntegrationsPanel";
 import AdminFinanzasPanel from "@/components/admin/AdminFinanzasPanel";
 import MonitorFlexPanel from "@/components/admin/MonitorFlexPanel";
+const WebhookMonitorDashboard = lazy(() => import("@/components/admin/WebhookMonitorDashboard"));
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
