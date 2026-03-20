@@ -162,6 +162,14 @@ const menuItems = [
     colorClass: "from-amber-500 to-yellow-500",
     accentColor: "bg-amber-500/10"
   },
+  {
+    id: "webhook-monitor",
+    label: "Webhook Monitor",
+    icon: Satellite,
+    description: "Shadow Layer entrante",
+    colorClass: "from-violet-500 to-purple-600",
+    accentColor: "bg-violet-500/10"
+  },
 ];
 
 const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, userRole }: AdminSidebarProps) => {
