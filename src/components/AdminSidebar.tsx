@@ -16,6 +16,7 @@ import {
   Key,
   Zap,
   ShieldCheck,
+  Satellite,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
