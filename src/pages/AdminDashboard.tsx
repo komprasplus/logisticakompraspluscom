@@ -1531,6 +1531,15 @@ const AdminDashboard = () => {
           </motion.div>
         );
 
+      case "webhook-monitor":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              <WebhookMonitorDashboard />
+            </Suspense>
+          </motion.div>
+        );
+
       case "super-admin":
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
