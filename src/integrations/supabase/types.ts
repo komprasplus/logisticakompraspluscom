@@ -722,6 +722,39 @@ export type Database = {
           },
         ]
       }
+      reconciliation_batches: {
+        Row: {
+          created_at: string
+          failed_records: number
+          filename: string
+          id: string
+          organizacion_id: string | null
+          successful_records: number
+          total_records: number
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          failed_records?: number
+          filename: string
+          id?: string
+          organizacion_id?: string | null
+          successful_records?: number
+          total_records?: number
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          failed_records?: number
+          filename?: string
+          id?: string
+          organizacion_id?: string | null
+          successful_records?: number
+          total_records?: number
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       state_mappings: {
         Row: {
           created_at: string | null
@@ -820,6 +853,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean
+          message: string
+          metadata: Json | null
+          organizacion_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message: string
+          metadata?: Json | null
+          organizacion_id?: string | null
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          message?: string
+          metadata?: Json | null
+          organizacion_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_payment_methods: {
         Row: {
@@ -1069,6 +1135,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      process_bold_reconciliation: {
+        Args: { p_filename: string; p_records: Json }
+        Returns: Json
+      }
       recalcular_billeteras_faltantes: {
         Args: { p_desde_fecha?: string; p_dry_run?: boolean }
         Returns: Json
