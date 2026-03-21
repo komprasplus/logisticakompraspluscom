@@ -28,6 +28,7 @@ import LedgerDrawer from "@/components/cliente/LedgerDrawer";
 import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { AnimatePresence } from "framer-motion";
+import NotificationBanner from "@/components/NotificationBanner";
 
 interface Pedido {
   id: number;
