@@ -1510,6 +1510,9 @@ const AdminDashboard = () => {
       case "finanzas":
         return <AdminFinanzasPanel />;
 
+      case "admin-wallet":
+        return <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}><AdminWalletDashboard /></Suspense>;
+
       case "integraciones":
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">

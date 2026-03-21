@@ -148,6 +148,14 @@ const menuItems = [
     accentColor: "bg-emerald-500/10"
   },
   {
+    id: "admin-wallet",
+    label: "Billetera Admin",
+    icon: Wallet,
+    description: "Rentabilidad por envío",
+    colorClass: "from-teal-500 to-cyan-600",
+    accentColor: "bg-teal-500/10"
+  },
+  {
     id: "integraciones", 
     label: "API & Integraciones", 
     icon: Key,
