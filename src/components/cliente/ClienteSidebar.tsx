@@ -13,6 +13,7 @@ import {
   Wallet,
   Book,
   ArrowUpRight,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
