@@ -41,6 +41,44 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_wallet_ledger: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          organizacion_id: string | null
+          pedido_id: number | null
+          transaction_type: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          organizacion_id?: string | null
+          pedido_id?: number | null
+          transaction_type?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          organizacion_id?: string | null
+          pedido_id?: number | null
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_wallet_ledger_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       api_credentials: {
         Row: {
           api_key_hash: string
