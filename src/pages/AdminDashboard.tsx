@@ -66,6 +66,7 @@ import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
  import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
 import IntegrationsPanel from "@/components/admin/IntegrationsPanel";
 import AdminFinanzasPanel from "@/components/admin/AdminFinanzasPanel";
+const AdminWalletDashboard = lazy(() => import("@/components/admin/AdminWalletDashboard"));
 import MonitorFlexPanel from "@/components/admin/MonitorFlexPanel";
 const WebhookMonitorDashboard = lazy(() => import("@/components/admin/WebhookMonitorDashboard"));
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
