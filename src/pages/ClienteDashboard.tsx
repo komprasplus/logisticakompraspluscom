@@ -25,6 +25,7 @@ import InventarioView from "@/components/cliente/InventarioView";
 import HistorialTransaccionesView from "@/components/cliente/HistorialTransaccionesView";
 import BilleteraRetirosView from "@/components/cliente/BilleteraRetirosView";
 import LedgerDrawer from "@/components/cliente/LedgerDrawer";
+import P2PTransferWidget from "@/components/cliente/P2PTransferWidget";
 import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { AnimatePresence } from "framer-motion";
