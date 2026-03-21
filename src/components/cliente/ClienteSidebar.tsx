@@ -30,6 +30,7 @@ export type ClienteView =
   | "inventario"
   | "billetera"
   | "retiros"
+  | "transferencias"
   | "docs";
 
 interface ClienteSidebarProps {
