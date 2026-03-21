@@ -12,6 +12,7 @@ import {
   Filter,
   Key,
 } from "lucide-react";
+import BoldReconciliationUploader from "./BoldReconciliationUploader";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
@@ -402,6 +403,9 @@ const AdminFinanzasPanel = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Bold Reconciliation Uploader */}
+      <BoldReconciliationUploader />
 
       {/* Filters */}
       <div className="flex items-center gap-3">
