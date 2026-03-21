@@ -350,6 +350,18 @@ const ClienteDashboard = () => {
             {activeView === "retiros" && (
               <BilleteraRetirosView key="retiros" />
             )}
+
+            {activeView === "transferencias" && (
+              <motion.div
+                key="transferencias"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="max-w-md mx-auto"
+              >
+                <P2PTransferWidget />
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </main>

@@ -127,6 +127,13 @@ const navItems = [
     shadow: "shadow-emerald-500/30",
   },
   {
+    key: "transferencias" as ClienteView,
+    label: "Transferir",
+    icon: Send,
+    gradient: "from-violet-500 to-violet-600",
+    shadow: "shadow-violet-500/30",
+  },
+  {
     key: "integraciones" as ClienteView,
     label: "Integraciones",
     icon: Plug,
