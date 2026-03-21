@@ -17,6 +17,7 @@ import {
   Zap,
   ShieldCheck,
   Satellite,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
