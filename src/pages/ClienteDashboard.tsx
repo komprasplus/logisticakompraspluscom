@@ -221,6 +221,7 @@ const ClienteDashboard = () => {
         }`}
       >
         <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+          <NotificationBanner />
           {/* Warehouse Status + Action Buttons */}
           <div className="mb-6 flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
