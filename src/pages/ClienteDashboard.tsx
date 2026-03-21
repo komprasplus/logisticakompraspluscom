@@ -25,6 +25,7 @@ import InventarioView from "@/components/cliente/InventarioView";
 import HistorialTransaccionesView from "@/components/cliente/HistorialTransaccionesView";
 import BilleteraRetirosView from "@/components/cliente/BilleteraRetirosView";
 import LedgerDrawer from "@/components/cliente/LedgerDrawer";
+import P2PTransferWidget from "@/components/cliente/P2PTransferWidget";
 import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { AnimatePresence } from "framer-motion";
@@ -101,9 +102,9 @@ const ClienteDashboard = () => {
   const walletQuery = useQuery({
     queryKey: ["billetera", "total", validUserId, orgId],
     queryFn: async () => {
-      // Available balance = CREDITO_ENTREGA − PAGO_TIENDA − withdrawals
+      // Available balance = CREDITO_ENTREGA + TRANSFER_IN − PAGO_TIENDA − TRANSFER_OUT − withdrawals
       // All queries include organizacion_id for multi-tenant RLS compliance
-      const [creditosRes, pagosRes, withdrawalsRes] = await Promise.all([
+      const [creditosRes, pagosRes, withdrawalsRes, transfersInRes, transfersOutRes] = await Promise.all([
         supabase
           .from("transacciones_billetera")
           .select("monto")
@@ -121,14 +122,28 @@ const ClienteDashboard = () => {
           .select("amount")
           .eq("user_id", validUserId!)
           .in("status", ["Approved", "Pending"]),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", validUserId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "TRANSFER_IN"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", validUserId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "TRANSFER_OUT"),
       ]);
       if (creditosRes.error) throw creditosRes.error;
 
       const totalCreditos = (creditosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
       const totalPagado   = (pagosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
       const totalRetirado = (withdrawalsRes.data ?? []).reduce((sum, w) => sum + (w.amount ?? 0), 0);
+      const totalTransIn  = (transfersInRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalTransOut = (transfersOutRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
 
-      return Math.max(0, totalCreditos - totalPagado - totalRetirado);
+      return Math.max(0, totalCreditos + totalTransIn - totalPagado - totalRetirado - totalTransOut);
     },
     enabled: !!validUserId && !!orgId,
     staleTime: 2 * 60 * 1000,
@@ -348,6 +363,18 @@ const ClienteDashboard = () => {
 
             {activeView === "retiros" && (
               <BilleteraRetirosView key="retiros" />
+            )}
+
+            {activeView === "transferencias" && (
+              <motion.div
+                key="transferencias"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="max-w-md mx-auto"
+              >
+                <P2PTransferWidget />
+              </motion.div>
             )}
           </AnimatePresence>
         </div>

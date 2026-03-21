@@ -13,6 +13,7 @@ import {
   Wallet,
   Book,
   ArrowUpRight,
+  Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +30,7 @@ export type ClienteView =
   | "inventario"
   | "billetera"
   | "retiros"
+  | "transferencias"
   | "docs";
 
 interface ClienteSidebarProps {
@@ -123,6 +125,13 @@ const navItems = [
     icon: ArrowUpRight,
     gradient: "from-emerald-500 to-teal-600",
     shadow: "shadow-emerald-500/30",
+  },
+  {
+    key: "transferencias" as ClienteView,
+    label: "Transferir",
+    icon: Send,
+    gradient: "from-violet-500 to-violet-600",
+    shadow: "shadow-violet-500/30",
   },
   {
     key: "integraciones" as ClienteView,
