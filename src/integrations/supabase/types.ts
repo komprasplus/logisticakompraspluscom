@@ -704,6 +704,7 @@ export type Database = {
           phone: string | null
           status: string
           store_name: string | null
+          transaction_pin: string | null
           updated_at: string
           user_id: string
           vehicle_plate: string | null
@@ -725,6 +726,7 @@ export type Database = {
           phone?: string | null
           status?: string
           store_name?: string | null
+          transaction_pin?: string | null
           updated_at?: string
           user_id: string
           vehicle_plate?: string | null
@@ -746,6 +748,7 @@ export type Database = {
           phone?: string | null
           status?: string
           store_name?: string | null
+          transaction_pin?: string | null
           updated_at?: string
           user_id?: string
           vehicle_plate?: string | null
@@ -1179,6 +1182,15 @@ export type Database = {
       }
       recalcular_billeteras_faltantes: {
         Args: { p_desde_fecha?: string; p_dry_run?: boolean }
+        Returns: Json
+      }
+      transfer_store_balance: {
+        Args: {
+          p_provided_pin: string
+          p_receiver_email: string
+          p_sender_id: string
+          p_transfer_amount: number
+        }
         Returns: Json
       }
     }
