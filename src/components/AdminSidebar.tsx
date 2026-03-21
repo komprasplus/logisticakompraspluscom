@@ -17,6 +17,7 @@ import {
   Zap,
   ShieldCheck,
   Satellite,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -145,6 +146,14 @@ const menuItems = [
     description: "Retiros y pagos a tiendas",
     colorClass: "from-emerald-500 to-green-600",
     accentColor: "bg-emerald-500/10"
+  },
+  {
+    id: "admin-wallet",
+    label: "Billetera Admin",
+    icon: Wallet,
+    description: "Rentabilidad por envío",
+    colorClass: "from-teal-500 to-cyan-600",
+    accentColor: "bg-teal-500/10"
   },
   {
     id: "integraciones", 

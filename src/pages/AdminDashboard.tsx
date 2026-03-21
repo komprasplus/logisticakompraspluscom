@@ -66,6 +66,7 @@ import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
  import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
 import IntegrationsPanel from "@/components/admin/IntegrationsPanel";
 import AdminFinanzasPanel from "@/components/admin/AdminFinanzasPanel";
+const AdminWalletDashboard = lazy(() => import("@/components/admin/AdminWalletDashboard"));
 import MonitorFlexPanel from "@/components/admin/MonitorFlexPanel";
 const WebhookMonitorDashboard = lazy(() => import("@/components/admin/WebhookMonitorDashboard"));
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
@@ -1508,6 +1509,9 @@ const AdminDashboard = () => {
 
       case "finanzas":
         return <AdminFinanzasPanel />;
+
+      case "admin-wallet":
+        return <Suspense fallback={<div className="flex justify-center py-20"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}><AdminWalletDashboard /></Suspense>;
 
       case "integraciones":
         return (
