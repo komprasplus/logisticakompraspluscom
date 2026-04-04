@@ -258,7 +258,7 @@ const LedgerDrawer = ({ isOpen, onClose }: LedgerDrawerProps) => {
               ) : (
                 <div className="space-y-2">
                   {txs.map((tx) => {
-                    const isCredito = tx.tipo === "CREDITO_ENTREGA";
+                    const isCredito = !isDebitType(tx.tipo);
                     const concepto = buildConcepto(tx);
 
                     return (
