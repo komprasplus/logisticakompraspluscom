@@ -47,7 +47,7 @@ interface MotorizadoProfile {
 const SUPPORT_PHONE = "324 222 3825";
 const SUPPORT_PHONE_CLEAN = "3242223825";
 const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
-const GOOGLE_MAPS_API_KEY = "AIzaSyDvV2fL5jv0OIp45Si4m4-gaWSt9gIXznA";
+
 
 const PublicTracking = () => {
   const { id_guia } = useParams<{ id_guia: string }>();
