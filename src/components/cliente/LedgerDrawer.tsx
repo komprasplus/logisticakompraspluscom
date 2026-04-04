@@ -67,22 +67,32 @@ interface LedgerDrawerProps {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+const isDebitType = (tipo: string) =>
+  tipo === "PAGO_TIENDA" || tipo === "TRANSFER_OUT" || tipo === "DEBITO_DEVOLUCION";
+
 const TipoBadge = ({ tipo }: { tipo: string }) => {
-  const isCredito = tipo === "CREDITO_ENTREGA";
+  const isDebito = isDebitType(tipo);
+  const label =
+    tipo === "CREDITO_ENTREGA" ? "Ingreso"
+    : tipo === "TRANSFER_IN" ? "Transferencia"
+    : tipo === "DEBITO_DEVOLUCION" ? "Devolución"
+    : tipo === "TRANSFER_OUT" ? "Envío P2P"
+    : "Débito";
+
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ${
-        isCredito
-          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-          : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+        isDebito
+          ? "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+          : "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
       }`}
     >
-      {isCredito ? (
-        <ArrowDownCircle className="h-3 w-3" aria-hidden />
-      ) : (
+      {isDebito ? (
         <ArrowUpCircle className="h-3 w-3" aria-hidden />
+      ) : (
+        <ArrowDownCircle className="h-3 w-3" aria-hidden />
       )}
-      {isCredito ? "Ingreso" : "Débito"}
+      {label}
     </span>
   );
 };

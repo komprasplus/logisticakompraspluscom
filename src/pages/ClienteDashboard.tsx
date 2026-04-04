@@ -104,7 +104,7 @@ const ClienteDashboard = () => {
     queryFn: async () => {
       // Available balance = CREDITO_ENTREGA + TRANSFER_IN − PAGO_TIENDA − TRANSFER_OUT − withdrawals
       // All queries include organizacion_id for multi-tenant RLS compliance
-      const [creditosRes, pagosRes, withdrawalsRes, transfersInRes, transfersOutRes] = await Promise.all([
+      const [creditosRes, pagosRes, withdrawalsRes, transfersInRes, transfersOutRes, debitosDevRes] = await Promise.all([
         supabase
           .from("transacciones_billetera")
           .select("monto")
@@ -134,6 +134,12 @@ const ClienteDashboard = () => {
           .eq("client_user_id", validUserId!)
           .eq("organizacion_id", orgId!)
           .eq("tipo", "TRANSFER_OUT"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", validUserId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "DEBITO_DEVOLUCION"),
       ]);
       if (creditosRes.error) throw creditosRes.error;
 
@@ -142,8 +148,9 @@ const ClienteDashboard = () => {
       const totalRetirado = (withdrawalsRes.data ?? []).reduce((sum, w) => sum + (w.amount ?? 0), 0);
       const totalTransIn  = (transfersInRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
       const totalTransOut = (transfersOutRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalDebitosDev = (debitosDevRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
 
-      return Math.max(0, totalCreditos + totalTransIn - totalPagado - totalRetirado - totalTransOut);
+      return Math.max(0, totalCreditos + totalTransIn - totalPagado - totalRetirado - totalTransOut - totalDebitosDev);
     },
     enabled: !!validUserId && !!orgId,
     staleTime: 2 * 60 * 1000,
