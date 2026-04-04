@@ -478,19 +478,18 @@ const PublicTracking = () => {
                   </motion.div>
                 )}
 
-                {/* Static Map when En Ruta */}
-                {(getStatusInfo(orderResult.estado).step === 3) && orderResult.latitud && orderResult.longitud && (
+                {/* Live GPS Map when En Ruta */}
+                {(getStatusInfo(orderResult.estado).step === 3) && orderResult.numero_guia && (
                   <motion.div
-                    className="mt-6 rounded-xl overflow-hidden border border-border"
+                    className="mt-6"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 1.2 }}
                   >
-                    <img
-                      src={`https://maps.googleapis.com/maps/api/staticmap?center=${orderResult.latitud},${orderResult.longitud}&zoom=14&size=600x200&scale=2&markers=color:red%7C${orderResult.latitud},${orderResult.longitud}&key=${GOOGLE_MAPS_API_KEY}`}
-                      alt="Ubicación de entrega"
-                      className="w-full h-40 sm:h-48 object-cover"
-                      loading="lazy"
+                    <WebhookLiveMap
+                      numeroGuia={orderResult.numero_guia}
+                      fallbackLat={orderResult.latitud}
+                      fallbackLng={orderResult.longitud}
                     />
                   </motion.div>
                 )}
