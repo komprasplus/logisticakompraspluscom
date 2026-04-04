@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
 import MotorizadoInfo from "@/components/MotorizadoInfo";
+import WebhookLiveMap from "@/components/WebhookLiveMap";
 
 interface Pedido {
   id: number;
