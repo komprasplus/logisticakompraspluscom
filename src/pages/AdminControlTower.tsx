@@ -244,6 +244,43 @@ const AdminControlTower = () => {
     };
     fetchCharts();
   }, [orgId]);
+  /* ── Supabase Realtime: Novedad alerts ── */
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+
+  useEffect(() => {
+    if (!orgId) return;
+    const channel = supabase
+      .channel("control-tower-alerts")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pedidos", filter: `organizacion_id=eq.${orgId}` },
+        (payload) => {
+          const newRow = payload.new as any;
+          const oldRow = payload.old as any;
+          const isNovedad = newRow.estado === "Novedad" && oldRow.estado !== "Novedad";
+          const isDevolucion = newRow.estado === "Devolución" && oldRow.estado !== "Devolución";
+
+          if (isNovedad || isDevolucion) {
+            const label = isNovedad ? "Novedad" : "Devolución";
+            toast.warning(`⚠️ Nueva ${label}: Guía #${newRow.numero_guia ?? newRow.id} requiere atención.`, { duration: 8000 });
+            if (!isMutedRef.current) {
+              playGlobalNotificationPing();
+            }
+          }
+
+          // Update sidebar if affected order is in active list
+          setActiveOrders((prev) =>
+            prev.map((o) => (o.id === newRow.id ? { ...o, estado: newRow.estado } : o))
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orgId]);
 
   return (
     <div className="min-h-screen bg-background">
