@@ -1,3 +1,39 @@
+import { useState, useEffect, useMemo } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { Loader2, MapPin } from "lucide-react";
+
+/* ─── Marker icon factory ─── */
+const statusColors: Record<string, string> = {
+  "En Ruta": "#0ea5e9",
+  Asignado: "#3b82f6",
+  Novedad: "#f97316",
+  "Recibido en Bodega": "#6366f1",
+};
+
+const createIcon = (color: string) =>
+  L.divIcon({
+    className: "",
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    html: `<div style="width:24px;height:24px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.3);"></div>`,
+  });
+
+/* ─── Types ─── */
+interface MapOrder {
+  id: number;
+  numero_guia: string | null;
+  estado: string | null;
+  cliente_nombre: string | null;
+  direccion_entrega: string | null;
+  latitud: number | null;
+  longitud: number | null;
+  motorizado_asignado: string | null;
+}
+
 type MockOrder = {
   id: number;
   trackingNumber: string;
@@ -43,6 +79,44 @@ const mockOrders: MockOrder[] = [
 ];
 
 const AdminControlTower = () => {
+  const { profile } = useAuth();
+  const orgId = profile?.organizacion_id;
+
+  /* ── Map deferred render (prevents react-leaflet hook crash on lazy load) ── */
+  const [mapReady, setMapReady] = useState(false);
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => setMapReady(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  /* ── Live orders with coordinates ── */
+  const [mapOrders, setMapOrders] = useState<MapOrder[]>([]);
+  const [mapLoading, setMapLoading] = useState(true);
+
+  useEffect(() => {
+    if (!orgId) return;
+    const fetchOrders = async () => {
+      setMapLoading(true);
+      const { data, error } = await supabase
+        .from("pedidos")
+        .select("id, numero_guia, estado, cliente_nombre, direccion_entrega, latitud, longitud, motorizado_asignado")
+        .eq("organizacion_id", orgId)
+        .in("estado", ["En Ruta", "Asignado", "Novedad", "Recibido en Bodega"])
+        .not("latitud", "is", null)
+        .not("longitud", "is", null)
+        .order("id", { ascending: false })
+        .limit(200);
+      if (!error && data) setMapOrders(data as MapOrder[]);
+      setMapLoading(false);
+    };
+    fetchOrders();
+  }, [orgId]);
+
+  const mapCenter = useMemo<[number, number]>(() => {
+    if (mapOrders.length > 0) return [mapOrders[0].latitud!, mapOrders[0].longitud!];
+    return [4.6097, -74.0817];
+  }, [mapOrders]);
+
   const totalOrders = mockOrders.length;
   const activeOrders = mockOrders.filter((order) => order.status !== "Entregado").length;
   const deliveredOrders = mockOrders.filter((order) => order.status === "Entregado").length;
@@ -137,14 +211,56 @@ const AdminControlTower = () => {
           </div>
 
           <div className="order-1 xl:order-2">
-            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-border bg-muted px-6 py-10 text-center shadow-sm xl:min-h-[calc(100vh-220px)]">
-              <div className="max-w-2xl">
-                <div className="text-3xl font-semibold leading-tight text-foreground sm:text-4xl xl:text-5xl">
-                  📍 MAPA INMERSIVO (Cargando...)
+            <div className="relative min-h-[420px] rounded-3xl border border-border bg-card shadow-sm overflow-hidden xl:min-h-[calc(100vh-220px)]">
+              {mapReady ? (
+                <MapContainer
+                  center={mapCenter}
+                  zoom={12}
+                  className="h-full w-full z-0"
+                  style={{ minHeight: "inherit" }}
+                  zoomControl={false}
+                >
+                  <TileLayer
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+                    url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  />
+                  {mapOrders.map((order) => (
+                    <Marker
+                      key={order.id}
+                      position={[order.latitud!, order.longitud!]}
+                      icon={createIcon(statusColors[order.estado ?? ""] ?? "#94a3b8")}
+                    >
+                      <Popup>
+                        <div className="text-xs space-y-1 min-w-[160px]">
+                          <p className="font-bold text-sm">#{order.numero_guia ?? order.id}</p>
+                          <p>{order.cliente_nombre ?? "Sin nombre"}</p>
+                          <p className="text-muted-foreground">{order.direccion_entrega ?? ""}</p>
+                          {order.motorizado_asignado && (
+                            <p className="font-medium pt-1">🏍️ {order.motorizado_asignado}</p>
+                          )}
+                        </div>
+                      </Popup>
+                    </Marker>
+                  ))}
+                </MapContainer>
+              ) : (
+                <div className="flex h-full min-h-[inherit] items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-                <div className="mt-4 text-sm text-muted-foreground sm:text-base">
-                  Contenedor seguro temporal para estabilizar el dashboard antes de reintegrar mapa y tiempo real.
-                </div>
+              )}
+              {/* Floating legend */}
+              <div className="absolute bottom-4 left-4 z-[500] flex gap-3 rounded-xl bg-card/90 backdrop-blur-sm px-4 py-2.5 shadow-lg border border-border text-[11px] font-medium">
+                {Object.entries(statusColors).map(([label, color]) => (
+                  <span key={label} className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full inline-block" style={{ background: color }} />
+                    <span className="text-foreground">{label}</span>
+                  </span>
+                ))}
+              </div>
+              {/* Order count badge */}
+              <div className="absolute top-4 right-4 z-[500] flex items-center gap-2 rounded-xl bg-card/90 backdrop-blur-sm px-3 py-2 shadow-lg border border-border">
+                <MapPin className="h-4 w-4 text-primary" />
+                <span className="text-sm font-semibold text-foreground">{mapOrders.length} en mapa</span>
               </div>
             </div>
           </div>
