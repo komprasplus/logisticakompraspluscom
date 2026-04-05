@@ -97,8 +97,23 @@ const AdminMapGoogle = ({
   } | null>(null);
   
   const animationFrameRef = useRef<number | null>(null);
+  const prevSelectedPedidoIdRef = useRef<number | null | undefined>(undefined);
 
   const isLiveView = selectedDate === null;
+
+  // FlyTo effect when selectedPedidoId changes
+  useEffect(() => {
+    if (!map || selectedPedidoId == null || selectedPedidoId === prevSelectedPedidoIdRef.current) return;
+    prevSelectedPedidoIdRef.current = selectedPedidoId;
+    const target = pedidos.find((p) => p.id === selectedPedidoId);
+    if (!target || !target.latitud || !target.longitud) return;
+    map.panTo({ lat: target.latitud, lng: target.longitud });
+    map.setZoom(16);
+    // Open the pedido's InfoWindow
+    setTimeout(() => {
+      setSelectedMarker({ type: "pedido", data: target });
+    }, 400);
+  }, [map, selectedPedidoId, pedidos]);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
