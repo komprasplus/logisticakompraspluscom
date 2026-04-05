@@ -14,6 +14,7 @@ import {
   Book,
   ArrowUpRight,
   Send,
+  ShoppingBag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ export type ClienteView =
   | "billetera"
   | "retiros"
   | "transferencias"
+  | "catalogo"
   | "docs";
 
 interface ClienteSidebarProps {
