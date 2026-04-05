@@ -193,7 +193,7 @@ InventoryCard.displayName = "InventoryCard";
 // ─── Panel principal ──────────────────────────────────────────────────────────
 
 const WarehouseInventoryPanel = () => {
-  const [activeTab, setActiveTab] = useState<"proveeduria" | "fulfillment">("proveeduria");
+  const [activeTab, setActiveTab] = useState<"proveeduria" | "fulfillment" | "marketplace">("proveeduria");
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [clientProfiles, setClientProfiles] = useState<Record<string, ClientProfile>>({});
   const [loading, setLoading] = useState(true);
