@@ -315,42 +315,40 @@ const PublicTracking = () => {
 
         // Map RPC result to local state
         const pedido: Pedido = {
-          id: 0, // not exposed publicly
-          numero_guia: data.numero_guia,
-          cliente_nombre: data.cliente_nombre,
-          direccion_entrega: data.direccion_entrega,
-          estado: data.estado,
-          motorizado_asignado: data.motorizado_nombre,
+          id: 0,
+          numero_guia: result.numero_guia,
+          cliente_nombre: result.cliente_nombre,
+          direccion_entrega: result.direccion_entrega,
+          estado: result.estado,
+          motorizado_asignado: result.motorizado_nombre,
           motorizado_id: null,
           client_user_id: null,
-          latitud: data.latitud,
-          longitud: data.longitud,
-          valor_recaudar: data.valor_recaudar,
-          metodo_pago: data.metodo_pago,
-          producto_nombre: data.producto_nombre,
-          quantity: data.quantity,
+          latitud: result.latitud,
+          longitud: result.longitud,
+          valor_recaudar: result.valor_recaudar,
+          metodo_pago: result.metodo_pago,
+          producto_nombre: result.producto_nombre,
+          quantity: result.quantity,
         };
         setOrder(pedido);
 
-        // Set store from RPC
         setStore({
-          store_name: data.store_name,
-          logo_url: data.store_logo,
+          store_name: result.store_name,
+          logo_url: result.store_logo,
         });
 
-        // Set driver from RPC
-        if (data.motorizado_nombre) {
+        if (result.motorizado_nombre) {
           const driverProfile: MotorizadoProfile = {
-            full_name: data.motorizado_nombre,
-            phone: data.motorizado_phone,
-            avatar_url: data.motorizado_avatar,
-            vehicle_plate: data.motorizado_placa,
-            last_location_lat: data.motorizado_lat,
-            last_location_lng: data.motorizado_lng,
+            full_name: result.motorizado_nombre,
+            phone: result.motorizado_phone,
+            avatar_url: result.motorizado_avatar,
+            vehicle_plate: result.motorizado_placa,
+            last_location_lat: result.motorizado_lat,
+            last_location_lng: result.motorizado_lng,
           };
           setDriver(driverProfile);
-          if (data.motorizado_lat && data.motorizado_lng) {
-            setDriverGps({ lat: data.motorizado_lat, lng: data.motorizado_lng });
+          if (result.motorizado_lat && result.motorizado_lng) {
+            setDriverGps({ lat: result.motorizado_lat, lng: result.motorizado_lng });
           }
         }
       } catch (err) {
