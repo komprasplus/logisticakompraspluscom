@@ -22,6 +22,7 @@ import DevolucionesView from "@/components/cliente/DevolucionesView";
 import IntegracionesView from "@/components/cliente/IntegracionesView";
 import ApiDocsView from "@/components/cliente/ApiDocsView";
 import InventarioView from "@/components/cliente/InventarioView";
+import MarketplaceCatalog from "@/components/cliente/MarketplaceCatalog";
 import HistorialTransaccionesView from "@/components/cliente/HistorialTransaccionesView";
 import BilleteraRetirosView from "@/components/cliente/BilleteraRetirosView";
 import LedgerDrawer from "@/components/cliente/LedgerDrawer";
@@ -63,6 +64,9 @@ const ClienteDashboard = () => {
   const [showLedger, setShowLedger] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
+  const [marketplacePrefill, setMarketplacePrefill] = useState<{
+    productName: string; sku: string; suggestedPrice: number; marketplaceProductId: string;
+  } | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
   const [printingPedido, setPrintingPedido] = useState<Pedido | null>(null);
@@ -364,6 +368,16 @@ const ClienteDashboard = () => {
               <InventarioView key="inventario" />
             )}
 
+            {activeView === "catalogo" && (
+              <MarketplaceCatalog
+                key="catalogo"
+                onGenerateOrder={(product) => {
+                  setMarketplacePrefill(product);
+                  setShowNuevoPedido(true);
+                }}
+              />
+            )}
+
             {activeView === "billetera" && (
               <HistorialTransaccionesView key="billetera" />
             )}
@@ -390,9 +404,35 @@ const ClienteDashboard = () => {
       {/* Modals */}
       <NuevoPedidoModal
         isOpen={showNuevoPedido}
-        onClose={() => setShowNuevoPedido(false)}
-        onSuccess={refetch}
+        onClose={() => {
+          setShowNuevoPedido(false);
+          setMarketplacePrefill(null);
+        }}
+        onSuccess={async () => {
+          // If this was a marketplace order, reserve stock
+          if (marketplacePrefill) {
+            try {
+              const { data, error } = await (supabase as any).rpc("marketplace_reserve_stock", {
+                p_product_id: marketplacePrefill.marketplaceProductId,
+                p_quantity: 1,
+              });
+              if (error) console.error("Stock reserve error:", error);
+              else if (data && !data.success) console.warn("Stock reserve warning:", data.error);
+            } catch (e) {
+              console.error("marketplace_reserve_stock failed:", e);
+            }
+            setMarketplacePrefill(null);
+          }
+          refetch();
+        }}
         isAdmin={false}
+        inventoryPrefill={marketplacePrefill ? {
+          inventoryItemId: marketplacePrefill.marketplaceProductId,
+          productName: marketplacePrefill.productName,
+          price: marketplacePrefill.suggestedPrice,
+          quantity: 1,
+          sku: marketplacePrefill.sku,
+        } : undefined}
       />
 
       <EditPedidoModal

@@ -11,7 +11,9 @@ import {
   Loader2,
   ImageOff,
   RefreshCw,
+  Tag,
 } from "lucide-react";
+import MarketplaceProductForm from "./MarketplaceProductForm";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -191,7 +193,7 @@ InventoryCard.displayName = "InventoryCard";
 // ─── Panel principal ──────────────────────────────────────────────────────────
 
 const WarehouseInventoryPanel = () => {
-  const [activeTab, setActiveTab] = useState<"proveeduria" | "fulfillment">("proveeduria");
+  const [activeTab, setActiveTab] = useState<"proveeduria" | "fulfillment" | "marketplace">("proveeduria");
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [clientProfiles, setClientProfiles] = useState<Record<string, ClientProfile>>({});
   const [loading, setLoading] = useState(true);
@@ -495,7 +497,7 @@ const WarehouseInventoryPanel = () => {
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "proveeduria" | "fulfillment")}>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "proveeduria" | "fulfillment" | "marketplace")}>
         <TabsList className="neu-flat border-0 p-1">
           <TabsTrigger value="proveeduria" className="gap-2 data-[state=active]:neu-pressed">
             <Warehouse className="h-4 w-4" />
@@ -504,6 +506,10 @@ const WarehouseInventoryPanel = () => {
           <TabsTrigger value="fulfillment" className="gap-2 data-[state=active]:neu-pressed">
             <Store className="h-4 w-4" />
             Fulfillment (Clientes)
+          </TabsTrigger>
+          <TabsTrigger value="marketplace" className="gap-2 data-[state=active]:neu-pressed">
+            <Tag className="h-4 w-4" />
+            Marketplace
           </TabsTrigger>
         </TabsList>
 
@@ -563,6 +569,11 @@ const WarehouseInventoryPanel = () => {
               </div>
             ))
           )}
+        </TabsContent>
+
+        {/* Tab: Marketplace */}
+        <TabsContent value="marketplace" className="mt-6">
+          <MarketplaceProductForm />
         </TabsContent>
       </Tabs>
 
