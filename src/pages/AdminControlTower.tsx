@@ -4,10 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus } from "lucide-react";
+import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote } from "lucide-react";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
+import { useMemo, useCallback } from "react";
 import {
   BarChart,
   Bar,
@@ -52,19 +54,24 @@ const kpiConfig = [
   { key: "total", label: "Total de guías", icon: Package, iconBg: "bg-primary/15 text-primary" },
   { key: "enRuta", label: "Operaciones activas", icon: Truck, iconBg: "bg-amber-500/15 text-amber-600" },
   { key: "entregados", label: "Entregas completadas", icon: CheckCircle2, iconBg: "bg-emerald-500/15 text-emerald-600" },
+  { key: "recaudoCalle", label: "Recaudo en calle", icon: Banknote, iconBg: "bg-violet-500/15 text-violet-600", isCurrency: true },
 ] as const;
 
 const AdminControlTower = () => {
   const { profile } = useAuth();
   const orgId = profile?.organizacion_id;
+  const navigate = useNavigate();
 
   /* ── KPI state ── */
-  const [kpis, setKpis] = useState<{ total: number; enRuta: number; entregados: number } | null>(null);
+  const [kpis, setKpis] = useState<{ total: number; enRuta: number; entregados: number; recaudoCalle: number } | null>(null);
   const [kpiLoading, setKpiLoading] = useState(true);
 
   /* ── Active orders for sidebar ── */
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+
+  /* ── Search ── */
+  const [searchQuery, setSearchQuery] = useState("");
 
   /* ── Chart data ── */
   const [volumeData, setVolumeData] = useState<DayVolume[]>([]);
@@ -78,17 +85,19 @@ const AdminControlTower = () => {
       try {
         const { data, error } = await supabase
           .from("pedidos")
-          .select("estado")
+          .select("estado, valor_recaudar")
           .eq("organizacion_id", orgId);
 
         if (error) throw error;
 
         const total = data?.length ?? 0;
-        const enRuta = data?.filter((p) => p.estado === "En Ruta").length ?? 0;
+        const enRutaRows = data?.filter((p) => p.estado === "En Ruta") ?? [];
+        const enRuta = enRutaRows.length;
         const entregados = data?.filter((p) => p.estado === "Entregado").length ?? 0;
-        setKpis({ total, enRuta, entregados });
+        const recaudoCalle = enRutaRows.reduce((sum, p) => sum + (p.valor_recaudar ?? 0), 0);
+        setKpis({ total, enRuta, entregados, recaudoCalle });
       } catch {
-        setKpis({ total: 0, enRuta: 0, entregados: 0 });
+        setKpis({ total: 0, enRuta: 0, entregados: 0, recaudoCalle: 0 });
       } finally {
         setKpiLoading(false);
       }
@@ -118,6 +127,35 @@ const AdminControlTower = () => {
     };
     fetchActiveOrders();
   }, [orgId]);
+
+  /* ── Filtered orders by search ── */
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) return activeOrders;
+    const q = searchQuery.toLowerCase();
+    return activeOrders.filter(
+      (o) =>
+        o.numero_guia?.toLowerCase().includes(q) ||
+        o.cliente_nombre?.toLowerCase().includes(q) ||
+        String(o.id).includes(q)
+    );
+  }, [activeOrders, searchQuery]);
+
+  /* ── CSV export ── */
+  const handleExport = useCallback(() => {
+    const rows = filteredOrders.length > 0 ? filteredOrders : activeOrders;
+    if (rows.length === 0) return;
+    const header = "ID,Guía,Cliente,Dirección,Estado,Motorizado,Valor Recaudar\n";
+    const csv = rows.map((o) =>
+      [o.id, o.numero_guia ?? "", o.cliente_nombre ?? "", `"${(o.direccion_entrega ?? "").replace(/"/g, '""')}"`, o.estado ?? "", o.motorizado_asignado ?? "", o.valor_recaudar ?? 0].join(",")
+    ).join("\n");
+    const blob = new Blob([header + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "reporte_plus_envios.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [filteredOrders, activeOrders]);
 
   /* ── Fetch chart data ── */
   useEffect(() => {
@@ -174,14 +212,16 @@ const AdminControlTower = () => {
             <Input
               placeholder="Buscar por # de guía o cliente..."
               className="pl-10 rounded-xl border-border bg-card shadow-sm h-11"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" className="rounded-xl gap-2 shadow-sm">
+            <Button variant="outline" className="rounded-xl gap-2 shadow-sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
               Exportar Reporte
             </Button>
-            <Button className="rounded-xl gap-2 shadow-sm">
+            <Button className="rounded-xl gap-2 shadow-sm" onClick={() => navigate("/admin")}>
               <Plus className="h-4 w-4" />
               Crear Guía
             </Button>
@@ -189,10 +229,11 @@ const AdminControlTower = () => {
         </div>
 
         {/* ── KPI Top Bar (REAL DATA) ── */}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           {kpiConfig.map((cfg) => {
             const Icon = cfg.icon;
             const value = kpis?.[cfg.key];
+            const isCurrency = "isCurrency" in cfg && cfg.isCurrency;
             return (
               <div key={cfg.key} className="flex items-center gap-4 rounded-3xl border border-border bg-card p-5 shadow-sm">
                 <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${cfg.iconBg}`}>
@@ -204,7 +245,7 @@ const AdminControlTower = () => {
                     <Skeleton className="mt-1 h-8 w-20" />
                   ) : (
                     <div className="mt-1 text-3xl font-semibold tracking-tight text-foreground">
-                      {(value ?? 0).toLocaleString()}
+                      {isCurrency ? formatCOP(value ?? 0) : (value ?? 0).toLocaleString()}
                     </div>
                   )}
                 </div>
@@ -225,7 +266,7 @@ const AdminControlTower = () => {
                   <div className="text-sm text-muted-foreground">Últimas 20 en operación</div>
                 </div>
                 <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-                  {ordersLoading ? "…" : activeOrders.length}
+                  {ordersLoading ? "…" : filteredOrders.length}
                 </div>
               </div>
 
@@ -236,14 +277,16 @@ const AdminControlTower = () => {
                       <Skeleton key={i} className="h-28 w-full rounded-2xl" />
                     ))}
                   </div>
-                ) : activeOrders.length === 0 ? (
+                ) : filteredOrders.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center">
                     <Inbox className="h-10 w-10 text-muted-foreground/40 mb-3" />
-                    <p className="text-sm font-medium text-muted-foreground">No hay órdenes activas en este momento.</p>
+                    <p className="text-sm font-medium text-muted-foreground">
+                      {searchQuery ? "No se encontraron resultados." : "No hay órdenes activas en este momento."}
+                    </p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {activeOrders.map((order) => {
+                    {filteredOrders.map((order) => {
                       const statusCfg = getStatusConfig(order.estado);
                       return (
                         <div key={order.id} className="rounded-2xl border border-border bg-background p-4 transition-transform duration-200 hover:-translate-y-0.5">
