@@ -54,7 +54,7 @@ const RoleSelector = forwardRef<HTMLDivElement>((_, ref) => {
                     Iniciar Sesión
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Motorizado, Cliente o Administrador
+                    Acceso para personal operativo y clientes
                   </p>
                 </div>
                 <div className="h-10 w-10 rounded-full neu-pressed flex items-center justify-center group-hover:bg-secondary transition-colors">

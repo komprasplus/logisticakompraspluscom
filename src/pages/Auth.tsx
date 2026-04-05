@@ -52,6 +52,9 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
       case "admin":
         navigate("/admin");
         break;
+      case "coordinador_rutas":
+        navigate("/admin");
+        break;
       case "motorizado":
         navigate("/motorizado");
         break;
