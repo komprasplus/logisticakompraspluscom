@@ -1,4 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from "react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 
@@ -79,6 +80,7 @@ const AdminControlTower = () => {
   /* ── Search ── */
   const [searchQuery, setSearchQuery] = useState("");
   const [isMapReady, setIsMapReady] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
   /* ── Chart data ── */
   const [volumeData, setVolumeData] = useState<DayVolume[]>([]);
@@ -302,7 +304,20 @@ const AdminControlTower = () => {
                     {filteredOrders.map((order) => {
                       const statusCfg = getStatusConfig(order.estado);
                       return (
-                        <div key={order.id} className="rounded-2xl border border-border bg-background p-4 transition-transform duration-200 hover:-translate-y-0.5">
+                        <div
+                          key={order.id}
+                          className={`rounded-2xl border p-4 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
+                            selectedOrderId === order.id
+                              ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                              : "border-border bg-background"
+                          }`}
+                          onClick={() => {
+                            if (!order.latitud || !order.longitud) {
+                              toast.warning("Ubicación GPS no disponible en este momento");
+                            }
+                            setSelectedOrderId(order.id);
+                          }}
+                        >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <div className="text-sm font-bold text-foreground truncate">
@@ -353,7 +368,8 @@ const AdminControlTower = () => {
                     <AdminMapGoogle
                       pedidos={activeOrders}
                       selectedDate={null}
-                      onPedidoClick={() => {}}
+                      onPedidoClick={(p) => setSelectedOrderId(p.id)}
+                      selectedPedidoId={selectedOrderId}
                     />
                   </Suspense>
                 </MapErrorBoundary>
