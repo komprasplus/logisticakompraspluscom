@@ -22,6 +22,7 @@ import DevolucionesView from "@/components/cliente/DevolucionesView";
 import IntegracionesView from "@/components/cliente/IntegracionesView";
 import ApiDocsView from "@/components/cliente/ApiDocsView";
 import InventarioView from "@/components/cliente/InventarioView";
+import MarketplaceCatalog from "@/components/cliente/MarketplaceCatalog";
 import HistorialTransaccionesView from "@/components/cliente/HistorialTransaccionesView";
 import BilleteraRetirosView from "@/components/cliente/BilleteraRetirosView";
 import LedgerDrawer from "@/components/cliente/LedgerDrawer";
@@ -63,6 +64,9 @@ const ClienteDashboard = () => {
   const [showLedger, setShowLedger] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
+  const [marketplacePrefill, setMarketplacePrefill] = useState<{
+    productName: string; sku: string; suggestedPrice: number; marketplaceProductId: string;
+  } | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
   const [printingPedido, setPrintingPedido] = useState<Pedido | null>(null);
