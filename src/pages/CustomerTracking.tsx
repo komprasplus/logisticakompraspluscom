@@ -44,39 +44,6 @@ const CustomerTracking = () => {
   const [error, setError] = useState("");
   const [isSearching, setIsSearching] = useState(false);
 
-  // Fetch motorizado profile when order changes
-  useEffect(() => {
-    const fetchMotorizadoProfile = async () => {
-      if (!orderResult?.motorizado_asignado) {
-        setMotorizadoProfile(null);
-        return;
-      }
-
-      // Only fetch if order is En Ruta or later
-      const status = orderResult.estado?.toLowerCase();
-      if (status !== "en ruta" && status !== "en camino" && status !== "entregado") {
-        setMotorizadoProfile(null);
-        return;
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("full_name, phone, avatar_url, vehicle_plate")
-          .eq("full_name", orderResult.motorizado_asignado)
-          .maybeSingle();
-
-        if (error) throw error;
-        setMotorizadoProfile(data);
-      } catch (err) {
-        console.error("Error fetching motorizado profile:", err);
-        setMotorizadoProfile(null);
-      }
-    };
-
-    fetchMotorizadoProfile();
-  }, [orderResult?.motorizado_asignado, orderResult?.estado]);
-
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
@@ -87,17 +54,34 @@ const CustomerTracking = () => {
     setMotorizadoProfile(null);
 
     try {
-      const { data, error: fetchError } = await supabase
-        .from("pedidos")
-        .select("*")
-        .ilike("numero_guia", `%${searchQuery.trim()}%`)
-        .limit(1)
-        .maybeSingle();
+      const { data, error: fetchError } = await supabase.rpc("get_public_tracking_info", {
+        search_tracking_number: searchQuery.trim(),
+      });
 
       if (fetchError) throw fetchError;
 
-      if (data) {
-        setOrderResult(data);
+      const result = data as any;
+      if (result?.found) {
+        setOrderResult({
+          id: 0,
+          numero_guia: result.numero_guia,
+          cliente_nombre: result.cliente_nombre,
+          direccion_entrega: result.direccion_entrega,
+          estado: result.estado,
+          corte_horario: null,
+          motorizado_asignado: result.motorizado_nombre,
+        });
+        if (result.motorizado_nombre) {
+          const s = result.estado?.toLowerCase();
+          if (s === "en ruta" || s === "en camino" || s === "entregado") {
+            setMotorizadoProfile({
+              full_name: result.motorizado_nombre,
+              phone: result.motorizado_phone,
+              avatar_url: result.motorizado_avatar,
+              vehicle_plate: result.motorizado_placa,
+            });
+          }
+        }
       } else {
         setError(
           "No encontramos tu guía, por favor verifica el número o comunícate con Plus Envíos al 324 222 3825"

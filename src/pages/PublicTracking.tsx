@@ -295,87 +295,114 @@ const PublicTracking = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [sheetExpanded, setSheetExpanded] = useState(true);
 
-  // ── Fetch order ──────────────────────────────────────
+  // ── Fetch order via secure RPC ───────────────────────
   useEffect(() => {
     if (!id_guia) { setError("Número de guía no proporcionado"); setIsLoading(false); return; }
 
-    const fetch = async () => {
+    const fetchTracking = async () => {
       try {
-        const { data, error: e } = await supabase
-          .from("pedidos")
-          .select("id, numero_guia, cliente_nombre, direccion_entrega, estado, motorizado_asignado, motorizado_id, client_user_id, latitud, longitud, valor_recaudar, metodo_pago, producto_nombre, quantity")
-          .ilike("numero_guia", `%${id_guia.trim()}%`)
-          .limit(1)
-          .maybeSingle();
+        const { data, error: e } = await supabase.rpc("get_public_tracking_info", {
+          search_tracking_number: id_guia.trim(),
+        });
 
         if (e) throw e;
-        if (data) setOrder(data);
-        else setError("No encontramos esta guía. Verifica el número.");
+
+        const result = data as any;
+        if (!result || !result.found) {
+          setError("No encontramos ninguna guía con este número. Por favor verifica los datos.");
+          return;
+        }
+
+        // Map RPC result to local state
+        const pedido: Pedido = {
+          id: 0,
+          numero_guia: result.numero_guia,
+          cliente_nombre: result.cliente_nombre,
+          direccion_entrega: result.direccion_entrega,
+          estado: result.estado,
+          motorizado_asignado: result.motorizado_nombre,
+          motorizado_id: null,
+          client_user_id: null,
+          latitud: result.latitud,
+          longitud: result.longitud,
+          valor_recaudar: result.valor_recaudar,
+          metodo_pago: result.metodo_pago,
+          producto_nombre: result.producto_nombre,
+          quantity: result.quantity,
+        };
+        setOrder(pedido);
+
+        setStore({
+          store_name: result.store_name,
+          logo_url: result.store_logo,
+        });
+
+        if (result.motorizado_nombre) {
+          const driverProfile: MotorizadoProfile = {
+            full_name: result.motorizado_nombre,
+            phone: result.motorizado_phone,
+            avatar_url: result.motorizado_avatar,
+            vehicle_plate: result.motorizado_placa,
+            last_location_lat: result.motorizado_lat,
+            last_location_lng: result.motorizado_lng,
+          };
+          setDriver(driverProfile);
+          if (result.motorizado_lat && result.motorizado_lng) {
+            setDriverGps({ lat: result.motorizado_lat, lng: result.motorizado_lng });
+          }
+        }
       } catch (err) {
         console.error(err);
-        setError("Error al buscar el pedido.");
+        setError("Error al buscar el pedido. Intenta de nuevo.");
       } finally {
         setIsLoading(false);
       }
     };
-    fetch();
+    fetchTracking();
   }, [id_guia]);
 
-  // ── Fetch store profile ──────────────────────────────
+  // ── Realtime: refresh via RPC on order status changes ─
   useEffect(() => {
-    if (!order?.client_user_id) return;
-    supabase.from("profiles").select("store_name, logo_url").eq("user_id", order.client_user_id).maybeSingle()
-      .then(({ data }) => setStore(data));
-  }, [order?.client_user_id]);
-
-  // ── Fetch driver profile ─────────────────────────────
-  useEffect(() => {
-    if (!order?.motorizado_id && !order?.motorizado_asignado) return;
-    const s = order.estado?.toLowerCase();
-    if (s !== "en ruta" && s !== "en camino" && s !== "entregado" && s !== "asignado") return;
-
-    const query = order.motorizado_id
-      ? supabase.from("profiles").select("full_name, phone, avatar_url, vehicle_plate, last_location_lat, last_location_lng").eq("user_id", order.motorizado_id)
-      : supabase.from("profiles").select("full_name, phone, avatar_url, vehicle_plate, last_location_lat, last_location_lng").eq("full_name", order.motorizado_asignado!);
-
-    query.maybeSingle().then(({ data }) => {
-      setDriver(data);
-      if (data?.last_location_lat && data?.last_location_lng) {
-        setDriverGps({ lat: data.last_location_lat, lng: data.last_location_lng });
-      }
-    });
-  }, [order?.motorizado_id, order?.motorizado_asignado, order?.estado]);
-
-  // ── Realtime: order status changes ───────────────────
-  useEffect(() => {
-    if (!order?.id) return;
+    if (!order?.numero_guia) return;
     const channel = supabase
-      .channel(`tracking-order-${order.id}`)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos", filter: `id=eq.${order.id}` }, (payload) => {
-        const updated = payload.new as Pedido;
-        setOrder((prev) => prev ? { ...prev, ...updated } : prev);
+      .channel(`tracking-realtime-${order.numero_guia}`)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "pedidos" }, async () => {
+        // Re-fetch via RPC on any pedidos update (filtered client-side by guia)
+        const { data } = await supabase.rpc("get_public_tracking_info", {
+          search_tracking_number: order.numero_guia!,
+        });
+        const d = data as any;
+        if (d?.found) {
+          setOrder((prev) => prev ? {
+            ...prev,
+            estado: d.estado,
+            latitud: d.latitud,
+            longitud: d.longitud,
+            valor_recaudar: d.valor_recaudar,
+          } : prev);
+          if (d.motorizado_nombre) {
+            setDriver({
+              full_name: d.motorizado_nombre,
+              phone: d.motorizado_phone,
+              avatar_url: d.motorizado_avatar,
+              vehicle_plate: d.motorizado_placa,
+              last_location_lat: d.motorizado_lat,
+              last_location_lng: d.motorizado_lng,
+            });
+          }
+          if (d.motorizado_lat && d.motorizado_lng) {
+            setDriverGps({ lat: d.motorizado_lat, lng: d.motorizado_lng });
+          }
+        }
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [order?.id]);
+  }, [order?.numero_guia]);
 
   // ── Realtime: GPS from webhook_logs_incoming ─────────
   useEffect(() => {
     if (!order?.numero_guia) return;
     const guia = order.numero_guia.toLowerCase();
-
-    // Fetch latest from recent logs
-    supabase.from("webhook_logs_incoming").select("payload").order("created_at", { ascending: false }).limit(30)
-      .then(({ data }) => {
-        for (const log of data ?? []) {
-          const p = log.payload as Record<string, unknown>;
-          const g = ((p?.guia as string) ?? (p?.tracking as string) ?? (p?.numero_guia as string) ?? "").toLowerCase();
-          if (g.includes(guia)) {
-            const gps = extractGps(p);
-            if (gps) { setDriverGps(gps); break; }
-          }
-        }
-      });
 
     const channel = supabase
       .channel("tracking-gps-live")
