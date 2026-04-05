@@ -4,8 +4,23 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Package, Truck, CheckCircle2, Inbox } from "lucide-react";
+import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon } from "lucide-react";
 import { getStatusConfig } from "@/lib/orderStatuses";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
+import { format, subDays } from "date-fns";
+import { es } from "date-fns/locale";
 
 /* ─── Types ─── */
 interface ActiveOrder {
@@ -23,6 +38,12 @@ const formatCOP = (v: number | null) =>
   v != null ? `$${v.toLocaleString("es-CO")}` : "—";
 
 const ACTIVE_STATES = ["En Ruta", "Asignado", "Novedad", "Recibido en Bodega"];
+
+/* ─── Chart types ─── */
+interface DayVolume { name: string; pedidos: number }
+interface EffSlice { name: string; value: number; color: string }
+
+const PIE_COLORS = ["#22c55e", "#ef4444"]; // green=delivered, red=returned
 
 /* ─── KPI icon config ─── */
 const kpiConfig = [
@@ -42,6 +63,11 @@ const AdminControlTower = () => {
   /* ── Active orders for sidebar ── */
   const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
+
+  /* ── Chart data ── */
+  const [volumeData, setVolumeData] = useState<DayVolume[]>([]);
+  const [effData, setEffData] = useState<EffSlice[]>([]);
+  const [chartsLoading, setChartsLoading] = useState(true);
 
   useEffect(() => {
     if (!orgId) return;
@@ -89,6 +115,50 @@ const AdminControlTower = () => {
       }
     };
     fetchActiveOrders();
+  }, [orgId]);
+
+  /* ── Fetch chart data ── */
+  useEffect(() => {
+    if (!orgId) return;
+    const fetchCharts = async () => {
+      setChartsLoading(true);
+      try {
+        const since = subDays(new Date(), 6);
+        const { data, error } = await supabase
+          .from("pedidos")
+          .select("estado, fecha_creacion")
+          .eq("organizacion_id", orgId)
+          .gte("fecha_creacion", since.toISOString());
+        if (error) throw error;
+
+        // Volume by day
+        const buckets: Record<string, number> = {};
+        for (let i = 6; i >= 0; i--) {
+          buckets[format(subDays(new Date(), i), "EEE", { locale: es })] = 0;
+        }
+        let entregados = 0;
+        let devueltos = 0;
+        (data ?? []).forEach((p) => {
+          if (p.fecha_creacion) {
+            const d = format(new Date(p.fecha_creacion), "EEE", { locale: es });
+            if (buckets[d] !== undefined) buckets[d]++;
+          }
+          if (p.estado === "Entregado") entregados++;
+          if (p.estado === "Devolución") devueltos++;
+        });
+        setVolumeData(Object.entries(buckets).map(([name, pedidos]) => ({ name, pedidos })));
+        setEffData([
+          { name: "Entregas", value: entregados, color: PIE_COLORS[0] },
+          { name: "Devoluciones", value: devueltos, color: PIE_COLORS[1] },
+        ]);
+      } catch {
+        setVolumeData([]);
+        setEffData([]);
+      } finally {
+        setChartsLoading(false);
+      }
+    };
+    fetchCharts();
   }, [orgId]);
 
   return (
@@ -202,19 +272,86 @@ const AdminControlTower = () => {
             </div>
           </div>
 
-          {/* RIGHT: Static chart placeholders */}
+          {/* RIGHT: Analytics panels (REAL DATA) */}
           <div className="order-3 flex flex-col gap-4">
-            {[1, 2].map((index) => (
-              <div key={index} className="rounded-3xl border border-border bg-card p-5 shadow-sm">
-                <div className="text-lg font-semibold text-foreground">Panel visual {index}</div>
-                <div className="mt-4 flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-border bg-muted/60 px-6 text-center">
-                  <div>
-                    <div className="text-2xl font-semibold text-foreground">📊 ÁREA DE GRÁFICAS</div>
-                    <div className="mt-2 text-sm text-muted-foreground">Placeholder estático temporal.</div>
-                  </div>
-                </div>
+
+            {/* Panel 1: Volume bar chart */}
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <BarChart3 className="h-4 w-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">Volumen de pedidos</span>
               </div>
-            ))}
+              <p className="text-xs text-muted-foreground mb-3">Últimos 7 días</p>
+              {chartsLoading ? (
+                <Skeleton className="h-[200px] w-full rounded-2xl" />
+              ) : volumeData.length === 0 || volumeData.every((d) => d.pedidos === 0) ? (
+                <div className="flex h-[200px] items-center justify-center text-sm text-muted-foreground">
+                  Sin datos suficientes
+                </div>
+              ) : (
+                <div className="h-[200px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={volumeData} barSize={20}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={28} allowDecimals={false} />
+                      <RechartsTooltip
+                        contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,.1)", fontSize: 12 }}
+                      />
+                      <Bar dataKey="pedidos" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} name="Pedidos" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
+            {/* Panel 2: Effectiveness donut */}
+            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-1">
+                <PieChartIcon className="h-4 w-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">Efectividad de entrega</span>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">Entregas vs Devoluciones (7 días)</p>
+              {chartsLoading ? (
+                <Skeleton className="h-[220px] w-full rounded-2xl" />
+              ) : effData.every((d) => d.value === 0) ? (
+                <div className="flex h-[220px] items-center justify-center text-sm text-muted-foreground">
+                  Sin datos suficientes
+                </div>
+              ) : (
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={effData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="45%"
+                        innerRadius={50}
+                        outerRadius={75}
+                        paddingAngle={4}
+                        strokeWidth={0}
+                      >
+                        {effData.map((entry, idx) => (
+                          <Cell key={idx} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 16px rgba(0,0,0,.1)", fontSize: 12 }}
+                      />
+                      <Legend
+                        verticalAlign="bottom"
+                        iconType="circle"
+                        iconSize={8}
+                        formatter={(value: string) => <span className="text-xs text-foreground">{value}</span>}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </div>
+
           </div>
         </div>
       </div>
