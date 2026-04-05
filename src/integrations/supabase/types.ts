@@ -1166,6 +1166,10 @@ export type Database = {
       }
     }
     Functions: {
+      get_public_tracking_info: {
+        Args: { search_tracking_number: string }
+        Returns: Json
+      }
       get_user_org_id: { Args: never; Returns: string }
       has_role: {
         Args: {
