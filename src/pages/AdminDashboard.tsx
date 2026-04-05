@@ -80,7 +80,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getStatusConfig, ALL_STATUSES, isOperationalStatus } from "@/lib/orderStatuses";
 import AdminNotesInput from "@/components/AdminNotesInput";
-import AnalyticsControlTower from "@/components/admin/AnalyticsControlTower";
+const AdminControlTowerEmbed = lazy(() => import("@/pages/AdminControlTower"));
 import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 import BulkReassignModal from "@/components/admin/BulkReassignModal";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
@@ -741,10 +741,9 @@ const AdminDashboard = () => {
     switch (activeSection) {
       case "analytics":
         return (
-          <AnalyticsControlTower 
-            pedidos={pedidos} 
-            motorizados={motorizados} 
-          />
+          <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+            <AdminControlTowerEmbed />
+          </Suspense>
         );
 
       case "mapa":
