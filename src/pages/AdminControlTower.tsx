@@ -79,6 +79,7 @@ const AdminControlTower = () => {
   /* ── Search ── */
   const [searchQuery, setSearchQuery] = useState("");
   const [isMapReady, setIsMapReady] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
   /* ── Chart data ── */
   const [volumeData, setVolumeData] = useState<DayVolume[]>([]);
