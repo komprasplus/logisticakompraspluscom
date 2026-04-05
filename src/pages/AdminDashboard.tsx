@@ -965,94 +965,185 @@ const AdminDashboard = () => {
                 </div>
               )}
 
-              {/* Filters Row */}
-              <div className="flex flex-wrap gap-2 items-center">
-                <Filter className="h-4 w-4 text-muted-foreground" />
-                <Button
-                  onClick={() => fetchPedidos()}
-                  variant="outline"
-                  size="sm"
-                  disabled={loading || isFetching}
-                  className="gap-1.5"
-                  title="Actualizar"
-                >
-                  <RotateCcw className={`h-4 w-4 ${(loading || isFetching) ? "animate-spin" : ""}`} />
-                  Actualizar
-                </Button>
-                <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
-                  <option value="todos">Todos los estados</option>
-                  <option value="sin_asignar">⚠️ Sin Asignar</option>
-                  <option value="recibido en bodega">Recibido en Bodega</option>
-                  <option value="asignado">Asignado</option>
-                  <option value="en ruta">En Ruta</option>
-                  <option value="entregado">Entregado</option>
-                  <option value="novedad">Novedad</option>
-                  <option value="rechazado">Rechazado</option>
-                  <option value="devolución">Devolución</option>
-                  <option value="liquidado">Liquidado</option>
-                  <option value="anulado">🚫 Anulados ({stats.cancelled})</option>
-                </select>
+              {/* Compact Filters Bar */}
+              {(() => {
+                const activeFilterCount = [
+                  statusFilter !== "todos",
+                  barrioFilter !== "todos",
+                  metodoPagoFilter !== "todos",
+                  zonaFilter !== "todos",
+                  storeFilter !== "todos",
+                  todayOnlyFilter,
+                ].filter(Boolean).length;
 
-                <select value={barrioFilter} onChange={(e) => setBarrioFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
-                  <option value="todos">Todos los barrios</option>
-                  {uniqueBarrios.map((barrio, idx) => (
-                    <option key={barrio || `barrio-${idx}`} value={barrio || ""}>{barrio}</option>
-                  ))}
-                </select>
+                return (
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Button
+                      onClick={() => fetchPedidos()}
+                      variant="outline"
+                      size="sm"
+                      disabled={loading || isFetching}
+                      className="gap-1.5"
+                      title="Actualizar"
+                    >
+                      <RotateCcw className={`h-4 w-4 ${(loading || isFetching) ? "animate-spin" : ""}`} />
+                      Actualizar
+                    </Button>
 
-                <select value={metodoPagoFilter} onChange={(e) => setMetodoPagoFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
-                  <option value="todos">Todos los pagos</option>
-                  <option value="efectivo">Contra Entrega</option>
-                  <option value="anticipado">Pago Anticipado</option>
-                </select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFiltersSheet(true)}
+                      className="gap-2 relative"
+                    >
+                      <Filter className="h-4 w-4" />
+                      Filtros Avanzados
+                      {activeFilterCount > 0 && (
+                        <Badge className="ml-1 h-5 w-5 p-0 flex items-center justify-center text-[10px] rounded-full bg-primary text-primary-foreground">
+                          {activeFilterCount}
+                        </Badge>
+                      )}
+                    </Button>
 
-                <select value={zonaFilter} onChange={(e) => setZonaFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
-                  <option value="todos">Todas las zonas</option>
-                  {getAllZonas().map((zona) => (
-                    <option key={zona} value={zona}>{zona} - {ZONAS[zona].nombre}</option>
-                  ))}
-                </select>
+                    {/* Date Range Filter - always visible */}
+                    <DateRangeFilter
+                      value={dateRange}
+                      onChange={changeDateRange}
+                      disabled={loading || isFetching}
+                    />
 
-                <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className="rounded-lg border border-border bg-card px-3 py-2 text-sm focus:border-primary focus:outline-none">
-                  <option value="todos">🏪 Todas las tiendas</option>
-                  {Object.values(clientProfiles).map((profile, idx) => (
-                    <option key={idx} value={profile.store_name || profile.full_name}>{profile.store_name || profile.full_name}</option>
-                  ))}
-                </select>
+                    {/* Server-side pagination indicator */}
+                    {totalCount > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        Página {serverPage}/{totalServerPages} · {totalCount} pedidos totales
+                      </span>
+                    )}
 
-                {/* Date Range Filter - Universal */}
-                <DateRangeFilter
-                  value={dateRange}
-                  onChange={changeDateRange}
-                  disabled={loading || isFetching}
-                />
+                    {activeFilterCount > 0 && (
+                      <button
+                        onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setTodayOnlyFilter(false); }}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        Limpiar filtros
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
-                {/* "Ver solo para hoy" Quick Filter */}
-                <button
-                  onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                    todayOnlyFilter
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card border-border hover:bg-muted"
-                  }`}
-                >
-                  <CalendarCheck className="h-4 w-4" />
-                  Ver solo para hoy
-                </button>
+              {/* Filters Sheet (Drawer) */}
+              <Sheet open={showFiltersSheet} onOpenChange={setShowFiltersSheet}>
+                <SheetContent side="right" className="w-[340px] sm:w-[400px] flex flex-col">
+                  <SheetHeader>
+                    <SheetTitle className="flex items-center gap-2">
+                      <Filter className="h-5 w-5 text-primary" />
+                      Filtros Avanzados
+                    </SheetTitle>
+                  </SheetHeader>
 
-                {/* Server-side pagination indicator */}
-                {totalCount > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    Página {serverPage}/{totalServerPages} · {totalCount} pedidos totales
-                  </span>
-                )}
+                  <div className="flex-1 overflow-y-auto space-y-6 py-4">
+                    {/* Estado */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Estado</Label>
+                      <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        <option value="todos">Todos los estados</option>
+                        <option value="sin_asignar">⚠️ Sin Asignar</option>
+                        <option value="recibido en bodega">Recibido en Bodega</option>
+                        <option value="asignado">Asignado</option>
+                        <option value="en ruta">En Ruta</option>
+                        <option value="entregado">Entregado</option>
+                        <option value="novedad">Novedad</option>
+                        <option value="rechazado">Rechazado</option>
+                        <option value="devolución">Devolución</option>
+                        <option value="liquidado">Liquidado</option>
+                        <option value="anulado">🚫 Anulados ({stats.cancelled})</option>
+                      </select>
+                    </div>
 
-                {(statusFilter !== "todos" || barrioFilter !== "todos" || metodoPagoFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || todayOnlyFilter) && (
-                  <button onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setTodayOnlyFilter(false); }} className="text-sm text-primary hover:underline">
-                    Limpiar filtros
-                  </button>
-                )}
-              </div>
+                    {/* Barrio */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Barrio</Label>
+                      <select value={barrioFilter} onChange={(e) => setBarrioFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        <option value="todos">Todos los barrios</option>
+                        {uniqueBarrios.map((barrio, idx) => (
+                          <option key={barrio || `barrio-${idx}`} value={barrio || ""}>{barrio}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Método de Pago */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Método de Pago</Label>
+                      <select value={metodoPagoFilter} onChange={(e) => setMetodoPagoFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        <option value="todos">Todos los pagos</option>
+                        <option value="efectivo">Contra Entrega</option>
+                        <option value="anticipado">Pago Anticipado</option>
+                      </select>
+                    </div>
+
+                    {/* Zona */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Zona</Label>
+                      <select value={zonaFilter} onChange={(e) => setZonaFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        <option value="todos">Todas las zonas</option>
+                        {getAllZonas().map((zona) => (
+                          <option key={zona} value={zona}>{zona} - {ZONAS[zona].nombre}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Tienda */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Tienda</Label>
+                      <select value={storeFilter} onChange={(e) => setStoreFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        <option value="todos">Todas las tiendas</option>
+                        {Object.values(clientProfiles).map((profile, idx) => (
+                          <option key={idx} value={profile.store_name || profile.full_name}>{profile.store_name || profile.full_name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Ver solo para hoy */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Fecha de entrega</Label>
+                      <button
+                        onClick={() => setTodayOnlyFilter(!todayOnlyFilter)}
+                        className={`w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                          todayOnlyFilter
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-card border-border hover:bg-muted"
+                        }`}
+                      >
+                        <CalendarCheck className="h-4 w-4" />
+                        Ver solo para hoy
+                      </button>
+                    </div>
+                  </div>
+
+                  <SheetFooter className="flex-row gap-2 pt-4 border-t border-border">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setStatusFilter("todos");
+                        setBarrioFilter("todos");
+                        setMetodoPagoFilter("todos");
+                        setZonaFilter("todos");
+                        setStoreFilter("todos");
+                        setTodayOnlyFilter(false);
+                      }}
+                    >
+                      Limpiar Filtros
+                    </Button>
+                    <Button
+                      className="flex-1"
+                      onClick={() => setShowFiltersSheet(false)}
+                    >
+                      Aplicar Filtros
+                    </Button>
+                  </SheetFooter>
+                </SheetContent>
+              </Sheet>
 
               {/* Dynamic Selection Bar - only visible when items selected */}
               {selectedForBulk.length > 0 && (
