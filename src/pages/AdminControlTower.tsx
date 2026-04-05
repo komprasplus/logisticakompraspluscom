@@ -298,6 +298,15 @@ const AdminControlTower = () => {
             />
           </div>
           <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-xl shadow-sm"
+              onClick={() => setIsMuted((m) => !m)}
+              title={isMuted ? "Activar alertas sonoras" : "Silenciar alertas"}
+            >
+              {isMuted ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-primary" />}
+            </Button>
             <Button variant="outline" className="rounded-xl gap-2 shadow-sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
               Exportar Reporte
