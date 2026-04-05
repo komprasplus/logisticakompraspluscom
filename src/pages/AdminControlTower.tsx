@@ -28,7 +28,7 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from "recharts";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
