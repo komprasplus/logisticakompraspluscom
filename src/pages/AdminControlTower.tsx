@@ -2,14 +2,27 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Package, Truck, CheckCircle2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Package, Truck, CheckCircle2, Inbox } from "lucide-react";
+import { getStatusConfig } from "@/lib/orderStatuses";
 
-/* ─── Mock sidebar orders (static) ─── */
-const mockOrders = [
-  { id: 1, trackingNumber: "KP-1001", customer: "Laura Gómez", address: "Cra 15 #93-18, Bogotá", status: "En ruta", driver: "Daniel Rojas", eta: "12 min", amount: "$18.500" },
-  { id: 2, trackingNumber: "KP-1002", customer: "Carlos Méndez", address: "Cl 127 #19-44, Bogotá", status: "Preparando", driver: "Valentina Ruiz", eta: "28 min", amount: "$24.000" },
-  { id: 3, trackingNumber: "KP-1003", customer: "Andrea Castro", address: "Av Suba #116-09, Bogotá", status: "Entregado", driver: "Miguel Torres", eta: "Completado", amount: "$0" },
-];
+/* ─── Types ─── */
+interface ActiveOrder {
+  id: number;
+  numero_guia: string | null;
+  estado: string | null;
+  cliente_nombre: string | null;
+  direccion_entrega: string | null;
+  motorizado_asignado: string | null;
+  valor_recaudar: number | null;
+  municipio: string | null;
+}
+
+const formatCOP = (v: number | null) =>
+  v != null ? `$${v.toLocaleString("es-CO")}` : "—";
+
+const ACTIVE_STATES = ["En Ruta", "Asignado", "Novedad", "Recibido en Bodega"];
 
 /* ─── KPI icon config ─── */
 const kpiConfig = [
@@ -25,6 +38,10 @@ const AdminControlTower = () => {
   /* ── KPI state ── */
   const [kpis, setKpis] = useState<{ total: number; enRuta: number; entregados: number } | null>(null);
   const [kpiLoading, setKpiLoading] = useState(true);
+
+  /* ── Active orders for sidebar ── */
+  const [activeOrders, setActiveOrders] = useState<ActiveOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(true);
 
   useEffect(() => {
     if (!orgId) return;
@@ -49,6 +66,29 @@ const AdminControlTower = () => {
       }
     };
     fetchKpis();
+  }, [orgId]);
+
+  useEffect(() => {
+    if (!orgId) return;
+    const fetchActiveOrders = async () => {
+      setOrdersLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("pedidos")
+          .select("id, numero_guia, estado, cliente_nombre, direccion_entrega, motorizado_asignado, valor_recaudar, municipio")
+          .eq("organizacion_id", orgId)
+          .in("estado", ACTIVE_STATES)
+          .order("id", { ascending: false })
+          .limit(20);
+        if (error) throw error;
+        setActiveOrders((data as ActiveOrder[]) ?? []);
+      } catch {
+        setActiveOrders([]);
+      } finally {
+        setOrdersLoading(false);
+      }
+    };
+    fetchActiveOrders();
   }, [orgId]);
 
   return (
@@ -83,37 +123,68 @@ const AdminControlTower = () => {
         {/* ── 3-Column Grid ── */}
         <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
 
-          {/* LEFT: Static order sidebar */}
+          {/* LEFT: Active orders sidebar (REAL DATA) */}
           <div className="order-2 xl:order-1">
-            <div className="rounded-3xl border border-border bg-card p-4 shadow-sm">
+            <div className="rounded-3xl border border-border bg-card p-4 shadow-sm flex flex-col" style={{ maxHeight: "calc(100vh - 220px)" }}>
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <div className="text-lg font-semibold text-foreground">Órdenes activas</div>
-                  <div className="text-sm text-muted-foreground">Lista estática de prueba.</div>
+                  <div className="text-sm text-muted-foreground">Últimas 20 en operación</div>
                 </div>
                 <div className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">
-                  {mockOrders.length}
+                  {ordersLoading ? "…" : activeOrders.length}
                 </div>
               </div>
-              <div className="space-y-3">
-                {mockOrders.map((order) => (
-                  <div key={order.id} className="rounded-2xl border border-border bg-background p-4 transition-transform duration-200 hover:-translate-y-0.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-base font-semibold text-foreground">{order.trackingNumber}</div>
-                        <div className="text-sm text-muted-foreground">{order.customer}</div>
-                      </div>
-                      <div className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">{order.status}</div>
-                    </div>
-                    <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-                      <div>{order.address}</div>
-                      <div>Motorizado: {order.driver}</div>
-                      <div>ETA: {order.eta}</div>
-                      <div>Recaudo: {order.amount}</div>
-                    </div>
+
+              <ScrollArea className="flex-1 -mr-2 pr-2">
+                {ordersLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Skeleton key={i} className="h-28 w-full rounded-2xl" />
+                    ))}
                   </div>
-                ))}
-              </div>
+                ) : activeOrders.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-center">
+                    <Inbox className="h-10 w-10 text-muted-foreground/40 mb-3" />
+                    <p className="text-sm font-medium text-muted-foreground">No hay órdenes activas en este momento.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {activeOrders.map((order) => {
+                      const statusCfg = getStatusConfig(order.estado);
+                      return (
+                        <div key={order.id} className="rounded-2xl border border-border bg-background p-4 transition-transform duration-200 hover:-translate-y-0.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-sm font-bold text-foreground truncate">
+                                #{order.numero_guia ?? order.id}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate mt-0.5">
+                                {order.cliente_nombre ?? "Sin nombre"}
+                              </div>
+                            </div>
+                            <Badge
+                              className="shrink-0 text-[10px] px-2 py-0.5 rounded-full font-semibold border-0"
+                              style={{ background: statusCfg.color, color: "#fff" }}
+                            >
+                              {statusCfg.label}
+                            </Badge>
+                          </div>
+                          <div className="mt-3 space-y-1 text-xs text-muted-foreground">
+                            <div className="truncate">📍 {order.direccion_entrega ?? order.municipio ?? "Sin dirección"}</div>
+                            {order.motorizado_asignado && (
+                              <div className="truncate">🏍️ {order.motorizado_asignado}</div>
+                            )}
+                            <div className="font-semibold text-foreground">
+                              💰 {formatCOP(order.valor_recaudar)}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
             </div>
           </div>
 
