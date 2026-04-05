@@ -11,7 +11,7 @@ interface CreateUserModalProps {
   onUserCreated: () => void;
 }
 
-type AppRole = "admin" | "motorizado" | "cliente" | "despachador";
+type AppRole = "admin" | "motorizado" | "cliente" | "despachador" | "coordinador_rutas";
 
 interface Organizacion {
   id: string;
@@ -288,6 +288,7 @@ const CreateUserModal = ({ isOpen, onClose, onUserCreated }: CreateUserModalProp
                     <option value="motorizado">Motorizado</option>
                     <option value="cliente">Cliente (Tienda)</option>
                     <option value="despachador">Despachador</option>
+                    <option value="coordinador_rutas">Coordinador de Rutas</option>
                     <option value="admin">Administrador</option>
                   </select>
                 </div>
