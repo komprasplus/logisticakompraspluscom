@@ -621,7 +621,7 @@ const AdminControlTower = () => {
                     tickLine={false}
                     width={28}
                   />
-                  <Tooltip
+                  <RechartsTooltip
                     contentStyle={{
                       borderRadius: 12,
                       border: "none",
