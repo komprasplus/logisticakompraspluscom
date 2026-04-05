@@ -33,6 +33,7 @@ const CustomerTracking = lazyRetry(() => import("./pages/CustomerTracking"));
 const PublicTracking = lazyRetry(() => import("./pages/PublicTracking"));
 const RecepcionFlex = lazyRetry(() => import("./pages/RecepcionFlex"));
 const SuperAdminMaster = lazyRetry(() => import("./pages/SuperAdminMaster"));
+const AdminControlTower = lazyRetry(() => import("./pages/AdminControlTower"));
 
 // Shared loading fallback
 const PageLoader = () => (
@@ -145,6 +146,16 @@ const AppRoutes = () => {
         <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
             <Suspense fallback={<PageLoader />}>
               <AdminDashboard />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/control-tower"
+        element={
+          <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+            <Suspense fallback={<PageLoader />}>
+              <AdminControlTower />
             </Suspense>
           </ProtectedRoute>
         }
