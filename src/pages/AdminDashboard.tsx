@@ -741,10 +741,9 @@ const AdminDashboard = () => {
     switch (activeSection) {
       case "analytics":
         return (
-          <AnalyticsControlTower 
-            pedidos={pedidos} 
-            motorizados={motorizados} 
-          />
+          <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+            <AdminControlTowerEmbed />
+          </Suspense>
         );
 
       case "mapa":
