@@ -653,17 +653,40 @@ const AdminMapGoogle = ({
                 </span>
               </div>
               
-              {/* Phone */}
+              {/* Phone & WhatsApp */}
               {(selectedMarker.data as Motorizado).phone && (
-                <p style={{ margin: "0 0 6px 0", fontSize: "13px" }}>
-                  📞{" "}
-                  <a 
-                    href={`tel:${(selectedMarker.data as Motorizado).phone}`}
-                    style={{ color: "#3b82f6", textDecoration: "none" }}
+                <div style={{ display: "flex", alignItems: "center", gap: "8px", margin: "0 0 6px 0" }}>
+                  <p style={{ margin: 0, fontSize: "13px" }}>
+                    📞{" "}
+                    <a 
+                      href={`tel:${(selectedMarker.data as Motorizado).phone}`}
+                      style={{ color: "#3b82f6", textDecoration: "none" }}
+                    >
+                      {(selectedMarker.data as Motorizado).phone}
+                    </a>
+                  </p>
+                  <a
+                    href={`https://wa.me/${((selectedMarker.data as Motorizado).phone ?? "").replace(/\D/g, "").replace(/^(?!57)/, "57")}?text=${encodeURIComponent(`Hola ${(selectedMarker.data as Motorizado).full_name}, te escribo desde la central de Plus Envíos. ¿Cómo vas con las entregas?`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: "26px",
+                      height: "26px",
+                      borderRadius: "50%",
+                      backgroundColor: "#25D366",
+                      color: "white",
+                      fontSize: "13px",
+                      textDecoration: "none",
+                      flexShrink: 0,
+                    }}
+                    title="Enviar WhatsApp"
                   >
-                    {(selectedMarker.data as Motorizado).phone}
+                    💬
                   </a>
-                </p>
+                </div>
               )}
               
               {/* Active orders count */}

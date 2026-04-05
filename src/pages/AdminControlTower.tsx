@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote } from "lucide-react";
+import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote, MessageCircle } from "lucide-react";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,12 +43,23 @@ interface ActiveOrder {
   municipio: string | null;
   latitud: number | null;
   longitud: number | null;
+  motorizado_phone?: string | null;
 }
 
 const formatCOP = (v: number | null) =>
   v != null ? `$${v.toLocaleString("es-CO")}` : "—";
 
 const ACTIVE_STATES = ["En Ruta", "Asignado", "Novedad", "Recibido en Bodega"];
+
+const buildWhatsAppUrl = (phone: string | null | undefined, order: ActiveOrder): string | null => {
+  if (!phone) return null;
+  const clean = phone.replace(/\D/g, "");
+  const num = clean.startsWith("57") ? clean : `57${clean}`;
+  const msg = encodeURIComponent(
+    `Hola ${order.motorizado_asignado ?? "motorizado"}, te escribo desde la central de Plus Envíos. Estoy monitoreando la guía #${order.numero_guia ?? order.id} del cliente ${order.cliente_nombre ?? "N/A"} y quería consultarte sobre el estado de la entrega. ¿Todo bien por allá?`
+  );
+  return `https://wa.me/${num}?text=${msg}`;
+};
 
 /* ─── Chart types ─── */
 interface DayVolume { name: string; pedidos: number }
@@ -127,7 +138,21 @@ const AdminControlTower = () => {
           .order("id", { ascending: false })
           .limit(20);
         if (error) throw error;
-        setActiveOrders((data as ActiveOrder[]) ?? []);
+
+        // Enrich with motorizado phone numbers
+        const orders = (data ?? []) as ActiveOrder[];
+        const motoIds = [...new Set(orders.map((o) => o.motorizado_id).filter(Boolean))] as string[];
+        if (motoIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("user_id, phone")
+            .in("user_id", motoIds);
+          const phoneMap = new Map((profiles ?? []).map((p) => [p.user_id, p.phone]));
+          orders.forEach((o) => {
+            if (o.motorizado_id) o.motorizado_phone = phoneMap.get(o.motorizado_id) ?? null;
+          });
+        }
+        setActiveOrders(orders);
       } catch {
         setActiveOrders([]);
       } finally {
@@ -337,7 +362,32 @@ const AdminControlTower = () => {
                           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                             <div className="truncate">📍 {order.direccion_entrega ?? order.municipio ?? "Sin dirección"}</div>
                             {order.motorizado_asignado && (
-                              <div className="truncate">🏍️ {order.motorizado_asignado}</div>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="truncate">🏍️ {order.motorizado_asignado}</span>
+                                {(() => {
+                                  const waUrl = buildWhatsAppUrl(order.motorizado_phone, order);
+                                  return waUrl ? (
+                                    <a
+                                      href={waUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full transition-colors hover:bg-[#25D366]/20"
+                                      title="Enviar WhatsApp al motorizado"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5 text-[#25D366]" />
+                                    </a>
+                                  ) : (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); toast.warning("Teléfono del motorizado no registrado"); }}
+                                      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full opacity-40 cursor-not-allowed"
+                                      title="Teléfono no disponible"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </button>
+                                  );
+                                })()}
+                              </div>
                             )}
                             <div className="font-semibold text-foreground">
                               💰 {formatCOP(order.valor_recaudar)}
