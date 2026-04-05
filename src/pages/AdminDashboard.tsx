@@ -238,6 +238,7 @@ const AdminDashboard = () => {
   const [selectedStoreForEdit, setSelectedStoreForEdit] = useState<Profile | null>(null);
   const [showFutureDateConfirm, setShowFutureDateConfirm] = useState(false);
   const [pendingAssignment, setPendingAssignment] = useState<{ pedidoId: number; motorizadoUserId: string; pedido: Pedido } | null>(null);
+  const [showFiltersSheet, setShowFiltersSheet] = useState(false);
 
   // Refs for preventing race conditions
   const isMountedRef = useRef(true);
