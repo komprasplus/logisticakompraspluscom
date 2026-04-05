@@ -338,6 +338,62 @@ export type Database = {
           },
         ]
       }
+      marketplace_products: {
+        Row: {
+          cost_price: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          organizacion_id: string | null
+          product_name: string
+          sku: string
+          stock_available: number
+          suggested_price: number
+          updated_at: string
+        }
+        Insert: {
+          cost_price?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          organizacion_id?: string | null
+          product_name: string
+          sku: string
+          stock_available?: number
+          suggested_price?: number
+          updated_at?: string
+        }
+        Update: {
+          cost_price?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          organizacion_id?: string | null
+          product_name?: string
+          sku?: string
+          stock_available?: number
+          suggested_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_products_organizacion_id_fkey"
+            columns: ["organizacion_id"]
+            isOneToOne: false
+            referencedRelation: "organizaciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_logs: {
         Row: {
           created_at: string
@@ -1180,6 +1236,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      marketplace_reserve_stock: {
+        Args: { p_product_id: string; p_quantity?: number }
+        Returns: Json
+      }
       process_bold_reconciliation: {
         Args: { p_filename: string; p_records: Json }
         Returns: Json
