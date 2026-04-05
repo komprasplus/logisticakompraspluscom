@@ -47,12 +47,11 @@ const CustomerTracking = () => {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
-
-    setError("");
-    setIsSearching(true);
-    setOrderResult(null);
-    setMotorizadoProfile(null);
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+    // Navigate to the premium tracking page with the tracking ID
+    navigate(`/rastreo/${encodeURIComponent(trimmed)}`);
+  };
 
     try {
       const { data, error: fetchError } = await supabase.rpc("get_public_tracking_info", {
