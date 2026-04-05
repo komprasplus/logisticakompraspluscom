@@ -404,9 +404,35 @@ const ClienteDashboard = () => {
       {/* Modals */}
       <NuevoPedidoModal
         isOpen={showNuevoPedido}
-        onClose={() => setShowNuevoPedido(false)}
-        onSuccess={refetch}
+        onClose={() => {
+          setShowNuevoPedido(false);
+          setMarketplacePrefill(null);
+        }}
+        onSuccess={async () => {
+          // If this was a marketplace order, reserve stock
+          if (marketplacePrefill) {
+            try {
+              const { data, error } = await (supabase as any).rpc("marketplace_reserve_stock", {
+                p_product_id: marketplacePrefill.marketplaceProductId,
+                p_quantity: 1,
+              });
+              if (error) console.error("Stock reserve error:", error);
+              else if (data && !data.success) console.warn("Stock reserve warning:", data.error);
+            } catch (e) {
+              console.error("marketplace_reserve_stock failed:", e);
+            }
+            setMarketplacePrefill(null);
+          }
+          refetch();
+        }}
         isAdmin={false}
+        inventoryPrefill={marketplacePrefill ? {
+          inventoryItemId: marketplacePrefill.marketplaceProductId,
+          productName: marketplacePrefill.productName,
+          price: marketplacePrefill.suggestedPrice,
+          quantity: 1,
+          sku: marketplacePrefill.sku,
+        } : undefined}
       />
 
       <EditPedidoModal
