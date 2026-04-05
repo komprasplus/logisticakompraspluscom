@@ -1693,9 +1693,9 @@ const AdminDashboard = () => {
         <header className="sticky top-0 z-40 border-b border-border bg-white">
           <div className="flex h-16 items-center justify-between px-4">
             {/* Stats Row */}
-            <div className="flex items-center gap-3">
-              <img src={logo} alt="Plus Envíos" className="h-8 w-auto hidden sm:block" />
-              <span className="text-sm font-semibold text-foreground hidden md:inline">Panel Admin</span>
+            <div className="flex items-center gap-2.5">
+              <LayoutDashboard className="h-5 w-5 text-primary" />
+              <span className="text-sm font-semibold text-foreground">Panel Admin</span>
             </div>
 
             <div className="flex items-center gap-3">
