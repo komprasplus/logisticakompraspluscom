@@ -1683,8 +1683,10 @@ const AdminDashboard = () => {
       {/* Sidebar */}
       <AdminSidebar 
         activeSection={activeSection} 
-        onSectionChange={setActiveSection}
-        novedadesCount={stats.novedad}
+        onSectionChange={(section) => {
+          if (isCoordinador && !["despacho", "mapa", "novedades"].includes(section)) return;
+          setActiveSection(section);
+        }}
         userRole={userRole}
       />
 
