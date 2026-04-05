@@ -53,48 +53,6 @@ const CustomerTracking = () => {
     navigate(`/rastreo/${encodeURIComponent(trimmed)}`);
   };
 
-    try {
-      const { data, error: fetchError } = await supabase.rpc("get_public_tracking_info", {
-        search_tracking_number: searchQuery.trim(),
-      });
-
-      if (fetchError) throw fetchError;
-
-      const result = data as any;
-      if (result?.found) {
-        setOrderResult({
-          id: 0,
-          numero_guia: result.numero_guia,
-          cliente_nombre: result.cliente_nombre,
-          direccion_entrega: result.direccion_entrega,
-          estado: result.estado,
-          corte_horario: null,
-          motorizado_asignado: result.motorizado_nombre,
-        });
-        if (result.motorizado_nombre) {
-          const s = result.estado?.toLowerCase();
-          if (s === "en ruta" || s === "en camino" || s === "entregado") {
-            setMotorizadoProfile({
-              full_name: result.motorizado_nombre,
-              phone: result.motorizado_phone,
-              avatar_url: result.motorizado_avatar,
-              vehicle_plate: result.motorizado_placa,
-            });
-          }
-        }
-      } else {
-        setError(
-          "No encontramos tu guía, por favor verifica el número o comunícate con Plus Envíos al 324 222 3825"
-        );
-      }
-    } catch (err) {
-      console.error("Error searching:", err);
-      setError("Error al buscar el pedido. Por favor intenta de nuevo.");
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
   const getStatusInfo = (status: string | null) => {
     const s = status?.toLowerCase();
     switch (s) {
