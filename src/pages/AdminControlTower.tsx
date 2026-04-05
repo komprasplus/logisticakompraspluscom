@@ -128,7 +128,21 @@ const AdminControlTower = () => {
           .order("id", { ascending: false })
           .limit(20);
         if (error) throw error;
-        setActiveOrders((data as ActiveOrder[]) ?? []);
+
+        // Enrich with motorizado phone numbers
+        const orders = (data ?? []) as ActiveOrder[];
+        const motoIds = [...new Set(orders.map((o) => o.motorizado_id).filter(Boolean))] as string[];
+        if (motoIds.length > 0) {
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("user_id, phone")
+            .in("user_id", motoIds);
+          const phoneMap = new Map((profiles ?? []).map((p) => [p.user_id, p.phone]));
+          orders.forEach((o) => {
+            if (o.motorizado_id) o.motorizado_phone = phoneMap.get(o.motorizado_id) ?? null;
+          });
+        }
+        setActiveOrders(orders);
       } catch {
         setActiveOrders([]);
       } finally {
