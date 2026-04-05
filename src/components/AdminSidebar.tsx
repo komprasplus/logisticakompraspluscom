@@ -28,6 +28,8 @@ interface AdminSidebarProps {
   userRole?: string | null;
 }
 
+const COORDINADOR_ALLOWED_SECTIONS = ["despacho", "mapa", "novedades"];
+
 // 3D Icon wrapper component with neumorphic depth effect
 const Icon3D = ({ 
   icon: IconComponent, 
@@ -184,7 +186,9 @@ const menuItems = [
 const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, userRole }: AdminSidebarProps) => {
   const isSuperAdmin = userRole === "super_admin";
 
-  const allMenuItems = isSuperAdmin
+  const isCoordinador = userRole === "coordinador_rutas";
+
+  let allMenuItems = isSuperAdmin
     ? [...menuItems, {
         id: "super-admin",
         label: "Súper Admin",
@@ -194,6 +198,10 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, user
         accentColor: "bg-yellow-500/10",
       }]
     : menuItems;
+
+  if (isCoordinador) {
+    allMenuItems = allMenuItems.filter(item => COORDINADOR_ALLOWED_SECTIONS.includes(item.id));
+  }
   const [collapsed, setCollapsed] = useState(false);
 
   return (

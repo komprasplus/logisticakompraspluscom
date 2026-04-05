@@ -124,6 +124,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     if (role === "cliente") return <Navigate to="/cliente" replace />;
     if (role === "despachador") return <Navigate to="/despachador" replace />;
     if (role === "super_admin") return <Navigate to="/super-admin-master" replace />;
+    if (role === "coordinador_rutas") return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;
@@ -143,7 +144,7 @@ const AppRoutes = () => {
       <Route
         path="/admin"
         element={
-        <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+        <ProtectedRoute allowedRoles={["admin", "super_admin", "coordinador_rutas"]}>
             <Suspense fallback={<PageLoader />}>
               <AdminDashboard />
             </Suspense>

@@ -199,7 +199,8 @@ const AdminDashboard = () => {
 
   // UI state
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
-  const [activeSection, setActiveSection] = useState<string>("analytics");
+  const isCoordinador = userRole === "coordinador_rutas";
+  const [activeSection, setActiveSection] = useState<string>(isCoordinador ? "despacho" : "analytics");
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [barrioFilter, setBarrioFilter] = useState<string>("todos");
@@ -1682,7 +1683,10 @@ const AdminDashboard = () => {
       {/* Sidebar */}
       <AdminSidebar 
         activeSection={activeSection} 
-        onSectionChange={setActiveSection}
+        onSectionChange={(section) => {
+          if (isCoordinador && !["despacho", "mapa", "novedades"].includes(section)) return;
+          setActiveSection(section);
+        }}
         novedadesCount={stats.novedad}
         userRole={userRole}
       />
