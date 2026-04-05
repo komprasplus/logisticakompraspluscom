@@ -8,11 +8,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote, MessageCircle } from "lucide-react";
+import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote, MessageCircle, Volume2, VolumeX } from "lucide-react";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { playGlobalNotificationPing } from "@/hooks/useNotificationSound";
 import { useMemo, useCallback } from "react";
 import {
   BarChart,
@@ -97,6 +98,9 @@ const AdminControlTower = () => {
   const [volumeData, setVolumeData] = useState<DayVolume[]>([]);
   const [effData, setEffData] = useState<EffSlice[]>([]);
   const [chartsLoading, setChartsLoading] = useState(true);
+
+  /* ── Sound mute ── */
+  const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
     if (!orgId) return;
