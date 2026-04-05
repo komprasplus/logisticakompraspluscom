@@ -115,6 +115,13 @@ const navItems = [
     shadow: "shadow-indigo-500/30",
   },
   {
+    key: "catalogo" as ClienteView,
+    label: "Catálogo Suministro",
+    icon: ShoppingBag,
+    gradient: "from-pink-500 to-rose-600",
+    shadow: "shadow-pink-500/30",
+  },
+  {
     key: "billetera" as ClienteView,
     label: "Billetera",
     icon: Wallet,
