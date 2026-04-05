@@ -151,6 +151,16 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/admin/control-tower"
+        element={
+          <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+            <Suspense fallback={<PageLoader />}>
+              <AdminControlTower />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/motorizado"
         element={
           <ProtectedRoute allowedRoles={["motorizado"]}>
