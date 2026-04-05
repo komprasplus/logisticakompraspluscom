@@ -287,6 +287,13 @@ const AdminControlTower = () => {
 
   const [search, setSearch] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  // Defer map render to avoid react-leaflet useState-null crash during lazy load
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setMapReady(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
 
   const filteredOrders = useMemo(() => {
     if (!search.trim()) return activeOrders;
