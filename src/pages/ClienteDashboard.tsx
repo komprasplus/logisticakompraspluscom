@@ -368,6 +368,16 @@ const ClienteDashboard = () => {
               <InventarioView key="inventario" />
             )}
 
+            {activeView === "catalogo" && (
+              <MarketplaceCatalog
+                key="catalogo"
+                onGenerateOrder={(product) => {
+                  setMarketplacePrefill(product);
+                  setShowNuevoPedido(true);
+                }}
+              />
+            )}
+
             {activeView === "billetera" && (
               <HistorialTransaccionesView key="billetera" />
             )}
