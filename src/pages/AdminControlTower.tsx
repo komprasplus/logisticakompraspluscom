@@ -378,13 +378,18 @@ const AdminControlTower = () => {
                   <div className="space-y-3">
                     {filteredOrders.map((order) => {
                       const statusCfg = getStatusConfig(order.estado);
+                      const isNovedad = order.estado === "Novedad";
+                      const isDevolucion = order.estado === "Devolución";
+                      const isAlert = isNovedad || isDevolucion;
                       return (
                         <div
                           key={order.id}
                           className={`rounded-2xl border p-4 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
-                            selectedOrderId === order.id
-                              ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                              : "border-border bg-background"
+                            isAlert
+                              ? "border-destructive/60 bg-destructive/5 ring-2 ring-destructive/20 animate-pulse"
+                              : selectedOrderId === order.id
+                                ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                                : "border-border bg-background"
                           }`}
                           onClick={() => {
                             if (!order.latitud || !order.longitud) {
