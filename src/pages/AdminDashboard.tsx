@@ -978,17 +978,6 @@ const AdminDashboard = () => {
 
                 return (
                   <div className="flex flex-wrap gap-2 items-center">
-                    <Button
-                      onClick={() => fetchPedidos()}
-                      variant="outline"
-                      size="sm"
-                      disabled={loading || isFetching}
-                      className="gap-1.5"
-                      title="Actualizar"
-                    >
-                      <RotateCcw className={`h-4 w-4 ${(loading || isFetching) ? "animate-spin" : ""}`} />
-                      Actualizar
-                    </Button>
 
                     <Button
                       variant="outline"
@@ -1206,6 +1195,42 @@ const AdminDashboard = () => {
               </div>
             ) : (
               <div className="rounded-xl bg-card shadow-card overflow-hidden">
+                {/* Status Filter Tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto px-3 pt-3 pb-2 border-b border-border scrollbar-hide" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
+                  {[
+                    { key: "todos", label: "Todos", count: stats.total, icon: "📋" },
+                    { key: "sin_asignar", label: "Sin Asignar", count: stats.unassigned, icon: "⚠️" },
+                    { key: "recibido en bodega", label: "En Bodega", count: operationalPedidos.filter(p => p.estado?.toLowerCase() === "recibido en bodega").length, icon: "📦" },
+                    { key: "asignado", label: "Asignados", count: operationalPedidos.filter(p => p.estado?.toLowerCase() === "asignado").length, icon: "✔️" },
+                    { key: "en ruta", label: "En Ruta", count: stats.inTransit, icon: "🚚" },
+                    { key: "entregado", label: "Entregados", count: stats.delivered, icon: "✅" },
+                    { key: "novedad", label: "Novedades", count: stats.novedad, icon: "🔔" },
+                    { key: "liquidado", label: "Liquidados", count: stats.liquidado, icon: "💰" },
+                    { key: "anulado", label: "Anulados", count: stats.cancelled, icon: "🚫" },
+                  ].filter(tab => tab.key === "todos" || tab.count > 0).map((tab) => {
+                    const isActive = statusFilter === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => setStatusFilter(tab.key)}
+                        className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-200 ${
+                          isActive
+                            ? "bg-primary text-primary-foreground shadow-sm"
+                            : "bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        }`}
+                      >
+                        <span>{tab.icon}</span>
+                        <span className="whitespace-nowrap">{tab.label}</span>
+                        <span className={`min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] font-bold ${
+                          isActive ? "bg-white/20 text-primary-foreground" : "bg-background text-foreground"
+                        }`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50 border-b border-border">
@@ -1668,27 +1693,9 @@ const AdminDashboard = () => {
         <header className="sticky top-0 z-40 border-b border-border bg-white">
           <div className="flex h-16 items-center justify-between px-4">
             {/* Stats Row */}
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 text-sm">
-                <Package className="h-4 w-4 text-primary" />
-                <span className="font-bold">{stats.total}</span>
-                <span className="text-muted-foreground hidden sm:inline">Total</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-amber-600">
-                <AlertTriangle className="h-4 w-4" />
-                <span className="font-bold">{stats.unassigned}</span>
-                <span className="hidden sm:inline">Sin Asignar</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-sky-600">
-                <Truck className="h-4 w-4" />
-                <span className="font-bold">{stats.inTransit}</span>
-                <span className="hidden sm:inline">En Ruta</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-green-600">
-                <CheckCircle2 className="h-4 w-4" />
-                <span className="font-bold">{stats.delivered}</span>
-                <span className="hidden sm:inline">Entregados</span>
-              </div>
+            <div className="flex items-center gap-3">
+              <img src={logo} alt="Plus Envíos" className="h-8 w-auto hidden sm:block" />
+              <span className="text-sm font-semibold text-foreground hidden md:inline">Panel Admin</span>
             </div>
 
             <div className="flex items-center gap-3">
