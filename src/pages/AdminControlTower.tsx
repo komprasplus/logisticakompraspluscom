@@ -51,6 +51,16 @@ const formatCOP = (v: number | null) =>
 
 const ACTIVE_STATES = ["En Ruta", "Asignado", "Novedad", "Recibido en Bodega"];
 
+const buildWhatsAppUrl = (phone: string | null | undefined, order: ActiveOrder): string | null => {
+  if (!phone) return null;
+  const clean = phone.replace(/\D/g, "");
+  const num = clean.startsWith("57") ? clean : `57${clean}`;
+  const msg = encodeURIComponent(
+    `Hola ${order.motorizado_asignado ?? "motorizado"}, te escribo desde la central de Plus Envíos. Estoy monitoreando la guía #${order.numero_guia ?? order.id} del cliente ${order.cliente_nombre ?? "N/A"} y quería consultarte sobre el estado de la entrega. ¿Todo bien por allá?`
+  );
+  return `https://wa.me/${num}?text=${msg}`;
+};
+
 /* ─── Chart types ─── */
 interface DayVolume { name: string; pedidos: number }
 interface EffSlice { name: string; value: number; color: string }
