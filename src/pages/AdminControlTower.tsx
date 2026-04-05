@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from "react";
+import { useState, useEffect, lazy, Suspense, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
@@ -8,11 +8,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote, MessageCircle } from "lucide-react";
+import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote, MessageCircle, Volume2, VolumeX } from "lucide-react";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { playGlobalNotificationPing } from "@/hooks/useNotificationSound";
 import { useMemo, useCallback } from "react";
 import {
   BarChart,
@@ -97,6 +98,9 @@ const AdminControlTower = () => {
   const [volumeData, setVolumeData] = useState<DayVolume[]>([]);
   const [effData, setEffData] = useState<EffSlice[]>([]);
   const [chartsLoading, setChartsLoading] = useState(true);
+
+  /* ── Sound mute ── */
+  const [isMuted, setIsMuted] = useState(false);
 
   useEffect(() => {
     if (!orgId) return;
@@ -240,6 +244,43 @@ const AdminControlTower = () => {
     };
     fetchCharts();
   }, [orgId]);
+  /* ── Supabase Realtime: Novedad alerts ── */
+  const isMutedRef = useRef(isMuted);
+  isMutedRef.current = isMuted;
+
+  useEffect(() => {
+    if (!orgId) return;
+    const channel = supabase
+      .channel("control-tower-alerts")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "pedidos", filter: `organizacion_id=eq.${orgId}` },
+        (payload) => {
+          const newRow = payload.new as any;
+          const oldRow = payload.old as any;
+          const isNovedad = newRow.estado === "Novedad" && oldRow.estado !== "Novedad";
+          const isDevolucion = newRow.estado === "Devolución" && oldRow.estado !== "Devolución";
+
+          if (isNovedad || isDevolucion) {
+            const label = isNovedad ? "Novedad" : "Devolución";
+            toast.warning(`⚠️ Nueva ${label}: Guía #${newRow.numero_guia ?? newRow.id} requiere atención.`, { duration: 8000 });
+            if (!isMutedRef.current) {
+              playGlobalNotificationPing();
+            }
+          }
+
+          // Update sidebar if affected order is in active list
+          setActiveOrders((prev) =>
+            prev.map((o) => (o.id === newRow.id ? { ...o, estado: newRow.estado } : o))
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [orgId]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -257,6 +298,15 @@ const AdminControlTower = () => {
             />
           </div>
           <div className="flex gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-xl shadow-sm"
+              onClick={() => setIsMuted((m) => !m)}
+              title={isMuted ? "Activar alertas sonoras" : "Silenciar alertas"}
+            >
+              {isMuted ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-primary" />}
+            </Button>
             <Button variant="outline" className="rounded-xl gap-2 shadow-sm" onClick={handleExport}>
               <Download className="h-4 w-4" />
               Exportar Reporte
@@ -328,13 +378,18 @@ const AdminControlTower = () => {
                   <div className="space-y-3">
                     {filteredOrders.map((order) => {
                       const statusCfg = getStatusConfig(order.estado);
+                      const isNovedad = order.estado === "Novedad";
+                      const isDevolucion = order.estado === "Devolución";
+                      const isAlert = isNovedad || isDevolucion;
                       return (
                         <div
                           key={order.id}
                           className={`rounded-2xl border p-4 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 ${
-                            selectedOrderId === order.id
-                              ? "border-primary bg-primary/5 ring-1 ring-primary/30"
-                              : "border-border bg-background"
+                            isAlert
+                              ? "border-destructive/60 bg-destructive/5 ring-2 ring-destructive/20 animate-pulse"
+                              : selectedOrderId === order.id
+                                ? "border-primary bg-primary/5 ring-1 ring-primary/30"
+                                : "border-border bg-background"
                           }`}
                           onClick={() => {
                             if (!order.latitud || !order.longitud) {
