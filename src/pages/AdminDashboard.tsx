@@ -35,7 +35,7 @@ import {
   Upload,
   CalendarCheck,
 } from "lucide-react";
- import { TrendingUp } from "lucide-react";
+ import { TrendingUp, LayoutDashboard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
