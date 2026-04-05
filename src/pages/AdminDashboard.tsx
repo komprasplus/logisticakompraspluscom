@@ -1687,6 +1687,7 @@ const AdminDashboard = () => {
           if (isCoordinador && !["despacho", "mapa", "novedades"].includes(section)) return;
           setActiveSection(section);
         }}
+        novedadesCount={stats.novedad}
         userRole={userRole}
       />
 
