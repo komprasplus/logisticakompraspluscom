@@ -307,7 +307,8 @@ const PublicTracking = () => {
 
         if (e) throw e;
 
-        if (!data || !data.found) {
+        const result = data as any;
+        if (!result || !result.found) {
           setError("No encontramos ninguna guía con este número. Por favor verifica los datos.");
           return;
         }
