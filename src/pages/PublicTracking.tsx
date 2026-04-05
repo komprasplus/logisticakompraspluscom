@@ -371,26 +371,27 @@ const PublicTracking = () => {
         const { data } = await supabase.rpc("get_public_tracking_info", {
           search_tracking_number: order.numero_guia!,
         });
-        if (data?.found) {
+        const d = data as any;
+        if (d?.found) {
           setOrder((prev) => prev ? {
             ...prev,
-            estado: data.estado,
-            latitud: data.latitud,
-            longitud: data.longitud,
-            valor_recaudar: data.valor_recaudar,
+            estado: d.estado,
+            latitud: d.latitud,
+            longitud: d.longitud,
+            valor_recaudar: d.valor_recaudar,
           } : prev);
-          if (data.motorizado_nombre) {
+          if (d.motorizado_nombre) {
             setDriver({
-              full_name: data.motorizado_nombre,
-              phone: data.motorizado_phone,
-              avatar_url: data.motorizado_avatar,
-              vehicle_plate: data.motorizado_placa,
-              last_location_lat: data.motorizado_lat,
-              last_location_lng: data.motorizado_lng,
+              full_name: d.motorizado_nombre,
+              phone: d.motorizado_phone,
+              avatar_url: d.motorizado_avatar,
+              vehicle_plate: d.motorizado_placa,
+              last_location_lat: d.motorizado_lat,
+              last_location_lng: d.motorizado_lng,
             });
           }
-          if (data.motorizado_lat && data.motorizado_lng) {
-            setDriverGps({ lat: data.motorizado_lat, lng: data.motorizado_lng });
+          if (d.motorizado_lat && d.motorizado_lng) {
+            setDriverGps({ lat: d.motorizado_lat, lng: d.motorizado_lng });
           }
         }
       })
