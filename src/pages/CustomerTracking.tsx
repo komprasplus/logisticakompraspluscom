@@ -11,7 +11,7 @@ import {
   Phone,
   Warehouse,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
