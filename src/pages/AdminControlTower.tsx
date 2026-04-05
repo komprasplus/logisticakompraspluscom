@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote } from "lucide-react";
+import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote, MessageCircle } from "lucide-react";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ interface ActiveOrder {
   municipio: string | null;
   latitud: number | null;
   longitud: number | null;
+  motorizado_phone?: string | null;
 }
 
 const formatCOP = (v: number | null) =>
