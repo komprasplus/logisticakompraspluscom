@@ -4,8 +4,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon } from "lucide-react";
+import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus } from "lucide-react";
 import { getStatusConfig } from "@/lib/orderStatuses";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   BarChart,
   Bar,
@@ -164,6 +166,27 @@ const AdminControlTower = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 p-4 lg:gap-6 lg:p-6">
+
+        {/* ── Command Bar ── */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:w-96">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por # de guía o cliente..."
+              className="pl-10 rounded-xl border-border bg-card shadow-sm h-11"
+            />
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" className="rounded-xl gap-2 shadow-sm">
+              <Download className="h-4 w-4" />
+              Exportar Reporte
+            </Button>
+            <Button className="rounded-xl gap-2 shadow-sm">
+              <Plus className="h-4 w-4" />
+              Crear Guía
+            </Button>
+          </div>
+        </div>
 
         {/* ── KPI Top Bar (REAL DATA) ── */}
         <div className="grid gap-4 md:grid-cols-3">
