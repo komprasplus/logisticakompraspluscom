@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import {
   Package,
@@ -287,6 +287,13 @@ const AdminControlTower = () => {
 
   const [search, setSearch] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  // Defer map render to avoid react-leaflet useState-null crash during lazy load
+  useEffect(() => {
+    const t = requestAnimationFrame(() => setMapReady(true));
+    return () => cancelAnimationFrame(t);
+  }, []);
 
   const filteredOrders = useMemo(() => {
     if (!search.trim()) return activeOrders;
@@ -423,52 +430,58 @@ const AdminControlTower = () => {
         {/* CENTER: Map */}
         <div className="col-span-6 flex flex-col gap-3">
           <Card className="rounded-2xl shadow-sm border-0 bg-white flex-1 overflow-hidden relative">
-            <MapContainer
-              center={mapCenter}
-              zoom={12}
-              className="h-full w-full z-0"
-              zoomControl={false}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-                url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-              />
-              {ordersWithCoords.map((order) => {
-                const config = getStatusConfig(order.estado);
-                const moto = order.motorizado_id
-                  ? motorizados[order.motorizado_id]
-                  : undefined;
-                return (
-                  <Marker
-                    key={order.id}
-                    position={[order.latitud!, order.longitud!]}
-                    icon={createOrderIcon(config.color)}
-                  >
-                    <Popup>
-                      <div className="text-xs space-y-1">
-                        <p className="font-bold">
-                          #{order.numero_guia || order.id}
-                        </p>
-                        <p>{order.cliente_nombre}</p>
-                        {moto && (
-                          <p className="flex items-center gap-1">
-                            <Users className="h-3 w-3" /> {moto.full_name}
+            {mapReady ? (
+              <MapContainer
+                center={mapCenter}
+                zoom={12}
+                className="h-full w-full z-0"
+                zoomControl={false}
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                />
+                {ordersWithCoords.map((order) => {
+                  const config = getStatusConfig(order.estado);
+                  const moto = order.motorizado_id
+                    ? motorizados[order.motorizado_id]
+                    : undefined;
+                  return (
+                    <Marker
+                      key={order.id}
+                      position={[order.latitud!, order.longitud!]}
+                      icon={createOrderIcon(config.color)}
+                    >
+                      <Popup>
+                        <div className="text-xs space-y-1">
+                          <p className="font-bold">
+                            #{order.numero_guia || order.id}
                           </p>
-                        )}
-                        {moto?.phone && (
-                          <a
-                            href={`tel:${moto.phone}`}
-                            className="flex items-center gap-1 text-primary"
-                          >
-                            <Phone className="h-3 w-3" /> {moto.phone}
-                          </a>
-                        )}
-                      </div>
-                    </Popup>
-                  </Marker>
-                );
-              })}
-            </MapContainer>
+                          <p>{order.cliente_nombre}</p>
+                          {moto && (
+                            <p className="flex items-center gap-1">
+                              <Users className="h-3 w-3" /> {moto.full_name}
+                            </p>
+                          )}
+                          {moto?.phone && (
+                            <a
+                              href={`tel:${moto.phone}`}
+                              className="flex items-center gap-1 text-primary"
+                            >
+                              <Phone className="h-3 w-3" /> {moto.phone}
+                            </a>
+                          )}
+                        </div>
+                      </Popup>
+                    </Marker>
+                  );
+                })}
+              </MapContainer>
+            ) : (
+              <div className="h-full w-full flex items-center justify-center bg-slate-100">
+                <Skeleton className="h-full w-full" />
+              </div>
+            )}
             {/* Floating legend */}
             <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm rounded-xl px-4 py-3 shadow-lg z-[500] flex gap-4 text-[10px] font-medium">
               {[
