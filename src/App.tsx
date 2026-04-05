@@ -136,6 +136,7 @@ const AppRoutes = () => {
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/rastreo" element={<Suspense fallback={<PageLoader />}><CustomerTracking /></Suspense>} />
       <Route path="/rastreo/:id_guia" element={<Suspense fallback={<PageLoader />}><PublicTracking /></Suspense>} />
+      <Route path="/tracking/:id_guia" element={<Suspense fallback={<PageLoader />}><PublicTracking /></Suspense>} />
       
       {/* Protected Routes - wrapped in Suspense for lazy loading */}
       <Route
