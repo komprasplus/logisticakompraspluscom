@@ -340,45 +340,57 @@ export type Database = {
       }
       marketplace_products: {
         Row: {
+          category: string | null
           cost_price: number
           created_at: string
           created_by: string | null
           description: string | null
           id: string
           image_url: string | null
+          image_url_2: string | null
+          image_url_3: string | null
           is_active: boolean
           organizacion_id: string | null
           product_name: string
+          product_type: string
           sku: string
           stock_available: number
           suggested_price: number
           updated_at: string
         }
         Insert: {
+          category?: string | null
           cost_price?: number
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
+          image_url_2?: string | null
+          image_url_3?: string | null
           is_active?: boolean
           organizacion_id?: string | null
           product_name: string
+          product_type?: string
           sku: string
           stock_available?: number
           suggested_price?: number
           updated_at?: string
         }
         Update: {
+          category?: string | null
           cost_price?: number
           created_at?: string
           created_by?: string | null
           description?: string | null
           id?: string
           image_url?: string | null
+          image_url_2?: string | null
+          image_url_3?: string | null
           is_active?: boolean
           organizacion_id?: string | null
           product_name?: string
+          product_type?: string
           sku?: string
           stock_available?: number
           suggested_price?: number
