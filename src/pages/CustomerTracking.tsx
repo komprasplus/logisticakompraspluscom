@@ -11,7 +11,7 @@ import {
   Phone,
   Warehouse,
 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import BrandLogo from "@/components/BrandLogo";
 import MotorcycleIcon from "@/components/MotorcycleIcon";
@@ -38,6 +38,7 @@ const SUPPORT_PHONE = "324 222 3825";
 const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
 
 const CustomerTracking = () => {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [orderResult, setOrderResult] = useState<Pedido | null>(null);
   const [motorizadoProfile, setMotorizadoProfile] = useState<MotorizadoProfile | null>(null);
@@ -46,53 +47,10 @@ const CustomerTracking = () => {
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
-
-    setError("");
-    setIsSearching(true);
-    setOrderResult(null);
-    setMotorizadoProfile(null);
-
-    try {
-      const { data, error: fetchError } = await supabase.rpc("get_public_tracking_info", {
-        search_tracking_number: searchQuery.trim(),
-      });
-
-      if (fetchError) throw fetchError;
-
-      const result = data as any;
-      if (result?.found) {
-        setOrderResult({
-          id: 0,
-          numero_guia: result.numero_guia,
-          cliente_nombre: result.cliente_nombre,
-          direccion_entrega: result.direccion_entrega,
-          estado: result.estado,
-          corte_horario: null,
-          motorizado_asignado: result.motorizado_nombre,
-        });
-        if (result.motorizado_nombre) {
-          const s = result.estado?.toLowerCase();
-          if (s === "en ruta" || s === "en camino" || s === "entregado") {
-            setMotorizadoProfile({
-              full_name: result.motorizado_nombre,
-              phone: result.motorizado_phone,
-              avatar_url: result.motorizado_avatar,
-              vehicle_plate: result.motorizado_placa,
-            });
-          }
-        }
-      } else {
-        setError(
-          "No encontramos tu guía, por favor verifica el número o comunícate con Plus Envíos al 324 222 3825"
-        );
-      }
-    } catch (err) {
-      console.error("Error searching:", err);
-      setError("Error al buscar el pedido. Por favor intenta de nuevo.");
-    } finally {
-      setIsSearching(false);
-    }
+    const trimmed = searchQuery.trim();
+    if (!trimmed) return;
+    // Navigate to the premium tracking page with the tracking ID
+    navigate(`/rastreo/${encodeURIComponent(trimmed)}`);
   };
 
   const getStatusInfo = (status: string | null) => {
