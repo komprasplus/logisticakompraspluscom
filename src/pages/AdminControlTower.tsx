@@ -1,5 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import MapErrorBoundary from "@/components/MapErrorBoundary";
+
+const AdminMapGoogle = lazy(() => import("@/components/AdminMapGoogle"));
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -34,8 +37,11 @@ interface ActiveOrder {
   cliente_nombre: string | null;
   direccion_entrega: string | null;
   motorizado_asignado: string | null;
+  motorizado_id: string | null;
   valor_recaudar: number | null;
   municipio: string | null;
+  latitud: number | null;
+  longitud: number | null;
 }
 
 const formatCOP = (v: number | null) =>
@@ -72,6 +78,7 @@ const AdminControlTower = () => {
 
   /* ── Search ── */
   const [searchQuery, setSearchQuery] = useState("");
+  const [isMapReady, setIsMapReady] = useState(false);
 
   /* ── Chart data ── */
   const [volumeData, setVolumeData] = useState<DayVolume[]>([]);
@@ -112,7 +119,7 @@ const AdminControlTower = () => {
       try {
         const { data, error } = await supabase
           .from("pedidos")
-          .select("id, numero_guia, estado, cliente_nombre, direccion_entrega, motorizado_asignado, valor_recaudar, municipio")
+          .select("id, numero_guia, estado, cliente_nombre, direccion_entrega, motorizado_asignado, motorizado_id, valor_recaudar, municipio, latitud, longitud")
           .eq("organizacion_id", orgId)
           .in("estado", ACTIVE_STATES)
           .order("id", { ascending: false })
@@ -127,6 +134,12 @@ const AdminControlTower = () => {
     };
     fetchActiveOrders();
   }, [orgId]);
+
+  /* ── Deferred map mount ── */
+  useEffect(() => {
+    const timer = setTimeout(() => setIsMapReady(true), 600);
+    return () => clearTimeout(timer);
+  }, []);
 
   /* ── Filtered orders by search ── */
   const filteredOrders = useMemo(() => {
@@ -324,17 +337,34 @@ const AdminControlTower = () => {
             </div>
           </div>
 
-          {/* CENTER: Map placeholder (leaflet removed) */}
+          {/* CENTER: Immersive Map (AdminMapGoogle - Lazy) */}
           <div className="order-1 xl:order-2">
-            <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-dashed border-border bg-muted px-6 py-10 text-center shadow-sm xl:min-h-[calc(100vh-220px)]">
-              <div className="max-w-2xl">
-                <div className="text-3xl font-semibold leading-tight text-foreground sm:text-4xl xl:text-5xl">
-                  📍 MAPA INMERSIVO (Cargando...)
+            <div className="rounded-3xl border border-border bg-card shadow-sm overflow-hidden relative z-0" style={{ minHeight: "420px", height: "calc(100vh - 220px)" }}>
+              {isMapReady ? (
+                <MapErrorBoundary fallbackMessage="El mapa tuvo un problema al cargar. Intenta recargar la página.">
+                  <Suspense fallback={
+                    <div className="flex h-full w-full items-center justify-center bg-muted">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
+                        <p className="text-sm text-muted-foreground">Cargando mapa...</p>
+                      </div>
+                    </div>
+                  }>
+                    <AdminMapGoogle
+                      pedidos={activeOrders}
+                      selectedDate={null}
+                      onPedidoClick={() => {}}
+                    />
+                  </Suspense>
+                </MapErrorBoundary>
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-muted">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
+                    <p className="text-sm text-muted-foreground">Preparando mapa inmersivo...</p>
+                  </div>
                 </div>
-                <div className="mt-4 text-sm text-muted-foreground sm:text-base">
-                  Contenedor seguro temporal. El mapa se reintegrará en una fase posterior.
-                </div>
-              </div>
+              )}
             </div>
           </div>
 
