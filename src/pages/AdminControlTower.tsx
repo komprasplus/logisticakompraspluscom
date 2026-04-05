@@ -362,7 +362,32 @@ const AdminControlTower = () => {
                           <div className="mt-3 space-y-1 text-xs text-muted-foreground">
                             <div className="truncate">📍 {order.direccion_entrega ?? order.municipio ?? "Sin dirección"}</div>
                             {order.motorizado_asignado && (
-                              <div className="truncate">🏍️ {order.motorizado_asignado}</div>
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="truncate">🏍️ {order.motorizado_asignado}</span>
+                                {(() => {
+                                  const waUrl = buildWhatsAppUrl(order.motorizado_phone, order);
+                                  return waUrl ? (
+                                    <a
+                                      href={waUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full transition-colors hover:bg-[#25D366]/20"
+                                      title="Enviar WhatsApp al motorizado"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5 text-[#25D366]" />
+                                    </a>
+                                  ) : (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); toast.warning("Teléfono del motorizado no registrado"); }}
+                                      className="shrink-0 inline-flex items-center justify-center h-6 w-6 rounded-full opacity-40 cursor-not-allowed"
+                                      title="Teléfono no disponible"
+                                    >
+                                      <MessageCircle className="h-3.5 w-3.5 text-muted-foreground" />
+                                    </button>
+                                  );
+                                })()}
+                              </div>
                             )}
                             <div className="font-semibold text-foreground">
                               💰 {formatCOP(order.valor_recaudar)}
