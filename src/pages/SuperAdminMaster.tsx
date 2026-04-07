@@ -235,6 +235,26 @@ const SuperAdminMaster = () => {
           </div>
         </div>
       </main>
+
+      {/* Sheet de usuarios por organización */}
+      <Sheet open={usersSheetOpen} onOpenChange={setUsersSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Usuarios — {selectedOrgForUsers?.nombre}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            {selectedOrgForUsers && (
+              <UserManagementTabs
+                currentUserRole={role}
+                defaultOrgFilter={selectedOrgForUsers.id}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
