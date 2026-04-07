@@ -49,6 +49,14 @@ const SuperAdminMaster = () => {
   const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Formato no soportado", description: "Solo se permiten archivos de imagen (JPG, PNG, WebP, SVG, GIF, AVIF, BMP, ICO, TIFF)", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "Archivo muy grande", description: "El logo no puede superar 5 MB", variant: "destructive" });
+      return;
+    }
     setLogoFile(file);
     setLogoPreview(URL.createObjectURL(file));
   };
