@@ -34,6 +34,7 @@ import {
   Pencil,
   Upload,
   CalendarCheck,
+  Banknote,
 } from "lucide-react";
  import { TrendingUp, LayoutDashboard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
