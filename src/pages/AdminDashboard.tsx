@@ -97,6 +97,7 @@ import DateRangeFilter from "@/components/admin/DateRangeFilter";
 import EditStoreModal from "@/components/EditStoreModal";
 import DeliveryDateBadge from "@/components/DeliveryDateBadge";
 import FutureDateConfirmDialog from "@/components/FutureDateConfirmDialog";
+import RecaudoPanel from "@/components/admin/RecaudoPanel";
 const SuperAdminMasterEmbed = lazy(() => import("@/components/admin/SuperAdminPanel"));
 import {
   isFutureDeliveryDate,
@@ -240,6 +241,7 @@ const AdminDashboard = () => {
   const [showFutureDateConfirm, setShowFutureDateConfirm] = useState(false);
   const [pendingAssignment, setPendingAssignment] = useState<{ pedidoId: number; motorizadoUserId: string; pedido: Pedido } | null>(null);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
+  const [showRecaudoPanel, setShowRecaudoPanel] = useState(false);
 
   // Refs for preventing race conditions
   const isMountedRef = useRef(true);
@@ -906,6 +908,10 @@ const AdminDashboard = () => {
                 <Button onClick={() => setShowQRScanner(true)} variant="secondary" className="gap-2">
                   <ScanLine className="h-4 w-4" />
                   Escanear QR
+                </Button>
+                <Button onClick={() => setShowRecaudoPanel(true)} variant="outline" className="gap-2">
+                  <Banknote className="h-4 w-4" />
+                  Control de Recaudo
                 </Button>
               </div>
 
