@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import MarketplaceProductForm from "./MarketplaceProductForm";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
