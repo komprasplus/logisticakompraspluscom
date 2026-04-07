@@ -115,12 +115,20 @@ const SuperAdminMaster = () => {
     }
 
     setCreating(true);
+
+    let logo_url: string | null = null;
+    if (logoFile) {
+      logo_url = await uploadLogo(logoFile);
+      if (!logo_url) { setCreating(false); return; }
+    }
+
     const { error } = await supabase.from("organizaciones").insert({
       nombre: form.nombre,
       slug: form.slug.toLowerCase().replace(/\s+/g, "-"),
       color_primario: form.color_primario,
       color_secundario: form.color_secundario,
       dominio_personalizado: form.dominio_personalizado || null,
+      logo_url,
     });
 
     if (error) {
@@ -128,6 +136,8 @@ const SuperAdminMaster = () => {
     } else {
       toast({ title: "✅ Organización creada", description: `${form.nombre} lista para configurar.` });
       setForm({ nombre: "", slug: "", color_primario: "#6366f1", color_secundario: "#8b5cf6", dominio_personalizado: "" });
+      setLogoFile(null);
+      setLogoPreview(null);
       setDialogOpen(false);
       fetchOrgs();
     }
