@@ -185,6 +185,7 @@ const menuItems = [
 ];
 
 const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, userRole }: AdminSidebarProps) => {
+  const { branding } = useTheme();
   const isSuperAdmin = userRole === "super_admin";
 
   const isCoordinador = userRole === "coordinador_rutas";
