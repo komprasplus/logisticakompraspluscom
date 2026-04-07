@@ -25,6 +25,8 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
   const [showRoleFallback, setShowRoleFallback] = useState(false);
   const { signIn, user, role, loading: authLoading, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const { tenantSlug } = useParams<{ tenantSlug?: string }>();
+  const { branding, loading: brandingLoading, isWhiteLabel } = useTenantBranding(tenantSlug);
 
   useEffect(() => {
     if (!authLoading && user && role) {
