@@ -59,6 +59,30 @@ const SuperAdminMaster = () => {
     setLoading(false);
   };
 
+  const fetchOrgUsers = async (orgId: string) => {
+    setLoadingUsers(true);
+    setOrgUsers([]);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, email")
+      .eq("organizacion_id", orgId);
+
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .eq("organizacion_id", orgId);
+
+    const roleMap = new Map((roles || []).map(r => [r.user_id, r.role]));
+    setOrgUsers(
+      (profiles || []).map(p => ({
+        full_name: p.full_name,
+        email: p.email,
+        role: roleMap.get(p.user_id) || "sin rol",
+      }))
+    );
+    setLoadingUsers(false);
+  };
+
   useEffect(() => {
     fetchOrgs();
   }, []);
