@@ -36,6 +36,8 @@ const SuperAdminMaster = () => {
   const [selectedOrgForUsers, setSelectedOrgForUsers] = useState<Organizacion | null>(null);
   const [orgUsers, setOrgUsers] = useState<{full_name: string; email: string | null; role: string}[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     nombre: "",
     slug: "",
@@ -43,6 +45,25 @@ const SuperAdminMaster = () => {
     color_secundario: "#8b5cf6",
     dominio_personalizado: "",
   });
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  };
+
+  const uploadLogo = async (file: File): Promise<string | null> => {
+    const ext = file.name.split(".").pop() || "png";
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("org-logos").upload(fileName, file, { contentType: file.type });
+    if (error) {
+      toast({ title: "Error al subir logo", description: error.message, variant: "destructive" });
+      return null;
+    }
+    const { data: urlData } = supabase.storage.from("org-logos").getPublicUrl(fileName);
+    return urlData.publicUrl;
+  };
 
   const fetchOrgs = async () => {
     setLoading(true);
