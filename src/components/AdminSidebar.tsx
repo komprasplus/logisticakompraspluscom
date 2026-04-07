@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { 
   MapPin, 
   Package, 
