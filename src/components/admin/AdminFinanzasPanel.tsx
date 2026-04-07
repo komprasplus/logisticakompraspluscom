@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import BoldReconciliationUploader from "./BoldReconciliationUploader";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -118,6 +119,8 @@ const escapeCSV = (val: string) => {
 
 const AdminFinanzasPanel = () => {
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const orgId = profile?.organizacion_id;
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [confirmAction, setConfirmAction] = useState<{
     id: string;
@@ -128,13 +131,15 @@ const AdminFinanzasPanel = () => {
   // ── Queries ─────────────────────────────────────────────────────────────────
 
   const withdrawalsQuery = useQuery({
-    queryKey: ["admin-withdrawals"],
+    queryKey: ["admin-withdrawals", orgId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("withdrawal_requests")
         .select("*")
         .order("requested_at", { ascending: false })
         .limit(500);
+      if (orgId) query = query.eq("organizacion_id", orgId);
+      const { data, error } = await query;
       if (error) throw error;
       return (data ?? []) as WithdrawalRow[];
     },

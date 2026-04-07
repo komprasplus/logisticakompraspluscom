@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -157,6 +158,8 @@ export default function IntegrationsPanel() {
   const [stateMappings, setStateMappings] = useState<StateMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlatform, setSelectedPlatform] = useState("dropi");
+  const { profile } = useAuth();
+  const orgId = profile?.organizacion_id;
 
   // FIX: ref de cancelación para evitar setState sobre componente desmontado
   const cancelRef = useRef(false);
@@ -172,22 +175,25 @@ export default function IntegrationsPanel() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [credRes, logRes, mappingRes] = await Promise.all([
-        supabase
+      const credQuery = supabase
           .from("api_credentials")
           .select("id, label, api_key_prefix, is_active, last_used_at, created_at, client_user_id")
-          .order("created_at", { ascending: false }),
-        supabase
+          .order("created_at", { ascending: false });
+      if (orgId) credQuery.eq("organizacion_id", orgId);
+
+      const logQuery = supabase
           .from("api_logs")
           .select("id, platform, action, response_status, response_message, success, created_at, credential_id")
           .order("created_at", { ascending: false })
-          .limit(100),
-        supabase
+          .limit(100);
+
+      const mappingQuery = supabase
           .from("state_mappings")
           .select("id, internal_state, platform, external_state, external_code, is_active")
           .order("platform", { ascending: true })
-          .order("internal_state", { ascending: true }),
-      ]);
+          .order("internal_state", { ascending: true });
+
+      const [credRes, logRes, mappingRes] = await Promise.all([credQuery, logQuery, mappingQuery]);
 
       if (cancelRef.current) return;
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Wallet, TrendingUp, Calendar, ArrowUpRight, ArrowDownLeft, Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,14 +29,18 @@ const PAGE_SIZE = 15;
 
 const AdminWalletDashboard = () => {
   const [page, setPage] = useState(0);
+  const { profile } = useAuth();
+  const orgId = profile?.organizacion_id;
 
   // KPIs query
   const { data: kpis, isLoading: loadingKpis } = useQuery({
-    queryKey: ["admin-wallet-kpis"],
+    queryKey: ["admin-wallet-kpis", orgId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("admin_wallet_ledger")
         .select("amount, transaction_type, created_at");
+      if (orgId) query = query.eq("organizacion_id", orgId);
+      const { data, error } = await query;
       if (error) throw error;
 
       let totalBalance = 0;
@@ -65,15 +70,17 @@ const AdminWalletDashboard = () => {
 
   // Paginated history
   const { data: history, isLoading: loadingHistory } = useQuery({
-    queryKey: ["admin-wallet-history", page],
+    queryKey: ["admin-wallet-history", page, orgId],
     queryFn: async () => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      const { data, error, count } = await supabase
+      let query = supabase
         .from("admin_wallet_ledger")
         .select("*", { count: "exact" })
         .order("created_at", { ascending: false })
         .range(from, to);
+      if (orgId) query = query.eq("organizacion_id", orgId);
+      const { data, error, count } = await query;
       if (error) throw error;
       return { rows: (data ?? []) as LedgerRow[], total: count ?? 0 };
     },

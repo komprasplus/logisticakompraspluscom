@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import MarketplaceProductForm from "./MarketplaceProductForm";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -201,6 +202,8 @@ const WarehouseInventoryPanel = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [adjustmentModal, setAdjustmentModal] = useState<AdjustmentModal>(MODAL_RESET);
   const [adjusting, setAdjusting] = useState(false);
+  const { profile } = useAuth();
+  const orgId = profile?.organizacion_id;
 
   const cancelRef = useRef(false);
 
@@ -209,13 +212,14 @@ const WarehouseInventoryPanel = () => {
   const fetchInventory = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("inventory")
-        // FIX: campos explícitos en lugar de select("*")
         .select(
           "id, sku, product_name, stock_available, low_stock_threshold, image_url, price, fulfillment_value, client_user_id, created_at, updated_at",
         )
         .order("product_name", { ascending: true });
+      if (orgId) query = query.eq("organizacion_id", orgId);
+      const { data, error } = await query;
 
       if (cancelRef.current) return;
       if (error) throw error;
