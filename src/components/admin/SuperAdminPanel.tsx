@@ -41,7 +41,18 @@ const EMPTY_FORM: OrgFormValues = {
 };
 
 const MAX_LOGO_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-const ALLOWED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/svg+xml"]);
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/svg+xml",
+  "image/gif",
+  "image/bmp",
+  "image/x-icon",
+  "image/vnd.microsoft.icon",
+  "image/avif",
+  "image/tiff",
+]);
 
 /**
  * Normaliza un slug: minúsculas, espacios → guiones, solo alfanumérico y guiones.
@@ -93,8 +104,8 @@ const OrgForm = ({
 
       // FIX: validación de tipo MIME y tamaño en JS
       // (el atributo `accept` es bypasseable por el usuario)
-      if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
-        alert("Solo se permiten imágenes (JPG, PNG, WebP, SVG)");
+      if (!ALLOWED_IMAGE_TYPES.has(file.type) && !file.type.startsWith("image/")) {
+        alert("Solo se permiten archivos de imagen (JPG, PNG, WebP, SVG, GIF, AVIF, BMP, ICO, TIFF)");
         if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
@@ -323,18 +334,18 @@ const SuperAdminPanel = () => {
 
   const uploadLogo = useCallback(
     async (orgId: string, file: File): Promise<string | null> => {
-      const ext = file.name.split(".").pop() ?? "jpg";
-      const path = `${orgId}/logo.${ext}`;
-      const { error } = await supabase.storage.from("logos_tiendas").upload(path, file, {
+      const ext = file.name.split(".").pop() ?? "png";
+      const path = `${orgId}/${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage.from("org-logos").upload(path, file, {
         upsert: true,
-        contentType: file.type, // FIX: siempre incluir contentType
+        contentType: file.type,
       });
 
       if (error) {
         toast({ title: "Error subiendo logo", description: error.message, variant: "destructive" });
         return null;
       }
-      const { data: urlData } = supabase.storage.from("logos_tiendas").getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from("org-logos").getPublicUrl(path);
       return urlData.publicUrl;
     },
     [toast],
