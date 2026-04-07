@@ -96,6 +96,9 @@ const NuevoPedidoModal = ({
   isAdmin,
   inventoryPrefill,
 }: NuevoPedidoModalProps) => {
+  const { profile } = useAuth();
+  const orgId = profile?.organizacion_id;
+
   // Form state - Reordered: payment method first
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
   const [valorRecaudar, setValorRecaudar] = useState("");
