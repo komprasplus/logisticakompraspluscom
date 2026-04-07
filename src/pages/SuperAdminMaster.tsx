@@ -195,7 +195,7 @@ const SuperAdminMaster = () => {
                     </span>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3">
                   <p className="text-xs text-muted-foreground font-mono">/{org.slug}</p>
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: org.color_primario }} />
@@ -206,6 +206,18 @@ const SuperAdminMaster = () => {
                       </span>
                     )}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setSelectedOrgForUsers(org);
+                      setUsersSheetOpen(true);
+                    }}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Ver Usuarios
+                  </Button>
                 </CardContent>
               </Card>
             ))}
