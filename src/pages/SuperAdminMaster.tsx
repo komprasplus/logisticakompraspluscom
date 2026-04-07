@@ -34,6 +34,8 @@ const SuperAdminMaster = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [usersSheetOpen, setUsersSheetOpen] = useState(false);
   const [selectedOrgForUsers, setSelectedOrgForUsers] = useState<Organizacion | null>(null);
+  const [orgUsers, setOrgUsers] = useState<{full_name: string; email: string | null; role: string}[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [form, setForm] = useState({
     nombre: "",
     slug: "",
