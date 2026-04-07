@@ -192,20 +192,28 @@ const NuevoPedidoModal = ({
 
   const fetchMotorizados = async () => {
     try {
-      const { data: roleData, error: roleError } = await supabase
+      let roleQuery = supabase
         .from("user_roles")
         .select("user_id")
         .eq("role", "motorizado");
+      
+      if (orgId) roleQuery = roleQuery.eq("organizacion_id", orgId);
+
+      const { data: roleData, error: roleError } = await roleQuery;
 
       if (roleError) throw roleError;
 
       if (roleData && roleData.length > 0) {
         const userIds = roleData.map((r) => r.user_id);
-        const { data: profiles, error: profileError } = await supabase
+        let profileQuery = supabase
           .from("profiles")
           .select("id, user_id, full_name")
           .in("user_id", userIds)
           .eq("status", "activo");
+        
+        if (orgId) profileQuery = profileQuery.eq("organizacion_id", orgId);
+
+        const { data: profiles, error: profileError } = await profileQuery;
 
         if (profileError) throw profileError;
         setMotorizados(profiles || []);
@@ -217,18 +225,26 @@ const NuevoPedidoModal = ({
 
   const fetchStores = async () => {
     try {
-      const { data: roleData } = await supabase
+      let roleQuery = supabase
         .from("user_roles")
         .select("user_id")
         .eq("role", "cliente");
+      
+      if (orgId) roleQuery = roleQuery.eq("organizacion_id", orgId);
+
+      const { data: roleData } = await roleQuery;
 
       if (roleData && roleData.length > 0) {
         const userIds = roleData.map((r) => r.user_id);
-        const { data: profiles } = await supabase
+        let profileQuery = supabase
           .from("profiles")
           .select("user_id, store_name, full_name, fulfillment_rate")
           .in("user_id", userIds)
           .eq("status", "activo");
+        
+        if (orgId) profileQuery = profileQuery.eq("organizacion_id", orgId);
+
+        const { data: profiles } = await profileQuery;
 
         // Add Bodega KP as first option for guarantees/internal dispatches
         const allStores = [BODEGA_KOMPRAS_PLUS, ...(profiles || [])] as StoreOption[];
