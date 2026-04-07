@@ -1,0 +1,1 @@
+UPDATE organizaciones SET slug = 'toons' WHERE nombre = 'Toons' AND slug = 'envios';
