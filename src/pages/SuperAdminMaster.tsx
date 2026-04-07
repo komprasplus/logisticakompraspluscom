@@ -247,12 +247,21 @@ const SuperAdminMaster = () => {
               Usuarios — {selectedOrgForUsers?.nombre}
             </SheetTitle>
           </SheetHeader>
-          <div className="mt-4">
-            {selectedOrgForUsers && (
-              <UserManagementTabs
-                currentUserRole={role}
-                defaultOrgFilter={selectedOrgForUsers.id}
-              />
+          <div className="mt-4 space-y-2">
+            {loadingUsers ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            ) : orgUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No hay usuarios en esta organización</p>
+            ) : (
+              orgUsers.map((u, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-border bg-card">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{u.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">{u.role}</Badge>
+                </div>
+              ))
             )}
           </div>
         </SheetContent>
