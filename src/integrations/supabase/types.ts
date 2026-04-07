@@ -1234,6 +1234,10 @@ export type Database = {
       }
     }
     Functions: {
+      delete_user_completely: {
+        Args: { target_user_id: string }
+        Returns: Json
+      }
       get_public_tracking_info: {
         Args: { search_tracking_number: string }
         Returns: Json
