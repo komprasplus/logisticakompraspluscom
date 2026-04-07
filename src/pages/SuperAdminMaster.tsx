@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Building2, Palette, Globe, Loader2, LogOut, DatabaseZap, Users } from "lucide-react";
+import { Plus, Building2, Palette, Globe, Loader2, LogOut, DatabaseZap, Users, ImagePlus } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import RecalcularBilleterasButton from "@/components/admin/RecalcularBilleterasButton";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,8 @@ const SuperAdminMaster = () => {
   const [selectedOrgForUsers, setSelectedOrgForUsers] = useState<Organizacion | null>(null);
   const [orgUsers, setOrgUsers] = useState<{full_name: string; email: string | null; role: string}[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [form, setForm] = useState({
     nombre: "",
     slug: "",
@@ -43,6 +45,25 @@ const SuperAdminMaster = () => {
     color_secundario: "#8b5cf6",
     dominio_personalizado: "",
   });
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoFile(file);
+    setLogoPreview(URL.createObjectURL(file));
+  };
+
+  const uploadLogo = async (file: File): Promise<string | null> => {
+    const ext = file.name.split(".").pop() || "png";
+    const fileName = `${crypto.randomUUID()}.${ext}`;
+    const { error } = await supabase.storage.from("org-logos").upload(fileName, file, { contentType: file.type });
+    if (error) {
+      toast({ title: "Error al subir logo", description: error.message, variant: "destructive" });
+      return null;
+    }
+    const { data: urlData } = supabase.storage.from("org-logos").getPublicUrl(fileName);
+    return urlData.publicUrl;
+  };
 
   const fetchOrgs = async () => {
     setLoading(true);
@@ -94,12 +115,20 @@ const SuperAdminMaster = () => {
     }
 
     setCreating(true);
+
+    let logo_url: string | null = null;
+    if (logoFile) {
+      logo_url = await uploadLogo(logoFile);
+      if (!logo_url) { setCreating(false); return; }
+    }
+
     const { error } = await supabase.from("organizaciones").insert({
       nombre: form.nombre,
       slug: form.slug.toLowerCase().replace(/\s+/g, "-"),
       color_primario: form.color_primario,
       color_secundario: form.color_secundario,
       dominio_personalizado: form.dominio_personalizado || null,
+      logo_url,
     });
 
     if (error) {
@@ -107,6 +136,8 @@ const SuperAdminMaster = () => {
     } else {
       toast({ title: "✅ Organización creada", description: `${form.nombre} lista para configurar.` });
       setForm({ nombre: "", slug: "", color_primario: "#6366f1", color_secundario: "#8b5cf6", dominio_personalizado: "" });
+      setLogoFile(null);
+      setLogoPreview(null);
       setDialogOpen(false);
       fetchOrgs();
     }
@@ -191,12 +222,19 @@ const SuperAdminMaster = () => {
                   </div>
                 </div>
                 <div>
+                  <Label className="flex items-center gap-2"><ImagePlus className="h-3 w-3" /> Logo corporativo</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    {logoPreview && <img src={logoPreview} alt="Preview" className="h-10 w-10 rounded-lg object-contain border border-border" />}
+                    <Input type="file" accept="image/*" onChange={handleLogoSelect} className="flex-1" />
+                  </div>
+                </div>
+                <div>
                   <Label className="flex items-center gap-2"><Globe className="h-3 w-3" /> Dominio personalizado</Label>
                   <Input value={form.dominio_personalizado} onChange={e => setForm(p => ({ ...p, dominio_personalizado: e.target.value }))} placeholder="logistica.miempresa.com" />
                 </div>
                 <Button onClick={handleCreate} disabled={creating} className="w-full neu-button text-primary-foreground">
                   {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                  Crear Organización
+                  {creating ? "Guardando..." : "Crear Organización"}
                 </Button>
               </div>
             </DialogContent>
@@ -215,7 +253,14 @@ const SuperAdminMaster = () => {
                 <div className="h-2" style={{ background: `linear-gradient(135deg, ${org.color_primario}, ${org.color_secundario})` }} />
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{org.nombre}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      {org.logo_url ? (
+                        <img src={org.logo_url} alt={org.nombre} className="h-8 w-8 rounded-lg object-contain" />
+                      ) : (
+                        <Building2 className="h-5 w-5 text-muted-foreground" />
+                      )}
+                      <CardTitle className="text-base">{org.nombre}</CardTitle>
+                    </div>
                     <span className={`text-xs px-2 py-1 rounded-full ${org.plan_activo ? 'bg-secondary/20 text-secondary' : 'bg-destructive/20 text-destructive'}`}>
                       {org.plan_activo ? "Activa" : "Inactiva"}
                     </span>
