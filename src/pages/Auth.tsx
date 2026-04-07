@@ -1,12 +1,14 @@
 import { useState, useEffect, forwardRef } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, Mail, Lock, AlertCircle, Truck, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 import { toast } from "sonner";
+import { useTenantBranding } from "@/hooks/useTenantBranding";
+import { Skeleton } from "@/components/ui/skeleton";
 const loginSchema = z.object({
   email: z.string().min(3, "Email requerido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
@@ -23,6 +25,8 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
   const [showRoleFallback, setShowRoleFallback] = useState(false);
   const { signIn, user, role, loading: authLoading, refreshProfile } = useAuth();
   const navigate = useNavigate();
+  const { tenantSlug } = useParams<{ tenantSlug?: string }>();
+  const { branding, loading: brandingLoading, isWhiteLabel } = useTenantBranding(tenantSlug);
 
   useEffect(() => {
     if (!authLoading && user && role) {
@@ -158,18 +162,26 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
         >
           {/* Neumorphic Brand Logo */}
           <div className="neu-flat p-8 mx-auto w-fit mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-button flex items-center justify-center shadow-lg">
-                <Truck className="h-8 w-8 text-white" />
+            {brandingLoading ? (
+              <Skeleton className="h-14 w-48 rounded-xl" />
+            ) : isWhiteLabel && branding.logo_url ? (
+              <div className="flex items-center gap-3">
+                <img src={branding.logo_url} alt={branding.nombre} className="h-14 object-contain" />
               </div>
-              <div className="text-left">
-                <h1 className="text-3xl font-black tracking-tight">
-                  <span className="text-gradient-brand">Plus</span>
-                  <span className="text-foreground"> Envíos</span>
-                </h1>
-                <p className="text-xs text-muted-foreground font-medium">Sistema de Logística</p>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-button flex items-center justify-center shadow-lg">
+                  <Truck className="h-8 w-8 text-white" />
+                </div>
+                <div className="text-left">
+                  <h1 className="text-3xl font-black tracking-tight">
+                    <span className="text-gradient-brand">Plus</span>
+                    <span className="text-foreground"> Envíos</span>
+                  </h1>
+                  <p className="text-xs text-muted-foreground font-medium">Sistema de Logística</p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           
           <h2 className="text-xl font-bold text-foreground">Iniciar Sesión</h2>
@@ -384,16 +396,18 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
         </motion.div>
 
         {/* Contact info */}
-        <motion.p
-          className="mt-8 text-center text-xs text-muted-foreground"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-        >
-          ¿Necesitas ayuda? Contacta al administrador
-          <br />
-          📞 324 222 3825
-        </motion.p>
+        {!isWhiteLabel && (
+          <motion.p
+            className="mt-8 text-center text-xs text-muted-foreground"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            ¿Necesitas ayuda? Contacta al administrador
+            <br />
+            📞 324 222 3825
+          </motion.p>
+        )}
       </motion.div>
 
       <ForgotPasswordModal 

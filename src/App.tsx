@@ -136,6 +136,11 @@ const AppRoutes = () => {
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
+      
+      {/* White-label tenant routes */}
+      <Route path="/:tenantSlug" element={<Index />} />
+      <Route path="/:tenantSlug/auth" element={<Auth />} />
+      
       <Route path="/rastreo" element={<Suspense fallback={<PageLoader />}><CustomerTracking /></Suspense>} />
       <Route path="/rastreo/:id_guia" element={<Suspense fallback={<PageLoader />}><PublicTracking /></Suspense>} />
       <Route path="/tracking/:id_guia" element={<Suspense fallback={<PageLoader />}><PublicTracking /></Suspense>} />
