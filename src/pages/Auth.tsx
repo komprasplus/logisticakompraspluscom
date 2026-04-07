@@ -162,18 +162,26 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
         >
           {/* Neumorphic Brand Logo */}
           <div className="neu-flat p-8 mx-auto w-fit mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-button flex items-center justify-center shadow-lg">
-                <Truck className="h-8 w-8 text-white" />
+            {brandingLoading ? (
+              <Skeleton className="h-14 w-48 rounded-xl" />
+            ) : isWhiteLabel && branding.logo_url ? (
+              <div className="flex items-center gap-3">
+                <img src={branding.logo_url} alt={branding.nombre} className="h-14 object-contain" />
               </div>
-              <div className="text-left">
-                <h1 className="text-3xl font-black tracking-tight">
-                  <span className="text-gradient-brand">Plus</span>
-                  <span className="text-foreground"> Envíos</span>
-                </h1>
-                <p className="text-xs text-muted-foreground font-medium">Sistema de Logística</p>
+            ) : (
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-button flex items-center justify-center shadow-lg">
+                  <Truck className="h-8 w-8 text-white" />
+                </div>
+                <div className="text-left">
+                  <h1 className="text-3xl font-black tracking-tight">
+                    <span className="text-gradient-brand">Plus</span>
+                    <span className="text-foreground"> Envíos</span>
+                  </h1>
+                  <p className="text-xs text-muted-foreground font-medium">Sistema de Logística</p>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           
           <h2 className="text-xl font-bold text-foreground">Iniciar Sesión</h2>
