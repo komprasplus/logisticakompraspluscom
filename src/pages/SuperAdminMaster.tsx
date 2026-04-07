@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Plus, Building2, Palette, Globe, Loader2, LogOut, DatabaseZap, Users } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import RecalcularBilleterasButton from "@/components/admin/RecalcularBilleterasButton";
-import UserManagementTabs from "@/components/UserManagementTabs";
+import { Badge } from "@/components/ui/badge";
 
 interface Organizacion {
   id: string;
