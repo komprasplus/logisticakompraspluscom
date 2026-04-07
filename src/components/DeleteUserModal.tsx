@@ -31,37 +31,13 @@ const DeleteUserModal = ({ isOpen, onClose, onUserDeleted, user }: DeleteUserMod
     setLoading(true);
 
     try {
-      // Get current session token
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const { data, error } = await supabase.rpc('delete_user_completely', {
+        target_user_id: user.user_id,
+      });
 
-      if (!token) {
-        toast.error("No hay sesión activa");
-        setLoading(false);
-        return;
-      }
+      if (error) throw error;
 
-      // Delete profile first (will cascade due to FK if set up that way)
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("user_id", user.user_id);
-
-      if (profileError) throw profileError;
-
-      // Delete user role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", user.user_id);
-
-      if (roleError) throw roleError;
-
-      // Note: Deleting from auth.users requires admin API via edge function
-      // For now, we just delete the profile/role data
-      // The auth user will be orphaned but cannot login without profile
-
-      toast.success(`Usuario ${user.full_name} eliminado correctamente`);
+      toast.success(`Usuario ${user.full_name} eliminado completamente (auth + perfil)`);
       onUserDeleted();
       handleClose();
     } catch (error: any) {
