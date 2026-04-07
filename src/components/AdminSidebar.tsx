@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTheme } from "@/contexts/ThemeContext";
 import { 
   MapPin, 
   Package, 
@@ -184,6 +185,7 @@ const menuItems = [
 ];
 
 const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, userRole }: AdminSidebarProps) => {
+  const { branding } = useTheme();
   const isSuperAdmin = userRole === "super_admin";
 
   const isCoordinador = userRole === "coordinador_rutas";
@@ -214,13 +216,20 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, user
       {/* Logo - Glassmorphic Header */}
       <div className="flex items-center justify-between p-5 border-b border-white/10">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-button flex items-center justify-center shadow-md">
-              <Truck className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-black text-lg tracking-tight">
-              <span className="text-gradient-brand">Plus</span>
-              <span className="text-foreground"> Envíos</span>
+          <div className="flex items-center gap-2 min-w-0">
+            {branding.logo_url ? (
+              <img
+                src={branding.logo_url}
+                alt={branding.nombre}
+                className="h-10 w-10 rounded-xl object-contain shadow-md"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-gradient-button flex items-center justify-center shadow-md flex-shrink-0">
+                <Truck className="h-5 w-5 text-white" />
+              </div>
+            )}
+            <span className="font-black text-lg tracking-tight truncate">
+              <span className="text-gradient-brand">{branding.nombre}</span>
             </span>
           </div>
         )}

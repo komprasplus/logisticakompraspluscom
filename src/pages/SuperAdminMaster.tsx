@@ -6,10 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Building2, Palette, Globe, Loader2, LogOut, DatabaseZap } from "lucide-react";
+import { Plus, Building2, Palette, Globe, Loader2, LogOut, DatabaseZap, Users } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import RecalcularBilleterasButton from "@/components/admin/RecalcularBilleterasButton";
+import { Badge } from "@/components/ui/badge";
 
 interface Organizacion {
   id: string;
@@ -24,12 +26,16 @@ interface Organizacion {
 }
 
 const SuperAdminMaster = () => {
-  const { signOut } = useAuth();
+  const { signOut, role } = useAuth();
   const { toast } = useToast();
   const [orgs, setOrgs] = useState<Organizacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [usersSheetOpen, setUsersSheetOpen] = useState(false);
+  const [selectedOrgForUsers, setSelectedOrgForUsers] = useState<Organizacion | null>(null);
+  const [orgUsers, setOrgUsers] = useState<{full_name: string; email: string | null; role: string}[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [form, setForm] = useState({
     nombre: "",
     slug: "",
@@ -51,6 +57,30 @@ const SuperAdminMaster = () => {
       setOrgs(data || []);
     }
     setLoading(false);
+  };
+
+  const fetchOrgUsers = async (orgId: string) => {
+    setLoadingUsers(true);
+    setOrgUsers([]);
+    const { data: profiles } = await supabase
+      .from("profiles")
+      .select("user_id, full_name, email")
+      .eq("organizacion_id", orgId);
+
+    const { data: roles } = await supabase
+      .from("user_roles")
+      .select("user_id, role")
+      .eq("organizacion_id", orgId);
+
+    const roleMap = new Map((roles || []).map(r => [r.user_id, r.role]));
+    setOrgUsers(
+      (profiles || []).map(p => ({
+        full_name: p.full_name,
+        email: p.email,
+        role: roleMap.get(p.user_id) || "sin rol",
+      }))
+    );
+    setLoadingUsers(false);
   };
 
   useEffect(() => {
@@ -191,7 +221,7 @@ const SuperAdminMaster = () => {
                     </span>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="space-y-3">
                   <p className="text-xs text-muted-foreground font-mono">/{org.slug}</p>
                   <div className="flex items-center gap-2">
                     <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: org.color_primario }} />
@@ -202,6 +232,19 @@ const SuperAdminMaster = () => {
                       </span>
                     )}
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => {
+                      setSelectedOrgForUsers(org);
+                      setUsersSheetOpen(true);
+                      fetchOrgUsers(org.id);
+                    }}
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Ver Usuarios
+                  </Button>
                 </CardContent>
               </Card>
             ))}
@@ -219,6 +262,35 @@ const SuperAdminMaster = () => {
           </div>
         </div>
       </main>
+
+      {/* Sheet de usuarios por organización */}
+      <Sheet open={usersSheetOpen} onOpenChange={setUsersSheetOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-2xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-primary" />
+              Usuarios — {selectedOrgForUsers?.nombre}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-2">
+            {loadingUsers ? (
+              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            ) : orgUsers.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">No hay usuarios en esta organización</p>
+            ) : (
+              orgUsers.map((u, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-border bg-card">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{u.full_name}</p>
+                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                  </div>
+                  <Badge variant="outline" className="text-xs">{u.role}</Badge>
+                </div>
+              ))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };
