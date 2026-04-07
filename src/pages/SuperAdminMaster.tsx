@@ -253,7 +253,14 @@ const SuperAdminMaster = () => {
                 <div className="h-2" style={{ background: `linear-gradient(135deg, ${org.color_primario}, ${org.color_secundario})` }} />
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base">{org.nombre}</CardTitle>
+                    <div className="flex items-center gap-2">
+                      {org.logo_url ? (
+                        <img src={org.logo_url} alt={org.nombre} className="h-8 w-8 rounded-lg object-contain" />
+                      ) : (
+                        <Building2 className="h-5 w-5 text-muted-foreground" />
+                      )}
+                      <CardTitle className="text-base">{org.nombre}</CardTitle>
+                    </div>
                     <span className={`text-xs px-2 py-1 rounded-full ${org.plan_activo ? 'bg-secondary/20 text-secondary' : 'bg-destructive/20 text-destructive'}`}>
                       {org.plan_activo ? "Activa" : "Inactiva"}
                     </span>
