@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Building2, Palette, Globe, Loader2, LogOut, DatabaseZap, Users } from "lucide-react";
+import { Plus, Building2, Palette, Globe, Loader2, LogOut, DatabaseZap, Users, ImagePlus } from "lucide-react";
 import BrandLogo from "@/components/BrandLogo";
 import RecalcularBilleterasButton from "@/components/admin/RecalcularBilleterasButton";
 import { Badge } from "@/components/ui/badge";
