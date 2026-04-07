@@ -222,12 +222,19 @@ const SuperAdminMaster = () => {
                   </div>
                 </div>
                 <div>
+                  <Label className="flex items-center gap-2"><ImagePlus className="h-3 w-3" /> Logo corporativo</Label>
+                  <div className="flex items-center gap-3 mt-1">
+                    {logoPreview && <img src={logoPreview} alt="Preview" className="h-10 w-10 rounded-lg object-contain border border-border" />}
+                    <Input type="file" accept="image/*" onChange={handleLogoSelect} className="flex-1" />
+                  </div>
+                </div>
+                <div>
                   <Label className="flex items-center gap-2"><Globe className="h-3 w-3" /> Dominio personalizado</Label>
                   <Input value={form.dominio_personalizado} onChange={e => setForm(p => ({ ...p, dominio_personalizado: e.target.value }))} placeholder="logistica.miempresa.com" />
                 </div>
                 <Button onClick={handleCreate} disabled={creating} className="w-full neu-button text-primary-foreground">
                   {creating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
-                  Crear Organización
+                  {creating ? "Guardando..." : "Crear Organización"}
                 </Button>
               </div>
             </DialogContent>
