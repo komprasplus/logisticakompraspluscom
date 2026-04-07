@@ -1142,6 +1142,13 @@ const AdminDashboard = () => {
                 </SheetContent>
               </Sheet>
 
+              {/* Recaudo Panel */}
+              <RecaudoPanel
+                open={showRecaudoPanel}
+                onOpenChange={setShowRecaudoPanel}
+                pedidos={pedidos}
+              />
+
               {/* Dynamic Selection Bar - only visible when items selected */}
               {selectedForBulk.length > 0 && (
                 <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-primary/10 border-2 border-primary/40 shadow-sm">
