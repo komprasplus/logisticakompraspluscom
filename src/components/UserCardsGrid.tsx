@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { User, Phone, Mail, Store, Key, UserCheck, Trash2, Wifi, WifiOff, Pencil, DollarSign } from "lucide-react";
+import { User, Phone, Mail, Store, Key, UserCheck, Trash2, Wifi, WifiOff, Pencil, DollarSign, Building2, Shield, Truck, Radio, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { formatCOP } from "@/lib/tarifas";
@@ -15,6 +15,7 @@ interface Profile {
   avatar_url?: string | null;
   is_online?: boolean;
   fulfillment_rate?: number | null;
+  organizacion_id?: string | null;
 }
 
 interface UserRole {
@@ -29,6 +30,8 @@ interface UserCardsGridProps {
   onConfirmEmail: (userId: string) => void;
   onDeleteUser: (user: Profile) => void;
   onEditStore?: (user: Profile) => void;
+  showOrganization?: boolean;
+  orgMap?: Record<string, string>;
 }
 
 const UserCardsGrid = ({
@@ -38,6 +41,8 @@ const UserCardsGrid = ({
   onConfirmEmail,
   onDeleteUser,
   onEditStore,
+  showOrganization = false,
+  orgMap = {},
 }: UserCardsGridProps) => {
   const getUserRole = (userId: string): string => {
     const role = userRoles.find((r) => r.user_id === userId);
@@ -46,12 +51,18 @@ const UserCardsGrid = ({
 
   const getRoleBadgeColor = (role: string) => {
     switch (role) {
+      case "super_admin":
+        return "bg-red-100 text-red-700 border-red-200";
       case "admin":
         return "bg-purple-100 text-purple-700 border-purple-200";
       case "motorizado":
         return "bg-blue-100 text-blue-700 border-blue-200";
       case "cliente":
         return "bg-emerald-100 text-emerald-700 border-emerald-200";
+      case "despachador":
+        return "bg-amber-100 text-amber-700 border-amber-200";
+      case "coordinador_rutas":
+        return "bg-cyan-100 text-cyan-700 border-cyan-200";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
     }
@@ -59,14 +70,38 @@ const UserCardsGrid = ({
 
   const getRoleLabel = (role: string) => {
     switch (role) {
+      case "super_admin":
+        return "Super Admin";
       case "admin":
         return "Administrador";
       case "motorizado":
         return "Motorizado";
       case "cliente":
-        return "Cliente";
+        return "Tienda";
+      case "despachador":
+        return "Despachador";
+      case "coordinador_rutas":
+        return "Coordinador";
       default:
         return "Usuario";
+    }
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "super_admin":
+      case "admin":
+        return Shield;
+      case "motorizado":
+        return Truck;
+      case "cliente":
+        return Store;
+      case "despachador":
+        return Radio;
+      case "coordinador_rutas":
+        return MapPin;
+      default:
+        return User;
     }
   };
 
@@ -82,6 +117,7 @@ const UserCardsGrid = ({
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {users.map((user, index) => {
         const role = getUserRole(user.user_id);
+        const RoleIcon = getRoleIcon(role);
 
         return (
           <motion.div
@@ -93,7 +129,6 @@ const UserCardsGrid = ({
           >
             {/* Header with Avatar and Status */}
             <div className="flex items-start gap-4 mb-4">
-              {/* Avatar */}
               {user.avatar_url ? (
                 <img
                   src={user.avatar_url}
@@ -102,15 +137,13 @@ const UserCardsGrid = ({
                 />
               ) : (
                 <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                  <User className="h-7 w-7 text-primary" />
+                  <RoleIcon className="h-7 w-7 text-primary" />
                 </div>
               )}
 
-              {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-foreground truncate">{user.full_name}</h3>
-                  {/* Online Status Indicator */}
                   {role === "motorizado" && (
                     <span
                       className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
@@ -120,25 +153,27 @@ const UserCardsGrid = ({
                       }`}
                     >
                       {user.is_online ? (
-                        <>
-                          <Wifi className="h-3 w-3" />
-                          En línea
-                        </>
+                        <><Wifi className="h-3 w-3" /> En línea</>
                       ) : (
-                        <>
-                          <WifiOff className="h-3 w-3" />
-                          Offline
-                        </>
+                        <><WifiOff className="h-3 w-3" /> Offline</>
                       )}
                     </span>
                   )}
                 </div>
-                <Badge
-                  variant="outline"
-                  className={`mt-1 text-xs ${getRoleBadgeColor(role)}`}
-                >
-                  {getRoleLabel(role)}
-                </Badge>
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <Badge
+                    variant="outline"
+                    className={`text-xs ${getRoleBadgeColor(role)}`}
+                  >
+                    {getRoleLabel(role)}
+                  </Badge>
+                  {showOrganization && user.organizacion_id && orgMap[user.organizacion_id] && (
+                    <Badge variant="outline" className="text-xs bg-muted/50 gap-1">
+                      <Building2 className="h-3 w-3" />
+                      {orgMap[user.organizacion_id]}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -150,7 +185,6 @@ const UserCardsGrid = ({
                   <span className="font-medium text-foreground">{user.store_name}</span>
                 </p>
               )}
-              {/* Show Fulfillment Rate for Clients */}
               {role === "cliente" && (
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-emerald-500" />
@@ -176,7 +210,6 @@ const UserCardsGrid = ({
 
             {/* Actions */}
             <div className="flex items-center gap-2 pt-3 border-t border-border">
-              {/* Edit Store - Only for Clients */}
               {role === "cliente" && onEditStore && (
                 <Button
                   variant="outline"
