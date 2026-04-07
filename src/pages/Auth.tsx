@@ -396,16 +396,18 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
         </motion.div>
 
         {/* Contact info */}
-        <motion.p
-          className="mt-8 text-center text-xs text-muted-foreground"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-        >
-          ¿Necesitas ayuda? Contacta al administrador
-          <br />
-          📞 324 222 3825
-        </motion.p>
+        {!isWhiteLabel && (
+          <motion.p
+            className="mt-8 text-center text-xs text-muted-foreground"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4 }}
+          >
+            ¿Necesitas ayuda? Contacta al administrador
+            <br />
+            📞 324 222 3825
+          </motion.p>
+        )}
       </motion.div>
 
       <ForgotPasswordModal 
