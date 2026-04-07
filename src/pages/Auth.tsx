@@ -1,12 +1,14 @@
 import { useState, useEffect, forwardRef } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Loader2, Mail, Lock, AlertCircle, Truck, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { z } from "zod";
 import ForgotPasswordModal from "@/components/ForgotPasswordModal";
 import { toast } from "sonner";
+import { useTenantBranding } from "@/hooks/useTenantBranding";
+import { Skeleton } from "@/components/ui/skeleton";
 const loginSchema = z.object({
   email: z.string().min(3, "Email requerido"),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres"),
