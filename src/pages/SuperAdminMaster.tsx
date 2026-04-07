@@ -239,6 +239,7 @@ const SuperAdminMaster = () => {
                     onClick={() => {
                       setSelectedOrgForUsers(org);
                       setUsersSheetOpen(true);
+                      fetchOrgUsers(org.id);
                     }}
                   >
                     <Users className="h-4 w-4 mr-2" />
