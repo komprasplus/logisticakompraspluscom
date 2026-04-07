@@ -158,6 +158,8 @@ export default function IntegrationsPanel() {
   const [stateMappings, setStateMappings] = useState<StateMapping[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlatform, setSelectedPlatform] = useState("dropi");
+  const { profile } = useAuth();
+  const orgId = profile?.organizacion_id;
 
   // FIX: ref de cancelación para evitar setState sobre componente desmontado
   const cancelRef = useRef(false);
