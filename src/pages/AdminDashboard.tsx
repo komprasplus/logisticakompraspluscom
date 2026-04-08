@@ -1283,6 +1283,7 @@ const AdminDashboard = () => {
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Guía</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Cliente</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden xl:table-cell">Tienda</th>
+                        {isAliado && <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Bodega</th>}
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Zona</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Barrio</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
