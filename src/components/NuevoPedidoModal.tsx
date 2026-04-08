@@ -586,6 +586,8 @@ const NuevoPedidoModal = ({
     setSelectedStoreId("");
     setInventoryItemId(null);
     setQuantity(1);
+    setSelectedVariantId(null);
+    setVariants([]);
   };
 
   if (!isOpen) return null;
