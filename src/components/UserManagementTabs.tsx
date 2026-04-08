@@ -273,6 +273,12 @@ const UserManagementTabs = ({
           </div>
         )}
       </motion.div>
+
+      <BulkUserUploadModal
+        open={showBulkUpload}
+        onOpenChange={setShowBulkUpload}
+        onComplete={onRoleChanged}
+      />
     </div>
   );
 };
