@@ -61,7 +61,7 @@ const UserCardsGrid = ({
         return "bg-emerald-100 text-emerald-700 border-emerald-200";
       case "despachador":
         return "bg-amber-100 text-amber-700 border-amber-200";
-      case "coordinador_rutas":
+      case "aliado_logistico":
         return "bg-cyan-100 text-cyan-700 border-cyan-200";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
@@ -80,8 +80,8 @@ const UserCardsGrid = ({
         return "Tienda";
       case "despachador":
         return "Despachador";
-      case "coordinador_rutas":
-        return "Coordinador";
+      case "aliado_logistico":
+        return "Aliado Logístico";
       default:
         return "Usuario";
     }
@@ -98,7 +98,7 @@ const UserCardsGrid = ({
         return Store;
       case "despachador":
         return Radio;
-      case "coordinador_rutas":
+      case "aliado_logistico":
         return MapPin;
       default:
         return User;
