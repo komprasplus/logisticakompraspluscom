@@ -186,12 +186,35 @@ const UserCardsGrid = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${getRoleBadgeColor(role)}`}
-                  >
-                    {getRoleLabel(role)}
-                  </Badge>
+                  {canEditRoles && role !== "super_admin" ? (
+                    <Select
+                      value={role}
+                      onValueChange={(val) => handleRoleChange(user.user_id, val)}
+                      disabled={changingRoleFor === user.user_id}
+                    >
+                      <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs">
+                        {changingRoleFor === user.user_id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <SelectValue />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="cliente">Tienda</SelectItem>
+                        <SelectItem value="motorizado">Motorizado</SelectItem>
+                        <SelectItem value="despachador">Despachador</SelectItem>
+                        <SelectItem value="aliado_logistico">Aliado Logístico</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${getRoleBadgeColor(role)}`}
+                    >
+                      {getRoleLabel(role)}
+                    </Badge>
+                  )}
                   {showOrganization && user.organizacion_id && orgMap[user.organizacion_id] && (
                     <Badge variant="outline" className="text-xs bg-muted/50 gap-1">
                       <Building2 className="h-3 w-3" />
