@@ -68,6 +68,19 @@ const MarketplaceProductForm = () => {
   const [productType, setProductType] = useState("Simple");
   const [category, setCategory] = useState("");
 
+  // Variant fields
+  const [attributeNames, setAttributeNames] = useState<string[]>([]);
+  const [attributeValues, setAttributeValues] = useState<Record<string, string[]>>({});
+  const [newAttrName, setNewAttrName] = useState("");
+  const [variants, setVariants] = useState<Array<{
+    variant_name: string;
+    sku: string;
+    price: string;
+    cost_price: string;
+    stock: string;
+    attributes: Record<string, string>;
+  }>>([]);
+
   // Images state: up to 3
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null]);
   const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null]);
