@@ -65,7 +65,7 @@ const ClienteDashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
   const [marketplacePrefill, setMarketplacePrefill] = useState<{
-    productName: string; sku: string; suggestedPrice: number; marketplaceProductId: string;
+    productName: string; sku: string; suggestedPrice: number; marketplaceProductId: string; productType?: string;
   } | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
@@ -432,6 +432,7 @@ const ClienteDashboard = () => {
           price: marketplacePrefill.suggestedPrice,
           quantity: 1,
           sku: marketplacePrefill.sku,
+          productType: marketplacePrefill.productType,
         } : undefined}
       />
 

@@ -15,6 +15,7 @@ import {
   CheckCircle,
   Calculator,
   Building2,
+  Layers,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,6 +74,7 @@ interface InventoryPrefill {
   quantity: number;
   sku: string;
   maxStock?: number;
+  productType?: string;
 }
 
 // State for current user's fulfillment rate
@@ -121,6 +123,12 @@ const NuevoPedidoModal = ({
   const [observaciones, setObservaciones] = useState("");
   const [inventoryItemId, setInventoryItemId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
+  
+  // Variant state
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [variants, setVariants] = useState<any[]>([]);
+  const [loadingVariants, setLoadingVariants] = useState(false);
+  const isVariableProduct = inventoryPrefill?.productType === 'Variable' || inventoryPrefill?.productType === 'variable';
   
   // Schedule
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(undefined);
@@ -189,6 +197,34 @@ const NuevoPedidoModal = ({
       setObservaciones(detalles);
     }
   }, [quantity, inventoryPrefill, inventoryItemId]);
+
+  // Fetch variants when product is variable
+  useEffect(() => {
+    if (isVariableProduct && inventoryPrefill?.inventoryItemId && isOpen) {
+      const fetchVariants = async () => {
+        setLoadingVariants(true);
+        try {
+          const { data, error } = await (supabase as any)
+            .from("product_variants")
+            .select("id, variant_name, sku, price, stock_available, attributes")
+            .eq("product_id", inventoryPrefill.inventoryItemId)
+            .eq("is_active", true)
+            .order("variant_name");
+          if (error) throw error;
+          setVariants(data || []);
+        } catch (err) {
+          console.error("Error fetching variants:", err);
+          setVariants([]);
+        } finally {
+          setLoadingVariants(false);
+        }
+      };
+      fetchVariants();
+    } else {
+      setVariants([]);
+      setSelectedVariantId(null);
+    }
+  }, [isVariableProduct, inventoryPrefill?.inventoryItemId, isOpen]);
 
   const fetchMotorizados = async () => {
     try {
@@ -390,6 +426,11 @@ const NuevoPedidoModal = ({
     if (metodoPago === "efectivo" && !valorRecaudar) {
       missingFields.push("Valor a Recaudar");
     }
+
+    // Variable product requires variant selection
+    if (isVariableProduct && inventoryItemId && !selectedVariantId) {
+      missingFields.push("Variante del producto");
+    }
     
     if (missingFields.length > 0) {
       toast.error(`Falta: ${missingFields.join(", ")}`);
@@ -452,10 +493,11 @@ const NuevoPedidoModal = ({
           : currentUserId,
         // Inventory linking
         inventory_item_id: inventoryItemId || null,
+        variant_id: selectedVariantId || null,
         quantity: quantity,
         // Store fulfillment cost from profile at order creation time
         fulfillment_cost: fulfillmentInfo.rate,
-      };
+      } as any;
 
       const { error } = await supabase.from("pedidos").insert(pedidoData);
 
@@ -465,8 +507,32 @@ const NuevoPedidoModal = ({
          toast.warning("Pedido creado sin coordenadas. Puedes editarlo luego para agregar ubicación.");
        }
 
-       // Inventory stock decrement: best-effort only (never block order creation).
-       if (inventoryItemId && quantity > 0) {
+       // Stock decrement: variant-aware, best-effort only (never block order creation).
+       if (selectedVariantId && quantity > 0) {
+         // Deduct from the specific variant
+         try {
+           const { data: variantItem, error: variantErr } = await (supabase as any)
+             .from("product_variants")
+             .select("stock_available")
+             .eq("id", selectedVariantId)
+             .maybeSingle();
+
+           if (variantErr) throw variantErr;
+
+           if (variantItem && typeof variantItem.stock_available === "number") {
+             const newStock = Math.max(0, variantItem.stock_available - quantity);
+             const { error: updateErr } = await (supabase as any)
+               .from("product_variants")
+               .update({ stock_available: newStock })
+               .eq("id", selectedVariantId);
+             if (updateErr) throw updateErr;
+           }
+         } catch (invErr) {
+           console.warn("Variant stock update failed (non-blocking):", invErr);
+           toast.warning("Pedido creado, pero no se pudo actualizar el stock de la variante.");
+         }
+       } else if (inventoryItemId && quantity > 0) {
+         // Deduct from regular inventory (non-variable products)
          try {
            const { data: currentItem, error: currentItemErr } = await (supabase as any)
              .from("inventory")
@@ -525,6 +591,8 @@ const NuevoPedidoModal = ({
     setSelectedStoreId("");
     setInventoryItemId(null);
     setQuantity(1);
+    setSelectedVariantId(null);
+    setVariants([]);
   };
 
   if (!isOpen) return null;
@@ -846,6 +914,64 @@ const NuevoPedidoModal = ({
                     </span>
                   </div>
 
+                  {/* Variant Selector - for variable products */}
+                  {isVariableProduct && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs font-semibold text-foreground">Seleccionar Variante *</span>
+                      </div>
+                      {loadingVariants ? (
+                        <div className="flex items-center justify-center py-3">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <span className="ml-2 text-xs text-muted-foreground">Cargando variantes...</span>
+                        </div>
+                      ) : variants.length === 0 ? (
+                        <p className="text-xs text-destructive">No hay variantes configuradas para este producto.</p>
+                      ) : (
+                        <select
+                          value={selectedVariantId || ""}
+                          onChange={(e) => {
+                            const varId = e.target.value || null;
+                            setSelectedVariantId(varId);
+                            // Update max stock and price from variant
+                            if (varId) {
+                              const variant = variants.find((v: any) => v.id === varId);
+                              if (variant) {
+                                setQuantity(1); // Reset quantity when variant changes
+                              }
+                            }
+                          }}
+                          required
+                          className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                          <option value="">Seleccionar variante (Color, Talla, etc.)</option>
+                          {variants.map((v: any) => {
+                            const attrText = v.attributes
+                              ? Object.values(v.attributes).join(" - ")
+                              : v.variant_name;
+                            const isOOS = v.stock_available === 0;
+                            return (
+                              <option key={v.id} value={v.id} disabled={isOOS}>
+                                {attrText} (Stock: {v.stock_available}){isOOS ? " — Agotado" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      )}
+                      {selectedVariantId && (() => {
+                        const sv = variants.find((v: any) => v.id === selectedVariantId);
+                        if (!sv) return null;
+                        return (
+                          <div className="text-xs text-muted-foreground flex justify-between px-1">
+                            <span>SKU variante: <span className="font-mono">{sv.sku}</span></span>
+                            {sv.price && <span>Precio: {formatCOP(sv.price)}</span>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between rounded-xl border border-border bg-background p-2">
                     <button
                       type="button"
@@ -864,22 +990,36 @@ const NuevoPedidoModal = ({
                     <div className="text-center">
                       <span className="text-xl font-bold text-foreground">{quantity}</span>
                       <span className="text-xs text-muted-foreground ml-1">
-                        / {inventoryPrefill.maxStock || "∞"} disponibles
+                        / {(() => {
+                          if (isVariableProduct && selectedVariantId) {
+                            const sv = variants.find((v: any) => v.id === selectedVariantId);
+                            return sv?.stock_available ?? "∞";
+                          }
+                          return inventoryPrefill.maxStock || "∞";
+                        })()} disponibles
                       </span>
                     </div>
                     
                     <button
                       type="button"
                       onClick={() => {
-                        const max = inventoryPrefill.maxStock || 999;
+                        let max = inventoryPrefill.maxStock || 999;
+                        if (isVariableProduct && selectedVariantId) {
+                          const sv = variants.find((v: any) => v.id === selectedVariantId);
+                          max = sv?.stock_available ?? 999;
+                        }
                         setQuantity(Math.min(max, quantity + 1));
                       }}
-                      disabled={inventoryPrefill.maxStock ? quantity >= inventoryPrefill.maxStock : false}
+                      disabled={(() => {
+                        if (isVariableProduct && selectedVariantId) {
+                          const sv = variants.find((v: any) => v.id === selectedVariantId);
+                          return sv ? quantity >= sv.stock_available : false;
+                        }
+                        return inventoryPrefill.maxStock ? quantity >= inventoryPrefill.maxStock : false;
+                      })()}
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-lg font-bold transition-colors",
-                        inventoryPrefill.maxStock && quantity >= inventoryPrefill.maxStock
-                          ? "bg-muted text-muted-foreground cursor-not-allowed"
-                          : "bg-primary/10 text-primary hover:bg-primary/20"
+                        "bg-primary/10 text-primary hover:bg-primary/20"
                       )}
                     >
                       +
@@ -1088,14 +1228,19 @@ const NuevoPedidoModal = ({
               </div>
             )}
 
-            {/* Submit Button - Always enabled, validation handled on submit */}
+            {/* Submit Button */}
+            {isVariableProduct && !selectedVariantId && inventoryItemId && (
+              <p className="text-xs text-destructive text-center font-medium">
+                ⚠️ Debes seleccionar una variante antes de crear el pedido.
+              </p>
+            )}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (isVariableProduct && !selectedVariantId && !!inventoryItemId)}
               className={cn(
                 "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
                 "bg-primary text-primary-foreground hover:opacity-90",
-                loading && "opacity-50 cursor-not-allowed"
+                (loading || (isVariableProduct && !selectedVariantId && !!inventoryItemId)) && "opacity-50 cursor-not-allowed"
               )}
             >
               {loading ? (

@@ -627,6 +627,7 @@ export type Database = {
           valor_flete: number | null
           valor_producto: number | null
           valor_recaudar: number | null
+          variant_id: string | null
           zona: string | null
         }
         Insert: {
@@ -684,6 +685,7 @@ export type Database = {
           valor_flete?: number | null
           valor_producto?: number | null
           valor_recaudar?: number | null
+          variant_id?: string | null
           zona?: string | null
         }
         Update: {
@@ -741,6 +743,7 @@ export type Database = {
           valor_flete?: number | null
           valor_producto?: number | null
           valor_recaudar?: number | null
+          variant_id?: string | null
           zona?: string | null
         }
         Relationships: [
@@ -756,6 +759,13 @@ export type Database = {
             columns: ["organizacion_id"]
             isOneToOne: false
             referencedRelation: "organizaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "product_variants"
             referencedColumns: ["id"]
           },
         ]

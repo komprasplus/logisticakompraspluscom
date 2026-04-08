@@ -22,6 +22,7 @@ interface MarketplaceProduct {
   stock_available: number;
   image_url: string | null;
   is_active: boolean;
+  product_type?: string;
 }
 
 interface MarketplaceCatalogProps {
@@ -30,6 +31,7 @@ interface MarketplaceCatalogProps {
     sku: string;
     suggestedPrice: number;
     marketplaceProductId: string;
+    productType?: string;
   }) => void;
 }
 
@@ -69,6 +71,7 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       sku: product.sku,
       suggestedPrice: product.suggested_price,
       marketplaceProductId: product.id,
+      productType: product.product_type,
     });
   };
 
