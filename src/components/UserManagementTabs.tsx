@@ -42,6 +42,7 @@ interface UserManagementTabsProps {
   onConfirmEmail: (userId: string) => void;
   onDeleteUser: (user: Profile) => void;
   onEditStore?: (user: Profile) => void;
+  onRoleChanged?: () => void;
 }
 
 const ROLE_OPTIONS = [
@@ -248,6 +249,8 @@ const UserManagementTabs = ({
           onConfirmEmail={onConfirmEmail}
           onDeleteUser={onDeleteUser}
           onEditStore={onEditStore}
+          onRoleChanged={onRoleChanged}
+          canEditRoles={isSuperAdmin}
           showOrganization={isSuperAdmin}
           orgMap={orgMap}
         />
