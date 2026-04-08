@@ -1223,14 +1223,19 @@ const NuevoPedidoModal = ({
               </div>
             )}
 
-            {/* Submit Button - Always enabled, validation handled on submit */}
+            {/* Submit Button */}
+            {isVariableProduct && !selectedVariantId && inventoryItemId && (
+              <p className="text-xs text-destructive text-center font-medium">
+                ⚠️ Debes seleccionar una variante antes de crear el pedido.
+              </p>
+            )}
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (isVariableProduct && !selectedVariantId && !!inventoryItemId)}
               className={cn(
                 "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
                 "bg-primary text-primary-foreground hover:opacity-90",
-                loading && "opacity-50 cursor-not-allowed"
+                (loading || (isVariableProduct && !selectedVariantId && !!inventoryItemId)) && "opacity-50 cursor-not-allowed"
               )}
             >
               {loading ? (
