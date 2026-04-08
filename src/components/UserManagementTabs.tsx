@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Store, Truck, User, Filter, Shield, Radio, MapPin, Building2, X } from "lucide-react";
+import { Search, Store, Truck, User, Filter, Shield, Radio, MapPin, Building2, X, Upload } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import UserCardsGrid from "@/components/UserCardsGrid";
+import BulkUserUploadModal from "@/components/admin/BulkUserUploadModal";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
