@@ -760,6 +760,62 @@ export type Database = {
           },
         ]
       }
+      product_variants: {
+        Row: {
+          attributes: Json
+          cost_price: number | null
+          created_at: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          organizacion_id: string | null
+          price: number | null
+          product_id: string
+          sku: string
+          stock_available: number
+          updated_at: string
+          variant_name: string
+        }
+        Insert: {
+          attributes?: Json
+          cost_price?: number | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          organizacion_id?: string | null
+          price?: number | null
+          product_id: string
+          sku: string
+          stock_available?: number
+          updated_at?: string
+          variant_name: string
+        }
+        Update: {
+          attributes?: Json
+          cost_price?: number | null
+          created_at?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          organizacion_id?: string | null
+          price?: number | null
+          product_id?: string
+          sku?: string
+          stock_available?: number
+          updated_at?: string
+          variant_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_variants_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
