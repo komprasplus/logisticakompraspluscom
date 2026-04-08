@@ -426,6 +426,11 @@ const NuevoPedidoModal = ({
     if (metodoPago === "efectivo" && !valorRecaudar) {
       missingFields.push("Valor a Recaudar");
     }
+
+    // Variable product requires variant selection
+    if (isVariableProduct && inventoryItemId && !selectedVariantId) {
+      missingFields.push("Variante del producto");
+    }
     
     if (missingFields.length > 0) {
       toast.error(`Falta: ${missingFields.join(", ")}`);
