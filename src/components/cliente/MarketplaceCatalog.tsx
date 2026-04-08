@@ -31,6 +31,7 @@ interface MarketplaceCatalogProps {
     sku: string;
     suggestedPrice: number;
     marketplaceProductId: string;
+    productType?: string;
   }) => void;
 }
 
