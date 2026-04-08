@@ -361,7 +361,7 @@ const AdminDashboard = () => {
       console.error("Error filtering pedidos:", error);
       setFilteredPedidos([]);
     }
-  }, [pedidos, statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, todayOnlyFilter, searchQuery, clientProfiles]);
+  }, [pedidos, statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, bodegaFilter, todayOnlyFilter, searchQuery, clientProfiles]);
 
   // Apply filters when dependencies change
   useEffect(() => {
