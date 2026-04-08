@@ -67,6 +67,7 @@ const UserManagementTabs = ({
   onConfirmEmail,
   onDeleteUser,
   onEditStore,
+  onRoleChanged,
 }: UserManagementTabsProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
