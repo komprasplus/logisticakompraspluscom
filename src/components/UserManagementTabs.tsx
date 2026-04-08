@@ -223,6 +223,11 @@ const UserManagementTabs = ({
             Limpiar
           </Button>
         )}
+
+        <Button variant="outline" size="sm" onClick={() => setShowBulkUpload(true)} className="gap-1.5">
+          <Upload className="h-4 w-4" />
+          Carga Masiva
+        </Button>
       </div>
 
       {/* Results info */}
