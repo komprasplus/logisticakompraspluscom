@@ -58,7 +58,7 @@ const UserCardsGrid = ({
     try {
       const { error } = await supabase
         .from("user_roles")
-        .update({ role: newRole })
+        .update({ role: newRole as any })
         .eq("user_id", userId);
       if (error) throw error;
       toast.success("Rol actualizado exitosamente");
@@ -210,12 +210,12 @@ const UserCardsGrid = ({
                   <span className="font-medium text-foreground">{user.store_name}</span>
                 </p>
               )}
-              {role === "cliente" && (
+              {role === "cliente" && user.fulfillment_rate && (
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-emerald-500" />
                   <span>Fulfillment: </span>
                   <span className="font-semibold text-foreground">
-                    {formatCOP(user.fulfillment_rate || 1900)}
+                    ${(user.fulfillment_rate || 1900).toLocaleString()}
                   </span>
                 </p>
               )}
