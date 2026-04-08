@@ -1161,6 +1161,7 @@ const AdminDashboard = () => {
                         setMetodoPagoFilter("todos");
                         setZonaFilter("todos");
                         setStoreFilter("todos");
+                        setBodegaFilter("todos");
                         setTodayOnlyFilter(false);
                       }}
                     >
