@@ -985,22 +985,36 @@ const NuevoPedidoModal = ({
                     <div className="text-center">
                       <span className="text-xl font-bold text-foreground">{quantity}</span>
                       <span className="text-xs text-muted-foreground ml-1">
-                        / {inventoryPrefill.maxStock || "∞"} disponibles
+                        / {(() => {
+                          if (isVariableProduct && selectedVariantId) {
+                            const sv = variants.find((v: any) => v.id === selectedVariantId);
+                            return sv?.stock_available ?? "∞";
+                          }
+                          return inventoryPrefill.maxStock || "∞";
+                        })()} disponibles
                       </span>
                     </div>
                     
                     <button
                       type="button"
                       onClick={() => {
-                        const max = inventoryPrefill.maxStock || 999;
+                        let max = inventoryPrefill.maxStock || 999;
+                        if (isVariableProduct && selectedVariantId) {
+                          const sv = variants.find((v: any) => v.id === selectedVariantId);
+                          max = sv?.stock_available ?? 999;
+                        }
                         setQuantity(Math.min(max, quantity + 1));
                       }}
-                      disabled={inventoryPrefill.maxStock ? quantity >= inventoryPrefill.maxStock : false}
+                      disabled={(() => {
+                        if (isVariableProduct && selectedVariantId) {
+                          const sv = variants.find((v: any) => v.id === selectedVariantId);
+                          return sv ? quantity >= sv.stock_available : false;
+                        }
+                        return inventoryPrefill.maxStock ? quantity >= inventoryPrefill.maxStock : false;
+                      })()}
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-lg font-bold transition-colors",
-                        inventoryPrefill.maxStock && quantity >= inventoryPrefill.maxStock
-                          ? "bg-muted text-muted-foreground cursor-not-allowed"
-                          : "bg-primary/10 text-primary hover:bg-primary/20"
+                        "bg-primary/10 text-primary hover:bg-primary/20"
                       )}
                     >
                       +
