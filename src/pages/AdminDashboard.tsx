@@ -77,7 +77,7 @@ import UserCardsGrid from "@/components/UserCardsGrid";
 import UserManagementTabs from "@/components/UserManagementTabs";
 import PaginationControls from "@/components/PaginationControls";
 import { usePagination } from "@/hooks/usePagination";
-import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
+
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
