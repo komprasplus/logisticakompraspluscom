@@ -34,14 +34,14 @@ const LiquidacionAliadosPanel = () => {
     return { from: startOfDay(now), to: endOfDay(now) };
   }, [period, customDate]);
 
-  // Fetch coordinador_rutas users as allies
+  // Fetch aliado_logistico users as allies
   const { data: allies = [] } = useQuery({
     queryKey: ["liquidacion-allies"],
     queryFn: async () => {
       const { data: roles } = await supabase
         .from("user_roles")
         .select("user_id")
-        .eq("role", "coordinador_rutas");
+        .eq("role", "aliado_logistico");
       if (!roles || roles.length === 0) return [];
       const { data: profiles } = await supabase
         .from("profiles")

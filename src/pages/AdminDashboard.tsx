@@ -202,8 +202,8 @@ const AdminDashboard = () => {
 
   // UI state
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
-  const isCoordinador = userRole === "coordinador_rutas";
-  const [activeSection, setActiveSection] = useState<string>(isCoordinador ? "despacho" : "analytics");
+  const isAliado = userRole === "aliado_logistico";
+  const [activeSection, setActiveSection] = useState<string>(isAliado ? "despacho" : "analytics");
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [barrioFilter, setBarrioFilter] = useState<string>("todos");
