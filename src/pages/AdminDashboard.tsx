@@ -1039,7 +1039,7 @@ const AdminDashboard = () => {
 
                     {activeFilterCount > 0 && (
                       <button
-                        onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setTodayOnlyFilter(false); }}
+                        onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setBodegaFilter("todos"); setTodayOnlyFilter(false); }}
                         className="text-sm text-primary hover:underline"
                       >
                         Limpiar filtros
