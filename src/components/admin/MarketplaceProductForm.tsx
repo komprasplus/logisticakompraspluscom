@@ -181,9 +181,81 @@ const MarketplaceProductForm = () => {
     return urls;
   };
 
+  const addAttribute = () => {
+    const attr = newAttrName.trim();
+    if (!attr || attributeNames.includes(attr)) return;
+    setAttributeNames([...attributeNames, attr]);
+    setAttributeValues({ ...attributeValues, [attr]: [] });
+    setNewAttrName("");
+  };
+
+  const removeAttribute = (attr: string) => {
+    setAttributeNames(attributeNames.filter(a => a !== attr));
+    const newVals = { ...attributeValues };
+    delete newVals[attr];
+    setAttributeValues(newVals);
+    setVariants([]);
+  };
+
+  const addAttrValue = (attr: string, value: string) => {
+    const v = value.trim();
+    if (!v || attributeValues[attr]?.includes(v)) return;
+    setAttributeValues({ ...attributeValues, [attr]: [...(attributeValues[attr] || []), v] });
+  };
+
+  const removeAttrValue = (attr: string, value: string) => {
+    setAttributeValues({
+      ...attributeValues,
+      [attr]: (attributeValues[attr] || []).filter(v => v !== value),
+    });
+    setVariants([]);
+  };
+
+  const generateVariants = () => {
+    const attrKeys = attributeNames.filter(a => (attributeValues[a] || []).length > 0);
+    if (attrKeys.length === 0) { toast.error("Define al menos un atributo con valores"); return; }
+
+    const combos: Record<string, string>[][] = [[]];
+    for (const key of attrKeys) {
+      const newCombos: Record<string, string>[][] = [];
+      for (const combo of combos) {
+        for (const val of attributeValues[key]) {
+          newCombos.push([...combo, { [key]: val }]);
+        }
+      }
+      combos.length = 0;
+      combos.push(...newCombos);
+    }
+
+    const generated = (combos as Record<string, string>[][]).map((combo, i) => {
+      const attrs = Object.assign({}, ...combo);
+      const variantName = Object.values(attrs).join(" / ");
+      return {
+        variant_name: variantName,
+        sku: `${sku || "SKU"}-${i + 1}`,
+        price: suggestedPrice || "0",
+        cost_price: costPrice || "0",
+        stock: "0",
+        attributes: attrs,
+      };
+    });
+
+    setVariants(generated);
+    toast.success(`${generated.length} variantes generadas`);
+  };
+
+  const updateVariant = (index: number, field: string, value: string) => {
+    const updated = [...variants];
+    (updated[index] as any)[field] = value;
+    setVariants(updated);
+  };
+
   const handleSave = async () => {
     if (!name.trim() || !sku.trim()) {
       toast.error("Nombre y SKU son obligatorios"); return;
+    }
+    if (productType === "Variable" && variants.length === 0) {
+      toast.error("Genera las variantes antes de guardar"); return;
     }
     setSaving(true);
     try {
@@ -194,7 +266,7 @@ const MarketplaceProductForm = () => {
         sku: sku.trim(),
         cost_price: Number(costPrice) || 0,
         suggested_price: Number(suggestedPrice) || 0,
-        stock_available: Number(stock) || 0,
+        stock_available: productType === "Variable" ? variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0) : Number(stock) || 0,
         image_url: imgUrls[0] || null,
         image_url_2: imgUrls[1] || null,
         image_url_3: imgUrls[2] || null,
@@ -204,15 +276,39 @@ const MarketplaceProductForm = () => {
         ...(editing ? {} : { created_by: user?.id }),
       };
 
+      let productId: string;
       if (editing) {
         const { error } = await (supabase as any).from("marketplace_products").update(payload).eq("id", editing.id);
         if (error) throw error;
+        productId = editing.id;
         toast.success("Producto actualizado");
       } else {
-        const { error } = await (supabase as any).from("marketplace_products").insert(payload);
+        const { data: inserted, error } = await (supabase as any).from("marketplace_products").insert(payload).select("id").single();
         if (error) throw error;
+        productId = inserted.id;
         toast.success("Producto creado en el marketplace");
       }
+
+      // Save variants for variable products
+      if (productType === "Variable" && variants.length > 0) {
+        // Delete existing variants if editing
+        if (editing) {
+          await (supabase as any).from("product_variants").delete().eq("product_id", productId);
+        }
+        const variantRows = variants.map(v => ({
+          product_id: productId,
+          variant_name: v.variant_name,
+          sku: v.sku,
+          price: Number(v.price) || null,
+          cost_price: Number(v.cost_price) || null,
+          stock_available: Number(v.stock) || 0,
+          attributes: v.attributes,
+          organizacion_id: orgId,
+        }));
+        const { error: varError } = await (supabase as any).from("product_variants").insert(variantRows);
+        if (varError) console.error("Error saving variants:", varError);
+      }
+
       queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
       resetForm();
     } catch (e: any) {
