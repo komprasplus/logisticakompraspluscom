@@ -5,6 +5,7 @@ export interface TarifaConfig {
   municipio: string;
   valor: number;
   etiqueta: string;
+  flete_aliado: number;
 }
 
 // Tarifas de envío por municipio (ACTUALIZADAS)
