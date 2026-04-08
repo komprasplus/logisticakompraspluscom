@@ -74,6 +74,7 @@ const UserManagementTabs = ({
   const [roleFilter, setRoleFilter] = useState("all");
   const [orgFilter, setOrgFilter] = useState("all");
   const [organizaciones, setOrganizaciones] = useState<Organizacion[]>([]);
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
 
   const { role: currentUserRole, profile: authProfile } = useAuth();
   const isSuperAdmin = currentUserRole === "super_admin";
