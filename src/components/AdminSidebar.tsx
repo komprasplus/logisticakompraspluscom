@@ -209,7 +209,7 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, user
         colorClass: "from-yellow-500 to-amber-600",
         accentColor: "bg-yellow-500/10",
       }]
-    : menuItems;
+    : menuItems.filter(item => !(item as any).superAdminOnly);
 
   if (isCoordinador) {
     allMenuItems = allMenuItems.filter(item => COORDINADOR_ALLOWED_SECTIONS.includes(item.id));
