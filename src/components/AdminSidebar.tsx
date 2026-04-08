@@ -187,7 +187,7 @@ const menuItems = [
     id: "liquidacion-aliados",
     label: "Cuentas Aliados",
     icon: Handshake,
-    description: "Liquidación Go Milla",
+    description: "Liquidación aliados logísticos",
     colorClass: "from-sky-500 to-blue-600",
     accentColor: "bg-sky-500/10",
     superAdminOnly: true,
