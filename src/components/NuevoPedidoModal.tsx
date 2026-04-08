@@ -502,8 +502,32 @@ const NuevoPedidoModal = ({
          toast.warning("Pedido creado sin coordenadas. Puedes editarlo luego para agregar ubicación.");
        }
 
-       // Inventory stock decrement: best-effort only (never block order creation).
-       if (inventoryItemId && quantity > 0) {
+       // Stock decrement: variant-aware, best-effort only (never block order creation).
+       if (selectedVariantId && quantity > 0) {
+         // Deduct from the specific variant
+         try {
+           const { data: variantItem, error: variantErr } = await (supabase as any)
+             .from("product_variants")
+             .select("stock_available")
+             .eq("id", selectedVariantId)
+             .maybeSingle();
+
+           if (variantErr) throw variantErr;
+
+           if (variantItem && typeof variantItem.stock_available === "number") {
+             const newStock = Math.max(0, variantItem.stock_available - quantity);
+             const { error: updateErr } = await (supabase as any)
+               .from("product_variants")
+               .update({ stock_available: newStock })
+               .eq("id", selectedVariantId);
+             if (updateErr) throw updateErr;
+           }
+         } catch (invErr) {
+           console.warn("Variant stock update failed (non-blocking):", invErr);
+           toast.warning("Pedido creado, pero no se pudo actualizar el stock de la variante.");
+         }
+       } else if (inventoryItemId && quantity > 0) {
+         // Deduct from regular inventory (non-variable products)
          try {
            const { data: currentItem, error: currentItemErr } = await (supabase as any)
              .from("inventory")
