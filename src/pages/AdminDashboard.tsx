@@ -77,7 +77,7 @@ import UserCardsGrid from "@/components/UserCardsGrid";
 import UserManagementTabs from "@/components/UserManagementTabs";
 import PaginationControls from "@/components/PaginationControls";
 import { usePagination } from "@/hooks/usePagination";
-import { ZONAS, getAllZonas, type ZonaCodigo } from "@/lib/zonas";
+
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
@@ -206,9 +206,8 @@ const AdminDashboard = () => {
   const [activeSection, setActiveSection] = useState<string>(isAliado ? "despacho" : "analytics");
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
-  const [barrioFilter, setBarrioFilter] = useState<string>("todos");
+  const [municipioFilter, setMunicipioFilter] = useState<string>("todos");
   const [metodoPagoFilter, setMetodoPagoFilter] = useState<string>("todos");
-  const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [storeFilter, setStoreFilter] = useState<string>("todos");
   const [todayOnlyFilter, setTodayOnlyFilter] = useState(false);
   const [bodegaFilter, setBodegaFilter] = useState<string>("todos");
@@ -306,16 +305,12 @@ const AdminDashboard = () => {
         filtered = filtered.filter((p) => isOperationalStatus(p.estado));
       }
 
-      if (barrioFilter !== "todos") {
-        filtered = filtered.filter((p) => p.barrio === barrioFilter);
+      if (municipioFilter !== "todos") {
+        filtered = filtered.filter((p) => p.municipio === municipioFilter);
       }
 
       if (metodoPagoFilter !== "todos") {
         filtered = filtered.filter((p) => p.metodo_pago === metodoPagoFilter);
-      }
-
-      if (zonaFilter !== "todos") {
-        filtered = filtered.filter((p) => p.zona === zonaFilter);
       }
 
       if (storeFilter !== "todos") {
@@ -344,8 +339,8 @@ const AdminDashboard = () => {
             p.numero_guia?.toLowerCase().includes(query) ||
             p.cliente_nombre?.toLowerCase().includes(query) ||
             p.motorizado_asignado?.toLowerCase().includes(query) ||
-            p.barrio?.toLowerCase().includes(query) ||
-            p.zona?.toLowerCase().includes(query)
+            p.municipio?.toLowerCase().includes(query) ||
+            p.barrio?.toLowerCase().includes(query)
         );
       }
 
@@ -361,7 +356,7 @@ const AdminDashboard = () => {
       console.error("Error filtering pedidos:", error);
       setFilteredPedidos([]);
     }
-  }, [pedidos, statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, bodegaFilter, todayOnlyFilter, searchQuery, clientProfiles]);
+  }, [pedidos, statusFilter, municipioFilter, metodoPagoFilter, storeFilter, bodegaFilter, todayOnlyFilter, searchQuery, clientProfiles]);
 
   // Apply filters when dependencies change
   useEffect(() => {
@@ -695,23 +690,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const uniqueBarrios = [...new Set(pedidos.map((p) => p.barrio).filter(Boolean))].sort();
-
-  const ZonaBadge = ({ zona }: { zona: string | null }) => {
-    if (!zona) return <span className="text-muted-foreground">-</span>;
-
-    const config = ZONAS[zona as ZonaCodigo];
-    if (!config) return <span className="text-muted-foreground">{zona}</span>;
-
-    return (
-      <span
-        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${config.bgColor} ${config.textColor}`}
-      >
-        <MapPinned className="h-3 w-3" />
-        {config.codigo}
-      </span>
-    );
-  };
+  const uniqueMunicipios = [...new Set(pedidos.map((p) => p.municipio).filter(Boolean))].sort();
 
   const StatusBadge = ({ status }: { status: string | null }) => {
     const config = getStatusConfig(status);
@@ -997,9 +976,8 @@ const AdminDashboard = () => {
               {(() => {
                 const activeFilterCount = [
                   statusFilter !== "todos",
-                  barrioFilter !== "todos",
+                  municipioFilter !== "todos",
                   metodoPagoFilter !== "todos",
-                  zonaFilter !== "todos",
                   storeFilter !== "todos",
                   bodegaFilter !== "todos",
                   todayOnlyFilter,
@@ -1039,7 +1017,7 @@ const AdminDashboard = () => {
 
                     {activeFilterCount > 0 && (
                       <button
-                        onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setBodegaFilter("todos"); setTodayOnlyFilter(false); }}
+                        onClick={() => { setStatusFilter("todos"); setMunicipioFilter("todos"); setMetodoPagoFilter("todos"); setStoreFilter("todos"); setBodegaFilter("todos"); setTodayOnlyFilter(false); }}
                         className="text-sm text-primary hover:underline"
                       >
                         Limpiar filtros
@@ -1078,13 +1056,13 @@ const AdminDashboard = () => {
                       </select>
                     </div>
 
-                    {/* Barrio */}
+                    {/* Ciudad / Municipio */}
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">Barrio</Label>
-                      <select value={barrioFilter} onChange={(e) => setBarrioFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option value="todos">Todos los barrios</option>
-                        {uniqueBarrios.map((barrio, idx) => (
-                          <option key={barrio || `barrio-${idx}`} value={barrio || ""}>{barrio}</option>
+                      <Label className="text-sm font-medium">Ciudad / Municipio</Label>
+                      <select value={municipioFilter} onChange={(e) => setMunicipioFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                        <option value="todos">Todos los municipios</option>
+                        {uniqueMunicipios.map((m, idx) => (
+                          <option key={m || `mun-${idx}`} value={m || ""}>{m}</option>
                         ))}
                       </select>
                     </div>
@@ -1096,17 +1074,6 @@ const AdminDashboard = () => {
                         <option value="todos">Todos los pagos</option>
                         <option value="efectivo">Contra Entrega</option>
                         <option value="anticipado">Pago Anticipado</option>
-                      </select>
-                    </div>
-
-                    {/* Zona */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Zona</Label>
-                      <select value={zonaFilter} onChange={(e) => setZonaFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
-                        <option value="todos">Todas las zonas</option>
-                        {getAllZonas().map((zona) => (
-                          <option key={zona} value={zona}>{zona} - {ZONAS[zona].nombre}</option>
-                        ))}
                       </select>
                     </div>
 
@@ -1156,10 +1123,9 @@ const AdminDashboard = () => {
                       variant="outline"
                       className="flex-1"
                       onClick={() => {
-                        setStatusFilter("todos");
-                        setBarrioFilter("todos");
+                         setStatusFilter("todos");
+                        setMunicipioFilter("todos");
                         setMetodoPagoFilter("todos");
-                        setZonaFilter("todos");
                         setStoreFilter("todos");
                         setBodegaFilter("todos");
                         setTodayOnlyFilter(false);
@@ -1299,8 +1265,7 @@ const AdminDashboard = () => {
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Cliente</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden xl:table-cell">Tienda</th>
                         {isAliado && <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Bodega</th>}
-                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Zona</th>
-                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Barrio</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Destino</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">F. Entrega</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Motorizado</th>
@@ -1374,8 +1339,17 @@ const AdminDashboard = () => {
                                 </span>
                               </td>
                             )}
-                            <td className="px-3 py-3 hidden sm:table-cell"><ZonaBadge zona={pedido.zona} /></td>
-                            <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">{pedido.barrio || "-"}</td>
+                            <td className="px-3 py-3 hidden sm:table-cell">
+                              <div className="flex flex-col">
+                                <span className="inline-flex items-center gap-1">
+                                  <MapPinned className="h-3 w-3 text-primary" />
+                                  <span className="text-xs font-semibold text-foreground">{pedido.municipio || pedido.zona || "-"}</span>
+                                </span>
+                                {pedido.barrio && (
+                                  <span className="text-[11px] text-muted-foreground ml-4">{pedido.barrio}</span>
+                                )}
+                              </div>
+                            </td>
                             <td className="px-3 py-3 hidden md:table-cell">
                               <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${pedido.metodo_pago === "anticipado" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"}`}>
                                 {pedido.metodo_pago === "anticipado" ? "Anticipado" : "Contra Entrega"}
