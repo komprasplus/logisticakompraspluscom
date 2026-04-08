@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Satellite,
   Wallet,
+  Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -181,6 +182,15 @@ const menuItems = [
     description: "Shadow Layer entrante",
     colorClass: "from-violet-500 to-purple-600",
     accentColor: "bg-violet-500/10"
+  },
+  {
+    id: "liquidacion-aliados",
+    label: "Cuentas Aliados",
+    icon: Handshake,
+    description: "Liquidación Go Milla",
+    colorClass: "from-sky-500 to-blue-600",
+    accentColor: "bg-sky-500/10",
+    superAdminOnly: true,
   },
 ];
 

@@ -436,6 +436,8 @@ const NuevoPedidoModal = ({
         valor_recaudar: metodoPago === "efectivo" && valorRecaudar ? parseFloat(valorRecaudar) : null,
         valor_producto: valorProducto ? parseFloat(valorProducto) : null,
         valor_flete: tarifaInfo.valor,
+        flete_tienda: tarifaInfo.valor,
+        flete_aliado: tarifaInfo.flete_aliado,
         utilidad: utilidadCalculada,
         metodo_pago: metodoPago,
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
