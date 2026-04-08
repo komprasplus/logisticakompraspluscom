@@ -484,7 +484,110 @@ const MarketplaceProductForm = () => {
               </p>
             </div>
 
-            {/* Image Dropzone */}
+            {/* Variable Product: Attributes & Variants */}
+            {productType === "Variable" && (
+              <div className="space-y-4 border border-primary/20 rounded-xl p-4 bg-primary/5">
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-primary" /> Atributos y Variantes
+                </h4>
+
+                {/* Add attribute */}
+                <div className="flex gap-2">
+                  <Input
+                    value={newAttrName}
+                    onChange={e => setNewAttrName(e.target.value)}
+                    placeholder="Nombre del atributo (ej: Color, Talla)"
+                    className="flex-1"
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addAttribute(); } }}
+                  />
+                  <Button type="button" variant="outline" size="sm" onClick={addAttribute} className="gap-1">
+                    <Plus className="h-3.5 w-3.5" /> Añadir
+                  </Button>
+                </div>
+
+                {/* Attribute values */}
+                {attributeNames.map(attr => (
+                  <div key={attr} className="space-y-2 bg-background/80 rounded-lg p-3 border">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-foreground">{attr}</span>
+                      <Button type="button" variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAttribute(attr)}>
+                        <Trash2 className="h-3 w-3 text-destructive" />
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {(attributeValues[attr] || []).map(val => (
+                        <span key={val} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs">
+                          {val}
+                          <button type="button" onClick={() => removeAttrValue(attr, val)} className="hover:text-destructive">
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                    <Input
+                      placeholder={`Agregar valor para ${attr} (Enter)`}
+                      className="text-xs h-8"
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addAttrValue(attr, (e.target as HTMLInputElement).value);
+                          (e.target as HTMLInputElement).value = "";
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
+
+                {/* Generate button */}
+                {attributeNames.length > 0 && (
+                  <Button type="button" onClick={generateVariants} variant="secondary" className="w-full gap-2">
+                    <Package className="h-4 w-4" /> Generar Variantes
+                  </Button>
+                )}
+
+                {/* Variants table */}
+                {variants.length > 0 && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <div className="max-h-60 overflow-y-auto">
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted sticky top-0">
+                          <tr>
+                            <th className="px-2 py-1.5 text-left font-medium">Variante</th>
+                            <th className="px-2 py-1.5 text-left font-medium">SKU</th>
+                            <th className="px-2 py-1.5 text-left font-medium">Precio</th>
+                            <th className="px-2 py-1.5 text-left font-medium">Costo</th>
+                            <th className="px-2 py-1.5 text-left font-medium">Stock</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {variants.map((v, i) => (
+                            <tr key={i} className="border-t">
+                              <td className="px-2 py-1.5 font-medium">{v.variant_name}</td>
+                              <td className="px-2 py-1">
+                                <Input value={v.sku} onChange={e => updateVariant(i, "sku", e.target.value)} className="h-7 text-xs" />
+                              </td>
+                              <td className="px-2 py-1">
+                                <Input type="number" value={v.price} onChange={e => updateVariant(i, "price", e.target.value)} className="h-7 text-xs w-20" />
+                              </td>
+                              <td className="px-2 py-1">
+                                <Input type="number" value={v.cost_price} onChange={e => updateVariant(i, "cost_price", e.target.value)} className="h-7 text-xs w-20" />
+                              </td>
+                              <td className="px-2 py-1">
+                                <Input type="number" value={v.stock} onChange={e => updateVariant(i, "stock", e.target.value)} className="h-7 text-xs w-16" />
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="bg-muted px-3 py-1.5 text-xs text-muted-foreground">
+                      {variants.length} variantes · Stock total: {variants.reduce((s, v) => s + (Number(v.stock) || 0), 0)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <label className="text-xs font-medium text-muted-foreground mb-2 block">Imágenes del Producto (máx. 3)</label>
               <div className="grid grid-cols-3 gap-3">
