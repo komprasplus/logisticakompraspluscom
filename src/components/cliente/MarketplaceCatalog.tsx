@@ -22,6 +22,7 @@ interface MarketplaceProduct {
   stock_available: number;
   image_url: string | null;
   is_active: boolean;
+  product_type?: string;
 }
 
 interface MarketplaceCatalogProps {
