@@ -71,6 +71,7 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       sku: product.sku,
       suggestedPrice: product.suggested_price,
       marketplaceProductId: product.id,
+      productType: product.product_type,
     });
   };
 
