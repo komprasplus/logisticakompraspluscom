@@ -30,7 +30,7 @@ interface AdminSidebarProps {
   userRole?: string | null;
 }
 
-const COORDINADOR_ALLOWED_SECTIONS = ["despacho", "mapa", "novedades"];
+const ALIADO_ALLOWED_SECTIONS = ["despacho", "mapa", "novedades"];
 
 // 3D Icon wrapper component with neumorphic depth effect
 const Icon3D = ({ 
