@@ -109,6 +109,8 @@ const MarketplaceProductForm = () => {
     setImageFiles([null, null, null]);
     setImagePreviews([null, null, null]);
     setExistingUrls([null, null, null]);
+    setAttributeNames([]); setAttributeValues({});
+    setNewAttrName(""); setVariants([]);
   };
 
   const openEdit = (p: MarketplaceProduct) => {
