@@ -74,6 +74,7 @@ interface InventoryPrefill {
   quantity: number;
   sku: string;
   maxStock?: number;
+  productType?: string;
 }
 
 // State for current user's fulfillment rate
