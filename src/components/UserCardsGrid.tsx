@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Phone, Mail, Store, Key, UserCheck, Trash2, Wifi, WifiOff, Pencil, DollarSign, Building2, Shield, Truck, Radio, MapPin } from "lucide-react";
+import { User, Phone, Mail, Store, Key, UserCheck, Trash2, Wifi, WifiOff, Pencil, DollarSign, Building2, Shield, Truck, Radio, MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCOP } from "@/lib/tarifas";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Profile {
   id: string;
@@ -30,6 +33,8 @@ interface UserCardsGridProps {
   onConfirmEmail: (userId: string) => void;
   onDeleteUser: (user: Profile) => void;
   onEditStore?: (user: Profile) => void;
+  onRoleChanged?: () => void;
+  canEditRoles?: boolean;
   showOrganization?: boolean;
   orgMap?: Record<string, string>;
 }
@@ -41,9 +46,29 @@ const UserCardsGrid = ({
   onConfirmEmail,
   onDeleteUser,
   onEditStore,
+  onRoleChanged,
+  canEditRoles = false,
   showOrganization = false,
   orgMap = {},
 }: UserCardsGridProps) => {
+  const [changingRoleFor, setChangingRoleFor] = useState<string | null>(null);
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    setChangingRoleFor(userId);
+    try {
+      const { error } = await supabase
+        .from("user_roles")
+        .update({ role: newRole as any })
+        .eq("user_id", userId);
+      if (error) throw error;
+      toast.success("Rol actualizado exitosamente");
+      onRoleChanged?.();
+    } catch (err: any) {
+      toast.error("Error al cambiar rol: " + err.message);
+    } finally {
+      setChangingRoleFor(null);
+    }
+  };
   const getUserRole = (userId: string): string => {
     const role = userRoles.find((r) => r.user_id === userId);
     return role?.role || "usuario";
@@ -61,7 +86,7 @@ const UserCardsGrid = ({
         return "bg-emerald-100 text-emerald-700 border-emerald-200";
       case "despachador":
         return "bg-amber-100 text-amber-700 border-amber-200";
-      case "coordinador_rutas":
+      case "aliado_logistico":
         return "bg-cyan-100 text-cyan-700 border-cyan-200";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
@@ -80,8 +105,8 @@ const UserCardsGrid = ({
         return "Tienda";
       case "despachador":
         return "Despachador";
-      case "coordinador_rutas":
-        return "Coordinador";
+      case "aliado_logistico":
+        return "Aliado Logístico";
       default:
         return "Usuario";
     }
@@ -98,7 +123,7 @@ const UserCardsGrid = ({
         return Store;
       case "despachador":
         return Radio;
-      case "coordinador_rutas":
+      case "aliado_logistico":
         return MapPin;
       default:
         return User;
@@ -161,12 +186,35 @@ const UserCardsGrid = ({
                   )}
                 </div>
                 <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  <Badge
-                    variant="outline"
-                    className={`text-xs ${getRoleBadgeColor(role)}`}
-                  >
-                    {getRoleLabel(role)}
-                  </Badge>
+                  {canEditRoles && role !== "super_admin" ? (
+                    <Select
+                      value={role}
+                      onValueChange={(val) => handleRoleChange(user.user_id, val)}
+                      disabled={changingRoleFor === user.user_id}
+                    >
+                      <SelectTrigger className="h-7 w-auto min-w-[140px] text-xs">
+                        {changingRoleFor === user.user_id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <SelectValue />
+                        )}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="cliente">Tienda</SelectItem>
+                        <SelectItem value="motorizado">Motorizado</SelectItem>
+                        <SelectItem value="despachador">Despachador</SelectItem>
+                        <SelectItem value="aliado_logistico">Aliado Logístico</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className={`text-xs ${getRoleBadgeColor(role)}`}
+                    >
+                      {getRoleLabel(role)}
+                    </Badge>
+                  )}
                   {showOrganization && user.organizacion_id && orgMap[user.organizacion_id] && (
                     <Badge variant="outline" className="text-xs bg-muted/50 gap-1">
                       <Building2 className="h-3 w-3" />
@@ -185,12 +233,12 @@ const UserCardsGrid = ({
                   <span className="font-medium text-foreground">{user.store_name}</span>
                 </p>
               )}
-              {role === "cliente" && (
+              {role === "cliente" && user.fulfillment_rate && (
                 <p className="text-sm text-muted-foreground flex items-center gap-2">
                   <DollarSign className="h-4 w-4 text-emerald-500" />
                   <span>Fulfillment: </span>
                   <span className="font-semibold text-foreground">
-                    {formatCOP(user.fulfillment_rate || 1900)}
+                    ${(user.fulfillment_rate || 1900).toLocaleString()}
                   </span>
                 </p>
               )}

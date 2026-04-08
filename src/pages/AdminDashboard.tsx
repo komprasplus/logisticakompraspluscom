@@ -202,8 +202,8 @@ const AdminDashboard = () => {
 
   // UI state
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
-  const isCoordinador = userRole === "coordinador_rutas";
-  const [activeSection, setActiveSection] = useState<string>(isCoordinador ? "despacho" : "analytics");
+  const isAliado = userRole === "aliado_logistico";
+  const [activeSection, setActiveSection] = useState<string>(isAliado ? "despacho" : "analytics");
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [barrioFilter, setBarrioFilter] = useState<string>("todos");
@@ -211,6 +211,20 @@ const AdminDashboard = () => {
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [storeFilter, setStoreFilter] = useState<string>("todos");
   const [todayOnlyFilter, setTodayOnlyFilter] = useState(false);
+  const [bodegaFilter, setBodegaFilter] = useState<string>("todos");
+
+  // Org names map for cross-tenant aliado view
+  const [orgNames, setOrgNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!isAliado) return;
+    supabase.from("organizaciones").select("id, nombre").then(({ data }) => {
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach(o => { map[o.id] = o.nombre; });
+        setOrgNames(map);
+      }
+    });
+  }, [isAliado]);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showFlexScanner, setShowFlexScanner] = useState(false);
   const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null);
@@ -313,6 +327,11 @@ const AdminDashboard = () => {
         });
       }
 
+      // Bodega filter for aliado cross-tenant view
+      if (bodegaFilter !== "todos") {
+        filtered = filtered.filter((p: any) => p.organizacion_id === bodegaFilter);
+      }
+
       // Filter for "Ver solo para hoy" - only show orders with fecha_entrega = today or past
       if (todayOnlyFilter) {
         filtered = filtered.filter((p) => isTodayOrPastDeliveryDate(p.fecha_entrega));
@@ -342,7 +361,7 @@ const AdminDashboard = () => {
       console.error("Error filtering pedidos:", error);
       setFilteredPedidos([]);
     }
-  }, [pedidos, statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, todayOnlyFilter, searchQuery, clientProfiles]);
+  }, [pedidos, statusFilter, barrioFilter, metodoPagoFilter, zonaFilter, storeFilter, bodegaFilter, todayOnlyFilter, searchQuery, clientProfiles]);
 
   // Apply filters when dependencies change
   useEffect(() => {
@@ -982,6 +1001,7 @@ const AdminDashboard = () => {
                   metodoPagoFilter !== "todos",
                   zonaFilter !== "todos",
                   storeFilter !== "todos",
+                  bodegaFilter !== "todos",
                   todayOnlyFilter,
                 ].filter(Boolean).length;
 
@@ -1019,7 +1039,7 @@ const AdminDashboard = () => {
 
                     {activeFilterCount > 0 && (
                       <button
-                        onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setTodayOnlyFilter(false); }}
+                        onClick={() => { setStatusFilter("todos"); setBarrioFilter("todos"); setMetodoPagoFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setBodegaFilter("todos"); setTodayOnlyFilter(false); }}
                         className="text-sm text-primary hover:underline"
                       >
                         Limpiar filtros
@@ -1101,6 +1121,19 @@ const AdminDashboard = () => {
                       </select>
                     </div>
 
+                    {/* Bodega / Origen - only for aliados */}
+                    {isAliado && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Bodega / Origen</Label>
+                        <select value={bodegaFilter} onChange={(e) => setBodegaFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                          <option value="todos">Todas las bodegas</option>
+                          {Object.entries(orgNames).map(([id, nombre]) => (
+                            <option key={id} value={id}>{nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
                     {/* Ver solo para hoy */}
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Fecha de entrega</Label>
@@ -1128,6 +1161,7 @@ const AdminDashboard = () => {
                         setMetodoPagoFilter("todos");
                         setZonaFilter("todos");
                         setStoreFilter("todos");
+                        setBodegaFilter("todos");
                         setTodayOnlyFilter(false);
                       }}
                     >
@@ -1264,6 +1298,7 @@ const AdminDashboard = () => {
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Guía</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Cliente</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden xl:table-cell">Tienda</th>
+                        {isAliado && <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Bodega</th>}
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden sm:table-cell">Zona</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">Barrio</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
@@ -1331,6 +1366,14 @@ const AdminDashboard = () => {
                                 <span className="text-muted-foreground text-xs">-</span>
                               )}
                             </td>
+                            {isAliado && (
+                              <td className="px-3 py-3 hidden lg:table-cell">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium bg-muted text-foreground">
+                                  <Warehouse className="h-3 w-3" />
+                                  {orgNames[(pedido as any).organizacion_id] || "Sin org"}
+                                </span>
+                              </td>
+                            )}
                             <td className="px-3 py-3 hidden sm:table-cell"><ZonaBadge zona={pedido.zona} /></td>
                             <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">{pedido.barrio || "-"}</td>
                             <td className="px-3 py-3 hidden md:table-cell">
@@ -1628,6 +1671,7 @@ const AdminDashboard = () => {
                 setSelectedStoreForEdit(user);
                 setShowEditStore(true);
               }}
+              onRoleChanged={refreshSupportData}
             />
           </motion.div>
         );
@@ -1708,7 +1752,7 @@ const AdminDashboard = () => {
       <AdminSidebar 
         activeSection={activeSection} 
         onSectionChange={(section) => {
-          if (isCoordinador && !["despacho", "mapa", "novedades"].includes(section)) return;
+          if (isAliado && !["despacho", "mapa", "novedades"].includes(section)) return;
           setActiveSection(section);
         }}
         novedadesCount={stats.novedad}

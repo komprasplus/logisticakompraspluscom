@@ -42,6 +42,7 @@ interface UserManagementTabsProps {
   onConfirmEmail: (userId: string) => void;
   onDeleteUser: (user: Profile) => void;
   onEditStore?: (user: Profile) => void;
+  onRoleChanged?: () => void;
 }
 
 const ROLE_OPTIONS = [
@@ -51,7 +52,7 @@ const ROLE_OPTIONS = [
   { value: "cliente", label: "Tienda", icon: Store },
   { value: "motorizado", label: "Motorizado", icon: Truck },
   { value: "despachador", label: "Despachador", icon: Radio },
-  { value: "coordinador_rutas", label: "Coordinador", icon: MapPin },
+  { value: "aliado_logistico", label: "Aliado Logístico", icon: MapPin },
 ];
 
 const getRoleLabel = (role: string) => {
@@ -66,6 +67,7 @@ const UserManagementTabs = ({
   onConfirmEmail,
   onDeleteUser,
   onEditStore,
+  onRoleChanged,
 }: UserManagementTabsProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -248,6 +250,8 @@ const UserManagementTabs = ({
           onConfirmEmail={onConfirmEmail}
           onDeleteUser={onDeleteUser}
           onEditStore={onEditStore}
+          onRoleChanged={onRoleChanged}
+          canEditRoles={isSuperAdmin}
           showOrganization={isSuperAdmin}
           orgMap={orgMap}
         />
