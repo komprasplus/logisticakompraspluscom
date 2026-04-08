@@ -211,6 +211,20 @@ const AdminDashboard = () => {
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [storeFilter, setStoreFilter] = useState<string>("todos");
   const [todayOnlyFilter, setTodayOnlyFilter] = useState(false);
+  const [bodegaFilter, setBodegaFilter] = useState<string>("todos");
+
+  // Org names map for cross-tenant aliado view
+  const [orgNames, setOrgNames] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!isAliado) return;
+    supabase.from("organizaciones").select("id, nombre").then(({ data }) => {
+      if (data) {
+        const map: Record<string, string> = {};
+        data.forEach(o => { map[o.id] = o.nombre; });
+        setOrgNames(map);
+      }
+    });
+  }, [isAliado]);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showFlexScanner, setShowFlexScanner] = useState(false);
   const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null);
