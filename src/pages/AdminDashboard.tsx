@@ -327,6 +327,11 @@ const AdminDashboard = () => {
         });
       }
 
+      // Bodega filter for aliado cross-tenant view
+      if (bodegaFilter !== "todos") {
+        filtered = filtered.filter((p: any) => p.organizacion_id === bodegaFilter);
+      }
+
       // Filter for "Ver solo para hoy" - only show orders with fecha_entrega = today or past
       if (todayOnlyFilter) {
         filtered = filtered.filter((p) => isTodayOrPastDeliveryDate(p.fecha_entrega));
