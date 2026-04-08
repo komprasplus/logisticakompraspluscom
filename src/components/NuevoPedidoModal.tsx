@@ -909,7 +909,64 @@ const NuevoPedidoModal = ({
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-xl border border-border bg-background p-2">
+                  {/* Variant Selector - for variable products */}
+                  {isVariableProduct && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Layers className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs font-semibold text-foreground">Seleccionar Variante *</span>
+                      </div>
+                      {loadingVariants ? (
+                        <div className="flex items-center justify-center py-3">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          <span className="ml-2 text-xs text-muted-foreground">Cargando variantes...</span>
+                        </div>
+                      ) : variants.length === 0 ? (
+                        <p className="text-xs text-destructive">No hay variantes configuradas para este producto.</p>
+                      ) : (
+                        <select
+                          value={selectedVariantId || ""}
+                          onChange={(e) => {
+                            const varId = e.target.value || null;
+                            setSelectedVariantId(varId);
+                            // Update max stock and price from variant
+                            if (varId) {
+                              const variant = variants.find((v: any) => v.id === varId);
+                              if (variant) {
+                                setQuantity(1); // Reset quantity when variant changes
+                              }
+                            }
+                          }}
+                          required
+                          className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        >
+                          <option value="">Seleccionar variante (Color, Talla, etc.)</option>
+                          {variants.map((v: any) => {
+                            const attrText = v.attributes
+                              ? Object.values(v.attributes).join(" - ")
+                              : v.variant_name;
+                            const isOOS = v.stock_available === 0;
+                            return (
+                              <option key={v.id} value={v.id} disabled={isOOS}>
+                                {attrText} (Stock: {v.stock_available}){isOOS ? " — Agotado" : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      )}
+                      {selectedVariantId && (() => {
+                        const sv = variants.find((v: any) => v.id === selectedVariantId);
+                        if (!sv) return null;
+                        return (
+                          <div className="text-xs text-muted-foreground flex justify-between px-1">
+                            <span>SKU variante: <span className="font-mono">{sv.sku}</span></span>
+                            {sv.price && <span>Precio: {formatCOP(sv.price)}</span>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
                     <button
                       type="button"
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
