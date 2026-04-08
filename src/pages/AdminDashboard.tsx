@@ -1120,6 +1120,19 @@ const AdminDashboard = () => {
                       </select>
                     </div>
 
+                    {/* Bodega / Origen - only for aliados */}
+                    {isAliado && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Bodega / Origen</Label>
+                        <select value={bodegaFilter} onChange={(e) => setBodegaFilter(e.target.value)} className="w-full rounded-lg border border-border bg-card px-3 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20">
+                          <option value="todos">Todas las bodegas</option>
+                          {Object.entries(orgNames).map(([id, nombre]) => (
+                            <option key={id} value={id}>{nombre}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
                     {/* Ver solo para hoy */}
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Fecha de entrega</Label>
