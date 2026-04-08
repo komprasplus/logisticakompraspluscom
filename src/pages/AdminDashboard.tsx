@@ -1123,10 +1123,9 @@ const AdminDashboard = () => {
                       variant="outline"
                       className="flex-1"
                       onClick={() => {
-                        setStatusFilter("todos");
-                        setBarrioFilter("todos");
+                         setStatusFilter("todos");
+                        setMunicipioFilter("todos");
                         setMetodoPagoFilter("todos");
-                        setZonaFilter("todos");
                         setStoreFilter("todos");
                         setBodegaFilter("todos");
                         setTodayOnlyFilter(false);
