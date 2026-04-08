@@ -198,6 +198,34 @@ const NuevoPedidoModal = ({
     }
   }, [quantity, inventoryPrefill, inventoryItemId]);
 
+  // Fetch variants when product is variable
+  useEffect(() => {
+    if (isVariableProduct && inventoryPrefill?.inventoryItemId && isOpen) {
+      const fetchVariants = async () => {
+        setLoadingVariants(true);
+        try {
+          const { data, error } = await (supabase as any)
+            .from("product_variants")
+            .select("id, variant_name, sku, price, stock_available, attributes")
+            .eq("product_id", inventoryPrefill.inventoryItemId)
+            .eq("is_active", true)
+            .order("variant_name");
+          if (error) throw error;
+          setVariants(data || []);
+        } catch (err) {
+          console.error("Error fetching variants:", err);
+          setVariants([]);
+        } finally {
+          setLoadingVariants(false);
+        }
+      };
+      fetchVariants();
+    } else {
+      setVariants([]);
+      setSelectedVariantId(null);
+    }
+  }, [isVariableProduct, inventoryPrefill?.inventoryItemId, isOpen]);
+
   const fetchMotorizados = async () => {
     try {
       let roleQuery = supabase
