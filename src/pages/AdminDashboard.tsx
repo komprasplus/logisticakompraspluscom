@@ -1001,6 +1001,7 @@ const AdminDashboard = () => {
                   metodoPagoFilter !== "todos",
                   zonaFilter !== "todos",
                   storeFilter !== "todos",
+                  bodegaFilter !== "todos",
                   todayOnlyFilter,
                 ].filter(Boolean).length;
 
