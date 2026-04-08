@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Phone, Mail, Store, Key, UserCheck, Trash2, Wifi, WifiOff, Pencil, DollarSign, Building2, Shield, Truck, Radio, MapPin } from "lucide-react";
+import { User, Phone, Mail, Store, Key, UserCheck, Trash2, Wifi, WifiOff, Pencil, DollarSign, Building2, Shield, Truck, Radio, MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { formatCOP } from "@/lib/tarifas";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface Profile {
   id: string;
@@ -30,6 +33,8 @@ interface UserCardsGridProps {
   onConfirmEmail: (userId: string) => void;
   onDeleteUser: (user: Profile) => void;
   onEditStore?: (user: Profile) => void;
+  onRoleChanged?: () => void;
+  canEditRoles?: boolean;
   showOrganization?: boolean;
   orgMap?: Record<string, string>;
 }
@@ -41,9 +46,29 @@ const UserCardsGrid = ({
   onConfirmEmail,
   onDeleteUser,
   onEditStore,
+  onRoleChanged,
+  canEditRoles = false,
   showOrganization = false,
   orgMap = {},
 }: UserCardsGridProps) => {
+  const [changingRoleFor, setChangingRoleFor] = useState<string | null>(null);
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    setChangingRoleFor(userId);
+    try {
+      const { error } = await supabase
+        .from("user_roles")
+        .update({ role: newRole })
+        .eq("user_id", userId);
+      if (error) throw error;
+      toast.success("Rol actualizado exitosamente");
+      onRoleChanged?.();
+    } catch (err: any) {
+      toast.error("Error al cambiar rol: " + err.message);
+    } finally {
+      setChangingRoleFor(null);
+    }
+  };
   const getUserRole = (userId: string): string => {
     const role = userRoles.find((r) => r.user_id === userId);
     return role?.role || "usuario";
