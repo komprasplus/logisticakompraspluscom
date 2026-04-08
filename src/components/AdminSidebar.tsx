@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Satellite,
   Wallet,
+  Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -182,6 +183,15 @@ const menuItems = [
     colorClass: "from-violet-500 to-purple-600",
     accentColor: "bg-violet-500/10"
   },
+  {
+    id: "liquidacion-aliados",
+    label: "Cuentas Aliados",
+    icon: Handshake,
+    description: "Liquidación Go Milla",
+    colorClass: "from-sky-500 to-blue-600",
+    accentColor: "bg-sky-500/10",
+    superAdminOnly: true,
+  },
 ];
 
 const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, userRole }: AdminSidebarProps) => {
@@ -199,7 +209,7 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, user
         colorClass: "from-yellow-500 to-amber-600",
         accentColor: "bg-yellow-500/10",
       }]
-    : menuItems;
+    : menuItems.filter(item => !(item as any).superAdminOnly);
 
   if (isCoordinador) {
     allMenuItems = allMenuItems.filter(item => COORDINADOR_ALLOWED_SECTIONS.includes(item.id));

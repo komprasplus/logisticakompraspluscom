@@ -70,6 +70,7 @@ import AdminFinanzasPanel from "@/components/admin/AdminFinanzasPanel";
 const AdminWalletDashboard = lazy(() => import("@/components/admin/AdminWalletDashboard"));
 import MonitorFlexPanel from "@/components/admin/MonitorFlexPanel";
 const WebhookMonitorDashboard = lazy(() => import("@/components/admin/WebhookMonitorDashboard"));
+const LiquidacionAliadosPanel = lazy(() => import("@/components/admin/LiquidacionAliadosPanel"));
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
@@ -1674,6 +1675,15 @@ const AdminDashboard = () => {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
               <WebhookMonitorDashboard />
+            </Suspense>
+          </motion.div>
+        );
+
+      case "liquidacion-aliados":
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              <LiquidacionAliadosPanel />
             </Suspense>
           </motion.div>
         );

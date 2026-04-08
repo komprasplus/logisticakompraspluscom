@@ -592,6 +592,8 @@ export type Database = {
           fecha_entrega: string | null
           fecha_recoleccion_real: string | null
           firma_cliente: string | null
+          flete_aliado: number | null
+          flete_tienda: number | null
           foto_evidencia: string | null
           foto_paquete: string | null
           fulfillment_cost: number | null
@@ -647,6 +649,8 @@ export type Database = {
           fecha_entrega?: string | null
           fecha_recoleccion_real?: string | null
           firma_cliente?: string | null
+          flete_aliado?: number | null
+          flete_tienda?: number | null
           foto_evidencia?: string | null
           foto_paquete?: string | null
           fulfillment_cost?: number | null
@@ -702,6 +706,8 @@ export type Database = {
           fecha_entrega?: string | null
           fecha_recoleccion_real?: string | null
           firma_cliente?: string | null
+          flete_aliado?: number | null
+          flete_tienda?: number | null
           foto_evidencia?: string | null
           foto_paquete?: string | null
           fulfillment_cost?: number | null
