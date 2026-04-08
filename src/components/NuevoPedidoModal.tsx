@@ -967,6 +967,7 @@ const NuevoPedidoModal = ({
                     </div>
                   )}
 
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-background p-2">
                     <button
                       type="button"
                       onClick={() => setQuantity(Math.max(1, quantity - 1))}
