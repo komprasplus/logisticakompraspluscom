@@ -432,6 +432,7 @@ const ClienteDashboard = () => {
           price: marketplacePrefill.suggestedPrice,
           quantity: 1,
           sku: marketplacePrefill.sku,
+          productType: marketplacePrefill.productType,
         } : undefined}
       />
 
