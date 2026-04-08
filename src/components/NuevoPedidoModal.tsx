@@ -488,10 +488,11 @@ const NuevoPedidoModal = ({
           : currentUserId,
         // Inventory linking
         inventory_item_id: inventoryItemId || null,
+        variant_id: selectedVariantId || null,
         quantity: quantity,
         // Store fulfillment cost from profile at order creation time
         fulfillment_cost: fulfillmentInfo.rate,
-      };
+      } as any;
 
       const { error } = await supabase.from("pedidos").insert(pedidoData);
 
