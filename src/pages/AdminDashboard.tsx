@@ -1351,6 +1351,14 @@ const AdminDashboard = () => {
                                 <span className="text-muted-foreground text-xs">-</span>
                               )}
                             </td>
+                            {isAliado && (
+                              <td className="px-3 py-3 hidden lg:table-cell">
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-medium bg-muted text-foreground">
+                                  <Warehouse className="h-3 w-3" />
+                                  {orgNames[(pedido as any).organizacion_id] || "Sin org"}
+                                </span>
+                              </td>
+                            )}
                             <td className="px-3 py-3 hidden sm:table-cell"><ZonaBadge zona={pedido.zona} /></td>
                             <td className="px-3 py-3 text-muted-foreground hidden lg:table-cell">{pedido.barrio || "-"}</td>
                             <td className="px-3 py-3 hidden md:table-cell">
