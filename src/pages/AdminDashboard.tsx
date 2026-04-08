@@ -1628,6 +1628,7 @@ const AdminDashboard = () => {
                 setSelectedStoreForEdit(user);
                 setShowEditStore(true);
               }}
+              onRoleChanged={refreshSupportData}
             />
           </motion.div>
         );
