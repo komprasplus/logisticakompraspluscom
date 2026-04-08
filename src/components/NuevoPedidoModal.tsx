@@ -124,6 +124,12 @@ const NuevoPedidoModal = ({
   const [inventoryItemId, setInventoryItemId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   
+  // Variant state
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const [variants, setVariants] = useState<any[]>([]);
+  const [loadingVariants, setLoadingVariants] = useState(false);
+  const isVariableProduct = inventoryPrefill?.productType === 'Variable' || inventoryPrefill?.productType === 'variable';
+  
   // Schedule
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(undefined);
   const [motorizadoAsignado, setMotorizadoAsignado] = useState("");
