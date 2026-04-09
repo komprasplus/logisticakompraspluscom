@@ -683,6 +683,7 @@ const DespachadorDashboard = () => {
                       <th className="px-4 py-3 text-left font-semibold">Tienda</th>
                       <th className="px-4 py-3 text-left font-semibold">Cliente</th>
                       <th className="px-4 py-3 text-left font-semibold">Producto</th>
+                      <th className="px-4 py-3 text-left font-semibold">Zona</th>
                       <th className="px-4 py-3 text-left font-semibold">F. Entrega</th>
                       <th className="px-4 py-3 text-left font-semibold">Estado</th>
                       <th className="px-4 py-3 text-left font-semibold">Motorizado</th>
