@@ -16,6 +16,9 @@ import {
   Calculator,
   Building2,
   Layers,
+  Plus,
+  Trash2,
+  ShoppingCart,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -83,6 +86,18 @@ interface FulfillmentRateInfo {
   loaded: boolean;
 }
 
+// Multi-product item interface
+interface OrderItem {
+  id: string; // local temp id
+  productName: string;
+  sku: string;
+  quantity: number;
+  unitPrice: number;
+  inventoryItemId: string | null;
+  variantId: string | null;
+  maxStock?: number;
+}
+
 interface NuevoPedidoModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -117,18 +132,22 @@ const NuevoPedidoModal = ({
   const [localidad, setLocalidad] = useState("");
   const [ciudad, setCiudad] = useState("");
   
-  // Product
+  // Product (legacy single-product - used when inventoryPrefill is provided)
   const [productoNombre, setProductoNombre] = useState("");
   const [valorProducto, setValorProducto] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [inventoryItemId, setInventoryItemId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   
-  // Variant state
+  // Variant state (for single inventory prefill)
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
   const [variants, setVariants] = useState<any[]>([]);
   const [loadingVariants, setLoadingVariants] = useState(false);
   const isVariableProduct = inventoryPrefill?.productType === 'Variable' || inventoryPrefill?.productType === 'variable';
+
+  // ====== MULTI-PRODUCT STATE ======
+  const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
+  const isMultiProductMode = !inventoryPrefill; // Multi-product when NOT coming from inventory
   
   // Schedule
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(undefined);
@@ -152,17 +171,55 @@ const NuevoPedidoModal = ({
   // Fulfillment rate state - loaded from profile
   const [fulfillmentInfo, setFulfillmentInfo] = useState<FulfillmentRateInfo>({ rate: 1900, loaded: false });
 
+  // ====== MULTI-PRODUCT HELPERS ======
+  const addOrderItem = () => {
+    setOrderItems(prev => [...prev, {
+      id: crypto.randomUUID(),
+      productName: "",
+      sku: "",
+      quantity: 1,
+      unitPrice: 0,
+      inventoryItemId: null,
+      variantId: null,
+    }]);
+  };
+
+  const removeOrderItem = (itemId: string) => {
+    setOrderItems(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  const updateOrderItem = (itemId: string, updates: Partial<OrderItem>) => {
+    setOrderItems(prev => prev.map(i => i.id === itemId ? { ...i, ...updates } : i));
+  };
+
+  // Auto-totalization for multi-product
+  const totalRecaudarCalculated = useMemo(() => {
+    if (!isMultiProductMode) return 0;
+    return orderItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+  }, [orderItems, isMultiProductMode]);
+
+  // When multi-product mode, auto-set valor_recaudar from items total
+  useEffect(() => {
+    if (isMultiProductMode && metodoPago === "efectivo" && orderItems.length > 0) {
+      setValorRecaudar(totalRecaudarCalculated.toString());
+    }
+  }, [totalRecaudarCalculated, isMultiProductMode, metodoPago, orderItems.length]);
+
+  // Initialize with one empty item in multi-product mode
+  useEffect(() => {
+    if (isMultiProductMode && isOpen && orderItems.length === 0) {
+      addOrderItem();
+    }
+  }, [isMultiProductMode, isOpen]);
+
   // Calculate flete and utility based on localidad/municipio
   const tarifaInfo = useMemo(() => {
-    // Use selected municipality or localidad from address
     return getTarifaEnvio(localidad || municipioSeleccionado);
   }, [localidad, municipioSeleccionado]);
   
   const utilidadCalculada = useMemo(() => {
-    // For "anticipado", no valor_recaudar, utility is just negative flete (internal charge)
     if (metodoPago === "anticipado") {
-      const producto = valorProducto ? parseFloat(valorProducto) : 0;
-      return -tarifaInfo.valor; // Freight is deducted internally
+      return -tarifaInfo.valor;
     }
     const recaudo = valorRecaudar ? parseFloat(valorRecaudar) : 0;
     const producto = valorProducto ? parseFloat(valorProducto) : 0;
@@ -184,7 +241,6 @@ const NuevoPedidoModal = ({
       setProductoNombre(inventoryPrefill.productName);
       setValorProducto(inventoryPrefill.price.toString());
       setQuantity(inventoryPrefill.quantity);
-      // Auto-fill observaciones with product details
       const detalles = `${inventoryPrefill.productName} (SKU: ${inventoryPrefill.sku}) x${inventoryPrefill.quantity}`;
       setObservaciones(detalles);
     }
@@ -282,13 +338,11 @@ const NuevoPedidoModal = ({
 
         const { data: profiles } = await profileQuery;
 
-        // Add Bodega KP as first option for guarantees/internal dispatches
         const allStores = [BODEGA_KOMPRAS_PLUS, ...(profiles || [])] as StoreOption[];
         setStores(allStores);
       }
     } catch (error) {
       console.error("Error fetching stores:", error);
-      // Still add Bodega KP even if fetch fails
       setStores([BODEGA_KOMPRAS_PLUS]);
     }
   };
@@ -313,7 +367,6 @@ const NuevoPedidoModal = ({
   // For admins, update fulfillment rate when store selection changes
   useEffect(() => {
     if (isAdmin && selectedStoreId) {
-      // Handle internal bodega option
       if (selectedStoreId === "bodega_kp_internal") {
         setFulfillmentInfo({ rate: 0, loaded: true });
         return;
@@ -373,7 +426,6 @@ const NuevoPedidoModal = ({
     lat: number;
     lng: number;
   }) => {
-    // Keep user's manual input if they've typed additional details
     const finalDireccion = direccionManual || result.direccion;
     setDireccionCompleta(finalDireccion);
     setBarrio(result.barrio);
@@ -415,12 +467,19 @@ const NuevoPedidoModal = ({
     if (!clienteTelefono.trim()) missingFields.push("Teléfono WhatsApp");
     if (!municipioSeleccionado) missingFields.push("Ciudad/Municipio");
     
-    // CRITICAL: direccionManual is the PRIMARY address field - validate it first
     if (!direccionManual.trim()) {
       missingFields.push("Dirección Exacta y Detalles (paso C)");
     }
     
-    if (!productoNombre.trim()) missingFields.push("Nombre del producto");
+    // Multi-product validation
+    if (isMultiProductMode) {
+      const validItems = orderItems.filter(i => i.productName.trim());
+      if (validItems.length === 0) {
+        missingFields.push("Al menos un producto");
+      }
+    } else {
+      if (!productoNombre.trim()) missingFields.push("Nombre del producto");
+    }
     
     // For "efectivo" payment method, valor a recaudar is required
     if (metodoPago === "efectivo" && !valorRecaudar) {
@@ -437,8 +496,6 @@ const NuevoPedidoModal = ({
       return;
     }
 
-    // EMERGENCY: Do not block order creation if Maps/coords fail.
-    // Coordinates are optional in DB; we allow null to restore store operations.
     const hasCoords = confirmedLat !== null && confirmedLng !== null;
 
     setLoading(true);
@@ -446,17 +503,12 @@ const NuevoPedidoModal = ({
     try {
       const numeroGuia = generateGuideNumber();
       const { data: { user } } = await supabase.auth.getUser();
-      // Use barrio zone if available, otherwise fall back to municipality zone
       const zona = getZonaFromBarrio(barrio) || getZonaFromMunicipio(municipioSeleccionado);
 
-      // CRITICAL: Always use manual address + municipality for guides and motorizado view
-      // This ensures nomenclature like "Calle 45 # 12-34 Apto 501" is never lost
       const direccionFinal = direccionManual.trim() 
         ? `${direccionManual.trim()}, ${municipioSeleccionado}`
         : `${direccionCompleta}, ${municipioSeleccionado}`;
 
-      // CRITICAL: Always set client_user_id from current authenticated user
-      // For clients creating their own orders, this must be set
       const currentUserId = user?.id;
       if (!isAdmin && !currentUserId) {
         toast.error("Error de sesión. Por favor vuelve a iniciar sesión.");
@@ -464,7 +516,19 @@ const NuevoPedidoModal = ({
         return;
       }
 
-       const pedidoData = {
+      // Build product name summary for multi-product
+      const validItems = isMultiProductMode ? orderItems.filter(i => i.productName.trim()) : [];
+      const productNameSummary = isMultiProductMode
+        ? (validItems.length === 1 
+            ? validItems[0].productName 
+            : `${validItems.length} artículos`)
+        : productoNombre.trim();
+
+      const totalQuantity = isMultiProductMode
+        ? validItems.reduce((sum, i) => sum + i.quantity, 0)
+        : quantity;
+
+      const pedidoData = {
         numero_guia: numeroGuia,
         cliente_nombre: clienteNombre.trim(),
         client_phone: clienteTelefono.replace(/[\s-]/g, ""),
@@ -472,89 +536,113 @@ const NuevoPedidoModal = ({
         barrio: barrio,
         zona: zona,
         municipio: municipioSeleccionado,
-        producto_nombre: productoNombre.trim(),
-        // If "anticipado", no valor_recaudar
+        producto_nombre: productNameSummary,
         valor_recaudar: metodoPago === "efectivo" && valorRecaudar ? parseFloat(valorRecaudar) : null,
-        valor_producto: valorProducto ? parseFloat(valorProducto) : null,
+        valor_producto: valorProducto ? parseFloat(valorProducto) : (isMultiProductMode ? totalRecaudarCalculated : null),
         valor_flete: tarifaInfo.valor,
         flete_tienda: tarifaInfo.valor,
         flete_aliado: tarifaInfo.flete_aliado,
         utilidad: utilidadCalculada,
         metodo_pago: metodoPago,
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
-        observaciones: observaciones.trim() || null,
+        observaciones: isMultiProductMode 
+          ? (observaciones.trim() || validItems.map(i => `${i.productName} x${i.quantity}`).join(", "))
+          : (observaciones.trim() || null),
         estado: "pendiente",
-         latitud: confirmedLat ?? null,
-         longitud: confirmedLng ?? null,
+        latitud: confirmedLat ?? null,
+        longitud: confirmedLng ?? null,
         motorizado_asignado: isAdmin && motorizadoAsignado ? motorizadoAsignado : null,
-        // Handle internal bodega option - set to null for internal warehouse
         client_user_id: isAdmin 
           ? (selectedStoreId === "bodega_kp_internal" ? null : selectedStoreId || null) 
           : currentUserId,
-        // Inventory linking
         inventory_item_id: inventoryItemId || null,
         variant_id: selectedVariantId || null,
-        quantity: quantity,
-        // Store fulfillment cost from profile at order creation time
+        quantity: totalQuantity,
         fulfillment_cost: fulfillmentInfo.rate,
       } as any;
 
-      const { error } = await supabase.from("pedidos").insert(pedidoData);
+      // Add organizacion_id
+      if (orgId) pedidoData.organizacion_id = orgId;
+
+      const { data: newPedido, error } = await supabase.from("pedidos").insert(pedidoData).select("id").single();
 
       if (error) throw error;
 
-       if (!hasCoords) {
-         toast.warning("Pedido creado sin coordenadas. Puedes editarlo luego para agregar ubicación.");
-       }
+      if (!hasCoords) {
+        toast.warning("Pedido creado sin coordenadas. Puedes editarlo luego para agregar ubicación.");
+      }
 
-       // Stock decrement: variant-aware, best-effort only (never block order creation).
-       if (selectedVariantId && quantity > 0) {
-         // Deduct from the specific variant
-         try {
-           const { data: variantItem, error: variantErr } = await (supabase as any)
-             .from("product_variants")
-             .select("stock_available")
-             .eq("id", selectedVariantId)
-             .maybeSingle();
+      // ====== SAVE ORDER ITEMS ======
+      if (isMultiProductMode && validItems.length > 0 && newPedido?.id) {
+        const itemsToInsert = validItems.map(item => ({
+          pedido_id: newPedido.id,
+          product_name: item.productName.trim(),
+          sku: item.sku || null,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          inventory_item_id: item.inventoryItemId || null,
+          variant_id: item.variantId || null,
+          organizacion_id: orgId || 'a0000000-0000-0000-0000-000000000001',
+        }));
 
-           if (variantErr) throw variantErr;
+        const { error: itemsError } = await (supabase as any)
+          .from("order_items")
+          .insert(itemsToInsert);
 
-           if (variantItem && typeof variantItem.stock_available === "number") {
-             const newStock = Math.max(0, variantItem.stock_available - quantity);
-             const { error: updateErr } = await (supabase as any)
-               .from("product_variants")
-               .update({ stock_available: newStock })
-               .eq("id", selectedVariantId);
-             if (updateErr) throw updateErr;
-           }
-         } catch (invErr) {
-           console.warn("Variant stock update failed (non-blocking):", invErr);
-           toast.warning("Pedido creado, pero no se pudo actualizar el stock de la variante.");
-         }
-       } else if (inventoryItemId && quantity > 0) {
-         // Deduct from regular inventory (non-variable products)
-         try {
-           const { data: currentItem, error: currentItemErr } = await (supabase as any)
-             .from("inventory")
-             .select("stock_available")
-             .eq("id", inventoryItemId)
-             .maybeSingle();
+        if (itemsError) {
+          console.warn("Error saving order items (non-blocking):", itemsError);
+          toast.warning("Pedido creado, pero hubo un error guardando los ítems individuales.");
+        }
+      }
 
-           if (currentItemErr) throw currentItemErr;
+      // Stock decrement: variant-aware, best-effort only
+      if (!isMultiProductMode) {
+        if (selectedVariantId && quantity > 0) {
+          try {
+            const { data: variantItem, error: variantErr } = await (supabase as any)
+              .from("product_variants")
+              .select("stock_available")
+              .eq("id", selectedVariantId)
+              .maybeSingle();
 
-           if (currentItem && typeof currentItem.stock_available === "number") {
-             const newStock = Math.max(0, currentItem.stock_available - quantity);
-             const { error: updateErr } = await (supabase as any)
-               .from("inventory")
-               .update({ stock_available: newStock })
-               .eq("id", inventoryItemId);
-             if (updateErr) throw updateErr;
-           }
-         } catch (invErr) {
-           console.warn("Inventory stock update failed (non-blocking):", invErr);
-           toast.warning("Pedido creado, pero no se pudo actualizar el inventario automáticamente.");
-         }
-       }
+            if (variantErr) throw variantErr;
+
+            if (variantItem && typeof variantItem.stock_available === "number") {
+              const newStock = Math.max(0, variantItem.stock_available - quantity);
+              const { error: updateErr } = await (supabase as any)
+                .from("product_variants")
+                .update({ stock_available: newStock })
+                .eq("id", selectedVariantId);
+              if (updateErr) throw updateErr;
+            }
+          } catch (invErr) {
+            console.warn("Variant stock update failed (non-blocking):", invErr);
+            toast.warning("Pedido creado, pero no se pudo actualizar el stock de la variante.");
+          }
+        } else if (inventoryItemId && quantity > 0) {
+          try {
+            const { data: currentItem, error: currentItemErr } = await (supabase as any)
+              .from("inventory")
+              .select("stock_available")
+              .eq("id", inventoryItemId)
+              .maybeSingle();
+
+            if (currentItemErr) throw currentItemErr;
+
+            if (currentItem && typeof currentItem.stock_available === "number") {
+              const newStock = Math.max(0, currentItem.stock_available - quantity);
+              const { error: updateErr } = await (supabase as any)
+                .from("inventory")
+                .update({ stock_available: newStock })
+                .eq("id", inventoryItemId);
+              if (updateErr) throw updateErr;
+            }
+          } catch (invErr) {
+            console.warn("Inventory stock update failed (non-blocking):", invErr);
+            toast.warning("Pedido creado, pero no se pudo actualizar el inventario automáticamente.");
+          }
+        }
+      }
 
       toast.success(`Pedido creado exitosamente. Guía: ${numeroGuia}`);
       resetForm();
@@ -593,6 +681,7 @@ const NuevoPedidoModal = ({
     setQuantity(1);
     setSelectedVariantId(null);
     setVariants([]);
+    setOrderItems([]);
   };
 
   if (!isOpen) return null;
@@ -659,7 +748,7 @@ const NuevoPedidoModal = ({
                   type="button"
                   onClick={() => {
                     setMetodoPago("anticipado");
-                    setValorRecaudar(""); // Clear recaudo when switching to anticipado
+                    setValorRecaudar("");
                   }}
                   className={cn(
                     "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
@@ -690,8 +779,17 @@ const NuevoPedidoModal = ({
                     required={metodoPago === "efectivo"}
                     min="0"
                     step="100"
-                    className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    readOnly={isMultiProductMode && orderItems.length > 0}
+                    className={cn(
+                      "w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
+                      isMultiProductMode && orderItems.length > 0 && "bg-muted cursor-not-allowed"
+                    )}
                   />
+                  {isMultiProductMode && orderItems.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      💡 Calculado automáticamente desde los productos añadidos.
+                    </p>
+                  )}
                 </motion.div>
               )}
 
@@ -757,7 +855,7 @@ const NuevoPedidoModal = ({
                 Dirección de Entrega (3 Pasos)
               </h3>
               
-              {/* STEP A: Municipality Selector - REQUIRED FIRST */}
+              {/* STEP A: Municipality Selector */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">A</span>
@@ -769,7 +867,6 @@ const NuevoPedidoModal = ({
                     value={municipioSeleccionado}
                     onChange={(e) => {
                       setMunicipioSeleccionado(e.target.value);
-                      // Reset address when municipality changes
                       setDireccionCompleta("");
                       setDireccionManual("");
                       setBarrio("");
@@ -791,7 +888,7 @@ const NuevoPedidoModal = ({
                 </div>
               </div>
 
-              {/* STEP B: Map Search - Only after municipality */}
+              {/* STEP B: Map Search */}
               {municipioSeleccionado && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -822,7 +919,7 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* STEP C: Manual Nomenclature - ALWAYS VISIBLE after municipality */}
+              {/* STEP C: Manual Nomenclature */}
               {municipioSeleccionado && (
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
@@ -861,7 +958,7 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* Map Preview Button - REQUIRED for coordinates */}
+              {/* Map Preview Button */}
               {municipioSeleccionado && addressSelected && (
                 <div className="space-y-2">
                   <button
@@ -888,14 +985,120 @@ const NuevoPedidoModal = ({
               )}
             </div>
 
-            {/* ============ SECTION 4: Package ============ */}
+            {/* ============ SECTION 4: Package / Products ============ */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Detalles del Paquete
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4" />
+                {isMultiProductMode ? "Productos del Pedido" : "Detalles del Paquete"}
               </h3>
               
-              {/* Inventory Quantity Selector - Only shown when product is from inventory */}
-              {inventoryItemId && inventoryPrefill && (
+              {/* ===== MULTI-PRODUCT MODE ===== */}
+              {isMultiProductMode && (
+                <div className="space-y-3">
+                  {orderItems.map((item, index) => (
+                    <div key={item.id} className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          Producto #{index + 1}
+                        </span>
+                        {orderItems.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeOrderItem(item.id)}
+                            className="flex items-center gap-1 text-xs text-destructive hover:text-destructive/80 transition-colors"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Quitar
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Product Name */}
+                      <div className="relative">
+                        <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <input
+                          type="text"
+                          placeholder="Nombre del Producto *"
+                          value={item.productName}
+                          onChange={(e) => updateOrderItem(item.id, { productName: e.target.value })}
+                          required
+                          maxLength={150}
+                          className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* SKU */}
+                        <input
+                          type="text"
+                          placeholder="SKU (opc.)"
+                          value={item.sku}
+                          onChange={(e) => updateOrderItem(item.id, { sku: e.target.value })}
+                          maxLength={50}
+                          className="rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        {/* Quantity */}
+                        <input
+                          type="number"
+                          placeholder="Cant."
+                          value={item.quantity}
+                          onChange={(e) => updateOrderItem(item.id, { quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+                          min={1}
+                          className="rounded-lg border border-border bg-background py-2 px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                        />
+                        {/* Unit Price */}
+                        <div className="relative">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                          <input
+                            type="number"
+                            placeholder="Precio unit."
+                            value={item.unitPrice || ""}
+                            onChange={(e) => updateOrderItem(item.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                            min={0}
+                            step={100}
+                            className="w-full rounded-lg border border-border bg-background py-2 pl-6 pr-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Line total */}
+                      {item.unitPrice > 0 && (
+                        <div className="flex justify-end text-xs text-muted-foreground">
+                          Subtotal: <span className="font-semibold text-foreground ml-1">{formatCOP(item.unitPrice * item.quantity)}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                  {/* Add Product Button */}
+                  <button
+                    type="button"
+                    onClick={addOrderItem}
+                    className="w-full flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/40 p-3 text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Agregar Producto
+                  </button>
+
+                  {/* Total Summary */}
+                  {orderItems.some(i => i.unitPrice > 0) && (
+                    <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-foreground flex items-center gap-2">
+                          <ShoppingCart className="h-4 w-4 text-primary" />
+                          Total a Recaudar ({orderItems.filter(i => i.productName.trim()).length} producto{orderItems.filter(i => i.productName.trim()).length !== 1 ? "s" : ""}):
+                        </span>
+                        <span className="text-lg font-bold text-primary">
+                          {formatCOP(totalRecaudarCalculated)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ===== SINGLE PRODUCT MODE (from inventory) ===== */}
+              {!isMultiProductMode && inventoryItemId && inventoryPrefill && (
                 <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-primary" />
@@ -934,12 +1137,8 @@ const NuevoPedidoModal = ({
                           onChange={(e) => {
                             const varId = e.target.value || null;
                             setSelectedVariantId(varId);
-                            // Update max stock and price from variant
                             if (varId) {
-                              const variant = variants.find((v: any) => v.id === varId);
-                              if (variant) {
-                                setQuantity(1); // Reset quantity when variant changes
-                              }
+                              setQuantity(1);
                             }
                           }}
                           required
@@ -1035,8 +1234,8 @@ const NuevoPedidoModal = ({
                 </div>
               )}
               
-              {/* Producto - Only show if NOT from inventory */}
-              {!inventoryItemId && (
+              {/* Producto - Only show if NOT from inventory AND NOT multi-product */}
+              {!inventoryItemId && !isMultiProductMode && (
                 <div className="relative">
                   <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
@@ -1051,19 +1250,21 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* Costo del producto (opcional) */}
-              <div className="relative">
-                <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <input
-                  type="number"
-                  placeholder="Costo Producto / Proveeduría (opcional)"
-                  value={valorProducto}
-                  onChange={(e) => setValorProducto(e.target.value)}
-                  min="0"
-                  step="100"
-                  className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
+              {/* Costo del producto (opcional) - hide in multi-product mode */}
+              {!isMultiProductMode && (
+                <div className="relative">
+                  <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="number"
+                    placeholder="Costo Producto / Proveeduría (opcional)"
+                    value={valorProducto}
+                    onChange={(e) => setValorProducto(e.target.value)}
+                    min="0"
+                    step="100"
+                    className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
+              )}
 
               {/* Tarifa y cálculo automático */}
               {(addressSelected || municipioSeleccionado) && (
@@ -1100,7 +1301,7 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* Fulfillment Rate Informative Display - Read Only */}
+              {/* Fulfillment Rate Informative Display */}
               {fulfillmentInfo.loaded && (
                 <div className="rounded-lg border border-border/50 bg-muted/20 p-3">
                   <div className="flex items-center justify-between">
@@ -1145,7 +1346,6 @@ const NuevoPedidoModal = ({
                     mode="single"
                     selected={fechaEntrega}
                     onSelect={setFechaEntrega}
-                    // REMOVED date restriction - allow same-day orders
                     disabled={(date) => {
                       const today = new Date();
                       today.setHours(0, 0, 0, 0);

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Package,
   User,
@@ -13,6 +14,7 @@ import {
   Store,
   Camera,
   FileText,
+  ShoppingCart,
   Clock,
   Calculator,
   DollarSign,
@@ -96,6 +98,29 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
   const { role } = useAuth();
   const isAdmin = role === "admin" || role === "super_admin";
   const [chatOpen, setChatOpen] = useState(false);
+  const [orderItemsList, setOrderItemsList] = useState<any[]>([]);
+
+  // Fetch order items for multi-product orders
+  useEffect(() => {
+    if (!pedido || !isOpen) return;
+    const fetchOrderItems = async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("order_items")
+          .select("id, product_name, sku, quantity, unit_price, line_total")
+          .eq("pedido_id", pedido.id)
+          .order("created_at");
+        if (!error && data && data.length > 0) {
+          setOrderItemsList(data);
+        } else {
+          setOrderItemsList([]);
+        }
+      } catch {
+        setOrderItemsList([]);
+      }
+    };
+    fetchOrderItems();
+  }, [pedido?.id, isOpen]);
 
   if (!pedido) return null;
 
@@ -274,6 +299,35 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
             <Section icon={<FileText className="h-4 w-4 text-primary" />} title="Producto">
               <p className="text-foreground">{pedido.producto_nombre || "Paquete estándar"}</p>
             </Section>
+
+            {/* Lista de Empaque (Multi-producto) */}
+            {orderItemsList.length > 0 && (
+              <Section icon={<ShoppingCart className="h-4 w-4 text-primary" />} title={`Lista de Empaque (${orderItemsList.length} artículo${orderItemsList.length !== 1 ? "s" : ""})`}>
+                <div className="space-y-2">
+                  {orderItemsList.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{item.product_name}</p>
+                        {item.sku && <p className="text-xs text-muted-foreground font-mono">SKU: {item.sku}</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-foreground">x{item.quantity}</p>
+                        <p className="text-xs text-muted-foreground">{formatCOP(item.unit_price)} c/u</p>
+                      </div>
+                      <div className="ml-3 text-right">
+                        <p className="text-sm font-bold text-primary">{formatCOP(item.line_total)}</p>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-2 border-t border-border">
+                    <span className="text-sm font-semibold text-muted-foreground">Total:</span>
+                    <span className="text-sm font-bold text-foreground">
+                      {formatCOP(orderItemsList.reduce((sum: number, i: any) => sum + (i.line_total || 0), 0))}
+                    </span>
+                  </div>
+                </div>
+              </Section>
+            )}
 
             {/* Motorizado */}
             {isAdmin ? (
