@@ -723,6 +723,7 @@ const DespachadorDashboard = () => {
                               </TooltipContent>
                             </Tooltip>
                           </td>
+                          <td className="px-4 py-3">{pedido.zona || "—"}</td>
                           {/* Fecha Entrega Column */}
                           <td className="px-4 py-3">
                             <DeliveryDateBadge fechaEntrega={pedido.fecha_entrega} />
