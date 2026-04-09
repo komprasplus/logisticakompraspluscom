@@ -14,6 +14,7 @@ import {
   Store,
   Camera,
   FileText,
+  ShoppingCart,
   Clock,
   Calculator,
   DollarSign,
@@ -97,6 +98,29 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
   const { role } = useAuth();
   const isAdmin = role === "admin" || role === "super_admin";
   const [chatOpen, setChatOpen] = useState(false);
+  const [orderItemsList, setOrderItemsList] = useState<any[]>([]);
+
+  // Fetch order items for multi-product orders
+  useEffect(() => {
+    if (!pedido || !isOpen) return;
+    const fetchOrderItems = async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("order_items")
+          .select("id, product_name, sku, quantity, unit_price, line_total")
+          .eq("pedido_id", pedido.id)
+          .order("created_at");
+        if (!error && data && data.length > 0) {
+          setOrderItemsList(data);
+        } else {
+          setOrderItemsList([]);
+        }
+      } catch {
+        setOrderItemsList([]);
+      }
+    };
+    fetchOrderItems();
+  }, [pedido?.id, isOpen]);
 
   if (!pedido) return null;
 
