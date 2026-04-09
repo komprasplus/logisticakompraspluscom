@@ -300,6 +300,35 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
               <p className="text-foreground">{pedido.producto_nombre || "Paquete estándar"}</p>
             </Section>
 
+            {/* Lista de Empaque (Multi-producto) */}
+            {orderItemsList.length > 0 && (
+              <Section icon={<ShoppingCart className="h-4 w-4 text-primary" />} title={`Lista de Empaque (${orderItemsList.length} artículo${orderItemsList.length !== 1 ? "s" : ""})`}>
+                <div className="space-y-2">
+                  {orderItemsList.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between rounded-lg border border-border bg-muted/20 p-2">
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground">{item.product_name}</p>
+                        {item.sku && <p className="text-xs text-muted-foreground font-mono">SKU: {item.sku}</p>}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-foreground">x{item.quantity}</p>
+                        <p className="text-xs text-muted-foreground">{formatCOP(item.unit_price)} c/u</p>
+                      </div>
+                      <div className="ml-3 text-right">
+                        <p className="text-sm font-bold text-primary">{formatCOP(item.line_total)}</p>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex justify-between pt-2 border-t border-border">
+                    <span className="text-sm font-semibold text-muted-foreground">Total:</span>
+                    <span className="text-sm font-bold text-foreground">
+                      {formatCOP(orderItemsList.reduce((sum: number, i: any) => sum + (i.line_total || 0), 0))}
+                    </span>
+                  </div>
+                </div>
+              </Section>
+            )}
+
             {/* Motorizado */}
             {isAdmin ? (
               <MotorizadoSelector
