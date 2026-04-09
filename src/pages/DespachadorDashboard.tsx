@@ -682,7 +682,7 @@ const DespachadorDashboard = () => {
                       <th className="px-4 py-3 text-left font-semibold">Guía</th>
                       <th className="px-4 py-3 text-left font-semibold">Tienda</th>
                       <th className="px-4 py-3 text-left font-semibold">Cliente</th>
-                      <th className="px-4 py-3 text-left font-semibold">Zona</th>
+                      <th className="px-4 py-3 text-left font-semibold">Producto</th>
                       <th className="px-4 py-3 text-left font-semibold">F. Entrega</th>
                       <th className="px-4 py-3 text-left font-semibold">Estado</th>
                       <th className="px-4 py-3 text-left font-semibold">Motorizado</th>
@@ -710,7 +710,18 @@ const DespachadorDashboard = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3">{pedido.cliente_nombre || "—"}</td>
-                          <td className="px-4 py-3">{pedido.zona || "—"}</td>
+                          <td className="px-4 py-3">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="text-sm cursor-default">
+                                  {pedido.producto_nombre || "Paquete"}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="max-w-xs">
+                                <p className="text-xs">{pedido.observaciones || pedido.producto_nombre || "Sin detalle"}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </td>
                           {/* Fecha Entrega Column */}
                           <td className="px-4 py-3">
                             <DeliveryDateBadge fechaEntrega={pedido.fecha_entrega} />
