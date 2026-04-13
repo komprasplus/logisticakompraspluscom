@@ -742,6 +742,46 @@ const NuevoPedidoModal = ({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-4 space-y-5">
+
+            {/* ============ SECTION 0: Service Type ============ */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Tipo de Servicio
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTipoServicio("ENVIO")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                    tipoServicio === "ENVIO"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  <Truck className="h-4 w-4" />
+                  Envío a Cliente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoServicio("RECOGIDA")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                    tipoServicio === "RECOGIDA"
+                      ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                      : "border-border bg-background text-muted-foreground hover:border-orange-500/50"
+                  )}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Logística Inversa
+                </button>
+              </div>
+              {tipoServicio === "RECOGIDA" && (
+                <p className="text-xs text-orange-600 dark:text-orange-400 bg-orange-500/10 p-2 rounded-lg border border-orange-500/30">
+                  🔄 <strong>Recogida:</strong> El motorizado recogerá el paquete en la dirección del cliente y lo llevará a la bodega. No se recauda dinero.
+                </p>
+              )}
+            </div>
             
             {/* ============ SECTION 1: Payment Method (FIRST) ============ */}
             <div className="space-y-3">
