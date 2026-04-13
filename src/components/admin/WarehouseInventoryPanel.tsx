@@ -317,7 +317,6 @@ const WarehouseInventoryPanel = () => {
         } else if (payload.eventType === "DELETE") {
           setInventory((prev) => prev.filter((item) => item.id !== (payload.old as { id: string }).id));
         }
-        }
       })
       .subscribe((status) => {
         // FIX: loguear estado de suscripción para facilitar debugging
