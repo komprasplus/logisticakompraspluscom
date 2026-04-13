@@ -1334,8 +1334,8 @@ const NuevoPedidoModal = ({
                 </div>
               )}
               
-              {/* Producto - Only show if NOT from inventory AND NOT multi-product */}
-              {!inventoryItemId && !isMultiProductMode && (
+              {/* Producto - Only show if NOT from inventory AND NOT multi-product AND ENVIO */}
+              {tipoServicio === "ENVIO" && !inventoryItemId && !isMultiProductMode && (
                 <div className="relative">
                   <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
@@ -1350,8 +1350,8 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* Costo del producto (opcional) - hide in multi-product mode */}
-              {!isMultiProductMode && (
+              {/* Costo del producto (opcional) - hide in multi-product mode and RECOGIDA */}
+              {tipoServicio === "ENVIO" && !isMultiProductMode && (
                 <div className="relative">
                   <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
