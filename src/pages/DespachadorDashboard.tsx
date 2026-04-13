@@ -224,6 +224,10 @@ const DespachadorDashboard = () => {
         });
       }
 
+      if (serviceTypeFilter !== "todos") {
+        filtered = filtered.filter((p) => (p.tipo_servicio || "ENVIO") === serviceTypeFilter);
+      }
+
       if (dateFilter) {
         filtered = filtered.filter((p) => {
           if (!p.fecha_creacion) return false;
@@ -259,7 +263,7 @@ const DespachadorDashboard = () => {
       console.error("Error filtering pedidos:", error);
       setFilteredPedidos([]);
     }
-  }, [pedidos, statusFilter, zonaFilter, storeFilter, dateFilter, todayOnlyFilter, searchQuery, clientProfiles]);
+  }, [pedidos, statusFilter, zonaFilter, storeFilter, serviceTypeFilter, dateFilter, todayOnlyFilter, searchQuery, clientProfiles]);
 
   // Apply filters when dependencies change
   useEffect(() => {
