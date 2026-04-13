@@ -4,6 +4,10 @@ import {
   Package, Loader2, Save, X, Plus, Edit2, ImageIcon,
   Search, Tag, ToggleLeft, ToggleRight, Upload, Trash2,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -418,6 +422,27 @@ const MarketplaceProductForm = () => {
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de eliminar <strong>{deleteConfirm?.product_name}</strong>? Ya no estará disponible para nuevas ventas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirm && softDeleteProduct(deleteConfirm)}
+            >
+              Sí, eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create/Edit Dialog — Premium Redesign */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) resetForm(); }}>
