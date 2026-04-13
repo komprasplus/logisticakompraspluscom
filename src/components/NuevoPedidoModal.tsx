@@ -117,6 +117,9 @@ const NuevoPedidoModal = ({
   const { profile } = useAuth();
   const orgId = profile?.organizacion_id;
 
+  // Service type: ENVIO (default) or RECOGIDA (reverse logistics)
+  const [tipoServicio, setTipoServicio] = useState<"ENVIO" | "RECOGIDA">("ENVIO");
+
   // Form state - Reordered: payment method first
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
   const [valorRecaudar, setValorRecaudar] = useState("");
@@ -205,6 +208,14 @@ const NuevoPedidoModal = ({
       setValorRecaudar(totalRecaudarCalculated.toString());
     }
   }, [totalRecaudarCalculated, isMultiProductMode, metodoPago, orderItems.length]);
+
+  // RECOGIDA forces valor a recaudar to 0
+  useEffect(() => {
+    if (tipoServicio === "RECOGIDA") {
+      setValorRecaudar("0");
+      setMetodoPago("efectivo");
+    }
+  }, [tipoServicio]);
 
   // Initialize with one empty item in multi-product mode
   useEffect(() => {
