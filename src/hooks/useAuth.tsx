@@ -84,6 +84,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (profileData) {
         setProfile(profileData);
+
+        // Check if the user's organization is active (suspended tenant guard)
+        if (profileData.organizacion_id) {
+          const { data: orgData } = await supabase
+            .from("organizaciones")
+            .select("plan_activo")
+            .eq("id", profileData.organizacion_id)
+            .maybeSingle();
+
+          if (orgData && orgData.plan_activo === false) {
+            console.warn("[Auth] Organization suspended, signing out user...");
+            // Defer sign-out to avoid state conflicts within the callback
+            setTimeout(async () => {
+              await supabase.auth.signOut();
+              currentUserIdRef.current = null;
+              setSession(null);
+              setUser(null);
+              setRole(null);
+              setProfile(null);
+              // Dispatch custom event so the UI can show a toast
+              window.dispatchEvent(new CustomEvent("org-suspended"));
+            }, 0);
+            return;
+          }
+        }
       }
 
       // Fetch role
