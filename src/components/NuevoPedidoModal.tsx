@@ -78,6 +78,7 @@ interface InventoryPrefill {
   sku: string;
   maxStock?: number;
   productType?: string;
+  source?: "inventory" | "marketplace";
 }
 
 // State for current user's fulfillment rate
@@ -555,7 +556,7 @@ const NuevoPedidoModal = ({
         client_user_id: isAdmin 
           ? (selectedStoreId === "bodega_kp_internal" ? null : selectedStoreId || null) 
           : currentUserId,
-        inventory_item_id: inventoryItemId || null,
+        inventory_item_id: (inventoryPrefill?.source === "inventory" && inventoryItemId) ? inventoryItemId : null,
         variant_id: selectedVariantId || null,
         quantity: totalQuantity,
         fulfillment_cost: fulfillmentInfo.rate,
@@ -566,7 +567,12 @@ const NuevoPedidoModal = ({
 
       const { data: newPedido, error } = await supabase.from("pedidos").insert(pedidoData).select("id").single();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error insertando pedido:", error);
+        toast.error("Error al vincular el producto. Por favor, selecciona el producto nuevamente.");
+        setLoading(false);
+        return;
+      }
 
       if (!hasCoords) {
         toast.warning("Pedido creado sin coordenadas. Puedes editarlo luego para agregar ubicación.");

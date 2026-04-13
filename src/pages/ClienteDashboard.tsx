@@ -433,6 +433,7 @@ const ClienteDashboard = () => {
           quantity: 1,
           sku: marketplacePrefill.sku,
           productType: marketplacePrefill.productType,
+          source: "marketplace" as const,
         } : undefined}
       />
 
