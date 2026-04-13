@@ -73,6 +73,7 @@ interface Pedido {
   guia_impresa?: boolean | null;
   guia_impresa_at?: string | null;
   observaciones?: string | null;
+  tipo_servicio?: string | null;
 }
 
 interface Profile {
@@ -95,6 +96,7 @@ const DespachadorDashboard = () => {
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [storeFilter, setStoreFilter] = useState<string>("todos");
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("todos");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [todayOnlyFilter, setTodayOnlyFilter] = useState(false); // New "Ver solo para hoy" filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -222,6 +224,10 @@ const DespachadorDashboard = () => {
         });
       }
 
+      if (serviceTypeFilter !== "todos") {
+        filtered = filtered.filter((p) => (p.tipo_servicio || "ENVIO") === serviceTypeFilter);
+      }
+
       if (dateFilter) {
         filtered = filtered.filter((p) => {
           if (!p.fecha_creacion) return false;
@@ -257,7 +263,7 @@ const DespachadorDashboard = () => {
       console.error("Error filtering pedidos:", error);
       setFilteredPedidos([]);
     }
-  }, [pedidos, statusFilter, zonaFilter, storeFilter, dateFilter, todayOnlyFilter, searchQuery, clientProfiles]);
+  }, [pedidos, statusFilter, zonaFilter, storeFilter, serviceTypeFilter, dateFilter, todayOnlyFilter, searchQuery, clientProfiles]);
 
   // Apply filters when dependencies change
   useEffect(() => {
@@ -289,7 +295,8 @@ const DespachadorDashboard = () => {
     client_user_id,
     guia_impresa,
     guia_impresa_at,
-    tipo_novedad
+    tipo_novedad,
+    tipo_servicio
   `;
 
   const fetchPedidos = useCallback(async () => {
@@ -608,6 +615,15 @@ const DespachadorDashboard = () => {
                   <option key={s} value={s!}>{s}</option>
                 ))}
               </select>
+              <select
+                value={serviceTypeFilter}
+                onChange={(e) => setServiceTypeFilter(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
+              >
+                <option value="todos">Tipo: Todos</option>
+                <option value="ENVIO">📦 Envío</option>
+                <option value="RECOGIDA">🔄 Recogida</option>
+              </select>
               {!EMERGENCY_DISABLE_DATE_FILTER_UI && (
                 <input
                   type="date"
@@ -643,9 +659,9 @@ const DespachadorDashboard = () => {
                 </button>
               )}
 
-              {(statusFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || (!EMERGENCY_DISABLE_DATE_FILTER_UI && (dateFilter || todayOnlyFilter))) && (
+              {(statusFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || serviceTypeFilter !== "todos" || (!EMERGENCY_DISABLE_DATE_FILTER_UI && (dateFilter || todayOnlyFilter))) && (
                 <button 
-                  onClick={() => { setStatusFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setDateFilter(""); setTodayOnlyFilter(false); }} 
+                  onClick={() => { setStatusFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setServiceTypeFilter("todos"); setDateFilter(""); setTodayOnlyFilter(false); }} 
                   className="text-sm text-primary hover:underline"
                 >
                   Limpiar filtros
@@ -703,7 +719,16 @@ const DespachadorDashboard = () => {
                               className="rounded"
                             />
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs">{pedido.numero_guia || `#${pedido.id}`}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-xs">{pedido.numero_guia || `#${pedido.id}`}</span>
+                              {(pedido.tipo_servicio || "ENVIO") === "RECOGIDA" && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-300 dark:border-orange-700">
+                                  🔄 RECOGIDA
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3">
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-medium dark:bg-violet-900/30 dark:text-violet-300">
                               <Store className="h-3 w-3" />

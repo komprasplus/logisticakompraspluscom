@@ -19,6 +19,7 @@ import {
   Plus,
   Trash2,
   ShoppingCart,
+  RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -117,6 +118,9 @@ const NuevoPedidoModal = ({
   const { profile } = useAuth();
   const orgId = profile?.organizacion_id;
 
+  // Service type: ENVIO (default) or RECOGIDA (reverse logistics)
+  const [tipoServicio, setTipoServicio] = useState<"ENVIO" | "RECOGIDA">("ENVIO");
+
   // Form state - Reordered: payment method first
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
   const [valorRecaudar, setValorRecaudar] = useState("");
@@ -205,6 +209,14 @@ const NuevoPedidoModal = ({
       setValorRecaudar(totalRecaudarCalculated.toString());
     }
   }, [totalRecaudarCalculated, isMultiProductMode, metodoPago, orderItems.length]);
+
+  // RECOGIDA forces valor a recaudar to 0
+  useEffect(() => {
+    if (tipoServicio === "RECOGIDA") {
+      setValorRecaudar("0");
+      setMetodoPago("efectivo");
+    }
+  }, [tipoServicio]);
 
   // Initialize with one empty item in multi-product mode
   useEffect(() => {
@@ -538,12 +550,12 @@ const NuevoPedidoModal = ({
         zona: zona,
         municipio: municipioSeleccionado,
         producto_nombre: productNameSummary,
-        valor_recaudar: metodoPago === "efectivo" && valorRecaudar ? parseFloat(valorRecaudar) : null,
+        valor_recaudar: tipoServicio === "RECOGIDA" ? 0 : (metodoPago === "efectivo" && valorRecaudar ? parseFloat(valorRecaudar) : null),
         valor_producto: valorProducto ? parseFloat(valorProducto) : (isMultiProductMode ? totalRecaudarCalculated : null),
         valor_flete: tarifaInfo.valor,
         flete_tienda: tarifaInfo.valor,
         flete_aliado: tarifaInfo.flete_aliado,
-        utilidad: utilidadCalculada,
+        utilidad: tipoServicio === "RECOGIDA" ? -(tarifaInfo.valor) : utilidadCalculada,
         metodo_pago: metodoPago,
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
         observaciones: isMultiProductMode 
@@ -560,6 +572,7 @@ const NuevoPedidoModal = ({
         variant_id: selectedVariantId || null,
         quantity: totalQuantity,
         fulfillment_cost: fulfillmentInfo.rate,
+        tipo_servicio: tipoServicio,
       } as any;
 
       // Add organizacion_id
@@ -663,6 +676,7 @@ const NuevoPedidoModal = ({
   };
 
   const resetForm = () => {
+    setTipoServicio("ENVIO");
     setMetodoPago("efectivo");
     setValorRecaudar("");
     setClienteNombre("");
@@ -729,8 +743,53 @@ const NuevoPedidoModal = ({
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="p-4 space-y-5">
+
+            {/* ============ SECTION 0: Service Type ============ */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                Tipo de Servicio
+              </h3>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTipoServicio("ENVIO")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                    tipoServicio === "ENVIO"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                  )}
+                >
+                  <Truck className="h-4 w-4" />
+                  Envío a Cliente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTipoServicio("RECOGIDA")}
+                  className={cn(
+                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                    tipoServicio === "RECOGIDA"
+                      ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400"
+                      : "border-border bg-background text-muted-foreground hover:border-orange-500/50"
+                  )}
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Logística Inversa
+                </button>
+              </div>
+              {tipoServicio === "RECOGIDA" && (
+                <p className="text-xs text-orange-600 dark:text-orange-400 bg-orange-500/10 p-2 rounded-lg border border-orange-500/30">
+                  🔄 <strong>Recogida:</strong> El motorizado recogerá el paquete en la dirección del cliente y lo llevará a la bodega. No se recauda dinero.
+                </p>
+              )}
+            </div>
             
             {/* ============ SECTION 1: Payment Method (FIRST) ============ */}
+            {tipoServicio === "RECOGIDA" ? (
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm text-orange-600 dark:text-orange-400">
+                💰 <strong>Recaudo: $0</strong> — En logística inversa no se recauda dinero. El flete se cobra internamente.
+              </div>
+            ) : (
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Método de Pago
@@ -805,6 +864,7 @@ const NuevoPedidoModal = ({
                 </p>
               )}
             </div>
+            )}
 
             {/* ============ SECTION 2: Client Data ============ */}
             <div className="space-y-3">
@@ -858,7 +918,7 @@ const NuevoPedidoModal = ({
             {/* ============ SECTION 3: Address (3 Steps) ============ */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Dirección de Entrega (3 Pasos)
+                {tipoServicio === "RECOGIDA" ? "Dirección de Recogida (Cliente) — 3 Pasos" : "Dirección de Entrega (3 Pasos)"}
               </h3>
               
               {/* STEP A: Municipality Selector */}
