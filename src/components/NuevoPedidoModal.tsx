@@ -19,6 +19,7 @@ import {
   Plus,
   Trash2,
   ShoppingCart,
+  RotateCcw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
