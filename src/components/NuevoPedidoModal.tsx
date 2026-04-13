@@ -1069,8 +1069,28 @@ const NuevoPedidoModal = ({
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4" />
-                {isMultiProductMode ? "Productos del Pedido" : "Detalles del Paquete"}
+                {tipoServicio === "RECOGIDA" 
+                  ? "Descripción del Paquete a Recoger" 
+                  : isMultiProductMode ? "Productos del Pedido" : "Detalles del Paquete"}
               </h3>
+              
+              {/* ===== RECOGIDA MODE: Simple textarea ===== */}
+              {tipoServicio === "RECOGIDA" && (
+                <div className="space-y-2">
+                  <textarea
+                    placeholder="Describe el paquete a recoger (ej: Bolsa plástica sellada, Caja de zapatos, Sobre manila con documentos...)"
+                    value={descripcionPaqueteRecogida}
+                    onChange={(e) => setDescripcionPaqueteRecogida(e.target.value)}
+                    required
+                    rows={3}
+                    maxLength={300}
+                    className="w-full rounded-lg border-2 border-orange-400 bg-background py-2.5 px-4 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    📦 Describe el contenido del paquete para que el motorizado lo identifique fácilmente.
+                  </p>
+                </div>
+              )}
               
               {/* ===== MULTI-PRODUCT MODE ===== */}
               {isMultiProductMode && (
