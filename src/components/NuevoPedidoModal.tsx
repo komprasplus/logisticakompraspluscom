@@ -486,18 +486,25 @@ const NuevoPedidoModal = ({
       missingFields.push("Dirección Exacta y Detalles (paso C)");
     }
     
-    // Multi-product validation
-    if (isMultiProductMode) {
-      const validItems = orderItems.filter(i => i.productName.trim());
-      if (validItems.length === 0) {
-        missingFields.push("Al menos un producto");
+    // Multi-product validation (only for ENVIO)
+    if (tipoServicio === "ENVIO") {
+      if (isMultiProductMode) {
+        const validItems = orderItems.filter(i => i.productName.trim());
+        if (validItems.length === 0) {
+          missingFields.push("Al menos un producto");
+        }
+      } else {
+        if (!productoNombre.trim()) missingFields.push("Nombre del producto");
       }
     } else {
-      if (!productoNombre.trim()) missingFields.push("Nombre del producto");
+      // RECOGIDA requires package description
+      if (!descripcionPaqueteRecogida.trim()) {
+        missingFields.push("Descripción del paquete a recoger");
+      }
     }
     
-    // For "efectivo" payment method, valor a recaudar is required
-    if (metodoPago === "efectivo" && !valorRecaudar) {
+    // For "efectivo" payment method, valor a recaudar is required (only ENVIO)
+    if (tipoServicio === "ENVIO" && metodoPago === "efectivo" && !valorRecaudar) {
       missingFields.push("Valor a Recaudar");
     }
 
