@@ -694,6 +694,7 @@ export type Database = {
           quantity: number | null
           sla_cumplido: boolean | null
           tipo_novedad: string | null
+          tipo_servicio: string
           utilidad: number | null
           valor_flete: number | null
           valor_producto: number | null
@@ -752,6 +753,7 @@ export type Database = {
           quantity?: number | null
           sla_cumplido?: boolean | null
           tipo_novedad?: string | null
+          tipo_servicio?: string
           utilidad?: number | null
           valor_flete?: number | null
           valor_producto?: number | null
@@ -810,6 +812,7 @@ export type Database = {
           quantity?: number | null
           sla_cumplido?: boolean | null
           tipo_novedad?: string | null
+          tipo_servicio?: string
           utilidad?: number | null
           valor_flete?: number | null
           valor_producto?: number | null
