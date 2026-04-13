@@ -94,8 +94,26 @@ const ConnectionErrorGuard = () => {
         window.location.href = "/auth";
       }
     };
+
+    const handleOrgSuspended = () => {
+      // Import toast dynamically to avoid circular deps
+      import("sonner").then(({ toast }) => {
+        toast.error("El acceso a esta plataforma ha sido suspendido. Por favor, contacte a administración.", {
+          duration: 8000,
+        });
+      });
+      // Redirect to auth after a short delay so toast is visible
+      setTimeout(() => {
+        window.location.href = "/auth";
+      }, 1500);
+    };
+
     window.addEventListener("supabase-auth-error", handleAuthError);
-    return () => window.removeEventListener("supabase-auth-error", handleAuthError);
+    window.addEventListener("org-suspended", handleOrgSuspended);
+    return () => {
+      window.removeEventListener("supabase-auth-error", handleAuthError);
+      window.removeEventListener("org-suspended", handleOrgSuspended);
+    };
   }, []);
 
   return null;
