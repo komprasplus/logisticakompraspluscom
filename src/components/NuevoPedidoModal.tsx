@@ -864,6 +864,7 @@ const NuevoPedidoModal = ({
                 </p>
               )}
             </div>
+            )}
 
             {/* ============ SECTION 2: Client Data ============ */}
             <div className="space-y-3">
