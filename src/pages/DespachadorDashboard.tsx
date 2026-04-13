@@ -615,6 +615,15 @@ const DespachadorDashboard = () => {
                   <option key={s} value={s!}>{s}</option>
                 ))}
               </select>
+              <select
+                value={serviceTypeFilter}
+                onChange={(e) => setServiceTypeFilter(e.target.value)}
+                className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
+              >
+                <option value="todos">Tipo: Todos</option>
+                <option value="ENVIO">📦 Envío</option>
+                <option value="RECOGIDA">🔄 Recogida</option>
+              </select>
               {!EMERGENCY_DISABLE_DATE_FILTER_UI && (
                 <input
                   type="date"
