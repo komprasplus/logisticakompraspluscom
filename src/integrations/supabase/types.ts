@@ -245,6 +245,7 @@ export type Database = {
           fulfillment_value: number | null
           id: string
           image_url: string | null
+          is_deleted: boolean
           low_stock_threshold: number
           organizacion_id: string | null
           price: number | null
@@ -259,6 +260,7 @@ export type Database = {
           fulfillment_value?: number | null
           id?: string
           image_url?: string | null
+          is_deleted?: boolean
           low_stock_threshold?: number
           organizacion_id?: string | null
           price?: number | null
@@ -273,6 +275,7 @@ export type Database = {
           fulfillment_value?: number | null
           id?: string
           image_url?: string | null
+          is_deleted?: boolean
           low_stock_threshold?: number
           organizacion_id?: string | null
           price?: number | null
@@ -350,6 +353,7 @@ export type Database = {
           image_url_2: string | null
           image_url_3: string | null
           is_active: boolean
+          is_deleted: boolean
           organizacion_id: string | null
           product_name: string
           product_type: string
@@ -369,6 +373,7 @@ export type Database = {
           image_url_2?: string | null
           image_url_3?: string | null
           is_active?: boolean
+          is_deleted?: boolean
           organizacion_id?: string | null
           product_name: string
           product_type?: string
@@ -388,6 +393,7 @@ export type Database = {
           image_url_2?: string | null
           image_url_3?: string | null
           is_active?: boolean
+          is_deleted?: boolean
           organizacion_id?: string | null
           product_name?: string
           product_type?: string
