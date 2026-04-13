@@ -719,7 +719,16 @@ const DespachadorDashboard = () => {
                               className="rounded"
                             />
                           </td>
-                          <td className="px-4 py-3 font-mono text-xs">{pedido.numero_guia || `#${pedido.id}`}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono text-xs">{pedido.numero_guia || `#${pedido.id}`}</span>
+                              {(pedido.tipo_servicio || "ENVIO") === "RECOGIDA" && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300 border border-orange-300 dark:border-orange-700">
+                                  🔄 RECOGIDA
+                                </span>
+                              )}
+                            </div>
+                          </td>
                           <td className="px-4 py-3">
                             <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-medium dark:bg-violet-900/30 dark:text-violet-300">
                               <Store className="h-3 w-3" />
