@@ -552,6 +552,13 @@ const NuevoPedidoModal = ({
         ? validItems.reduce((sum, i) => sum + i.quantity, 0)
         : quantity;
 
+      const normalizedInventoryItemId =
+        tipoServicio === "RECOGIDA"
+          ? null
+          : inventoryPrefill?.source === "inventory" && typeof inventoryItemId === "string" && inventoryItemId.trim()
+            ? inventoryItemId
+            : null;
+
       const pedidoData = {
         numero_guia: numeroGuia,
         cliente_nombre: clienteNombre.trim(),
@@ -581,12 +588,16 @@ const NuevoPedidoModal = ({
         client_user_id: isAdmin 
           ? (selectedStoreId === "bodega_kp_internal" ? null : selectedStoreId || null) 
           : currentUserId,
-        inventory_item_id: (inventoryPrefill?.source === "inventory" && inventoryItemId) ? inventoryItemId : null,
+        inventory_item_id: normalizedInventoryItemId,
         variant_id: selectedVariantId || null,
         quantity: totalQuantity,
         fulfillment_cost: fulfillmentInfo.rate,
         tipo_servicio: tipoServicio,
       } as any;
+
+      if (tipoServicio === "RECOGIDA") {
+        pedidoData.inventory_item_id = null;
+      }
 
       // Add organizacion_id
       if (orgId) pedidoData.organizacion_id = orgId;
