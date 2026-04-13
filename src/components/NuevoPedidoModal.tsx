@@ -605,7 +605,7 @@ const NuevoPedidoModal = ({
       }
 
       // ====== SAVE ORDER ITEMS ======
-      if (isMultiProductMode && validItems.length > 0 && newPedido?.id) {
+      if (tipoServicio === "ENVIO" && isMultiProductMode && validItems.length > 0 && newPedido?.id) {
         const itemsToInsert = validItems.map(item => ({
           pedido_id: newPedido.id,
           product_name: item.productName.trim(),
