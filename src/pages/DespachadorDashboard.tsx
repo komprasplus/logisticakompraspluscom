@@ -73,6 +73,7 @@ interface Pedido {
   guia_impresa?: boolean | null;
   guia_impresa_at?: string | null;
   observaciones?: string | null;
+  tipo_servicio?: string | null;
 }
 
 interface Profile {

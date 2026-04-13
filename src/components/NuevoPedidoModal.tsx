@@ -675,6 +675,7 @@ const NuevoPedidoModal = ({
   };
 
   const resetForm = () => {
+    setTipoServicio("ENVIO");
     setMetodoPago("efectivo");
     setValorRecaudar("");
     setClienteNombre("");
