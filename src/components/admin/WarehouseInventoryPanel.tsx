@@ -219,6 +219,7 @@ const WarehouseInventoryPanel = () => {
         )
         .order("product_name", { ascending: true });
       if (orgId) query = query.eq("organizacion_id", orgId);
+      query = query.neq("is_deleted", true);
       const { data, error } = await query;
 
       if (cancelRef.current) return;

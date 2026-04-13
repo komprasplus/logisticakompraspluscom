@@ -95,6 +95,7 @@ const MarketplaceProductForm = () => {
         .from("marketplace_products")
         .select("*")
         .eq("organizacion_id", orgId)
+        .neq("is_deleted", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as MarketplaceProduct[];

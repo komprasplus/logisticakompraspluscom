@@ -121,6 +121,7 @@ const InventarioView = () => {
           "id, client_user_id, sku, product_name, stock_available, price, low_stock_threshold, fulfillment_value, image_url, created_at, updated_at",
         )
         .eq("client_user_id", user.id)
+        .neq("is_deleted", true)
         .order("product_name", { ascending: true });
 
       if (cancelRef.current) return;
@@ -239,7 +240,10 @@ const InventarioView = () => {
     async (itemId: string) => {
       setConfirmDeleteItem(null);
       try {
-        const { error } = await supabase.from("inventory").delete().eq("id", itemId);
+      const { error } = await supabase
+          .from("inventory")
+          .update({ is_deleted: true })
+          .eq("id", itemId);
 
         if (error) throw error;
         toast.success("Producto eliminado");
@@ -726,8 +730,7 @@ const InventarioView = () => {
                 ¿Eliminar producto?
               </h3>
               <p id={`${uid}-delete-desc`} className="text-sm text-muted-foreground">
-                Vas a eliminar <strong>{confirmDeleteItem.name}</strong> del inventario. Esta acción no se puede
-                deshacer.
+              ¿Estás seguro de eliminar <strong>{confirmDeleteItem.name}</strong>? Ya no estará disponible para nuevas ventas.
               </p>
               <div className="flex gap-3">
                 <button
