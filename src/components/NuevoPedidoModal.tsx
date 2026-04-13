@@ -1092,8 +1092,8 @@ const NuevoPedidoModal = ({
                 </div>
               )}
               
-              {/* ===== MULTI-PRODUCT MODE ===== */}
-              {isMultiProductMode && (
+              {/* ===== MULTI-PRODUCT MODE (ENVIO only) ===== */}
+              {tipoServicio === "ENVIO" && isMultiProductMode && (
                 <div className="space-y-3">
                   {orderItems.map((item, index) => (
                     <div key={item.id} className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
