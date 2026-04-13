@@ -701,6 +701,7 @@ const NuevoPedidoModal = ({
     setLocalidad("");
     setCiudad("");
     setProductoNombre("");
+    setDescripcionPaqueteRecogida("");
     setValorProducto("");
     setFechaEntrega(undefined);
     setObservaciones("");
