@@ -37,6 +37,7 @@ import { getZonaFromBarrio, getZonaFromMunicipio } from "@/lib/zonas";
 import { getTarifaEnvio, calcularUtilidad, formatCOP } from "@/lib/tarifas";
 import LocationPreviewMapGoogle from "./LocationPreviewMapGoogle";
 import GooglePlacesAutocomplete from "./GooglePlacesAutocomplete";
+import ProductSearchCombobox from "./ProductSearchCombobox";
 
 // Supported municipalities/cities
 const MUNICIPIOS = [
@@ -141,6 +142,7 @@ const NuevoPedidoModal = ({
   const [productoNombre, setProductoNombre] = useState("");
   const [valorProducto, setValorProducto] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  const [descripcionPaqueteRecogida, setDescripcionPaqueteRecogida] = useState("");
   const [inventoryItemId, setInventoryItemId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   
@@ -484,18 +486,25 @@ const NuevoPedidoModal = ({
       missingFields.push("Dirección Exacta y Detalles (paso C)");
     }
     
-    // Multi-product validation
-    if (isMultiProductMode) {
-      const validItems = orderItems.filter(i => i.productName.trim());
-      if (validItems.length === 0) {
-        missingFields.push("Al menos un producto");
+    // Multi-product validation (only for ENVIO)
+    if (tipoServicio === "ENVIO") {
+      if (isMultiProductMode) {
+        const validItems = orderItems.filter(i => i.productName.trim());
+        if (validItems.length === 0) {
+          missingFields.push("Al menos un producto");
+        }
+      } else {
+        if (!productoNombre.trim()) missingFields.push("Nombre del producto");
       }
     } else {
-      if (!productoNombre.trim()) missingFields.push("Nombre del producto");
+      // RECOGIDA requires package description
+      if (!descripcionPaqueteRecogida.trim()) {
+        missingFields.push("Descripción del paquete a recoger");
+      }
     }
     
-    // For "efectivo" payment method, valor a recaudar is required
-    if (metodoPago === "efectivo" && !valorRecaudar) {
+    // For "efectivo" payment method, valor a recaudar is required (only ENVIO)
+    if (tipoServicio === "ENVIO" && metodoPago === "efectivo" && !valorRecaudar) {
       missingFields.push("Valor a Recaudar");
     }
 
@@ -531,11 +540,13 @@ const NuevoPedidoModal = ({
 
       // Build product name summary for multi-product
       const validItems = isMultiProductMode ? orderItems.filter(i => i.productName.trim()) : [];
-      const productNameSummary = isMultiProductMode
-        ? (validItems.length === 1 
-            ? validItems[0].productName 
-            : `${validItems.length} artículos`)
-        : productoNombre.trim();
+      const productNameSummary = tipoServicio === "RECOGIDA"
+        ? `RECOGIDA: ${descripcionPaqueteRecogida.trim()}`
+        : isMultiProductMode
+          ? (validItems.length === 1 
+              ? validItems[0].productName 
+              : `${validItems.length} artículos`)
+          : productoNombre.trim();
 
       const totalQuantity = isMultiProductMode
         ? validItems.reduce((sum, i) => sum + i.quantity, 0)
@@ -558,9 +569,11 @@ const NuevoPedidoModal = ({
         utilidad: tipoServicio === "RECOGIDA" ? -(tarifaInfo.valor) : utilidadCalculada,
         metodo_pago: metodoPago,
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
-        observaciones: isMultiProductMode 
-          ? (observaciones.trim() || validItems.map(i => `${i.productName} x${i.quantity}`).join(", "))
-          : (observaciones.trim() || null),
+        observaciones: tipoServicio === "RECOGIDA"
+          ? (descripcionPaqueteRecogida.trim() + (observaciones.trim() ? ` | ${observaciones.trim()}` : ""))
+          : isMultiProductMode 
+            ? (observaciones.trim() || validItems.map(i => `${i.productName} x${i.quantity}`).join(", "))
+            : (observaciones.trim() || null),
         estado: "pendiente",
         latitud: confirmedLat ?? null,
         longitud: confirmedLng ?? null,
@@ -592,7 +605,7 @@ const NuevoPedidoModal = ({
       }
 
       // ====== SAVE ORDER ITEMS ======
-      if (isMultiProductMode && validItems.length > 0 && newPedido?.id) {
+      if (tipoServicio === "ENVIO" && isMultiProductMode && validItems.length > 0 && newPedido?.id) {
         const itemsToInsert = validItems.map(item => ({
           pedido_id: newPedido.id,
           product_name: item.productName.trim(),
@@ -688,6 +701,7 @@ const NuevoPedidoModal = ({
     setLocalidad("");
     setCiudad("");
     setProductoNombre("");
+    setDescripcionPaqueteRecogida("");
     setValorProducto("");
     setFechaEntrega(undefined);
     setObservaciones("");
@@ -1055,11 +1069,31 @@ const NuevoPedidoModal = ({
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
                 <ShoppingCart className="h-4 w-4" />
-                {isMultiProductMode ? "Productos del Pedido" : "Detalles del Paquete"}
+                {tipoServicio === "RECOGIDA" 
+                  ? "Descripción del Paquete a Recoger" 
+                  : isMultiProductMode ? "Productos del Pedido" : "Detalles del Paquete"}
               </h3>
               
-              {/* ===== MULTI-PRODUCT MODE ===== */}
-              {isMultiProductMode && (
+              {/* ===== RECOGIDA MODE: Simple textarea ===== */}
+              {tipoServicio === "RECOGIDA" && (
+                <div className="space-y-2">
+                  <textarea
+                    placeholder="Describe el paquete a recoger (ej: Bolsa plástica sellada, Caja de zapatos, Sobre manila con documentos...)"
+                    value={descripcionPaqueteRecogida}
+                    onChange={(e) => setDescripcionPaqueteRecogida(e.target.value)}
+                    required
+                    rows={3}
+                    maxLength={300}
+                    className="w-full rounded-lg border-2 border-orange-400 bg-background py-2.5 px-4 text-sm focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-200 resize-none"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    📦 Describe el contenido del paquete para que el motorizado lo identifique fácilmente.
+                  </p>
+                </div>
+              )}
+              
+              {/* ===== MULTI-PRODUCT MODE (ENVIO only) ===== */}
+              {tipoServicio === "ENVIO" && isMultiProductMode && (
                 <div className="space-y-3">
                   {orderItems.map((item, index) => (
                     <div key={item.id} className="rounded-xl border border-border bg-muted/20 p-3 space-y-2">
@@ -1079,19 +1113,19 @@ const NuevoPedidoModal = ({
                         )}
                       </div>
                       
-                      {/* Product Name */}
-                      <div className="relative">
-                        <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <input
-                          type="text"
-                          placeholder="Nombre del Producto *"
-                          value={item.productName}
-                          onChange={(e) => updateOrderItem(item.id, { productName: e.target.value })}
-                          required
-                          maxLength={150}
-                          className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
+                      {/* Product Name - Autocomplete Search */}
+                      <ProductSearchCombobox
+                        value={item.productName}
+                        orgId={orgId}
+                        placeholder="Buscar producto del inventario... *"
+                        onChange={(val) => updateOrderItem(item.id, { productName: val })}
+                        onSelect={(product) => updateOrderItem(item.id, {
+                          productName: product.productName,
+                          sku: product.sku,
+                          unitPrice: product.unitPrice,
+                          inventoryItemId: product.inventoryItemId,
+                        })}
+                      />
 
                       <div className="grid grid-cols-3 gap-2">
                         {/* SKU */}
@@ -1163,8 +1197,8 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* ===== SINGLE PRODUCT MODE (from inventory) ===== */}
-              {!isMultiProductMode && inventoryItemId && inventoryPrefill && (
+              {/* ===== SINGLE PRODUCT MODE (from inventory, ENVIO only) ===== */}
+              {tipoServicio === "ENVIO" && !isMultiProductMode && inventoryItemId && inventoryPrefill && (
                 <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-primary" />
@@ -1300,8 +1334,8 @@ const NuevoPedidoModal = ({
                 </div>
               )}
               
-              {/* Producto - Only show if NOT from inventory AND NOT multi-product */}
-              {!inventoryItemId && !isMultiProductMode && (
+              {/* Producto - Only show if NOT from inventory AND NOT multi-product AND ENVIO */}
+              {tipoServicio === "ENVIO" && !inventoryItemId && !isMultiProductMode && (
                 <div className="relative">
                   <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
@@ -1316,8 +1350,8 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* Costo del producto (opcional) - hide in multi-product mode */}
-              {!isMultiProductMode && (
+              {/* Costo del producto (opcional) - hide in multi-product mode and RECOGIDA */}
+              {tipoServicio === "ENVIO" && !isMultiProductMode && (
                 <div className="relative">
                   <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
