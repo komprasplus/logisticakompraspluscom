@@ -540,11 +540,13 @@ const NuevoPedidoModal = ({
 
       // Build product name summary for multi-product
       const validItems = isMultiProductMode ? orderItems.filter(i => i.productName.trim()) : [];
-      const productNameSummary = isMultiProductMode
-        ? (validItems.length === 1 
-            ? validItems[0].productName 
-            : `${validItems.length} artículos`)
-        : productoNombre.trim();
+      const productNameSummary = tipoServicio === "RECOGIDA"
+        ? `RECOGIDA: ${descripcionPaqueteRecogida.trim()}`
+        : isMultiProductMode
+          ? (validItems.length === 1 
+              ? validItems[0].productName 
+              : `${validItems.length} artículos`)
+          : productoNombre.trim();
 
       const totalQuantity = isMultiProductMode
         ? validItems.reduce((sum, i) => sum + i.quantity, 0)
@@ -567,9 +569,11 @@ const NuevoPedidoModal = ({
         utilidad: tipoServicio === "RECOGIDA" ? -(tarifaInfo.valor) : utilidadCalculada,
         metodo_pago: metodoPago,
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
-        observaciones: isMultiProductMode 
-          ? (observaciones.trim() || validItems.map(i => `${i.productName} x${i.quantity}`).join(", "))
-          : (observaciones.trim() || null),
+        observaciones: tipoServicio === "RECOGIDA"
+          ? (descripcionPaqueteRecogida.trim() + (observaciones.trim() ? ` | ${observaciones.trim()}` : ""))
+          : isMultiProductMode 
+            ? (observaciones.trim() || validItems.map(i => `${i.productName} x${i.quantity}`).join(", "))
+            : (observaciones.trim() || null),
         estado: "pendiente",
         latitud: confirmedLat ?? null,
         longitud: confirmedLng ?? null,
