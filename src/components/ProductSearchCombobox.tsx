@@ -66,6 +66,7 @@ const ProductSearchCombobox = ({
         .select("id, product_name, sku, price, stock_available")
         .ilike("product_name", `%${term}%`)
         .gt("stock_available", 0)
+        .neq("is_deleted", true)
         .order("product_name")
         .limit(10);
 

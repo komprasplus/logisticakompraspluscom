@@ -219,6 +219,7 @@ const WarehouseInventoryPanel = () => {
         )
         .order("product_name", { ascending: true });
       if (orgId) query = query.eq("organizacion_id", orgId);
+      query = query.neq("is_deleted", true);
       const { data, error } = await query;
 
       if (cancelRef.current) return;
@@ -300,11 +301,19 @@ const WarehouseInventoryPanel = () => {
       .channel("admin-inventory-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "inventory" }, (payload) => {
         if (payload.eventType === "INSERT") {
-          setInventory((prev) => [payload.new as InventoryItem, ...prev]);
+          const newItem = payload.new as InventoryItem & { is_deleted?: boolean };
+          if (!newItem.is_deleted) {
+            setInventory((prev) => [newItem, ...prev]);
+          }
         } else if (payload.eventType === "UPDATE") {
-          setInventory((prev) =>
-            prev.map((item) => (item.id === (payload.new as InventoryItem).id ? (payload.new as InventoryItem) : item)),
-          );
+          const updated = payload.new as InventoryItem & { is_deleted?: boolean };
+          if (updated.is_deleted) {
+            setInventory((prev) => prev.filter((item) => item.id !== updated.id));
+          } else {
+            setInventory((prev) =>
+              prev.map((item) => (item.id === updated.id ? updated : item)),
+            );
+          }
         } else if (payload.eventType === "DELETE") {
           setInventory((prev) => prev.filter((item) => item.id !== (payload.old as { id: string }).id));
         }

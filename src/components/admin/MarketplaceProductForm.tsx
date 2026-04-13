@@ -4,6 +4,10 @@ import {
   Package, Loader2, Save, X, Plus, Edit2, ImageIcon,
   Search, Tag, ToggleLeft, ToggleRight, Upload, Trash2,
 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -57,6 +61,7 @@ const MarketplaceProductForm = () => {
   const [editing, setEditing] = useState<MarketplaceProduct | null>(null);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<MarketplaceProduct | null>(null);
 
   // Form fields
   const [name, setName] = useState("");
@@ -95,6 +100,7 @@ const MarketplaceProductForm = () => {
         .from("marketplace_products")
         .select("*")
         .eq("organizacion_id", orgId)
+        .neq("is_deleted", true)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as MarketplaceProduct[];
@@ -325,6 +331,14 @@ const MarketplaceProductForm = () => {
     queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
   };
 
+  const softDeleteProduct = async (p: MarketplaceProduct) => {
+    const { error } = await (supabase as any).from("marketplace_products").update({ is_deleted: true }).eq("id", p.id);
+    if (error) { toast.error("Error al eliminar producto"); return; }
+    toast.success("Producto eliminado correctamente");
+    setDeleteConfirm(null);
+    queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
+  };
+
   const filtered = products.filter(p =>
     p.product_name.toLowerCase().includes(search.toLowerCase()) ||
     p.sku.toLowerCase().includes(search.toLowerCase())
@@ -398,6 +412,9 @@ const MarketplaceProductForm = () => {
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
                       <Edit2 className="h-3.5 w-3.5" />
                     </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(p)}>
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -405,6 +422,27 @@ const MarketplaceProductForm = () => {
           ))}
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Estás seguro de eliminar <strong>{deleteConfirm?.product_name}</strong>? Ya no estará disponible para nuevas ventas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => deleteConfirm && softDeleteProduct(deleteConfirm)}
+            >
+              Sí, eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Create/Edit Dialog — Premium Redesign */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) resetForm(); }}>
