@@ -918,7 +918,7 @@ const NuevoPedidoModal = ({
             {/* ============ SECTION 3: Address (3 Steps) ============ */}
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Dirección de Entrega (3 Pasos)
+                {tipoServicio === "RECOGIDA" ? "Dirección de Recogida (Cliente) — 3 Pasos" : "Dirección de Entrega (3 Pasos)"}
               </h3>
               
               {/* STEP A: Municipality Selector */}
