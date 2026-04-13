@@ -785,6 +785,11 @@ const NuevoPedidoModal = ({
             </div>
             
             {/* ============ SECTION 1: Payment Method (FIRST) ============ */}
+            {tipoServicio === "RECOGIDA" ? (
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm text-orange-600 dark:text-orange-400">
+                💰 <strong>Recaudo: $0</strong> — En logística inversa no se recauda dinero. El flete se cobra internamente.
+              </div>
+            ) : (
             <div className="space-y-3">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Método de Pago
