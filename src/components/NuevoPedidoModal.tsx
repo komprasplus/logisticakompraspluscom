@@ -37,6 +37,7 @@ import { getZonaFromBarrio, getZonaFromMunicipio } from "@/lib/zonas";
 import { getTarifaEnvio, calcularUtilidad, formatCOP } from "@/lib/tarifas";
 import LocationPreviewMapGoogle from "./LocationPreviewMapGoogle";
 import GooglePlacesAutocomplete from "./GooglePlacesAutocomplete";
+import ProductSearchCombobox from "./ProductSearchCombobox";
 
 // Supported municipalities/cities
 const MUNICIPIOS = [
@@ -141,6 +142,7 @@ const NuevoPedidoModal = ({
   const [productoNombre, setProductoNombre] = useState("");
   const [valorProducto, setValorProducto] = useState("");
   const [observaciones, setObservaciones] = useState("");
+  const [descripcionPaqueteRecogida, setDescripcionPaqueteRecogida] = useState("");
   const [inventoryItemId, setInventoryItemId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   
