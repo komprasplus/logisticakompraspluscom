@@ -12,7 +12,9 @@ import { Plus, Building2, Palette, Globe, Loader2, LogOut, DatabaseZap, Users, I
 import BrandLogo from "@/components/BrandLogo";
 import RecalcularBilleterasButton from "@/components/admin/RecalcularBilleterasButton";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 
+const KOMPRAS_PLUS_ORG_ID = "a0000000-0000-0000-0000-000000000001";
 interface Organizacion {
   id: string;
   nombre: string;
@@ -256,51 +258,85 @@ const SuperAdminMaster = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {orgs.map(org => (
-              <Card key={org.id} className="neu-card overflow-hidden">
-                <div className="h-2" style={{ background: `linear-gradient(135deg, ${org.color_primario}, ${org.color_secundario})` }} />
-                <CardHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {org.logo_url ? (
-                        <img src={org.logo_url} alt={org.nombre} className="h-8 w-8 rounded-lg object-contain" />
-                      ) : (
-                        <Building2 className="h-5 w-5 text-muted-foreground" />
-                      )}
-                      <CardTitle className="text-base">{org.nombre}</CardTitle>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${org.plan_activo ? 'bg-secondary/20 text-secondary' : 'bg-destructive/20 text-destructive'}`}>
-                      {org.plan_activo ? "Activa" : "Inactiva"}
-                    </span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground font-mono">/{org.slug}</p>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: org.color_primario }} />
-                    <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: org.color_secundario }} />
-                    {org.dominio_personalizado && (
-                      <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
-                        <Globe className="h-3 w-3" /> {org.dominio_personalizado}
-                      </span>
-                    )}
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full"
-                    onClick={() => {
-                      setSelectedOrgForUsers(org);
-                      setUsersSheetOpen(true);
-                      fetchOrgUsers(org.id);
+            {orgs.map(org => {
+              const isKomprasPlus = org.id === KOMPRAS_PLUS_ORG_ID;
+              return (
+                <Card
+                  key={org.id}
+                  className={`neu-card overflow-hidden transition-all ${!org.plan_activo ? 'opacity-60 border-destructive/40 bg-muted/30' : ''}`}
+                >
+                  <div
+                    className="h-2"
+                    style={{
+                      background: org.plan_activo
+                        ? `linear-gradient(135deg, ${org.color_primario}, ${org.color_secundario})`
+                        : 'hsl(var(--muted))',
                     }}
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Ver Usuarios
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+                  />
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {org.logo_url ? (
+                          <img src={org.logo_url} alt={org.nombre} className="h-8 w-8 rounded-lg object-contain" />
+                        ) : (
+                          <Building2 className="h-5 w-5 text-muted-foreground" />
+                        )}
+                        <CardTitle className="text-base">{org.nombre}</CardTitle>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs ${org.plan_activo ? 'text-secondary' : 'text-destructive'}`}>
+                          {org.plan_activo ? "Activa" : "Suspendida"}
+                        </span>
+                        <Switch
+                          checked={org.plan_activo}
+                          disabled={isKomprasPlus}
+                          onCheckedChange={async (checked) => {
+                            const { error } = await supabase
+                              .from("organizaciones")
+                              .update({ plan_activo: checked })
+                              .eq("id", org.id);
+                            if (error) {
+                              toast({ title: "Error", description: error.message, variant: "destructive" });
+                            } else {
+                              toast({
+                                title: checked ? "✅ Organización activada" : "⛔ Organización suspendida",
+                                description: `${org.nombre} ahora está ${checked ? "activa" : "suspendida"}.`,
+                              });
+                              setOrgs(prev => prev.map(o => o.id === org.id ? { ...o, plan_activo: checked } : o));
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-xs text-muted-foreground font-mono">/{org.slug}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: org.color_primario }} />
+                      <div className="w-5 h-5 rounded-full border" style={{ backgroundColor: org.color_secundario }} />
+                      {org.dominio_personalizado && (
+                        <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+                          <Globe className="h-3 w-3" /> {org.dominio_personalizado}
+                        </span>
+                      )}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => {
+                        setSelectedOrgForUsers(org);
+                        setUsersSheetOpen(true);
+                        fetchOrgUsers(org.id);
+                      }}
+                    >
+                      <Users className="h-4 w-4 mr-2" />
+                      Ver Usuarios
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
 
