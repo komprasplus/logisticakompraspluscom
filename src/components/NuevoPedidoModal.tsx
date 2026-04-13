@@ -549,12 +549,12 @@ const NuevoPedidoModal = ({
         zona: zona,
         municipio: municipioSeleccionado,
         producto_nombre: productNameSummary,
-        valor_recaudar: metodoPago === "efectivo" && valorRecaudar ? parseFloat(valorRecaudar) : null,
+        valor_recaudar: tipoServicio === "RECOGIDA" ? 0 : (metodoPago === "efectivo" && valorRecaudar ? parseFloat(valorRecaudar) : null),
         valor_producto: valorProducto ? parseFloat(valorProducto) : (isMultiProductMode ? totalRecaudarCalculated : null),
         valor_flete: tarifaInfo.valor,
         flete_tienda: tarifaInfo.valor,
         flete_aliado: tarifaInfo.flete_aliado,
-        utilidad: utilidadCalculada,
+        utilidad: tipoServicio === "RECOGIDA" ? -(tarifaInfo.valor) : utilidadCalculada,
         metodo_pago: metodoPago,
         fecha_entrega: fechaEntrega ? format(fechaEntrega, "yyyy-MM-dd") : null,
         observaciones: isMultiProductMode 
@@ -571,6 +571,7 @@ const NuevoPedidoModal = ({
         variant_id: selectedVariantId || null,
         quantity: totalQuantity,
         fulfillment_cost: fulfillmentInfo.rate,
+        tipo_servicio: tipoServicio,
       } as any;
 
       // Add organizacion_id
