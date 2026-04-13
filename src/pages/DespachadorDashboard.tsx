@@ -96,6 +96,7 @@ const DespachadorDashboard = () => {
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [zonaFilter, setZonaFilter] = useState<string>("todos");
   const [storeFilter, setStoreFilter] = useState<string>("todos");
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<string>("todos");
   const [dateFilter, setDateFilter] = useState<string>("");
   const [todayOnlyFilter, setTodayOnlyFilter] = useState(false); // New "Ver solo para hoy" filter
   const [searchQuery, setSearchQuery] = useState("");
@@ -290,7 +291,8 @@ const DespachadorDashboard = () => {
     client_user_id,
     guia_impresa,
     guia_impresa_at,
-    tipo_novedad
+    tipo_novedad,
+    tipo_servicio
   `;
 
   const fetchPedidos = useCallback(async () => {
