@@ -1113,19 +1113,19 @@ const NuevoPedidoModal = ({
                         )}
                       </div>
                       
-                      {/* Product Name */}
-                      <div className="relative">
-                        <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <input
-                          type="text"
-                          placeholder="Nombre del Producto *"
-                          value={item.productName}
-                          onChange={(e) => updateOrderItem(item.id, { productName: e.target.value })}
-                          required
-                          maxLength={150}
-                          className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        />
-                      </div>
+                      {/* Product Name - Autocomplete Search */}
+                      <ProductSearchCombobox
+                        value={item.productName}
+                        orgId={orgId}
+                        placeholder="Buscar producto del inventario... *"
+                        onChange={(val) => updateOrderItem(item.id, { productName: val })}
+                        onSelect={(product) => updateOrderItem(item.id, {
+                          productName: product.productName,
+                          sku: product.sku,
+                          unitPrice: product.unitPrice,
+                          inventoryItemId: product.inventoryItemId,
+                        })}
+                      />
 
                       <div className="grid grid-cols-3 gap-2">
                         {/* SKU */}
