@@ -57,6 +57,7 @@ const MarketplaceProductForm = () => {
   const [editing, setEditing] = useState<MarketplaceProduct | null>(null);
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<MarketplaceProduct | null>(null);
 
   // Form fields
   const [name, setName] = useState("");
@@ -326,6 +327,14 @@ const MarketplaceProductForm = () => {
     queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
   };
 
+  const softDeleteProduct = async (p: MarketplaceProduct) => {
+    const { error } = await (supabase as any).from("marketplace_products").update({ is_deleted: true }).eq("id", p.id);
+    if (error) { toast.error("Error al eliminar producto"); return; }
+    toast.success("Producto eliminado correctamente");
+    setDeleteConfirm(null);
+    queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
+  };
+
   const filtered = products.filter(p =>
     p.product_name.toLowerCase().includes(search.toLowerCase()) ||
     p.sku.toLowerCase().includes(search.toLowerCase())
@@ -398,6 +407,9 @@ const MarketplaceProductForm = () => {
                     </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(p)}>
                       <Edit2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(p)}>
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
