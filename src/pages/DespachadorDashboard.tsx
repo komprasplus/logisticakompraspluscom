@@ -659,9 +659,9 @@ const DespachadorDashboard = () => {
                 </button>
               )}
 
-              {(statusFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || (!EMERGENCY_DISABLE_DATE_FILTER_UI && (dateFilter || todayOnlyFilter))) && (
+              {(statusFilter !== "todos" || zonaFilter !== "todos" || storeFilter !== "todos" || serviceTypeFilter !== "todos" || (!EMERGENCY_DISABLE_DATE_FILTER_UI && (dateFilter || todayOnlyFilter))) && (
                 <button 
-                  onClick={() => { setStatusFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setDateFilter(""); setTodayOnlyFilter(false); }} 
+                  onClick={() => { setStatusFilter("todos"); setZonaFilter("todos"); setStoreFilter("todos"); setServiceTypeFilter("todos"); setDateFilter(""); setTodayOnlyFilter(false); }} 
                   className="text-sm text-primary hover:underline"
                 >
                   Limpiar filtros
