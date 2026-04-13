@@ -1197,8 +1197,8 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* ===== SINGLE PRODUCT MODE (from inventory) ===== */}
-              {!isMultiProductMode && inventoryItemId && inventoryPrefill && (
+              {/* ===== SINGLE PRODUCT MODE (from inventory, ENVIO only) ===== */}
+              {tipoServicio === "ENVIO" && !isMultiProductMode && inventoryItemId && inventoryPrefill && (
                 <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
                   <div className="flex items-center gap-2">
                     <Package className="h-4 w-4 text-primary" />
