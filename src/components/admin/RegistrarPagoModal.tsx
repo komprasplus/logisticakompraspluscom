@@ -73,7 +73,7 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
 
   const exceedsSaldo = selectedStore != null && montoNumerico > selectedStore.saldoPendiente;
 
-  const canSubmit = !!selectedStoreId && montoNumerico > 0 && !exceedsSaldo && !loading && !uploadingFile;
+  const canSubmit = !!selectedStoreId && montoNumerico > 0 && !loading && !uploadingFile;
 
   // ── Fetch de balances ──────────────────────────────────────────────────────
 
@@ -153,8 +153,7 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
           full_name: p.full_name,
           saldoPendiente: (utilidadPorCliente.get(p.user_id) ?? 0) - (pagadoPorCliente.get(p.user_id) ?? 0),
         }))
-        .filter((s) => s.saldoPendiente > 0)
-        .sort((a, b) => b.saldoPendiente - a.saldoPendiente); // Ordenar por saldo desc
+        .sort((a, b) => b.saldoPendiente - a.saldoPendiente);
 
       setStores(storeData);
     } catch (error) {
@@ -343,7 +342,7 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
                 </Button>
               </div>
             ) : stores.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">No hay tiendas con saldo pendiente</p>
+              <p className="text-sm text-muted-foreground py-2">No se encontraron tiendas registradas</p>
             ) : (
               <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
                 <SelectTrigger>
