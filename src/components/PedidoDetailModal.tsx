@@ -100,7 +100,9 @@ interface PedidoDetailModalProps {
 const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange }: PedidoDetailModalProps) => {
   const { role } = useAuth();
   const isAdmin = role === "admin" || role === "super_admin";
+  const isSuperAdmin = role === "super_admin";
   const [chatOpen, setChatOpen] = useState(false);
+  const [financialOverrideOpen, setFinancialOverrideOpen] = useState(false);
   const [orderItemsList, setOrderItemsList] = useState<any[]>([]);
 
   // Fetch order items for multi-product orders
