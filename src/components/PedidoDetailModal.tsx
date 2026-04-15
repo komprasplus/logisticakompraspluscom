@@ -217,7 +217,19 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
             </Section>
 
             {/* Información financiera */}
-            <Section icon={<CreditCard className="h-4 w-4 text-primary" />} title="Información Financiera">
+            <Section icon={<CreditCard className="h-4 w-4 text-primary" />} title="Información Financiera"
+              action={isSuperAdmin ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setFinancialOverrideOpen(true)}
+                >
+                  <Wrench className="h-3.5 w-3.5 mr-1" />
+                  Corregir
+                </Button>
+              ) : undefined}
+            >
               <div className="space-y-4">
                 {/* Método de pago */}
                 <div className="flex justify-between items-center">
