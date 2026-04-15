@@ -153,8 +153,7 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
           full_name: p.full_name,
           saldoPendiente: (utilidadPorCliente.get(p.user_id) ?? 0) - (pagadoPorCliente.get(p.user_id) ?? 0),
         }))
-        .filter((s) => s.saldoPendiente > 0)
-        .sort((a, b) => b.saldoPendiente - a.saldoPendiente); // Ordenar por saldo desc
+        .sort((a, b) => b.saldoPendiente - a.saldoPendiente);
 
       setStores(storeData);
     } catch (error) {
