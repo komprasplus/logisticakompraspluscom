@@ -456,6 +456,16 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
             </div>
           </div>
         </ScrollArea>
+
+        {/* Financial Override Modal (Super Admin only) */}
+        {isSuperAdmin && (
+          <FinancialOverrideModal
+            isOpen={financialOverrideOpen}
+            onClose={() => setFinancialOverrideOpen(false)}
+            pedido={pedido as any}
+            onSaved={() => onStatusChange?.()}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
