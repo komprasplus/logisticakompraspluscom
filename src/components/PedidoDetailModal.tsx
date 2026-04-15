@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Package,
@@ -20,7 +21,9 @@ import {
   DollarSign,
   MessageCircle,
   ChevronDown,
+  Wrench,
 } from "lucide-react";
+import FinancialOverrideModal from "./FinancialOverrideModal";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
 import { formatCOP } from "@/lib/tarifas";
@@ -69,6 +72,8 @@ interface Pedido {
   valor_recaudar: number | null;
   valor_producto?: number | null;
   valor_flete?: number | null;
+  flete_tienda?: number | null;
+  flete_aliado?: number | null;
   utilidad?: number | null;
   fulfillment_cost?: number | null;
   metodo_pago: string | null;
@@ -97,7 +102,9 @@ interface PedidoDetailModalProps {
 const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange }: PedidoDetailModalProps) => {
   const { role } = useAuth();
   const isAdmin = role === "admin" || role === "super_admin";
+  const isSuperAdmin = role === "super_admin";
   const [chatOpen, setChatOpen] = useState(false);
+  const [financialOverrideOpen, setFinancialOverrideOpen] = useState(false);
   const [orderItemsList, setOrderItemsList] = useState<any[]>([]);
 
   // Fetch order items for multi-product orders
@@ -212,7 +219,19 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
             </Section>
 
             {/* Información financiera */}
-            <Section icon={<CreditCard className="h-4 w-4 text-primary" />} title="Información Financiera">
+            <Section icon={<CreditCard className="h-4 w-4 text-primary" />} title="Información Financiera"
+              action={isSuperAdmin ? (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => setFinancialOverrideOpen(true)}
+                >
+                  <Wrench className="h-3.5 w-3.5 mr-1" />
+                  Corregir
+                </Button>
+              ) : undefined}
+            >
               <div className="space-y-4">
                 {/* Método de pago */}
                 <div className="flex justify-between items-center">
@@ -439,6 +458,16 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
             </div>
           </div>
         </ScrollArea>
+
+        {/* Financial Override Modal (Super Admin only) */}
+        {isSuperAdmin && (
+          <FinancialOverrideModal
+            isOpen={financialOverrideOpen}
+            onClose={() => setFinancialOverrideOpen(false)}
+            pedido={pedido as any}
+            onSaved={() => onStatusChange?.()}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -458,16 +487,19 @@ const Section = ({
   title,
   children,
   muted = false,
+  action,
 }: {
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
   muted?: boolean;
+  action?: React.ReactNode;
 }) => (
   <div className={`rounded-lg border border-border p-4 ${muted ? "bg-muted/30" : ""}`}>
     <div className="flex items-center gap-2 mb-3">
       {icon}
-      <h3 className="font-semibold text-foreground">{title}</h3>
+      <h3 className="font-semibold text-foreground flex-1">{title}</h3>
+      {action}
     </div>
     {children}
   </div>
