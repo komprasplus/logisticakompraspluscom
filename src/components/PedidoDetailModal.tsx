@@ -475,16 +475,19 @@ const Section = ({
   title,
   children,
   muted = false,
+  action,
 }: {
   icon: React.ReactNode;
   title: string;
   children: React.ReactNode;
   muted?: boolean;
+  action?: React.ReactNode;
 }) => (
   <div className={`rounded-lg border border-border p-4 ${muted ? "bg-muted/30" : ""}`}>
     <div className="flex items-center gap-2 mb-3">
       {icon}
-      <h3 className="font-semibold text-foreground">{title}</h3>
+      <h3 className="font-semibold text-foreground flex-1">{title}</h3>
+      {action}
     </div>
     {children}
   </div>
