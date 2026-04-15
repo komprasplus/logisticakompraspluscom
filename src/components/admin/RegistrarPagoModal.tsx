@@ -342,7 +342,7 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
                 </Button>
               </div>
             ) : stores.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-2">No hay tiendas con saldo pendiente</p>
+              <p className="text-sm text-muted-foreground py-2">No se encontraron tiendas registradas</p>
             ) : (
               <Select value={selectedStoreId} onValueChange={setSelectedStoreId}>
                 <SelectTrigger>
