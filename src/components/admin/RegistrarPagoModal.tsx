@@ -73,7 +73,7 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
 
   const exceedsSaldo = selectedStore != null && montoNumerico > selectedStore.saldoPendiente;
 
-  const canSubmit = !!selectedStoreId && montoNumerico > 0 && !exceedsSaldo && !loading && !uploadingFile;
+  const canSubmit = !!selectedStoreId && montoNumerico > 0 && !loading && !uploadingFile;
 
   // ── Fetch de balances ──────────────────────────────────────────────────────
 
