@@ -66,13 +66,19 @@ const MotorizadoProfile = ({
 
     setUploading(true);
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${profile.user_id}/avatar.${fileExt}`;
+      const fileExt = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const timestamp = Date.now();
+      // RLS requires {user_id}/... as the first folder segment
+      const fileName = `${profile.user_id}/motorizado_${profile.user_id}_${timestamp}.${fileExt}`;
 
-      // Upload to storage
+      // Upload to storage (no upsert: each upload is a unique path → bypasses CDN cache)
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, {
+          upsert: false,
+          contentType: file.type,
+          cacheControl: "3600",
+        });
 
       if (uploadError) throw uploadError;
 
@@ -81,22 +87,38 @@ const MotorizadoProfile = ({
         .from("avatars")
         .getPublicUrl(fileName);
 
+      const publicUrl = urlData.publicUrl;
+
       // Update profile with avatar URL
       const { error: updateError } = await supabase
         .from("profiles")
-        .update({ 
-          avatar_url: urlData.publicUrl + `?t=${Date.now()}`,
-          updated_at: new Date().toISOString() 
+        .update({
+          avatar_url: publicUrl,
+          updated_at: new Date().toISOString(),
         })
         .eq("user_id", profile.user_id);
 
       if (updateError) throw updateError;
 
+      // Best-effort cleanup: remove previous avatar files for this user
+      if (profile.avatar_url) {
+        try {
+          const prevPath = profile.avatar_url
+            .split("/storage/v1/object/public/avatars/")[1]
+            ?.split("?")[0];
+          if (prevPath && prevPath !== fileName) {
+            await supabase.storage.from("avatars").remove([prevPath]);
+          }
+        } catch (cleanupErr) {
+          console.warn("No se pudo limpiar avatar anterior:", cleanupErr);
+        }
+      }
+
       toast.success("Foto de perfil actualizada");
       onProfileUpdate();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error uploading avatar:", error);
-      toast.error("Error al subir la foto");
+      toast.error(error?.message || "Error al subir la foto");
     } finally {
       setUploading(false);
     }
