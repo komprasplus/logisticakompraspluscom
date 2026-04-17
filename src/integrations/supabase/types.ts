@@ -749,6 +749,7 @@ export type Database = {
           organizacion_id: string | null
           primer_intento_fecha: string | null
           producto_nombre: string | null
+          proveedor_logistico_id: string | null
           quantity: number | null
           sla_cumplido: boolean | null
           tipo_novedad: string | null
@@ -809,6 +810,7 @@ export type Database = {
           organizacion_id?: string | null
           primer_intento_fecha?: string | null
           producto_nombre?: string | null
+          proveedor_logistico_id?: string | null
           quantity?: number | null
           sla_cumplido?: boolean | null
           tipo_novedad?: string | null
@@ -869,6 +871,7 @@ export type Database = {
           organizacion_id?: string | null
           primer_intento_fecha?: string | null
           producto_nombre?: string | null
+          proveedor_logistico_id?: string | null
           quantity?: number | null
           sla_cumplido?: boolean | null
           tipo_novedad?: string | null
@@ -968,6 +971,7 @@ export type Database = {
           fulfillment_rate: number | null
           full_name: string
           id: string
+          integration_provider: string | null
           is_online: boolean | null
           last_location_lat: number | null
           last_location_lng: number | null
@@ -990,6 +994,7 @@ export type Database = {
           fulfillment_rate?: number | null
           full_name: string
           id?: string
+          integration_provider?: string | null
           is_online?: boolean | null
           last_location_lat?: number | null
           last_location_lng?: number | null
@@ -1012,6 +1017,7 @@ export type Database = {
           fulfillment_rate?: number | null
           full_name?: string
           id?: string
+          integration_provider?: string | null
           is_online?: boolean | null
           last_location_lat?: number | null
           last_location_lng?: number | null
