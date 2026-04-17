@@ -108,6 +108,28 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
   const [chatOpen, setChatOpen] = useState(false);
   const [financialOverrideOpen, setFinancialOverrideOpen] = useState(false);
   const [orderItemsList, setOrderItemsList] = useState<any[]>([]);
+  const [sendingDropium, setSendingDropium] = useState(false);
+
+  const handleSendToDropium = async () => {
+    if (!pedido) return;
+    setSendingDropium(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("dropium-sync", {
+        body: { pedido_id: pedido.id },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast.success("Pedido enviado a Dropium correctamente");
+        onStatusChange?.();
+      } else {
+        toast.error(`Dropium rechazó el envío: ${data?.error || `HTTP ${data?.http_status}`}`);
+      }
+    } catch (e: any) {
+      toast.error(`Error al enviar a Dropium: ${e?.message || e}`);
+    } finally {
+      setSendingDropium(false);
+    }
+  };
 
   // Fetch order items for multi-product orders
   useEffect(() => {
