@@ -173,6 +173,12 @@ const MotorizadoSelector = ({
 
       toast.success(`Pedido asignado a ${newMoto}`);
       onAssignmentChange();
+
+      // Auto-sync a Dropium si el motorizado asignado es el aliado Jamv Drive
+      maybeSyncOnAssignment(pedidoId, selectedMotorizadoId, {
+        success: (m) => toast.success(m),
+        error: (m) => toast.error(m),
+      });
     } catch (error) {
       console.error("Error assigning motorizado:", error);
       toast.error("Error al asignar motorizado");
