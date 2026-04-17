@@ -175,9 +175,22 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
             <Package className="h-5 w-5 text-primary" aria-hidden="true" />
-            Detalle del Pedido — {pedido.numero_guia || `#${pedido.id}`}
+            <span className="flex-1">Detalle del Pedido — {pedido.numero_guia || `#${pedido.id}`}</span>
+            {isSuperAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                disabled={sendingDropium}
+                onClick={handleSendToDropium}
+                title="Enviar/reenviar este pedido a Dropium (Jamv Drive)"
+              >
+                <Send className="h-3.5 w-3.5 mr-1" />
+                {sendingDropium ? "Enviando..." : "Enviar a Dropium"}
+              </Button>
+            )}
           </DialogTitle>
         </DialogHeader>
 
