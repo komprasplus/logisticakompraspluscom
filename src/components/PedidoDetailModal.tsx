@@ -22,8 +22,10 @@ import {
   MessageCircle,
   ChevronDown,
   Wrench,
+  Send,
 } from "lucide-react";
 import FinancialOverrideModal from "./FinancialOverrideModal";
+import { toast } from "sonner";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
 import { formatCOP } from "@/lib/tarifas";
@@ -106,6 +108,28 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
   const [chatOpen, setChatOpen] = useState(false);
   const [financialOverrideOpen, setFinancialOverrideOpen] = useState(false);
   const [orderItemsList, setOrderItemsList] = useState<any[]>([]);
+  const [sendingDropium, setSendingDropium] = useState(false);
+
+  const handleSendToDropium = async () => {
+    if (!pedido) return;
+    setSendingDropium(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("dropium-sync", {
+        body: { pedido_id: pedido.id },
+      });
+      if (error) throw error;
+      if (data?.success) {
+        toast.success("Pedido enviado a Dropium correctamente");
+        onStatusChange?.();
+      } else {
+        toast.error(`Dropium rechazó el envío: ${data?.error || `HTTP ${data?.http_status}`}`);
+      }
+    } catch (e: any) {
+      toast.error(`Error al enviar a Dropium: ${e?.message || e}`);
+    } finally {
+      setSendingDropium(false);
+    }
+  };
 
   // Fetch order items for multi-product orders
   useEffect(() => {
@@ -151,9 +175,22 @@ const PedidoDetailModal = ({ pedido, isOpen, onClose, remitente, onStatusChange 
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
             <Package className="h-5 w-5 text-primary" aria-hidden="true" />
-            Detalle del Pedido — {pedido.numero_guia || `#${pedido.id}`}
+            <span className="flex-1">Detalle del Pedido — {pedido.numero_guia || `#${pedido.id}`}</span>
+            {isSuperAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-2 text-xs"
+                disabled={sendingDropium}
+                onClick={handleSendToDropium}
+                title="Enviar/reenviar este pedido a Dropium (Jamv Drive)"
+              >
+                <Send className="h-3.5 w-3.5 mr-1" />
+                {sendingDropium ? "Enviando..." : "Enviar a Dropium"}
+              </Button>
+            )}
           </DialogTitle>
         </DialogHeader>
 

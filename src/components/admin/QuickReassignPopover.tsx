@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeftRight, Loader2, Check, User, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { maybeSyncOnAssignment } from "@/lib/dropiumSync";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -202,6 +203,12 @@ const QuickReassignPopover = ({
 
         setOpen(false);
         if (!onOptimisticUpdate && onReassigned) onReassigned();
+
+        // Auto-sync a Dropium si el reasignado es el aliado Jamv Drive
+        maybeSyncOnAssignment(pedidoId, moto.user_id, {
+          success: (m) => toast.success(m),
+          error: (m) => toast.error(m),
+        });
       } catch (error) {
         console.error("Error reassigning:", error);
         toast.error("Error al reasignar pedido");

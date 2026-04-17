@@ -238,6 +238,57 @@ export type Database = {
           },
         ]
       }
+      dropium_sync_logs: {
+        Row: {
+          action: string
+          created_at: string
+          detail_code: string | null
+          error_message: string | null
+          external_status: string | null
+          http_status: number | null
+          id: string
+          internal_status: string | null
+          numero_guia: string | null
+          organizacion_id: string | null
+          pedido_id: number | null
+          request_payload: Json | null
+          response_payload: Json | null
+          success: boolean
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          detail_code?: string | null
+          error_message?: string | null
+          external_status?: string | null
+          http_status?: number | null
+          id?: string
+          internal_status?: string | null
+          numero_guia?: string | null
+          organizacion_id?: string | null
+          pedido_id?: number | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          success?: boolean
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          detail_code?: string | null
+          error_message?: string | null
+          external_status?: string | null
+          http_status?: number | null
+          id?: string
+          internal_status?: string | null
+          numero_guia?: string | null
+          organizacion_id?: string | null
+          pedido_id?: number | null
+          request_payload?: Json | null
+          response_payload?: Json | null
+          success?: boolean
+        }
+        Relationships: []
+      }
       inventory: {
         Row: {
           client_user_id: string
@@ -680,6 +731,7 @@ export type Database = {
           id: number
           id_externo: string | null
           indicador_trayecto: string | null
+          integration_partner: string | null
           intentos_entrega: number | null
           inventory_item_id: string | null
           latitud: number | null
@@ -739,6 +791,7 @@ export type Database = {
           id?: number
           id_externo?: string | null
           indicador_trayecto?: string | null
+          integration_partner?: string | null
           intentos_entrega?: number | null
           inventory_item_id?: string | null
           latitud?: number | null
@@ -798,6 +851,7 @@ export type Database = {
           id?: number
           id_externo?: string | null
           indicador_trayecto?: string | null
+          integration_partner?: string | null
           intentos_entrega?: number | null
           inventory_item_id?: string | null
           latitud?: number | null
