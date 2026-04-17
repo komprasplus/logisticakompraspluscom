@@ -7,21 +7,16 @@ import { supabase } from "@/integrations/supabase/client";
 export async function isDropiumAlly(userId: string | null | undefined): Promise<boolean> {
   if (!userId) return false;
   try {
-    // 1) Check by role
-    const { data: roles } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId);
-
-    if (roles?.some((r: any) => r.role === "aliado_logistico")) return true;
-
-    // 2) Fallback by name
+    // Primary: check integration_provider flag on profile
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name")
+      .select("full_name, integration_provider")
       .eq("user_id", userId)
       .maybeSingle();
 
+    if ((profile as any)?.integration_provider === "dropium") return true;
+
+    // Fallback by name (legacy)
     const name = (profile?.full_name || "").toLowerCase().trim();
     return name.includes("jamv drive");
   } catch {
