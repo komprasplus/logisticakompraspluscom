@@ -88,6 +88,7 @@ import AdminNotesInput from "@/components/AdminNotesInput";
 const AdminControlTowerEmbed = lazy(() => import("@/pages/AdminControlTower"));
 import QuickReassignPopover from "@/components/admin/QuickReassignPopover";
 import BulkReassignModal from "@/components/admin/BulkReassignModal";
+import AssignCarrierModal from "@/components/admin/AssignCarrierModal";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -251,6 +252,7 @@ const AdminDashboard = () => {
   const [showEditPedido, setShowEditPedido] = useState(false);
   const [selectedPedidoForEdit, setSelectedPedidoForEdit] = useState<Pedido | null>(null);
   const [showBulkReassign, setShowBulkReassign] = useState(false);
+  const [showAssignCarrier, setShowAssignCarrier] = useState(false);
   const [showEditStore, setShowEditStore] = useState(false);
   const [selectedStoreForEdit, setSelectedStoreForEdit] = useState<Profile | null>(null);
   const [showFutureDateConfirm, setShowFutureDateConfirm] = useState(false);
@@ -1177,7 +1179,19 @@ const AdminDashboard = () => {
                     <ArrowLeftRight className="h-4 w-4" />
                     Transferir a Motorizado
                   </Button>
-                  
+
+                  {/* Asignar Proveedor Logístico (3PL/4PL) */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={bulkAssigning}
+                    onClick={() => setShowAssignCarrier(true)}
+                    className="gap-2 border-primary/40 text-primary hover:bg-primary/10"
+                  >
+                    <Truck className="h-4 w-4" />
+                    Asignar Proveedor Logístico
+                  </Button>
+
                   <button onClick={() => setSelectedForBulk([])} className="text-sm text-muted-foreground hover:text-foreground">
                     Cancelar selección
                   </button>
@@ -1876,6 +1890,15 @@ const AdminDashboard = () => {
       <BulkReassignModal
         isOpen={showBulkReassign}
         onClose={() => setShowBulkReassign(false)}
+        selectedPedidoIds={selectedForBulk}
+        onSuccess={() => {
+          fetchPedidos();
+          setSelectedForBulk([]);
+        }}
+      />
+      <AssignCarrierModal
+        isOpen={showAssignCarrier}
+        onClose={() => setShowAssignCarrier(false)}
         selectedPedidoIds={selectedForBulk}
         onSuccess={() => {
           fetchPedidos();
