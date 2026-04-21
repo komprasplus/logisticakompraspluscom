@@ -152,6 +152,10 @@ const PedidosView = ({
   const [minValue, setMinValue] = useState("");
   const [maxValue, setMaxValue] = useState("");
   const [recipientFilter, setRecipientFilter] = useState("");
+  const [showManifiestoModal, setShowManifiestoModal] = useState(false);
+
+  const { profile } = useAuth();
+  const storeName = profile?.store_name || profile?.full_name || "Mi Tienda";
 
   const prefersReducedMotion = useReducedMotion();
   const uid = useId();
