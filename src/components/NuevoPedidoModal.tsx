@@ -8,6 +8,7 @@ import {
   Package,
   DollarSign,
   CreditCard,
+  Banknote,
   Calendar as CalendarIcon,
   Truck,
   Loader2,
