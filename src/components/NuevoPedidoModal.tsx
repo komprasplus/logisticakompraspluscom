@@ -224,10 +224,10 @@ const NuevoPedidoModal = ({
     }
   }, [isMultiProductMode, isOpen]);
 
-  // Calculate flete and utility based on localidad/municipio
+  // Calculate flete and utility based on departamento + municipio
   const tarifaInfo = useMemo(() => {
-    return getTarifaEnvio(localidad || municipioSeleccionado);
-  }, [localidad, municipioSeleccionado]);
+    return getTarifaByDeptMunicipio(departamentoSeleccionado, municipioSeleccionado);
+  }, [departamentoSeleccionado, municipioSeleccionado]);
   
   const utilidadCalculada = useMemo(() => {
     if (metodoPago === "anticipado") {
