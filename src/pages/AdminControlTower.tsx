@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import AnunciosManager from "@/components/admin/AnunciosManager";
+import InteractiveCoverageMap from "@/components/admin/InteractiveCoverageMap";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -455,9 +457,24 @@ const AdminControlTower = () => {
             </div>
           </div>
 
-          {/* CENTER: Tablero de Anuncios (Billboard del Súper Admin) */}
+          {/* CENTER: Tabs (Anuncios + Mapa de Cobertura) */}
           <div className="order-1 xl:order-2">
-            <AnunciosManager />
+            <Tabs defaultValue="cobertura" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 rounded-2xl bg-muted/60 p-1 mb-4">
+                <TabsTrigger value="cobertura" className="rounded-xl text-sm font-medium">
+                  🗺️ Mapa de Cobertura
+                </TabsTrigger>
+                <TabsTrigger value="anuncios" className="rounded-xl text-sm font-medium">
+                  📣 Tablero de Anuncios
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="cobertura" className="mt-0 focus-visible:outline-none">
+                <InteractiveCoverageMap />
+              </TabsContent>
+              <TabsContent value="anuncios" className="mt-0 focus-visible:outline-none">
+                <AnunciosManager />
+              </TabsContent>
+            </Tabs>
           </div>
 
           {/* RIGHT: Analytics panels (REAL DATA) */}
