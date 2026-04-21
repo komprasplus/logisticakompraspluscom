@@ -126,7 +126,8 @@ const NuevoPedidoModal = ({
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   
-  // Address with municipality first
+  // Address with department -> municipality cascade
+  const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState("");
   const [municipioSeleccionado, setMunicipioSeleccionado] = useState("");
   const [direccionCompleta, setDireccionCompleta] = useState("");
   const [direccionManual, setDireccionManual] = useState(""); // User's exact typed address
