@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Package, TrendingUp, Wallet, Plus, ArrowRight, History } from "lucide-react";
 import { ClienteView } from "./ClienteSidebar";
 import { formatCOP } from "@/lib/tarifas";
+import AnunciosBanner from "./AnunciosBanner";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
