@@ -78,6 +78,7 @@ const MarketplaceProductForm = () => {
   const [attributeValues, setAttributeValues] = useState<Record<string, string[]>>({});
   const [newAttrName, setNewAttrName] = useState("");
   const [variants, setVariants] = useState<Array<{
+    id?: string; // Existing variant id (for UPDATE) — undefined for newly generated
     variant_name: string;
     sku: string;
     price: string;
@@ -85,6 +86,7 @@ const MarketplaceProductForm = () => {
     stock: string;
     attributes: Record<string, string>;
   }>>([]);
+  const [loadingVariants, setLoadingVariants] = useState(false);
 
   // Images state: up to 3
   const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null]);
@@ -119,7 +121,7 @@ const MarketplaceProductForm = () => {
     setNewAttrName(""); setVariants([]);
   };
 
-  const openEdit = (p: MarketplaceProduct) => {
+  const openEdit = async (p: MarketplaceProduct) => {
     setEditing(p);
     setName(p.product_name);
     setDescription(p.description || "");
@@ -132,7 +134,63 @@ const MarketplaceProductForm = () => {
     setExistingUrls([p.image_url || null, p.image_url_2 || null, p.image_url_3 || null]);
     setImageFiles([null, null, null]);
     setImagePreviews([null, null, null]);
+    setAttributeNames([]);
+    setAttributeValues({});
+    setVariants([]);
     setShowForm(true);
+
+    // Load existing variants if it's a Variable product
+    if ((p.product_type || "Simple") === "Variable") {
+      setLoadingVariants(true);
+      try {
+        const { data, error } = await (supabase as any)
+          .from("product_variants")
+          .select("id, variant_name, sku, price, cost_price, stock_available, attributes")
+          .eq("product_id", p.id)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+
+        const rows = (data || []) as Array<{
+          id: string;
+          variant_name: string;
+          sku: string;
+          price: number | null;
+          cost_price: number | null;
+          stock_available: number;
+          attributes: Record<string, string>;
+        }>;
+
+        // Reconstruct attribute names/values from existing variants
+        const attrSet = new Map<string, Set<string>>();
+        for (const v of rows) {
+          const attrs = v.attributes || {};
+          for (const [k, val] of Object.entries(attrs)) {
+            if (!attrSet.has(k)) attrSet.set(k, new Set());
+            attrSet.get(k)!.add(String(val));
+          }
+        }
+        const names = Array.from(attrSet.keys());
+        const values: Record<string, string[]> = {};
+        for (const [k, set] of attrSet.entries()) values[k] = Array.from(set);
+        setAttributeNames(names);
+        setAttributeValues(values);
+
+        setVariants(rows.map(v => ({
+          id: v.id,
+          variant_name: v.variant_name,
+          sku: v.sku,
+          price: v.price != null ? String(v.price) : "",
+          cost_price: v.cost_price != null ? String(v.cost_price) : "",
+          stock: String(v.stock_available ?? 0),
+          attributes: v.attributes || {},
+        })));
+      } catch (err: any) {
+        toast.error("No se pudieron cargar las variantes existentes");
+        console.error(err);
+      } finally {
+        setLoadingVariants(false);
+      }
+    }
   };
 
   const handleImageSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -295,24 +353,42 @@ const MarketplaceProductForm = () => {
         toast.success("Producto creado en el marketplace");
       }
 
-      // Save variants for variable products
+      // Save variants for variable products: UPDATE existing, INSERT new
       if (productType === "Variable" && variants.length > 0) {
-        // Delete existing variants if editing
-        if (editing) {
-          await (supabase as any).from("product_variants").delete().eq("product_id", productId);
+        const toUpdate = variants.filter(v => !!v.id);
+        const toInsert = variants.filter(v => !v.id);
+
+        // UPDATE existing variants by id (preserves stock/price history & avoids FK breakage)
+        for (const v of toUpdate) {
+          const { error: upErr } = await (supabase as any)
+            .from("product_variants")
+            .update({
+              variant_name: v.variant_name,
+              sku: v.sku,
+              price: Number(v.price) || null,
+              cost_price: Number(v.cost_price) || null,
+              stock_available: Number(v.stock) || 0,
+              attributes: v.attributes,
+            })
+            .eq("id", v.id);
+          if (upErr) console.error("Error updating variant", v.id, upErr);
         }
-        const variantRows = variants.map(v => ({
-          product_id: productId,
-          variant_name: v.variant_name,
-          sku: v.sku,
-          price: Number(v.price) || null,
-          cost_price: Number(v.cost_price) || null,
-          stock_available: Number(v.stock) || 0,
-          attributes: v.attributes,
-          organizacion_id: orgId,
-        }));
-        const { error: varError } = await (supabase as any).from("product_variants").insert(variantRows);
-        if (varError) console.error("Error saving variants:", varError);
+
+        // INSERT new variants
+        if (toInsert.length > 0) {
+          const variantRows = toInsert.map(v => ({
+            product_id: productId,
+            variant_name: v.variant_name,
+            sku: v.sku,
+            price: Number(v.price) || null,
+            cost_price: Number(v.cost_price) || null,
+            stock_available: Number(v.stock) || 0,
+            attributes: v.attributes,
+            organizacion_id: orgId,
+          }));
+          const { error: insErr } = await (supabase as any).from("product_variants").insert(variantRows);
+          if (insErr) console.error("Error inserting new variants:", insErr);
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["marketplace-products"] });
