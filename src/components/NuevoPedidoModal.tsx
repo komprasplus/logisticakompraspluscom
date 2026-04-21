@@ -779,27 +779,27 @@ const NuevoPedidoModal = ({
                   type="button"
                   onClick={() => setTipoServicio("ENVIO")}
                   className={cn(
-                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                    "group flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
                     tipoServicio === "ENVIO"
                       ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background text-muted-foreground hover:border-primary/50"
+                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
                 >
-                  <Truck className="h-4 w-4" />
-                  Envío a Cliente
+                  <Truck className="w-5 h-5 shrink-0" />
+                  <span className="truncate">Envío a Cliente</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setTipoServicio("RECOGIDA")}
                   className={cn(
-                    "flex items-center justify-center gap-2 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                    "group flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
                     tipoServicio === "RECOGIDA"
                       ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                      : "border-border bg-background text-muted-foreground hover:border-orange-500/50"
+                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
                 >
-                  <RotateCcw className="h-4 w-4" />
-                  Logística Inversa
+                  <RotateCcw className="w-5 h-5 shrink-0" />
+                  <span className="truncate">Logística Inversa</span>
                 </button>
               </div>
               {tipoServicio === "RECOGIDA" && (
