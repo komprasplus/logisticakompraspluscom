@@ -468,9 +468,20 @@ const MarketplaceProductForm = () => {
                     {p.is_active ? "Activo" : "Inactivo"}
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                   <span className="font-mono">SKU: {p.sku}</span>
                   {p.category && <span className="bg-primary/10 text-primary px-1.5 py-0.5 rounded text-[10px]">{p.category}</span>}
+                </div>
+                <div>
+                  {(p.product_type || "Simple") === "Variable" ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                      <Tag className="h-2.5 w-2.5" /> Producto con Variantes
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                      <Package className="h-2.5 w-2.5" /> Producto Simple
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Costo: {formatCOP(p.cost_price)}</span>
@@ -651,6 +662,13 @@ const MarketplaceProductForm = () => {
                     />
                   </div>
                 ))}
+
+                {/* Loading existing variants indicator */}
+                {loadingVariants && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando variantes existentes...
+                  </div>
+                )}
 
                 {/* Generate button */}
                 {attributeNames.length > 0 && (

@@ -167,6 +167,17 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                     <p className="text-[11px] text-muted-foreground font-mono mt-1">
                       SKU: {product.sku}
                     </p>
+                    <div className="mt-1.5">
+                      {(product.product_type || "Simple") === "Variable" ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
+                          <Package className="h-2.5 w-2.5" /> Producto con Variantes
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
+                          <Package className="h-2.5 w-2.5" /> Producto Simple
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {product.description && (
