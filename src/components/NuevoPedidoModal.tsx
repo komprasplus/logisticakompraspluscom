@@ -525,9 +525,9 @@ const NuevoPedidoModal = ({
       const { data: { user } } = await supabase.auth.getUser();
       const zona = getZonaFromBarrio(barrio) || getZonaFromMunicipio(municipioSeleccionado);
 
-      const direccionFinal = direccionManual.trim() 
-        ? `${direccionManual.trim()}, ${municipioSeleccionado}`
-        : `${direccionCompleta}, ${municipioSeleccionado}`;
+      const direccionFinal = direccionManual.trim()
+        ? `${direccionManual.trim()}, ${municipioSeleccionado}, ${departamentoSeleccionado}`
+        : `${direccionCompleta}, ${municipioSeleccionado}, ${departamentoSeleccionado}`;
 
       const currentUserId = user?.id;
       if (!isAdmin && !currentUserId) {
