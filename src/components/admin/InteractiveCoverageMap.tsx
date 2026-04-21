@@ -106,7 +106,7 @@ const InteractiveCoverageMap = () => {
       </div>
 
       {/* Map Canvas */}
-      <div className="relative w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900/40 dark:to-slate-900/60">
+      <div className="relative w-full bg-gradient-to-b from-muted/30 to-muted/50">
         <div className="relative mx-auto" style={{ height: 480, maxWidth: 520 }}>
           {/* SVG Colombia silhouette (stylized) */}
           <svg
