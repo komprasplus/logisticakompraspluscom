@@ -807,6 +807,13 @@ const PedidosView = ({
           )}
         </>
       )}
+
+      <ManifiestoModal
+        open={showManifiestoModal}
+        onClose={() => setShowManifiestoModal(false)}
+        pedidos={pedidos}
+        storeName={storeName}
+      />
     </motion.div>
   );
 };
