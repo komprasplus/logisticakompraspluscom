@@ -19,9 +19,12 @@ import {
   Filter,
   X,
   Camera,
+  FileText,
 } from "lucide-react";
 import { TrendingUp } from "lucide-react";
 import PedidosSkeleton from "./PedidosSkeleton";
+import ManifiestoModal from "./ManifiestoModal";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCOP } from "@/lib/tarifas";
