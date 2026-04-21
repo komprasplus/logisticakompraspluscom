@@ -943,14 +943,45 @@ const NuevoPedidoModal = ({
                 {tipoServicio === "RECOGIDA" ? "Dirección de Recogida (Cliente) — 3 Pasos" : "Dirección de Entrega (3 Pasos)"}
               </h3>
               
-              {/* STEP A: Municipality Selector */}
+              {/* STEP A: Department + Municipality cascade */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-xs font-bold">A</span>
-                  <span className="text-sm font-medium text-foreground">Selecciona Ciudad/Municipio</span>
+                  <span className="text-sm font-medium text-foreground">Selecciona Departamento y Municipio</span>
                 </div>
+
+                {/* Departamento */}
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <select
+                    value={departamentoSeleccionado}
+                    onChange={(e) => {
+                      setDepartamentoSeleccionado(e.target.value);
+                      // Reset dependent fields
+                      setMunicipioSeleccionado("");
+                      setDireccionCompleta("");
+                      setDireccionManual("");
+                      setBarrio("");
+                      setLocalidad("");
+                      setAddressSelected(false);
+                      setConfirmedLat(null);
+                      setConfirmedLng(null);
+                    }}
+                    required
+                    className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="">Selecciona Departamento *</option>
+                    {DEPARTAMENTOS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Municipio (depends on departamento) */}
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <select
                     value={municipioSeleccionado}
                     onChange={(e) => {
@@ -964,14 +995,20 @@ const NuevoPedidoModal = ({
                       setConfirmedLng(null);
                     }}
                     required
-                    className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    disabled={!departamentoSeleccionado}
+                    className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 pl-10 pr-10 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <option value="">Selecciona Ciudad/Municipio *</option>
-                    {MUNICIPIOS.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
+                    <option value="">
+                      {departamentoSeleccionado
+                        ? "Selecciona Municipio *"
+                        : "Primero elige un departamento"}
+                    </option>
+                    {departamentoSeleccionado &&
+                      getMunicipiosByDepartamento(departamentoSeleccionado).map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>
