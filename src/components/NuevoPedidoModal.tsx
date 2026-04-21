@@ -34,22 +34,18 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import { getZonaFromBarrio, getZonaFromMunicipio } from "@/lib/zonas";
-import { getTarifaEnvio, calcularUtilidad, formatCOP } from "@/lib/tarifas";
+import {
+  calcularUtilidad,
+  formatCOP,
+  getDepartamentos,
+  getMunicipiosByDepartamento,
+  getTarifaByDeptMunicipio,
+} from "@/lib/tarifas";
 import LocationPreviewMapGoogle from "./LocationPreviewMapGoogle";
 import GooglePlacesAutocomplete from "./GooglePlacesAutocomplete";
 import ProductSearchCombobox from "./ProductSearchCombobox";
 
-// Supported municipalities/cities
-const MUNICIPIOS = [
-  { value: "Bogotá", label: "Bogotá D.C." },
-  { value: "Soacha", label: "Soacha" },
-  { value: "Chía", label: "Chía" },
-  { value: "Cota", label: "Cota" },
-  { value: "Funza", label: "Funza" },
-  { value: "Mosquera", label: "Mosquera" },
-  { value: "Madrid", label: "Madrid" },
-  { value: "Sibaté", label: "Sibaté" },
-];
+const DEPARTAMENTOS = getDepartamentos();
 
 // Internal warehouse option for guarantees
 const BODEGA_KOMPRAS_PLUS = {
