@@ -434,6 +434,45 @@ export type Database = {
           },
         ]
       }
+      manifiestos: {
+        Row: {
+          client_user_id: string
+          created_at: string
+          estado: string
+          id: string
+          manifiesto_numero: string
+          organizacion_id: string | null
+          pedido_ids: number[]
+          store_name: string | null
+          total_paquetes: number
+          updated_at: string
+        }
+        Insert: {
+          client_user_id: string
+          created_at?: string
+          estado?: string
+          id?: string
+          manifiesto_numero: string
+          organizacion_id?: string | null
+          pedido_ids?: number[]
+          store_name?: string | null
+          total_paquetes?: number
+          updated_at?: string
+        }
+        Update: {
+          client_user_id?: string
+          created_at?: string
+          estado?: string
+          id?: string
+          manifiesto_numero?: string
+          organizacion_id?: string | null
+          pedido_ids?: number[]
+          store_name?: string | null
+          total_paquetes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       marketplace_products: {
         Row: {
           category: string | null
