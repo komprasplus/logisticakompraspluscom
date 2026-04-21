@@ -1,9 +1,7 @@
-import { useState, useEffect, lazy, Suspense, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import MapErrorBoundary from "@/components/MapErrorBoundary";
-
-const AdminMapGoogle = lazy(() => import("@/components/AdminMapGoogle"));
+import AnunciosManager from "@/components/admin/AnunciosManager";
 import { useAuth } from "@/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -457,36 +455,9 @@ const AdminControlTower = () => {
             </div>
           </div>
 
-          {/* CENTER: Immersive Map (AdminMapGoogle - Lazy) */}
+          {/* CENTER: Tablero de Anuncios (Billboard del Súper Admin) */}
           <div className="order-1 xl:order-2">
-            <div className="rounded-3xl border border-border bg-card shadow-sm overflow-hidden relative z-0" style={{ minHeight: "420px", height: "calc(100vh - 220px)" }}>
-              {isMapReady ? (
-                <MapErrorBoundary fallbackMessage="El mapa tuvo un problema al cargar. Intenta recargar la página.">
-                  <Suspense fallback={
-                    <div className="flex h-full w-full items-center justify-center bg-muted">
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
-                        <p className="text-sm text-muted-foreground">Cargando mapa...</p>
-                      </div>
-                    </div>
-                  }>
-                    <AdminMapGoogle
-                      pedidos={activeOrders}
-                      selectedDate={null}
-                      onPedidoClick={(p) => setSelectedOrderId(p.id)}
-                      selectedPedidoId={selectedOrderId}
-                    />
-                  </Suspense>
-                </MapErrorBoundary>
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-muted">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
-                    <p className="text-sm text-muted-foreground">Preparando mapa inmersivo...</p>
-                  </div>
-                </div>
-              )}
-            </div>
+            <AnunciosManager />
           </div>
 
           {/* RIGHT: Analytics panels (REAL DATA) */}
