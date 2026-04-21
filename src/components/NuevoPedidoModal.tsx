@@ -703,6 +703,7 @@ const NuevoPedidoModal = ({
     setValorRecaudar("");
     setClienteNombre("");
     setClienteTelefono("");
+    setDepartamentoSeleccionado("");
     setMunicipioSeleccionado("");
     setDireccionCompleta("");
     setDireccionManual("");
