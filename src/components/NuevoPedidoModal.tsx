@@ -477,6 +477,7 @@ const NuevoPedidoModal = ({
     
     if (!clienteNombre.trim()) missingFields.push("Nombre del cliente");
     if (!clienteTelefono.trim()) missingFields.push("Teléfono WhatsApp");
+    if (!departamentoSeleccionado) missingFields.push("Departamento");
     if (!municipioSeleccionado) missingFields.push("Ciudad/Municipio");
     
     if (!direccionManual.trim()) {
