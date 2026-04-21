@@ -63,7 +63,8 @@ const ManifiestoModal = ({
   storeName,
   onStatusUpdated,
 }: ManifiestoModalProps) => {
-  const { user, organizationId } = useAuth();
+  const { user, profile } = useAuth();
+  const organizationId = profile?.organizacion_id ?? null;
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
