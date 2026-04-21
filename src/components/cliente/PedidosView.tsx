@@ -19,9 +19,12 @@ import {
   Filter,
   X,
   Camera,
+  FileText,
 } from "lucide-react";
 import { TrendingUp } from "lucide-react";
 import PedidosSkeleton from "./PedidosSkeleton";
+import ManifiestoModal from "./ManifiestoModal";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatCOP } from "@/lib/tarifas";
@@ -149,6 +152,10 @@ const PedidosView = ({
   const [minValue, setMinValue] = useState("");
   const [maxValue, setMaxValue] = useState("");
   const [recipientFilter, setRecipientFilter] = useState("");
+  const [showManifiestoModal, setShowManifiestoModal] = useState(false);
+
+  const { profile } = useAuth();
+  const storeName = profile?.store_name || profile?.full_name || "Mi Tienda";
 
   const prefersReducedMotion = useReducedMotion();
   const uid = useId();
@@ -280,13 +287,33 @@ const PedidosView = ({
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/30 flex-shrink-0">
           <Package className="h-6 w-6 text-white" aria-hidden="true" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h2 className="text-xl font-bold text-foreground">Mis Pedidos</h2>
           <p className="text-sm text-muted-foreground">
             {filteredPedidos.length} pedido{filteredPedidos.length !== 1 ? "s" : ""} encontrado
             {filteredPedidos.length !== 1 ? "s" : ""}
           </p>
         </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setShowManifiestoModal(true)}
+          className="gap-2 hidden sm:inline-flex"
+        >
+          <FileText className="h-4 w-4" aria-hidden="true" />
+          Generar Manifiesto
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={() => setShowManifiestoModal(true)}
+          className="sm:hidden"
+          aria-label="Generar Manifiesto de Recogida"
+        >
+          <FileText className="h-4 w-4" aria-hidden="true" />
+        </Button>
       </div>
 
       {/* Filtros */}
@@ -780,6 +807,13 @@ const PedidosView = ({
           )}
         </>
       )}
+
+      <ManifiestoModal
+        open={showManifiestoModal}
+        onClose={() => setShowManifiestoModal(false)}
+        pedidos={pedidos}
+        storeName={storeName}
+      />
     </motion.div>
   );
 };
