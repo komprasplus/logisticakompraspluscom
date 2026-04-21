@@ -62,6 +62,7 @@ import QRScannerModal from "@/components/QRScannerModal";
 import PedidoDetailModal from "@/components/PedidoDetailModal";
 import PrintGuiaModal from "@/components/PrintGuiaModal";
 import BulkPrintGuiasModal from "@/components/BulkPrintGuiasModal";
+import ManifiestoModal from "@/components/cliente/ManifiestoModal";
 import LiquidacionesPanel from "@/components/LiquidacionesPanel";
 import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
  import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
@@ -259,6 +260,7 @@ const AdminDashboard = () => {
   const [pendingAssignment, setPendingAssignment] = useState<{ pedidoId: number; motorizadoUserId: string; pedido: Pedido } | null>(null);
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
   const [showRecaudoPanel, setShowRecaudoPanel] = useState(false);
+  const [showManifiestoModal, setShowManifiestoModal] = useState(false);
 
   // Refs for preventing race conditions
   const isMountedRef = useRef(true);
@@ -1192,6 +1194,17 @@ const AdminDashboard = () => {
                     Asignar Proveedor Logístico
                   </Button>
 
+                  {/* Generar Manifiesto de Recogida */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowManifiestoModal(true)}
+                    className="gap-2 border-amber-400/60 text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                  >
+                    <FileCheck className="h-4 w-4" />
+                    Generar Manifiesto
+                  </Button>
+
                   <button onClick={() => setSelectedForBulk([])} className="text-sm text-muted-foreground hover:text-foreground">
                     Cancelar selección
                   </button>
@@ -1922,6 +1935,35 @@ const AdminDashboard = () => {
         }}
       />
       
+      {/* Manifiesto de Recogida (Admin genera por tienda) */}
+      <ManifiestoModal
+        open={showManifiestoModal}
+        onClose={() => setShowManifiestoModal(false)}
+        pedidos={(displayPedidos as Pedido[])
+          .filter((p) => selectedForBulk.includes(p.id))
+          .map((p) => ({
+            id: p.id,
+            numero_guia: p.numero_guia,
+            cliente_nombre: p.cliente_nombre,
+            municipio: p.municipio,
+            direccion_entrega: p.direccion_entrega,
+            estado: p.estado,
+          }))}
+        storeName={(() => {
+          const selected = (displayPedidos as Pedido[]).filter((p) => selectedForBulk.includes(p.id));
+          const storeIds = new Set(selected.map((p) => p.client_user_id).filter(Boolean) as string[]);
+          if (storeIds.size === 1) {
+            const sid = Array.from(storeIds)[0];
+            return clientProfiles[sid]?.store_name || clientProfiles[sid]?.full_name || "Tienda";
+          }
+          return storeIds.size > 1 ? "Múltiples Tiendas" : "Admin";
+        })()}
+        onStatusUpdated={() => {
+          fetchPedidos();
+          setSelectedForBulk([]);
+        }}
+      />
+
       {/* Future Date Confirmation Dialog */}
       <FutureDateConfirmDialog
         isOpen={showFutureDateConfirm}
