@@ -79,6 +79,48 @@ export type Database = {
           },
         ]
       }
+      anuncios_plataforma: {
+        Row: {
+          activo: boolean
+          contenido: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          imagen_url: string | null
+          link_url: string | null
+          orden: number
+          tipo: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          contenido?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          imagen_url?: string | null
+          link_url?: string | null
+          orden?: number
+          tipo?: string
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          contenido?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          imagen_url?: string | null
+          link_url?: string | null
+          orden?: number
+          tipo?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       api_credentials: {
         Row: {
           api_key_hash: string
