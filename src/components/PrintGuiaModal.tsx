@@ -283,32 +283,33 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
             style={{
               width: "10cm",
               height: "15cm",
-              padding: "4mm",
+              maxHeight: "15cm",
+              padding: "2.5mm",
               backgroundColor: "#ffffff",
               fontFamily: "Arial, Helvetica, sans-serif",
               border: "1px solid #000",
               boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",
+              overflow: "hidden",
             }}
           >
             {/* Fila 1: Header - Store Logo & Guía Number */}
-            <div style={{ 
-              display: "flex", 
-              justifyContent: "space-between", 
+            <div style={{
+              display: "flex",
+              justifyContent: "space-between",
               alignItems: "center",
-              borderBottom: "2px solid #000",
-              paddingBottom: "3mm",
-              marginBottom: "3mm"
+              borderBottom: "1.5px solid #000",
+              paddingBottom: "1.5mm",
+              marginBottom: "1.5mm"
             }}>
-              {/* Store Logo - Left Corner */}
-              <div style={{ display: "flex", alignItems: "center", gap: "2mm" }}>
-                <img 
-                  src={finalDisplayLogo} 
+              <div style={{ display: "flex", alignItems: "center", gap: "1.5mm" }}>
+                <img
+                  src={finalDisplayLogo}
                   alt={finalDisplayStoreName}
-                  style={{ 
-                    height: "12mm", 
-                    maxWidth: "35mm",
+                  style={{
+                    height: "9mm",
+                    maxWidth: "30mm",
                     objectFit: "contain",
                     filter: storeLogo ? "none" : "grayscale(100%)"
                   }}
@@ -319,81 +320,82 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
                 />
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ 
-                  fontSize: "14pt", 
+                <div style={{
+                  fontSize: "11pt",
                   fontWeight: "bold",
                   lineHeight: "1.1"
                 }}>
                   GUÍA N°: {finalGuiaNumero}
                 </div>
-                <div style={{ fontSize: "8pt", color: "#333" }}>
+                <div style={{ fontSize: "7pt", color: "#333" }}>
                   FECHA: {formatTodayDate()}
                 </div>
               </div>
             </div>
 
-            {/* Fila 2: Store Name - PROMINENTLY DISPLAYED */}
-            <div style={{ 
+            {/* Fila 2: Store Name */}
+            <div style={{
               backgroundColor: "#000",
               color: "#fff",
-              padding: "2mm 3mm",
-              marginBottom: "2mm",
+              padding: "1mm 2mm",
+              marginBottom: "1.5mm",
               textAlign: "center"
             }}>
-              <div style={{ 
-                fontSize: "14pt", 
+              <div style={{
+                fontSize: "11pt",
                 fontWeight: "bold",
                 textTransform: "uppercase",
-                letterSpacing: "0.5px"
+                letterSpacing: "0.3px",
+                lineHeight: "1.1"
               }}>
                 {finalDisplayStoreName}
               </div>
             </div>
 
-            {/* Fila 3: Zona y Barrio destacados */}
-            <div style={{ 
-              display: "flex", 
-              gap: "2mm", 
-              marginBottom: "2mm"
+            {/* Fila 3: Zona y Barrio */}
+            <div style={{
+              display: "flex",
+              gap: "1.5mm",
+              marginBottom: "1.5mm"
             }}>
-              <div style={{ 
-                flex: 1, 
-                padding: "2mm", 
-                border: "2px solid #000",
+              <div style={{
+                flex: 1,
+                padding: "1mm",
+                border: "1.5px solid #000",
                 textAlign: "center"
               }}>
-                <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase" }}>
+                <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase" }}>
                   ZONA
                 </div>
-                <div style={{ fontSize: "12pt", fontWeight: "bold" }}>
+                <div style={{ fontSize: "10pt", fontWeight: "bold", lineHeight: "1.1" }}>
                   {pedido.zona || "—"}
                 </div>
               </div>
-              <div style={{ 
-                flex: 1, 
-                padding: "2mm", 
-                border: "2px solid #000",
+              <div style={{
+                flex: 1,
+                padding: "1mm",
+                border: "1.5px solid #000",
                 textAlign: "center"
               }}>
-                <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase" }}>
+                <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase" }}>
                   BARRIO
                 </div>
-                <div style={{ fontSize: "10pt", fontWeight: "bold" }}>
+                <div style={{ fontSize: "9pt", fontWeight: "bold", lineHeight: "1.1" }}>
                   {pedido.barrio || "—"}
                 </div>
               </div>
             </div>
 
-            {/* QR Code - Centered with increased margin */}
-            <div style={{ 
-              display: "flex", 
-              justifyContent: "center", 
-              padding: "4mm 0",
-              marginBottom: "3mm"
+            {/* QR Code - Compacto */}
+            <div style={{
+              display: "flex",
+              justifyContent: "center",
+              padding: "1mm 0",
+              marginBottom: "1.5mm"
             }}>
               <QRCodeSVG
                 value={`PEDIDO:${pedido.id}`}
-                size={100} // Slightly smaller for better spacing
+                size={75}
                 level="H"
                 bgColor="#ffffff"
                 fgColor="#000000"
@@ -401,81 +403,89 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
             </div>
 
             {/* Destinatario */}
-            <div style={{ 
-              marginBottom: "2mm",
-              padding: "2mm",
-              border: "2px solid #000"
+            <div style={{
+              marginBottom: "1.5mm",
+              padding: "1.5mm",
+              border: "1.5px solid #000"
             }}>
-              <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "1mm" }}>
+              <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "0.5mm" }}>
                 DESTINATARIO
               </div>
-              <div style={{ fontSize: "11pt", fontWeight: "bold", marginBottom: "1mm" }}>
+              <div style={{ fontSize: "10pt", fontWeight: "bold", marginBottom: "0.5mm", lineHeight: "1.15" }}>
                 {pedido.cliente_nombre || "—"}
               </div>
-              <div style={{ fontSize: "9pt", lineHeight: "1.3" }}>
+              <div style={{ fontSize: "8pt", lineHeight: "1.2" }}>
                 {pedido.direccion_entrega || "—"}
               </div>
-              <div style={{ fontSize: "10pt", fontWeight: "bold", marginTop: "1mm" }}>
+              <div style={{ fontSize: "9pt", fontWeight: "bold", marginTop: "0.5mm" }}>
                 Tel: {pedido.client_phone || "—"}
               </div>
             </div>
 
-            {/* Detalles del Contenido */}
-            <div style={{ 
-              marginBottom: "2mm",
-              padding: "1.5mm 2mm",
+            {/* Detalles - inline / wrap compacto para multi-variantes */}
+            <div style={{
+              marginBottom: "1.5mm",
+              padding: "1mm 1.5mm",
               border: "1px solid #999"
             }}>
-              <span style={{ fontSize: "8pt", fontWeight: "bold" }}>DETALLES: </span>
-              <span style={{ fontSize: "8pt" }}>{pedido.producto_nombre || "Paquete estándar"}</span>
+              <span style={{ fontSize: "7pt", fontWeight: "bold" }}>DETALLES: </span>
+              <span style={{
+                fontSize: "7pt",
+                lineHeight: "1.2",
+                display: "inline",
+                wordBreak: "break-word",
+              }}>
+                {pedido.producto_nombre || "Paquete estándar"}
+              </span>
             </div>
 
-            {/* Observaciones - Highlighted */}
+            {/* Observaciones */}
             {pedido.observaciones && (
-              <div style={{ 
-                marginBottom: "2mm",
-                padding: "2mm",
-                border: "2px solid #000",
+              <div style={{
+                marginBottom: "1.5mm",
+                padding: "1.5mm",
+                border: "1.5px solid #000",
                 backgroundColor: "#f0f0f0"
               }}>
-                <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "1mm" }}>
+                <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "0.5mm" }}>
                   ⚠️ OBSERVACIONES
                 </div>
-                <div style={{ fontSize: "9pt", fontWeight: "bold" }}>
+                <div style={{ fontSize: "8pt", fontWeight: "bold", lineHeight: "1.2" }}>
                   {pedido.observaciones}
                 </div>
               </div>
             )}
 
-            {/* Valor a Recaudar - Destacado */}
-            <div style={{ 
-              padding: "3mm",
-              border: "3px solid #000",
+            {/* Valor a Recaudar */}
+            <div style={{
+              padding: "1.5mm",
+              border: "2.5px solid #000",
               textAlign: "center",
-              marginBottom: "2mm",
+              marginBottom: "1.5mm",
               flex: "0 0 auto"
             }}>
-              <div style={{ fontSize: "8pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "1mm" }}>
+              <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "0.5mm" }}>
                 TOTAL A RECAUDAR
               </div>
-              <div style={{ 
-                fontSize: "20pt", 
+              <div style={{
+                fontSize: "16pt",
                 fontWeight: "bold",
-                letterSpacing: "1px"
+                letterSpacing: "0.5px",
+                lineHeight: "1.1"
               }}>
                 {finalIsPagado ? "PAGADO" : `$${pedido.valor_recaudar?.toLocaleString("es-CO") || "0"}`}
               </div>
             </div>
 
             {/* Pie de página */}
-            <div style={{ 
+            <div style={{
               marginTop: "auto",
               borderTop: "1px solid #999",
-              paddingTop: "2mm",
+              paddingTop: "1mm",
               textAlign: "center"
             }}>
-              <div style={{ fontSize: "7pt", fontWeight: "bold", color: "#333" }}>
-                Plus Envíos - Carrera 20 # 14-30 local 212 - Tel: 324 222 3825
+              <div style={{ fontSize: "6pt", fontWeight: "bold", color: "#333" }}>
+                Plus Envíos - Calle 14 # 19-64 Bodega 403 - Tel: 324 222 3825
               </div>
             </div>
           </div>
