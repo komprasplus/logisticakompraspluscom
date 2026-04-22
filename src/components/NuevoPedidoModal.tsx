@@ -195,15 +195,8 @@ const NuevoPedidoModal = ({
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const isMultiProductMode = !inventoryPrefill; // Multi-product when NOT coming from inventory
   
-  // Schedule — Cut-off rule: orders before 14:00 deliver today; after 14:00 deliver tomorrow
-  const computeDefaultDeliveryDate = () => {
-    const now = new Date();
-    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    if (now.getHours() >= 14) {
-      base.setDate(base.getDate() + 1);
-    }
-    return base;
-  };
+  // Schedule — Cut-off 14:00 + skip Sundays & Colombian holidays
+  const computeDefaultDeliveryDate = () => getMinDeliveryDate();
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(() => computeDefaultDeliveryDate());
   const [motorizadoAsignado, setMotorizadoAsignado] = useState("");
   
