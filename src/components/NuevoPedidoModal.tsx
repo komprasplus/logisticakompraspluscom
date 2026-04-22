@@ -144,11 +144,49 @@ const NuevoPedidoModal = ({
   const [inventoryItemId, setInventoryItemId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState<number>(1);
   
-  // Variant state (for single inventory prefill)
-  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  // Variant state (multi-variant: array of selected rows for the prefilled variable product)
+  interface SelectedVariantRow {
+    rowId: string;
+    variantId: string | null;
+    quantity: number;
+    unitPrice: number;
+    stockAvailable: number;
+  }
+  const [selectedVariants, setSelectedVariants] = useState<SelectedVariantRow[]>([]);
   const [variants, setVariants] = useState<any[]>([]);
   const [loadingVariants, setLoadingVariants] = useState(false);
   const isVariableProduct = inventoryPrefill?.productType === 'Variable' || inventoryPrefill?.productType === 'variable';
+
+  // Variant row helpers
+  const addVariantRow = () => {
+    setSelectedVariants(prev => [...prev, {
+      rowId: crypto.randomUUID(),
+      variantId: null,
+      quantity: 1,
+      unitPrice: inventoryPrefill?.price ?? 0,
+      stockAvailable: 0,
+    }]);
+  };
+
+  const removeVariantRow = (rowId: string) => {
+    setSelectedVariants(prev => prev.filter(r => r.rowId !== rowId));
+  };
+
+  const updateVariantRow = (rowId: string, updates: Partial<SelectedVariantRow>) => {
+    setSelectedVariants(prev => prev.map(r => r.rowId === rowId ? { ...r, ...updates } : r));
+  };
+
+  // Total quantity across all selected variant rows
+  const variantsTotalQuantity = useMemo(
+    () => selectedVariants.filter(r => r.variantId).reduce((s, r) => s + r.quantity, 0),
+    [selectedVariants]
+  );
+
+  // Subtotal (price * qty) across all selected variant rows
+  const variantsSubtotal = useMemo(
+    () => selectedVariants.filter(r => r.variantId).reduce((s, r) => s + r.unitPrice * r.quantity, 0),
+    [selectedVariants]
+  );
 
   // ====== MULTI-PRODUCT STATE ======
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
