@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Package, Search, Loader2 } from "lucide-react";
+import { Package, Search, Loader2, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,14 @@ interface ProductSearchComboboxProps {
   onChange: (value: string) => void;
   placeholder?: string;
   orgId?: string | null;
+  /**
+   * The store (cliente) user_id whose inventory should be searched.
+   * - For client users: pass their own auth.uid()
+   * - For admins: pass the selected store's user_id
+   * - If null/undefined: combobox is disabled with a "select store first" hint.
+   */
+  clientUserId?: string | null;
+  disabledMessage?: string;
 }
 
 const ProductSearchCombobox = ({
@@ -30,6 +38,8 @@ const ProductSearchCombobox = ({
   onChange,
   placeholder = "Buscar producto del inventario...",
   orgId,
+  clientUserId,
+  disabledMessage = "Primero selecciona una tienda",
 }: ProductSearchComboboxProps) => {
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<InventoryResult[]>([]);
@@ -37,6 +47,8 @@ const ProductSearchCombobox = ({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const isDisabled = !clientUserId;
 
   // Sync external value
   useEffect(() => {
@@ -55,21 +67,28 @@ const ProductSearchCombobox = ({
   }, []);
 
   const search = async (term: string) => {
-    if (term.length < 2) {
+    if (term.length < 2 || !clientUserId) {
       setResults([]);
       return;
     }
     setLoading(true);
     try {
+      // Sanitize term to avoid breaking the .or() filter syntax
+      const safeTerm = term.replace(/[,()]/g, " ").trim();
+
       let q = supabase
         .from("inventory")
         .select("id, product_name, sku, price, stock_available")
-        .ilike("product_name", `%${term}%`)
+        // Fuzzy search across product_name OR sku (case-insensitive)
+        .or(`product_name.ilike.%${safeTerm}%,sku.ilike.%${safeTerm}%`)
         .gt("stock_available", 0)
-        .neq("is_deleted", true)
+        .eq("is_deleted", false)
+        // Multi-tenant scope: belongs to this store
+        .eq("client_user_id", clientUserId)
         .order("product_name")
         .limit(10);
 
+      // Extra tenant guard if available
       if (orgId) q = q.eq("organizacion_id", orgId);
 
       const { data, error } = await q;
@@ -104,20 +123,28 @@ const ProductSearchCombobox = ({
 
   return (
     <div ref={containerRef} className="relative">
-      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      {isDisabled ? (
+        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      ) : (
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      )}
       <input
         type="text"
-        placeholder={placeholder}
+        placeholder={isDisabled ? disabledMessage : placeholder}
         value={query}
+        disabled={isDisabled}
         onChange={(e) => handleInput(e.target.value)}
-        onFocus={() => { if (query.length >= 2) setOpen(true); }}
-        className="w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+        onFocus={() => { if (!isDisabled && query.length >= 2) setOpen(true); }}
+        className={cn(
+          "w-full rounded-lg border border-border bg-background py-2 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
+          isDisabled && "cursor-not-allowed bg-muted/40 text-muted-foreground"
+        )}
       />
       {loading && (
         <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
       )}
 
-      {open && (results.length > 0 || (query.length >= 2 && !loading)) && (
+      {open && !isDisabled && (results.length > 0 || (query.length >= 2 && !loading)) && (
         <div className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
           {results.length === 0 && !loading ? (
             <div className="p-3 text-sm text-muted-foreground text-center">

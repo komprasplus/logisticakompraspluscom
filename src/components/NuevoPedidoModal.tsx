@@ -113,7 +113,7 @@ const NuevoPedidoModal = ({
   isAdmin,
   inventoryPrefill,
 }: NuevoPedidoModalProps) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const orgId = profile?.organizacion_id;
 
   // Service type: ENVIO (default) or RECOGIDA (reverse logistics)
@@ -210,6 +210,15 @@ const NuevoPedidoModal = ({
   // Admin-only state for store selection
   const [stores, setStores] = useState<StoreOption[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>("");
+
+  // Determines which store's inventory the product search should query.
+  // - Admins: the store selected in the assignment section (cliente.user_id)
+  // - Clients: their own user_id (their own inventory)
+  // - "bodega_kp_internal" (admin internal warehouse): no store inventory
+  const inventoryClientUserId = isAdmin
+    ? (selectedStoreId && selectedStoreId !== "bodega_kp_internal" ? selectedStoreId : null)
+    : (user?.id ?? null);
+
   
   // Fulfillment rate state - loaded from profile
   const [fulfillmentInfo, setFulfillmentInfo] = useState<FulfillmentRateInfo>({ rate: 1900, loaded: false });
@@ -1260,6 +1269,8 @@ const NuevoPedidoModal = ({
                       <ProductSearchCombobox
                         value={item.productName}
                         orgId={orgId}
+                        clientUserId={inventoryClientUserId}
+                        disabledMessage={isAdmin ? "Primero selecciona una tienda en 'Asignación'" : "Cargando tu inventario..."}
                         placeholder="Buscar producto del inventario... *"
                         onChange={(val) => updateOrderItem(item.id, { productName: val })}
                         onSelect={(product) => updateOrderItem(item.id, {
