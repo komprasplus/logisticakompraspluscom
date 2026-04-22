@@ -113,8 +113,15 @@ const NuevoPedidoModal = ({
   isAdmin,
   inventoryPrefill,
 }: NuevoPedidoModalProps) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const orgId = profile?.organizacion_id;
+  // Determines which store's inventory the product search should query.
+  // - Admins: the store selected in the assignment section
+  // - Clients: their own user_id (their inventory)
+  // - "bodega_kp_internal" (admin internal warehouse): no store inventory
+  const inventoryClientUserId = isAdmin
+    ? (selectedStoreId && selectedStoreId !== "bodega_kp_internal" ? selectedStoreId : null)
+    : (user?.id ?? null);
 
   // Service type: ENVIO (default) or RECOGIDA (reverse logistics)
   const [tipoServicio, setTipoServicio] = useState<"ENVIO" | "RECOGIDA">("ENVIO");
