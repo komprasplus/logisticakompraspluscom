@@ -865,35 +865,35 @@ const NuevoPedidoModal = ({
           <form onSubmit={handleSubmit} className="p-4 space-y-5">
 
             {/* ============ SECTION 0: Service Type ============ */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Tipo de Servicio
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setTipoServicio("ENVIO")}
                   className={cn(
-                    "group flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
+                    "group flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
                     tipoServicio === "ENVIO"
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
                 >
-                  <Truck className="w-5 h-5 shrink-0" />
+                  <Truck className="w-4 h-4 shrink-0" />
                   <span className="truncate">Envío a Cliente</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setTipoServicio("RECOGIDA")}
                   className={cn(
-                    "group flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
+                    "group flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
                     tipoServicio === "RECOGIDA"
                       ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400"
                       : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
                 >
-                  <RotateCcw className="w-5 h-5 shrink-0" />
+                  <RotateCcw className="w-4 h-4 shrink-0" />
                   <span className="truncate">Logística Inversa</span>
                 </button>
               </div>
@@ -910,23 +910,23 @@ const NuevoPedidoModal = ({
                 💰 <strong>Recaudo: $0</strong> — En logística inversa no se recauda dinero. El flete se cobra internamente.
               </div>
             ) : (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                 Método de Pago
               </h3>
               
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setMetodoPago("efectivo")}
                   className={cn(
-                    "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
+                    "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
                     metodoPago === "efectivo"
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
                 >
-                  <Banknote className="w-5 h-5 shrink-0" />
+                  <Banknote className="w-4 h-4 shrink-0" />
                   <span className="truncate">Contra Entrega</span>
                 </button>
                 <button
@@ -936,13 +936,13 @@ const NuevoPedidoModal = ({
                     setValorRecaudar("");
                   }}
                   className={cn(
-                    "flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-all",
+                    "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
                     metodoPago === "anticipado"
                       ? "border-primary bg-primary/10 text-primary"
                       : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                   )}
                 >
-                  <CreditCard className="w-5 h-5 shrink-0" />
+                  <CreditCard className="w-4 h-4 shrink-0" />
                   <span className="truncate">Pago Anticipado</span>
                 </button>
               </div>
