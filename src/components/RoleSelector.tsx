@@ -133,7 +133,7 @@ const RoleSelector = forwardRef<HTMLDivElement>((_, ref) => {
                 <p>Plataforma de logística powered by Plus Envíos</p>
               ) : (
                 <>
-                  <p>📍 Bodega: Carrera 20 # 14-30 Local 212, Bogotá</p>
+                  <p>📍 Bodega: Calle 14 # 19-64 Bodega 403, Bogotá</p>
                   <p className="mt-1">📞 Soporte: 324 222 3825</p>
                 </>
               )}

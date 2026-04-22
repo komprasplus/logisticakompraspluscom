@@ -79,8 +79,11 @@ const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrin
             <title>Guías de Envío (${pedidos.length})</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
-              body { 
-                font-family: Arial, Helvetica, sans-serif; 
+              html, body {
+                width: 10cm;
+              }
+              body {
+                font-family: Arial, Helvetica, sans-serif;
                 background: white;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -92,13 +95,26 @@ const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrin
               .guia-container {
                 page-break-after: always;
                 page-break-inside: avoid;
+                break-inside: avoid;
               }
               .guia-container:last-child {
                 page-break-after: auto;
               }
               @media print {
-                body { margin: 0; }
-                .guia-container { border: none !important; }
+                html, body {
+                  width: 10cm;
+                  margin: 0;
+                  padding: 0;
+                }
+                .guia-container {
+                  border: none !important;
+                  width: 10cm !important;
+                  height: 15cm !important;
+                  max-height: 15cm !important;
+                  overflow: hidden !important;
+                  box-sizing: border-box !important;
+                }
+                .print-hidden { display: none !important; }
               }
             </style>
           </head>
@@ -146,97 +162,99 @@ const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrin
         style={{
           width: "10cm",
           height: "15cm",
-          padding: "4mm",
+          maxHeight: "15cm",
+          padding: "2.5mm",
           backgroundColor: "#ffffff",
           fontFamily: "Arial, Helvetica, sans-serif",
           border: "1px solid #000",
           boxSizing: "border-box",
           display: "flex",
           flexDirection: "column",
+          overflow: "hidden",
         }}
       >
-        {/* Fila 1: Header - Logo, Guía, Fecha */}
-        <div style={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
+        {/* Header - Logo, Guía, Fecha */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
           alignItems: "center",
-          borderBottom: "2px solid #000",
-          paddingBottom: "2mm",
-          marginBottom: "2mm"
+          borderBottom: "1.5px solid #000",
+          paddingBottom: "1.5mm",
+          marginBottom: "1.5mm"
         }}>
-          <img 
-            src={logo} 
-            alt="Plus Envios" 
-            style={{ height: "8mm", filter: "grayscale(100%)" }} 
+          <img
+            src={logo}
+            alt="Plus Envios"
+            style={{ height: "7mm", filter: "grayscale(100%)" }}
           />
           <div style={{ textAlign: "right" }}>
-            <div style={{ 
-              fontSize: "14pt", 
+            <div style={{
+              fontSize: "11pt",
               fontWeight: "bold",
               lineHeight: "1.1"
             }}>
               GUÍA N°: {guiaNumero}
             </div>
-            <div style={{ fontSize: "8pt", color: "#333" }}>
+            <div style={{ fontSize: "7pt", color: "#333" }}>
               FECHA: {formatDate()}
             </div>
           </div>
         </div>
 
-        {/* Fila 2: Zona y Barrio destacados */}
-        <div style={{ 
-          display: "flex", 
-          gap: "2mm", 
-          marginBottom: "2mm"
+        {/* Zona y Barrio */}
+        <div style={{
+          display: "flex",
+          gap: "1.5mm",
+          marginBottom: "1.5mm"
         }}>
-          <div style={{ 
-            flex: 1, 
-            padding: "2mm", 
-            border: "2px solid #000",
+          <div style={{
+            flex: 1,
+            padding: "1mm",
+            border: "1.5px solid #000",
             textAlign: "center"
           }}>
-            <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase" }}>
+            <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase" }}>
               ZONA
             </div>
-            <div style={{ fontSize: "12pt", fontWeight: "bold" }}>
+            <div style={{ fontSize: "10pt", fontWeight: "bold", lineHeight: "1.1" }}>
               {pedido.zona || "—"}
             </div>
           </div>
-          <div style={{ 
-            flex: 1, 
-            padding: "2mm", 
-            border: "2px solid #000",
+          <div style={{
+            flex: 1,
+            padding: "1mm",
+            border: "1.5px solid #000",
             textAlign: "center"
           }}>
-            <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase" }}>
+            <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase" }}>
               BARRIO
             </div>
-            <div style={{ fontSize: "10pt", fontWeight: "bold" }}>
+            <div style={{ fontSize: "9pt", fontWeight: "bold", lineHeight: "1.1" }}>
               {pedido.barrio || "—"}
             </div>
           </div>
         </div>
 
         {/* Remitente */}
-        <div style={{ 
-          marginBottom: "2mm",
-          padding: "1.5mm 2mm",
+        <div style={{
+          marginBottom: "1.5mm",
+          padding: "1mm 1.5mm",
           borderBottom: "1px solid #999"
         }}>
-          <span style={{ fontSize: "8pt", fontWeight: "bold" }}>REMITENTE: </span>
-          <span style={{ fontSize: "8pt" }}>{remitente || "Kompras Plus"}</span>
+          <span style={{ fontSize: "7pt", fontWeight: "bold" }}>REMITENTE: </span>
+          <span style={{ fontSize: "7pt" }}>{remitente || "Kompras Plus"}</span>
         </div>
 
-        {/* QR Code - Centered, 4x4cm max */}
-        <div style={{ 
-          display: "flex", 
-          justifyContent: "center", 
-          padding: "2mm 0",
-          marginBottom: "2mm"
+        {/* QR Code - Compacto */}
+        <div style={{
+          display: "flex",
+          justifyContent: "center",
+          padding: "1mm 0",
+          marginBottom: "1.5mm"
         }}>
           <QRCodeSVG
             value={`PEDIDO:${pedido.id}`}
-            size={113}
+            size={75}
             level="H"
             bgColor="#ffffff"
             fgColor="#000000"
@@ -244,64 +262,72 @@ const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrin
         </div>
 
         {/* Destinatario */}
-        <div style={{ 
-          marginBottom: "2mm",
-          padding: "2mm",
-          border: "2px solid #000"
+        <div style={{
+          marginBottom: "1.5mm",
+          padding: "1.5mm",
+          border: "1.5px solid #000"
         }}>
-          <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "1mm" }}>
+          <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "0.5mm" }}>
             DESTINATARIO
           </div>
-          <div style={{ fontSize: "11pt", fontWeight: "bold", marginBottom: "1mm" }}>
+          <div style={{ fontSize: "10pt", fontWeight: "bold", marginBottom: "0.5mm", lineHeight: "1.15" }}>
             {pedido.cliente_nombre || "—"}
           </div>
-          <div style={{ fontSize: "9pt", lineHeight: "1.3" }}>
+          <div style={{ fontSize: "8pt", lineHeight: "1.2" }}>
             {pedido.direccion_entrega || "—"}
           </div>
-          <div style={{ fontSize: "10pt", fontWeight: "bold", marginTop: "1mm" }}>
+          <div style={{ fontSize: "9pt", fontWeight: "bold", marginTop: "0.5mm" }}>
             Tel: {pedido.client_phone || "—"}
           </div>
         </div>
 
-        {/* Detalles del Contenido */}
-        <div style={{ 
-          marginBottom: "2mm",
-          padding: "1.5mm 2mm",
+        {/* Detalles - inline / wrap compacto */}
+        <div style={{
+          marginBottom: "1.5mm",
+          padding: "1mm 1.5mm",
           border: "1px solid #999"
         }}>
-          <span style={{ fontSize: "8pt", fontWeight: "bold" }}>DETALLES: </span>
-          <span style={{ fontSize: "8pt" }}>{pedido.producto_nombre || "Paquete estándar"}</span>
+          <span style={{ fontSize: "7pt", fontWeight: "bold" }}>DETALLES: </span>
+          <span style={{
+            fontSize: "7pt",
+            lineHeight: "1.2",
+            display: "inline",
+            wordBreak: "break-word",
+          }}>
+            {pedido.producto_nombre || "Paquete estándar"}
+          </span>
         </div>
 
-        {/* Valor a Recaudar - Destacado */}
-        <div style={{ 
-          padding: "3mm",
-          border: "3px solid #000",
+        {/* Valor a Recaudar */}
+        <div style={{
+          padding: "1.5mm",
+          border: "2.5px solid #000",
           textAlign: "center",
-          marginBottom: "2mm",
+          marginBottom: "1.5mm",
           flex: "0 0 auto"
         }}>
-          <div style={{ fontSize: "8pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "1mm" }}>
+          <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "0.5mm" }}>
             TOTAL A RECAUDAR
           </div>
-          <div style={{ 
-            fontSize: "20pt", 
+          <div style={{
+            fontSize: "16pt",
             fontWeight: "bold",
-            letterSpacing: "1px"
+            letterSpacing: "0.5px",
+            lineHeight: "1.1"
           }}>
             {isPagado ? "PAGADO" : `$${pedido.valor_recaudar?.toLocaleString("es-CO") || "0"}`}
           </div>
         </div>
 
         {/* Pie de página */}
-        <div style={{ 
+        <div style={{
           marginTop: "auto",
           borderTop: "1px solid #999",
-          paddingTop: "2mm",
+          paddingTop: "1mm",
           textAlign: "center"
         }}>
-          <div style={{ fontSize: "7pt", fontWeight: "bold", color: "#333" }}>
-            Kompras Plus - Carrera 20 # 14-30 local 212 - Tel: 324 222 3825
+          <div style={{ fontSize: "6pt", fontWeight: "bold", color: "#333" }}>
+            Plus Envíos - Calle 14 # 19-64 Bodega 403 - Tel: 324 222 3825
           </div>
         </div>
       </div>

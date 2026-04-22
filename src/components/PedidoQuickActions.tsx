@@ -4,7 +4,7 @@ import { Phone, Navigation, Share2, MapPin, X } from "lucide-react";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const BODEGA_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá, Colombia";
+const BODEGA_ADDRESS = "Calle 14 # 19-64 Bodega 403, Bogotá, Colombia";
 /*
   FIX: prefijo de país extraído como constante.
   Estaba hardcodeado como "57" en 4 lugares distintos — si algún número de

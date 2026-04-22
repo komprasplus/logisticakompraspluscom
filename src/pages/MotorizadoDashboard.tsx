@@ -91,7 +91,7 @@ interface Pedido {
 // Warehouse coordinates for sorting
 const BODEGA_LAT = 4.6066;
 const BODEGA_LNG = -74.0747;
-const BODEGA_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá, Colombia";
+const BODEGA_ADDRESS = "Calle 14 # 19-64 Bodega 403, Bogotá, Colombia";
 const SUPPORT_PHONE = "324 222 3825";
 const GEOFENCE_RADIUS = 200; // 200 meters
 

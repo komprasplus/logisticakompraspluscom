@@ -134,7 +134,7 @@ const MotorizadoMap = ({ pedidos, userLocation, onPedidoClick }: MotorizadoMapPr
         .bindPopup(`
           <div style="font-size: 13px; min-width: 160px; padding: 4px;">
             <p style="font-weight: bold; margin: 0 0 6px 0; font-size: 14px;">🏬 Bodega Kompras Plus</p>
-            <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px;">Carrera 20 # 14-30 Local 212</p>
+            <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px;">Calle 14 # 19-64 Bodega 403</p>
             <p style="margin: 0; color: #3b82f6; font-size: 12px;">📞 324 222 3825</p>
           </div>
         `)
