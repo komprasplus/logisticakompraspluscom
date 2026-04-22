@@ -56,7 +56,7 @@ interface Pedido {
 }
 
 const SUPPORT_PHONE = "324 222 3825";
-const WAREHOUSE_ADDRESS = "Carrera 20 # 14-30 local 212, Bogotá";
+const WAREHOUSE_ADDRESS = "Calle 14 # 19-64 Bodega 403, Bogotá";
 
 const ClienteDashboard = () => {
   // Emergency: prioritize order creation/operations over advanced views

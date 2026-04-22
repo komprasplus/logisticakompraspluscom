@@ -259,7 +259,7 @@ const MotorizadoMapGoogle = ({
                 🏬 Bodega Kompras Plus
               </p>
               <p style={{ margin: "0 0 4px 0", color: "#6b7280", fontSize: "12px" }}>
-                📍 Carrera 20 # 14-30 Local 212
+                📍 Calle 14 # 19-64 Bodega 403
               </p>
               <p style={{ margin: "0 0 8px 0", color: "#3b82f6", fontSize: "12px" }}>
                 📞 324 222 3825

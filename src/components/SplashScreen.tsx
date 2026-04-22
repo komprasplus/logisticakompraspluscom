@@ -67,7 +67,7 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
         >
           <MapPin className="h-4 w-4 text-primary" />
           <span className="text-sm font-medium text-foreground">
-            Carrera 20 # 14-30 Local 212, Bogotá
+            Calle 14 # 19-64 Bodega 403, Bogotá
           </span>
         </motion.div>
       </motion.div>

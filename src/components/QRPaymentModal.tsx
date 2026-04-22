@@ -187,7 +187,7 @@ const QRPaymentModal = ({
             className="w-full gap-2 h-11"
           >
             <Phone className="h-4 w-4" />
-            Llamar a Bodega Carrera 20
+            Llamar a Bodega Calle 14
           </Button>
         </div>
       </DialogContent>
