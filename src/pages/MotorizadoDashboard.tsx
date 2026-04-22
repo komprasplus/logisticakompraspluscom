@@ -48,6 +48,8 @@ import WeatherWidget from "@/components/WeatherWidget";
 import QRPaymentModal from "@/components/QRPaymentModal";
 import DarkModeToggle from "@/components/DarkModeToggle";
 import LoadManifest from "@/components/motorizado/LoadManifest";
+import MotorizadoOrderCard from "@/components/motorizado/MotorizadoOrderCard";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusConfig, isOperationalStatus } from "@/lib/orderStatuses";
 import { deductInventoryOnDelivery } from "@/lib/inventoryService";
