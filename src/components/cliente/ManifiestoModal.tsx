@@ -114,14 +114,42 @@ const ManifiestoModal = ({
     try {
       const selected = eligiblePedidos.filter((p) => selectedIds.has(p.id));
       const manifiestoNumero = generateManifiestoNumero();
+      const selectedIdsArr = selected.map((p) => p.id);
 
-      // 1. Generate PDF
+      // 1a. Fetch order_items + variantes para desglose
+      const itemsByPedido = new Map<number, Array<{ product_name: string; quantity: number; variant_name?: string | null }>>();
+      try {
+        const { data: itemsData, error: itemsErr } = await supabase
+          .from("order_items")
+          .select("pedido_id, product_name, quantity, product_variants(variant_name)")
+          .in("pedido_id", selectedIdsArr);
+
+        if (itemsErr) {
+          console.warn("[Manifiesto] No se pudieron cargar order_items:", itemsErr);
+        } else if (itemsData) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (itemsData as any[]).forEach((row) => {
+            const arr = itemsByPedido.get(row.pedido_id) ?? [];
+            arr.push({
+              product_name: row.product_name ?? "Producto",
+              quantity: row.quantity ?? 1,
+              variant_name: row.product_variants?.variant_name ?? null,
+            });
+            itemsByPedido.set(row.pedido_id, arr);
+          });
+        }
+      } catch (e) {
+        console.warn("[Manifiesto] Error fetching items:", e);
+      }
+
+      // 1b. Generate PDF
       const manifiestoPedidos: ManifiestoPedido[] = selected.map((p) => ({
         id: p.id,
         numero_guia: p.numero_guia,
         cliente_nombre: p.cliente_nombre,
         municipio: p.municipio ?? null,
         direccion_entrega: p.direccion_entrega,
+        items: itemsByPedido.get(p.id) ?? [],
       }));
 
       generateManifiestoPDF({

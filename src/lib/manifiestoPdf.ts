@@ -2,12 +2,19 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+export interface ManifiestoItem {
+  product_name: string;
+  quantity: number;
+  variant_name?: string | null;
+}
+
 export interface ManifiestoPedido {
   id: number;
   numero_guia: string | null;
   cliente_nombre: string | null;
   municipio: string | null;
   direccion_entrega: string | null;
+  items?: ManifiestoItem[];
 }
 
 export interface ManifiestoData {
@@ -24,10 +31,28 @@ export const generateManifiestoNumero = (): string => {
   return `MAN-${datePart}-${random}`;
 };
 
+const formatItems = (items?: ManifiestoItem[]): string => {
+  if (!items || items.length === 0) return "—";
+  return items
+    .map((it) => {
+      const qty = it.quantity ?? 1;
+      const name = it.product_name || "Producto";
+      const variant = it.variant_name ? ` - ${it.variant_name}` : "";
+      return `${qty}x ${name}${variant}`;
+    })
+    .join("\n");
+};
+
 export const generateManifiestoPDF = (data: ManifiestoData): void => {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Total de artículos físicos (suma de cantidades)
+  const totalArticulos = data.pedidos.reduce((acc, p) => {
+    const itemsTotal = (p.items ?? []).reduce((s, i) => s + (i.quantity ?? 1), 0);
+    return acc + (itemsTotal || 1); // Si no hay items, asume 1 artículo
+  }, 0);
 
   // ─── Header ───────────────────────────────────────────────────────
   // Brand bar
@@ -56,40 +81,54 @@ export const generateManifiestoPDF = (data: ManifiestoData): void => {
   doc.text(`Fecha: ${data.fecha}`, 14, 43);
   doc.text(`Tienda: ${data.storeName}`, 14, 48);
   doc.text(`Total de Paquetes: ${data.pedidos.length}`, 14, 53);
+  doc.text(`Total Artículos Físicos: ${totalArticulos}`, 14, 58);
 
   // ─── Tabla de paquetes ────────────────────────────────────────────
   const tableData = data.pedidos.map((p) => [
     `#${p.id}`,
     p.numero_guia || "—",
     p.cliente_nombre || "Sin destinatario",
+    formatItems(p.items),
     p.municipio || "—",
     "", // Estado Físico (vacío para anotar)
   ]);
 
   autoTable(doc, {
-    startY: 60,
-    head: [["ID Pedido", "N° Guía", "Destinatario", "Ciudad Destino", "Estado Físico"]],
+    startY: 65,
+    head: [
+      [
+        "ID",
+        "N° Guía",
+        "Destinatario",
+        "Contenido del Paquete\n(Cant - Producto - Variante)",
+        "Ciudad",
+        "Estado Físico",
+      ],
+    ],
     body: tableData,
     theme: "grid",
     headStyles: {
       fillColor: [13, 148, 136],
       textColor: [255, 255, 255],
       fontStyle: "bold",
-      fontSize: 10,
+      fontSize: 8,
+      valign: "middle",
     },
     bodyStyles: {
-      fontSize: 9,
+      fontSize: 8,
       textColor: [15, 23, 42],
+      valign: "top",
     },
     alternateRowStyles: {
       fillColor: [241, 245, 249],
     },
     columnStyles: {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 35 },
-      2: { cellWidth: 55 },
-      3: { cellWidth: 35 },
-      4: { cellWidth: 35 },
+      0: { cellWidth: 14 },
+      1: { cellWidth: 26 },
+      2: { cellWidth: 36 },
+      3: { cellWidth: 60, overflow: "linebreak" },
+      4: { cellWidth: 26 },
+      5: { cellWidth: 20 },
     },
     margin: { left: 14, right: 14 },
   });
@@ -97,17 +136,25 @@ export const generateManifiestoPDF = (data: ManifiestoData): void => {
   // ─── Footer ───────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const finalY = (doc as any).lastAutoTable?.finalY ?? 80;
-  let cursorY = finalY + 12;
+  let cursorY = finalY + 10;
 
   // Total box
+  if (cursorY > pageHeight - 60) {
+    doc.addPage();
+    cursorY = 20;
+  }
+
   doc.setFillColor(13, 148, 136);
   doc.setTextColor(255, 255, 255);
-  doc.roundedRect(14, cursorY, pageWidth - 28, 12, 2, 2, "F");
+  doc.roundedRect(14, cursorY, pageWidth - 28, 14, 2, 2, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.text(`Total Paquetes Entregados: ${data.pedidos.length}`, pageWidth / 2, cursorY + 8, {
-    align: "center",
-  });
+  doc.setFontSize(10);
+  doc.text(
+    `Total Paquetes: ${data.pedidos.length}   ·   Total Artículos Físicos: ${totalArticulos}`,
+    pageWidth / 2,
+    cursorY + 9,
+    { align: "center" },
+  );
 
   cursorY += 28;
 
@@ -116,7 +163,7 @@ export const generateManifiestoPDF = (data: ManifiestoData): void => {
   doc.setDrawColor(100, 116, 139);
   doc.setLineWidth(0.3);
 
-  const sigY = Math.min(cursorY + 25, pageHeight - 30);
+  const sigY = Math.min(cursorY + 20, pageHeight - 30);
   const col1X = 30;
   const col2X = pageWidth - 30 - 60;
   const sigW = 60;
