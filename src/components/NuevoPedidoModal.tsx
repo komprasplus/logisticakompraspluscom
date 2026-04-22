@@ -21,7 +21,9 @@ import {
   Trash2,
   ShoppingCart,
   RotateCcw,
+  Clock,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -192,8 +194,16 @@ const NuevoPedidoModal = ({
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const isMultiProductMode = !inventoryPrefill; // Multi-product when NOT coming from inventory
   
-  // Schedule
-  const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(undefined);
+  // Schedule — Cut-off rule: orders before 14:00 deliver today; after 14:00 deliver tomorrow
+  const computeDefaultDeliveryDate = () => {
+    const now = new Date();
+    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (now.getHours() >= 14) {
+      base.setDate(base.getDate() + 1);
+    }
+    return base;
+  };
+  const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(() => computeDefaultDeliveryDate());
   const [motorizadoAsignado, setMotorizadoAsignado] = useState("");
   
   // Location state
@@ -539,6 +549,11 @@ const NuevoPedidoModal = ({
     if (!direccionManual.trim()) {
       missingFields.push("Dirección Exacta y Detalles (paso C)");
     }
+
+    // Mandatory delivery date
+    if (!fechaEntrega) {
+      missingFields.push("Fecha de entrega");
+    }
     
     // Multi-product validation (only for ENVIO)
     if (tipoServicio === "ENVIO") {
@@ -818,7 +833,7 @@ const NuevoPedidoModal = ({
     setProductoNombre("");
     setDescripcionPaqueteRecogida("");
     setValorProducto("");
-    setFechaEntrega(undefined);
+    setFechaEntrega(computeDefaultDeliveryDate());
     setObservaciones("");
     setMotorizadoAsignado("");
     setPhoneError("");
@@ -1701,7 +1716,7 @@ const NuevoPedidoModal = ({
                     <CalendarIcon className="h-4 w-4" />
                     {fechaEntrega
                       ? format(fechaEntrega, "PPP", { locale: es })
-                      : "Seleccionar fecha de entrega (opcional)"}
+                      : "Seleccionar fecha de entrega *"}
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -1710,18 +1725,26 @@ const NuevoPedidoModal = ({
                     selected={fechaEntrega}
                     onSelect={setFechaEntrega}
                     disabled={(date) => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      return date < today;
+                      const now = new Date();
+                      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                      const candidate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+                      // Always disable past days
+                      if (candidate < today) return true;
+                      // After 14:00 cut-off, disable today (must ship tomorrow or later)
+                      if (now.getHours() >= 14 && candidate.getTime() === today.getTime()) return true;
+                      return false;
                     }}
                     initialFocus
                     className="p-3 pointer-events-auto"
                   />
                 </PopoverContent>
               </Popover>
-              <p className="text-xs text-muted-foreground">
-                Puedes crear pedidos para entregar el mismo día.
-              </p>
+              <Alert className="border-orange-500/40 bg-orange-500/10">
+                <Clock className="h-4 w-4 text-orange-500" />
+                <AlertDescription className="text-xs text-orange-700 dark:text-orange-300 ml-2">
+                  Toda orden creada antes de las 2:00 PM será entregada el mismo día. Las órdenes creadas después de esta hora pasarán automáticamente para el día siguiente.
+                </AlertDescription>
+              </Alert>
             </div>
 
             {/* ============ SECTION 6: Observaciones ============ */}
