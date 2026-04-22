@@ -47,6 +47,7 @@ import {
 import LocationPreviewMapGoogle from "./LocationPreviewMapGoogle";
 import GooglePlacesAutocomplete from "./GooglePlacesAutocomplete";
 import ProductSearchCombobox from "./ProductSearchCombobox";
+import { getMinDeliveryDate, isNonWorkingDay } from "@/lib/colombiaHolidays";
 
 const DEPARTAMENTOS = getDepartamentos();
 
@@ -194,15 +195,8 @@ const NuevoPedidoModal = ({
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const isMultiProductMode = !inventoryPrefill; // Multi-product when NOT coming from inventory
   
-  // Schedule — Cut-off rule: orders before 14:00 deliver today; after 14:00 deliver tomorrow
-  const computeDefaultDeliveryDate = () => {
-    const now = new Date();
-    const base = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    if (now.getHours() >= 14) {
-      base.setDate(base.getDate() + 1);
-    }
-    return base;
-  };
+  // Schedule — Cut-off 14:00 + skip Sundays & Colombian holidays
+  const computeDefaultDeliveryDate = () => getMinDeliveryDate();
   const [fechaEntrega, setFechaEntrega] = useState<Date | undefined>(() => computeDefaultDeliveryDate());
   const [motorizadoAsignado, setMotorizadoAsignado] = useState("");
   
@@ -1725,13 +1719,12 @@ const NuevoPedidoModal = ({
                     selected={fechaEntrega}
                     onSelect={setFechaEntrega}
                     disabled={(date) => {
-                      const now = new Date();
-                      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
                       const candidate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-                      // Always disable past days
-                      if (candidate < today) return true;
-                      // After 14:00 cut-off, disable today (must ship tomorrow or later)
-                      if (now.getHours() >= 14 && candidate.getTime() === today.getTime()) return true;
+                      const minDate = getMinDeliveryDate();
+                      // Disable anything before the first available working day
+                      if (candidate < minDate) return true;
+                      // Disable Sundays and Colombian holidays
+                      if (isNonWorkingDay(candidate)) return true;
                       return false;
                     }}
                     initialFocus
@@ -1742,7 +1735,7 @@ const NuevoPedidoModal = ({
               <Alert className="border-orange-500/40 bg-orange-500/10">
                 <Clock className="h-4 w-4 text-orange-500" />
                 <AlertDescription className="text-xs text-orange-700 dark:text-orange-300 ml-2">
-                  Toda orden creada antes de las 2:00 PM será entregada el mismo día. Las órdenes creadas después de esta hora pasarán automáticamente para el día siguiente.
+                  Horario de corte: 2:00 PM. No laboramos domingos ni festivos. Los pedidos creados después del corte o en días no laborales se programarán para el siguiente día hábil.
                 </AlertDescription>
               </Alert>
             </div>
