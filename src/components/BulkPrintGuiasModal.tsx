@@ -79,8 +79,11 @@ const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrin
             <title>Guías de Envío (${pedidos.length})</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
-              body { 
-                font-family: Arial, Helvetica, sans-serif; 
+              html, body {
+                width: 10cm;
+              }
+              body {
+                font-family: Arial, Helvetica, sans-serif;
                 background: white;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -92,13 +95,26 @@ const BulkPrintGuiasModal = ({ pedidos, isOpen, onClose, remitentes = {}, onPrin
               .guia-container {
                 page-break-after: always;
                 page-break-inside: avoid;
+                break-inside: avoid;
               }
               .guia-container:last-child {
                 page-break-after: auto;
               }
               @media print {
-                body { margin: 0; }
-                .guia-container { border: none !important; }
+                html, body {
+                  width: 10cm;
+                  margin: 0;
+                  padding: 0;
+                }
+                .guia-container {
+                  border: none !important;
+                  width: 10cm !important;
+                  height: 15cm !important;
+                  max-height: 15cm !important;
+                  overflow: hidden !important;
+                  box-sizing: border-box !important;
+                }
+                .print-hidden { display: none !important; }
               }
             </style>
           </head>
