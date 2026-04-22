@@ -148,8 +148,12 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
             <title>Guía ${pedido.numero_guia || pedido.id}</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
-              body { 
-                font-family: Arial, Helvetica, sans-serif; 
+              html, body {
+                width: 10cm;
+                height: 15cm;
+              }
+              body {
+                font-family: Arial, Helvetica, sans-serif;
                 background: white;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
@@ -159,8 +163,25 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
                 margin: 0;
               }
               @media print {
-                body { margin: 0; }
-                .guia-container { border: none !important; }
+                html, body {
+                  width: 10cm;
+                  height: 15cm;
+                  margin: 0;
+                  padding: 0;
+                  overflow: hidden;
+                }
+                .guia-container {
+                  border: none !important;
+                  width: 10cm !important;
+                  height: 15cm !important;
+                  max-height: 15cm !important;
+                  overflow: hidden !important;
+                  page-break-inside: avoid !important;
+                  page-break-after: avoid !important;
+                  break-inside: avoid !important;
+                  box-sizing: border-box !important;
+                }
+                .print-hidden { display: none !important; }
               }
             </style>
           </head>
