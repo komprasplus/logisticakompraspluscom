@@ -1360,13 +1360,16 @@ const NuevoPedidoModal = ({
                     </span>
                   </div>
 
-                  {/* Variant Selector - for variable products */}
-                  {isVariableProduct && (
+                  {/* Variant Selector - MULTI-VARIANT for variable products */}
+                  {isVariableProduct ? (
                     <div className="space-y-2">
                       <div className="flex items-center gap-2">
                         <Layers className="h-3.5 w-3.5 text-primary" />
-                        <span className="text-xs font-semibold text-foreground">Seleccionar Variante *</span>
+                        <span className="text-xs font-semibold text-foreground">
+                          Variantes seleccionadas *
+                        </span>
                       </div>
+
                       {loadingVariants ? (
                         <div className="flex items-center justify-center py-3">
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -1375,103 +1378,209 @@ const NuevoPedidoModal = ({
                       ) : variants.length === 0 ? (
                         <p className="text-xs text-destructive">No hay variantes configuradas para este producto.</p>
                       ) : (
-                        <select
-                          value={selectedVariantId || ""}
-                          onChange={(e) => {
-                            const varId = e.target.value || null;
-                            setSelectedVariantId(varId);
-                            if (varId) {
-                              setQuantity(1);
-                            }
-                          }}
-                          required
-                          className="w-full appearance-none rounded-lg border border-border bg-background py-2.5 px-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                        >
-                          <option value="">Seleccionar variante (Color, Talla, etc.)</option>
-                          {variants.map((v: any) => {
-                            const attrText = v.attributes
-                              ? Object.values(v.attributes).join(" - ")
-                              : v.variant_name;
-                            const isOOS = v.stock_available === 0;
+                        <>
+                          {selectedVariants.map((row, idx) => {
+                            const v = variants.find((vv: any) => vv.id === row.variantId);
+                            const stock = v?.stock_available ?? 0;
+                            // IDs already used in OTHER rows (to disable in this row's <select>)
+                            const usedElsewhere = new Set(
+                              selectedVariants
+                                .filter(r => r.rowId !== row.rowId && r.variantId)
+                                .map(r => r.variantId as string)
+                            );
                             return (
-                              <option key={v.id} value={v.id} disabled={isOOS}>
-                                {attrText} (Stock: {v.stock_available}){isOOS ? " — Agotado" : ""}
-                              </option>
+                              <div
+                                key={row.rowId}
+                                className="rounded-lg border border-border bg-background p-2 space-y-2"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-mono text-muted-foreground w-5">
+                                    #{idx + 1}
+                                  </span>
+                                  <select
+                                    value={row.variantId || ""}
+                                    onChange={(e) => {
+                                      const newId = e.target.value || null;
+                                      const matched = variants.find((vv: any) => vv.id === newId);
+                                      updateVariantRow(row.rowId, {
+                                        variantId: newId,
+                                        stockAvailable: matched?.stock_available ?? 0,
+                                        unitPrice: matched?.price ?? inventoryPrefill?.price ?? 0,
+                                        quantity: 1,
+                                      });
+                                    }}
+                                    className="flex-1 appearance-none rounded-md border border-border bg-background py-2 px-2 text-xs focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                  >
+                                    <option value="">Selecciona variante...</option>
+                                    {variants.map((vv: any) => {
+                                      const attrText = vv.attributes
+                                        ? Object.values(vv.attributes).join(" - ")
+                                        : vv.variant_name;
+                                      const isOOS = vv.stock_available === 0;
+                                      const isUsed = usedElsewhere.has(vv.id);
+                                      return (
+                                        <option
+                                          key={vv.id}
+                                          value={vv.id}
+                                          disabled={isOOS || isUsed}
+                                        >
+                                          {attrText} (Stock: {vv.stock_available})
+                                          {isOOS ? " — Agotado" : isUsed ? " — Ya agregada" : ""}
+                                        </option>
+                                      );
+                                    })}
+                                  </select>
+                                  {selectedVariants.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => removeVariantRow(row.rowId)}
+                                      className="flex h-8 w-8 items-center justify-center rounded-md text-destructive hover:bg-destructive/10 transition-colors"
+                                      aria-label="Eliminar variante"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {row.variantId && (
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="text-[11px] text-muted-foreground">
+                                      <span className="font-mono">{v?.sku}</span>
+                                      {v?.price ? (
+                                        <span className="ml-2">{formatCOP(v.price)} c/u</span>
+                                      ) : null}
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateVariantRow(row.rowId, {
+                                            quantity: Math.max(1, row.quantity - 1),
+                                          })
+                                        }
+                                        disabled={row.quantity <= 1}
+                                        className={cn(
+                                          "flex h-7 w-7 items-center justify-center rounded-md font-bold text-sm transition-colors",
+                                          row.quantity <= 1
+                                            ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                            : "bg-primary/10 text-primary hover:bg-primary/20"
+                                        )}
+                                      >
+                                        −
+                                      </button>
+                                      <span className="min-w-[2rem] text-center text-sm font-bold text-foreground">
+                                        {row.quantity}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          updateVariantRow(row.rowId, {
+                                            quantity: Math.min(stock || 999, row.quantity + 1),
+                                          })
+                                        }
+                                        disabled={row.quantity >= stock}
+                                        className={cn(
+                                          "flex h-7 w-7 items-center justify-center rounded-md font-bold text-sm transition-colors",
+                                          row.quantity >= stock
+                                            ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                            : "bg-primary/10 text-primary hover:bg-primary/20"
+                                        )}
+                                      >
+                                        +
+                                      </button>
+                                      <span className="text-[11px] text-muted-foreground ml-1">
+                                        / {stock}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {row.variantId && (
+                                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/50">
+                                    <span className="text-muted-foreground">Subtotal</span>
+                                    <span className="font-semibold text-foreground">
+                                      {formatCOP(row.unitPrice * row.quantity)}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
                             );
                           })}
-                        </select>
+
+                          {/* Add another variant */}
+                          <button
+                            type="button"
+                            onClick={addVariantRow}
+                            disabled={selectedVariants.length >= variants.length}
+                            className={cn(
+                              "w-full flex items-center justify-center gap-2 rounded-md border border-dashed border-primary/40 py-2 text-xs font-medium transition-colors",
+                              selectedVariants.length >= variants.length
+                                ? "opacity-40 cursor-not-allowed text-muted-foreground"
+                                : "text-primary hover:bg-primary/5"
+                            )}
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Agregar otra variante
+                          </button>
+                        </>
                       )}
-                      {selectedVariantId && (() => {
-                        const sv = variants.find((v: any) => v.id === selectedVariantId);
-                        if (!sv) return null;
-                        return (
-                          <div className="text-xs text-muted-foreground flex justify-between px-1">
-                            <span>SKU variante: <span className="font-mono">{sv.sku}</span></span>
-                            {sv.price && <span>Precio: {formatCOP(sv.price)}</span>}
-                          </div>
-                        );
-                      })()}
                     </div>
+                  ) : (
+                    /* SIMPLE PRODUCT (no variants) — keep classic qty stepper */
+                    <>
+                      <div className="flex items-center justify-between rounded-xl border border-border bg-background p-2">
+                        <button
+                          type="button"
+                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                          disabled={quantity <= 1}
+                          className={cn(
+                            "flex h-9 w-9 items-center justify-center rounded-lg font-bold transition-colors",
+                            quantity <= 1
+                              ? "bg-muted text-muted-foreground cursor-not-allowed"
+                              : "bg-primary/10 text-primary hover:bg-primary/20"
+                          )}
+                        >
+                          −
+                        </button>
+                        <div className="text-center">
+                          <span className="text-xl font-bold text-foreground">{quantity}</span>
+                          <span className="text-xs text-muted-foreground ml-1">
+                            / {inventoryPrefill.maxStock || "∞"} disponibles
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setQuantity(Math.min(inventoryPrefill.maxStock || 999, quantity + 1))
+                          }
+                          disabled={
+                            inventoryPrefill.maxStock ? quantity >= inventoryPrefill.maxStock : false
+                          }
+                          className={cn(
+                            "flex h-9 w-9 items-center justify-center rounded-lg font-bold transition-colors",
+                            "bg-primary/10 text-primary hover:bg-primary/20"
+                          )}
+                        >
+                          +
+                        </button>
+                      </div>
+                    </>
                   )}
 
-                  <div className="flex items-center justify-between rounded-xl border border-border bg-background p-2">
-                    <button
-                      type="button"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      disabled={quantity <= 1}
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-lg font-bold transition-colors",
-                        quantity <= 1
-                          ? "bg-muted text-muted-foreground cursor-not-allowed"
-                          : "bg-primary/10 text-primary hover:bg-primary/20"
-                      )}
-                    >
-                      −
-                    </button>
-                    
-                    <div className="text-center">
-                      <span className="text-xl font-bold text-foreground">{quantity}</span>
-                      <span className="text-xs text-muted-foreground ml-1">
-                        / {(() => {
-                          if (isVariableProduct && selectedVariantId) {
-                            const sv = variants.find((v: any) => v.id === selectedVariantId);
-                            return sv?.stock_available ?? "∞";
-                          }
-                          return inventoryPrefill.maxStock || "∞";
-                        })()} disponibles
-                      </span>
-                    </div>
-                    
-                    <button
-                      type="button"
-                      onClick={() => {
-                        let max = inventoryPrefill.maxStock || 999;
-                        if (isVariableProduct && selectedVariantId) {
-                          const sv = variants.find((v: any) => v.id === selectedVariantId);
-                          max = sv?.stock_available ?? 999;
-                        }
-                        setQuantity(Math.min(max, quantity + 1));
-                      }}
-                      disabled={(() => {
-                        if (isVariableProduct && selectedVariantId) {
-                          const sv = variants.find((v: any) => v.id === selectedVariantId);
-                          return sv ? quantity >= sv.stock_available : false;
-                        }
-                        return inventoryPrefill.maxStock ? quantity >= inventoryPrefill.maxStock : false;
-                      })()}
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-lg font-bold transition-colors",
-                        "bg-primary/10 text-primary hover:bg-primary/20"
-                      )}
-                    >
-                      +
-                    </button>
-                  </div>
-
+                  {/* Total producto: sum of all variant rows OR single price * qty */}
                   <div className="flex items-center justify-between text-sm pt-1 border-t border-border/50">
-                    <span className="text-muted-foreground">Total producto:</span>
+                    <span className="text-muted-foreground">
+                      Total producto
+                      {isVariableProduct && variantsTotalQuantity > 0
+                        ? ` (${variantsTotalQuantity} u.)`
+                        : ""}:
+                    </span>
                     <span className="font-bold text-foreground">
-                      {formatCOP(inventoryPrefill.price * quantity)}
+                      {formatCOP(
+                        isVariableProduct
+                          ? variantsSubtotal
+                          : inventoryPrefill.price * quantity
+                      )}
                     </span>
                   </div>
                 </div>
@@ -1672,18 +1781,21 @@ const NuevoPedidoModal = ({
             )}
 
             {/* Submit Button */}
-            {isVariableProduct && !selectedVariantId && inventoryItemId && (
+            {isVariableProduct && inventoryItemId && !selectedVariants.some(r => r.variantId) && (
               <p className="text-xs text-destructive text-center font-medium">
-                ⚠️ Debes seleccionar una variante antes de crear el pedido.
+                ⚠️ Debes seleccionar al menos una variante antes de crear el pedido.
               </p>
             )}
             <button
               type="submit"
-              disabled={loading || (isVariableProduct && !selectedVariantId && !!inventoryItemId)}
+              disabled={
+                loading ||
+                (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))
+              }
               className={cn(
                 "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
                 "bg-primary text-primary-foreground hover:opacity-90",
-                (loading || (isVariableProduct && !selectedVariantId && !!inventoryItemId)) && "opacity-50 cursor-not-allowed"
+                (loading || (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))) && "opacity-50 cursor-not-allowed"
               )}
             >
               {loading ? (
