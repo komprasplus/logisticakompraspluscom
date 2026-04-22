@@ -50,6 +50,7 @@ interface ManifiestoModalProps {
 
 // Estados elegibles para incluir en manifiesto de recogida
 const ELIGIBLE_STATUSES = ["pendiente", "recibido", "recibido en bodega", "documentado", "pedido recibido"];
+const ROOT_ORG_ID = "a0000000-0000-0000-0000-000000000001";
 
 const isEligible = (estado: string | null): boolean => {
   if (!estado) return true;
@@ -65,6 +66,7 @@ const ManifiestoModal = ({
 }: ManifiestoModalProps) => {
   const { user, profile } = useAuth();
   const organizationId = profile?.organizacion_id ?? null;
+  const safeOrganizationId = organizationId ?? ROOT_ORG_ID;
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
