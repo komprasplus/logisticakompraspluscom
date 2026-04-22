@@ -50,6 +50,7 @@ interface ManifiestoModalProps {
 
 // Estados elegibles para incluir en manifiesto de recogida
 const ELIGIBLE_STATUSES = ["pendiente", "recibido", "recibido en bodega", "documentado", "pedido recibido"];
+const ROOT_ORG_ID = "a0000000-0000-0000-0000-000000000001";
 
 const isEligible = (estado: string | null): boolean => {
   if (!estado) return true;
@@ -65,6 +66,7 @@ const ManifiestoModal = ({
 }: ManifiestoModalProps) => {
   const { user, profile } = useAuth();
   const organizationId = profile?.organizacion_id ?? null;
+  const safeOrganizationId = organizationId ?? ROOT_ORG_ID;
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
@@ -125,10 +127,11 @@ const ManifiestoModal = ({
           .in("pedido_id", selectedIdsArr);
 
         if (itemsErr) {
-          console.warn("[Manifiesto] No se pudieron cargar order_items:", itemsErr);
-        } else if (itemsData) {
+          console.error("[Manifiesto] Relación o consulta order_items falló:", itemsErr.message, itemsErr);
+          toast.error(`No se pudo cargar el contenido detallado del paquete: ${itemsErr.message}`);
+        } else {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (itemsData as any[]).forEach((row) => {
+          ((itemsData as any[]) || []).forEach((row) => {
             const arr = itemsByPedido.get(row.pedido_id) ?? [];
             arr.push({
               product_name: row.product_name ?? "Producto",
@@ -139,7 +142,9 @@ const ManifiestoModal = ({
           });
         }
       } catch (e) {
-        console.warn("[Manifiesto] Error fetching items:", e);
+        const message = e instanceof Error ? e.message : "Error desconocido al consultar order_items";
+        console.error("[Manifiesto] Fallback activado al cargar items del manifiesto:", message, e);
+        toast.error(`No se pudo cargar el detalle de productos: ${message}`);
       }
 
       // 1b. Generate PDF
@@ -168,7 +173,7 @@ const ManifiestoModal = ({
       const { error: insertError } = await supabase.from("manifiestos").insert({
         manifiesto_numero: manifiestoNumero,
         client_user_id: user.id,
-        organizacion_id: organizationId ?? "a0000000-0000-0000-0000-000000000001",
+        organizacion_id: safeOrganizationId,
         pedido_ids: pedidoIds,
         total_paquetes: selected.length,
         store_name: storeName,
@@ -204,7 +209,7 @@ const ManifiestoModal = ({
           fecha_actualizacion: new Date().toISOString(),
         })
         .in("id", pendingManifestData.pedidoIds)
-        .eq("organizacion_id", organizationId ?? "a0000000-0000-0000-0000-000000000001");
+        .eq("organizacion_id", safeOrganizationId);
 
       if (error) throw error;
 
