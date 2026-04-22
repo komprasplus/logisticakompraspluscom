@@ -1269,6 +1269,8 @@ const NuevoPedidoModal = ({
                       <ProductSearchCombobox
                         value={item.productName}
                         orgId={orgId}
+                        clientUserId={inventoryClientUserId}
+                        disabledMessage={isAdmin ? "Primero selecciona una tienda en 'Asignación'" : "Cargando tu inventario..."}
                         placeholder="Buscar producto del inventario... *"
                         onChange={(val) => updateOrderItem(item.id, { productName: val })}
                         onSelect={(product) => updateOrderItem(item.id, {
