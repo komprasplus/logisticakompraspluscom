@@ -1134,39 +1134,6 @@ const MotorizadoDashboard = () => {
           </div>
         </motion.div>
 
-        {/* Filters */}
-        <motion.div
-          className="mb-4 flex flex-wrap items-center gap-2"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Filter className="h-4 w-4 text-muted-foreground" />
-          <button
-            onClick={() => setActiveFilter(null)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-              activeFilter === null
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            }`}
-          >
-            Todos
-          </button>
-          {cortes.map((corte) => (
-            <button
-              key={corte}
-              onClick={() => setActiveFilter(corte)}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                activeFilter === corte
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
-              {corte}
-            </button>
-          ))}
-        </motion.div>
-
         {/* Optimize Route Button */}
         <motion.div
           className="mb-4"
@@ -1200,110 +1167,111 @@ const MotorizadoDashboard = () => {
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
           </div>
         ) : (
-          /* Pedidos List */
-          <motion.div
-            className="space-y-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-          >
-            <h2 className="text-lg font-bold text-foreground">
-              Mis Entregas de Hoy ({filteredPedidos.length})
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              {isRouteOptimized ? "🗺️ Ordenadas por ruta óptima (TSP)" : "Agrupadas por zona para optimizar tu ruta"}
-            </p>
+          (() => {
+            const pendientes = filteredPedidos.filter((p) => {
+              const s = p.estado?.toLowerCase();
+              return s === "asignado" || s === "pendiente" || s === "en bodega";
+            });
+            const enCamino = filteredPedidos.filter((p) => {
+              const s = p.estado?.toLowerCase();
+              return s === "en ruta" || s === "en camino" || (s?.includes("novedad") && s !== "entregado");
+            });
+            const entregados = filteredPedidos.filter(
+              (p) => p.estado?.toLowerCase() === "entregado",
+            );
 
-            {filteredPedidos.length === 0 ? (
-              <div className="rounded-2xl bg-card p-8 text-center shadow-card">
-                <Package className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-4 text-muted-foreground">
-                  No hay pedidos asignados para hoy
-                </p>
-              </div>
-            ) : (
-              // Group pedidos by zona
-              Object.entries(
-                filteredPedidos.reduce((acc, pedido) => {
-                  const zona = pedido.zona || "SIN_ZONA";
-                  if (!acc[zona]) acc[zona] = [];
-                  acc[zona].push(pedido);
-                  return acc;
-                }, {} as Record<string, Pedido[]>)
-              ).map(([zona, zonaPedidos]) => {
-                const zonaConfig = ZONAS[zona as ZonaCodigo];
+            const renderList = (list: Pedido[], emptyText: string) => {
+              if (list.length === 0) {
                 return (
-                  <div key={zona} className="space-y-3">
-                    {/* Zona Header */}
-                    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg ${zonaConfig ? zonaConfig.bgColor : "bg-muted"}`}>
-                      <span className={`text-sm font-bold ${zonaConfig ? zonaConfig.textColor : "text-muted-foreground"}`}>
-                        {zonaConfig ? `${zonaConfig.codigo} - ${zonaConfig.nombre}` : "Sin Zona"} ({zonaPedidos.length})
-                      </span>
-                    </div>
-                    
-                    {/* Zona Pedidos */}
-                    {zonaPedidos.map((pedido, index) => {
-                      const distanceText = getDistanceText(pedido);
-                      return (
-                        <motion.div
-                          key={pedido.id}
-                          className="rounded-2xl bg-card p-4 shadow-card ml-2 border-l-4"
-                          style={{ borderLeftColor: zonaConfig?.color || "#9ca3af" }}
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.05 }}
-                        >
-                          <div 
-                            className="flex items-start justify-between cursor-pointer"
-                            onClick={() => setSelectedPedido(pedido)}
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-bold text-foreground">
-                                  {pedido.numero_guia || `#${pedido.id}`}
-                                </span>
-                                {pedido.corte_horario && (
-                                  <span className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                                    {pedido.corte_horario}
-                                  </span>
-                                )}
-                                {distanceText && (
-                                  <span className="rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium">
-                                    📍 {distanceText}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="mt-1 text-sm font-medium text-foreground">
-                                {pedido.cliente_nombre || "Cliente sin nombre"}
-                              </p>
-                              <div className="mt-2 flex items-start gap-2 text-sm text-muted-foreground">
-                                <MapPin className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                                <span>{pedido.direccion_entrega || "Sin dirección"}</span>
-                              </div>
-                            </div>
-                            <span
-                              className={`rounded-full px-2 py-1 text-[10px] font-medium whitespace-nowrap ${getStatusColor(
-                                pedido.estado
-                              )}`}
-                            >
-                              {pedido.estado?.includes("Novedad")
-                                ? "Novedad"
-                                : pedido.estado || "Sin estado"}
-                            </span>
-                          </div>
-
-                          {/* Quick Actions */}
-                          <PedidoQuickActions pedido={pedido} userLocation={userLocation} />
-                        </motion.div>
-                      );
-                    })}
+                  <div className="rounded-2xl bg-card p-8 text-center shadow-card">
+                    <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+                    <p className="mt-4 text-muted-foreground">{emptyText}</p>
                   </div>
                 );
-              })
-            )}
-          </motion.div>
+              }
+              const grouped = list.reduce((acc, p) => {
+                const zona = p.zona || "SIN_ZONA";
+                if (!acc[zona]) acc[zona] = [];
+                acc[zona].push(p);
+                return acc;
+              }, {} as Record<string, Pedido[]>);
+
+              return (
+                <div className="space-y-4">
+                  {Object.entries(grouped).map(([zona, zonaPedidos]) => {
+                    const zonaConfig = ZONAS[zona as ZonaCodigo];
+                    return (
+                      <div key={zona} className="space-y-2.5">
+                        <div
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg ${zonaConfig ? zonaConfig.bgColor : "bg-muted"}`}
+                        >
+                          <span
+                            className={`text-xs font-bold ${zonaConfig ? zonaConfig.textColor : "text-muted-foreground"}`}
+                          >
+                            {zonaConfig ? `${zonaConfig.codigo} - ${zonaConfig.nombre}` : "Sin Zona"} ({zonaPedidos.length})
+                          </span>
+                        </div>
+                        {zonaPedidos.map((pedido) => (
+                          <MotorizadoOrderCard
+                            key={pedido.id}
+                            pedido={pedido}
+                            userLocation={userLocation}
+                            distanceText={getDistanceText(pedido)}
+                            borderColor={zonaConfig?.color}
+                            onSelect={() => setSelectedPedido(pedido)}
+                            onDeliver={(p, photo) =>
+                              handleCardDeliver(p as Pedido, photo)
+                            }
+                            onNovedad={(p, type, note, photo) =>
+                              handleCardNovedad(p as Pedido, type, note, photo)
+                            }
+                          />
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            };
+
+            return (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+              >
+                <Tabs defaultValue="en-camino" className="w-full">
+                  <TabsList className="grid w-full grid-cols-3 mb-4">
+                    <TabsTrigger value="pendientes">
+                      Pendientes
+                      <span className="ml-1.5 text-xs opacity-70">({pendientes.length})</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="en-camino">
+                      En Camino
+                      <span className="ml-1.5 text-xs opacity-70">({enCamino.length})</span>
+                    </TabsTrigger>
+                    <TabsTrigger value="entregados">
+                      Entregados
+                      <span className="ml-1.5 text-xs opacity-70">({entregados.length})</span>
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="pendientes">
+                    {renderList(pendientes, "No tienes pedidos pendientes por iniciar")}
+                  </TabsContent>
+                  <TabsContent value="en-camino">
+                    {renderList(enCamino, "No tienes pedidos en camino")}
+                  </TabsContent>
+                  <TabsContent value="entregados">
+                    {renderList(entregados, "Aún no has entregado pedidos hoy")}
+                  </TabsContent>
+                </Tabs>
+              </motion.div>
+            );
+          })()
         )}
       </main>
+
 
       {/* Pedido Detail Modal */}
       <AnimatePresence>
