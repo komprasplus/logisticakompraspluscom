@@ -319,6 +319,14 @@ const NuevoPedidoModal = ({
             .order("variant_name");
           if (error) throw error;
           setVariants(data || []);
+          // Auto-add first empty row when variants load (only if none yet)
+          setSelectedVariants(prev => prev.length === 0 ? [{
+            rowId: crypto.randomUUID(),
+            variantId: null,
+            quantity: 1,
+            unitPrice: inventoryPrefill?.price ?? 0,
+            stockAvailable: 0,
+          }] : prev);
         } catch (err) {
           console.error("Error fetching variants:", err);
           setVariants([]);
@@ -329,7 +337,7 @@ const NuevoPedidoModal = ({
       fetchVariants();
     } else {
       setVariants([]);
-      setSelectedVariantId(null);
+      setSelectedVariants([]);
     }
   }, [isVariableProduct, inventoryPrefill?.inventoryItemId, isOpen]);
 
@@ -545,9 +553,27 @@ const NuevoPedidoModal = ({
       missingFields.push("Valor a Recaudar");
     }
 
-    // Variable product requires variant selection
-    if (isVariableProduct && inventoryItemId && !selectedVariantId) {
-      missingFields.push("Variante del producto");
+    // Variable product requires at least one selected variant + quantities within stock
+    if (isVariableProduct && inventoryItemId) {
+      const validVariantRows = selectedVariants.filter(r => r.variantId);
+      if (validVariantRows.length === 0) {
+        missingFields.push("Al menos una variante del producto");
+      } else {
+        // Detect duplicate variantId selections
+        const ids = validVariantRows.map(r => r.variantId);
+        if (new Set(ids).size !== ids.length) {
+          toast.error("No puedes seleccionar la misma variante dos veces. Aumenta la cantidad en su lugar.");
+          return;
+        }
+        // Stock check
+        for (const row of validVariantRows) {
+          const v = variants.find((vv: any) => vv.id === row.variantId);
+          if (v && row.quantity > v.stock_available) {
+            toast.error(`Stock insuficiente para "${v.variant_name}". Disponible: ${v.stock_available}.`);
+            return;
+          }
+        }
+      }
     }
     
     if (missingFields.length > 0) {
@@ -626,8 +652,8 @@ const NuevoPedidoModal = ({
           ? (selectedStoreId === "bodega_kp_internal" ? null : selectedStoreId || null) 
           : currentUserId,
         inventory_item_id: normalizedInventoryItemId,
-        variant_id: selectedVariantId || null,
-        quantity: totalQuantity,
+        variant_id: (isVariableProduct && selectedVariants.find(r => r.variantId)?.variantId) || null,
+        quantity: isVariableProduct ? Math.max(variantsTotalQuantity, 1) : totalQuantity,
         fulfillment_cost: fulfillmentInfo.rate,
         tipo_servicio: tipoServicio,
       } as any;
@@ -675,29 +701,60 @@ const NuevoPedidoModal = ({
         }
       }
 
-      // Stock decrement: variant-aware, best-effort only
+      // Stock decrement: variant-aware (multi-variant), best-effort only
       if (!isMultiProductMode) {
-        if (selectedVariantId && quantity > 0) {
-          try {
-            const { data: variantItem, error: variantErr } = await (supabase as any)
-              .from("product_variants")
-              .select("stock_available")
-              .eq("id", selectedVariantId)
-              .maybeSingle();
+        if (isVariableProduct && selectedVariants.some(r => r.variantId)) {
+          // Multi-variant: decrement each + insert order_items row per variant
+          const validRows = selectedVariants.filter(r => r.variantId);
 
-            if (variantErr) throw variantErr;
-
-            if (variantItem && typeof variantItem.stock_available === "number") {
-              const newStock = Math.max(0, variantItem.stock_available - quantity);
-              const { error: updateErr } = await (supabase as any)
-                .from("product_variants")
-                .update({ stock_available: newStock })
-                .eq("id", selectedVariantId);
-              if (updateErr) throw updateErr;
+          // Insert one order_items row per selected variant for full traceability
+          if (newPedido?.id && validRows.length > 0) {
+            try {
+              const variantItemsToInsert = validRows.map(r => {
+                const v = variants.find((vv: any) => vv.id === r.variantId);
+                return {
+                  pedido_id: newPedido.id,
+                  product_name: `${inventoryPrefill?.productName ?? "Producto"} - ${v?.variant_name ?? ""}`.trim(),
+                  sku: v?.sku || inventoryPrefill?.sku || null,
+                  quantity: r.quantity,
+                  unit_price: r.unitPrice,
+                  inventory_item_id: inventoryPrefill?.inventoryItemId || null,
+                  variant_id: r.variantId,
+                  organizacion_id: orgId || 'a0000000-0000-0000-0000-000000000001',
+                };
+              });
+              const { error: viErr } = await (supabase as any)
+                .from("order_items")
+                .insert(variantItemsToInsert);
+              if (viErr) {
+                console.warn("Error saving variant order_items (non-blocking):", viErr);
+                toast.warning("Pedido creado, pero hubo un error guardando el detalle de variantes.");
+              }
+            } catch (e) {
+              console.warn("Variant order_items insert failed:", e);
             }
-          } catch (invErr) {
-            console.warn("Variant stock update failed (non-blocking):", invErr);
-            toast.warning("Pedido creado, pero no se pudo actualizar el stock de la variante.");
+          }
+
+          // Decrement stock per variant
+          for (const r of validRows) {
+            try {
+              const { data: variantItem, error: variantErr } = await (supabase as any)
+                .from("product_variants")
+                .select("stock_available")
+                .eq("id", r.variantId)
+                .maybeSingle();
+              if (variantErr) throw variantErr;
+              if (variantItem && typeof variantItem.stock_available === "number") {
+                const newStock = Math.max(0, variantItem.stock_available - r.quantity);
+                const { error: updateErr } = await (supabase as any)
+                  .from("product_variants")
+                  .update({ stock_available: newStock })
+                  .eq("id", r.variantId);
+                if (updateErr) throw updateErr;
+              }
+            } catch (invErr) {
+              console.warn("Variant stock update failed (non-blocking):", invErr);
+            }
           }
         } else if (inventoryItemId && quantity > 0) {
           try {
@@ -762,7 +819,7 @@ const NuevoPedidoModal = ({
     setSelectedStoreId("");
     setInventoryItemId(null);
     setQuantity(1);
-    setSelectedVariantId(null);
+    setSelectedVariants([]);
     setVariants([]);
     setOrderItems([]);
   };
