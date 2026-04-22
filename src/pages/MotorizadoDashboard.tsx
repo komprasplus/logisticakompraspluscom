@@ -711,11 +711,157 @@ const MotorizadoDashboard = () => {
     return `${(distance / 1000).toFixed(1)}km`;
   };
 
-  const pendingCount = pedidos.filter(
-    (p) =>
-      p.estado?.toLowerCase() === "pendiente" ||
-      p.estado?.toLowerCase() === "en bodega"
-  ).length;
+  // Inline handlers for the new MotorizadoOrderCard P.O.D drawer
+  const handleCardDeliver = useCallback(
+    async (pedido: Pedido, photoBase64: string) => {
+      const updateData: Record<string, unknown> = {
+        estado: "Entregado",
+        foto_evidencia: photoBase64,
+        fecha_actualizacion: new Date().toISOString(),
+      };
+
+      try {
+        if (!navigator.onLine) {
+          await savePendingDeliveryOffline({
+            pedidoId: pedido.id,
+            estado: "Entregado",
+            foto_evidencia: photoBase64,
+            foto_paquete: null,
+            firma_cliente: null,
+            latitude: userLocation?.lat || null,
+            longitude: userLocation?.lng || null,
+            isDeviation: false,
+          });
+          toast.success("📴 Entrega guardada offline - Se sincronizará cuando haya conexión", {
+            duration: 5000,
+          });
+          setPendingSyncCount(await getPendingCount());
+        } else {
+          const { error } = await supabase
+            .from("pedidos")
+            .update(updateData)
+            .eq("id", pedido.id);
+          if (error) throw error;
+
+          if (pedido.inventory_item_id) {
+            const inventoryResult = await deductInventoryOnDelivery(
+              pedido.id,
+              pedido.inventory_item_id,
+              pedido.quantity || 1,
+            );
+            if (!inventoryResult.success) {
+              console.warn("Inventory deduction failed:", inventoryResult.error);
+            }
+          }
+
+          toast.success("✅ Pedido entregado exitosamente");
+        }
+
+        if (pedido.client_user_id) {
+          supabase.functions
+            .invoke("notify-webhook", {
+              body: {
+                pedido_id: pedido.id,
+                estado_anterior: pedido.estado,
+                estado_nuevo: "Entregado",
+                numero_guia: pedido.numero_guia,
+                client_user_id: pedido.client_user_id,
+              },
+            })
+            .catch((err) => console.warn("Webhook notification failed:", err));
+        }
+
+        updatePedidoLocally(pedido.id, {
+          estado: "Entregado",
+          foto_evidencia: photoBase64,
+        });
+      } catch (error) {
+        console.error("Error updating estado:", error);
+        toast.error("Error al actualizar el estado");
+        throw error;
+      }
+    },
+    [userLocation, updatePedidoLocally],
+  );
+
+  const handleCardNovedad = useCallback(
+    async (
+      pedido: Pedido,
+      novedadType: NovedadType,
+      note: string,
+      photoBase64: string | null,
+    ) => {
+      try {
+        const { handleDeliveryAttempt } = await import("@/lib/notificationService");
+
+        const { data: currentOrder, error: fetchError } = await supabase
+          .from("pedidos")
+          .select("intentos_entrega, valor_flete, observaciones")
+          .eq("id", pedido.id)
+          .single();
+        if (fetchError) throw fetchError;
+
+        const currentAttempts = currentOrder?.intentos_entrega || 0;
+        const valorFlete = currentOrder?.valor_flete || 12000;
+
+        const attemptResult = await handleDeliveryAttempt(
+          pedido.id,
+          currentAttempts,
+          valorFlete,
+        );
+
+        if (attemptResult.shouldMarkAsReturn) {
+          updatePedidoLocally(pedido.id, {
+            estado: "Devolución",
+            tipo_novedad: novedadType,
+            foto_evidencia: photoBase64 || undefined,
+          });
+          toast.warning(attemptResult.message, { duration: 6000 });
+        } else {
+          const updateData: Record<string, unknown> = {
+            estado: "Novedad",
+            tipo_novedad: novedadType,
+            fecha_actualizacion: new Date().toISOString(),
+          };
+          if (userLocation) {
+            updateData.novedad_latitud = userLocation.lat;
+            updateData.novedad_longitud = userLocation.lng;
+          }
+          if (photoBase64) {
+            updateData.foto_evidencia = photoBase64;
+          }
+          if (note?.trim()) {
+            const noteEntry = `[NOVEDAD] ${new Date().toLocaleString()} - ${note.trim()}`;
+            const existing = currentOrder?.observaciones || "";
+            updateData.observaciones = existing
+              ? `${existing}\n\n${noteEntry}`
+              : noteEntry;
+          }
+
+          const { error } = await supabase
+            .from("pedidos")
+            .update(updateData)
+            .eq("id", pedido.id);
+          if (error) throw error;
+
+          updatePedidoLocally(pedido.id, {
+            estado: "Novedad",
+            tipo_novedad: novedadType,
+            foto_evidencia: photoBase64 || undefined,
+          });
+
+          toast.success(`⚠️ ${attemptResult.message}`);
+        }
+      } catch (error) {
+        console.error("Error reporting novedad:", error);
+        toast.error("Error al reportar novedad");
+        throw error;
+      }
+    },
+    [userLocation, updatePedidoLocally],
+  );
+
+
   const inTransitCount = pedidos.filter(
     (p) =>
       p.estado?.toLowerCase() === "en camino" ||
