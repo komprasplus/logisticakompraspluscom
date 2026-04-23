@@ -68,7 +68,10 @@ interface LedgerDrawerProps {
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 const isDebitType = (tipo: string) =>
-  tipo === "PAGO_TIENDA" || tipo === "TRANSFER_OUT" || tipo === "DEBITO_DEVOLUCION";
+  tipo === "PAGO_TIENDA" ||
+  tipo === "TRANSFER_OUT" ||
+  tipo === "DEBITO_DEVOLUCION" ||
+  tipo === "AJUSTE_DEBITO";
 
 const TipoBadge = ({ tipo }: { tipo: string }) => {
   const isDebito = isDebitType(tipo);
@@ -77,6 +80,8 @@ const TipoBadge = ({ tipo }: { tipo: string }) => {
     : tipo === "TRANSFER_IN" ? "Transferencia"
     : tipo === "DEBITO_DEVOLUCION" ? "Devolución"
     : tipo === "TRANSFER_OUT" ? "Envío P2P"
+    : tipo === "AJUSTE_CREDITO" ? "Ajuste +"
+    : tipo === "AJUSTE_DEBITO" ? "Ajuste −"
     : "Débito";
 
   return (
