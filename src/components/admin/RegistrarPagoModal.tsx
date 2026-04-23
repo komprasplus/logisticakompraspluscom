@@ -73,7 +73,15 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
 
   const exceedsSaldo = selectedStore != null && montoNumerico > selectedStore.saldoPendiente;
 
-  const canSubmit = !!selectedStoreId && montoNumerico > 0 && !loading && !uploadingFile;
+  // FIX: Bloquear pagos a tiendas con saldo negativo (deuda pendiente)
+  const hasNegativeBalance = selectedStore != null && selectedStore.saldoPendiente < 0;
+
+  const canSubmit =
+    !!selectedStoreId &&
+    montoNumerico > 0 &&
+    !loading &&
+    !uploadingFile &&
+    !hasNegativeBalance;
 
   // ── Fetch de balances ──────────────────────────────────────────────────────
 
@@ -108,8 +116,12 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
 
       const clientIds = roles.map((r) => r.user_id);
 
-      // 2. Lanzar perfiles, pedidos y pagos en paralelo
-      const [profilesRes, pedidosRes, pagosRes] = await Promise.all([
+      // 2. Lanzar perfiles y pedidos en paralelo
+      // FIX CRÍTICO: alinear cálculo del saldo con la tabla "Neto a Pagar".
+      // La tabla usa SUM(utilidad) WHERE estado='Liquidado'. Aquí hacemos
+      // exactamente lo mismo, sin restar pagos previos ni mezclar 'Entregado'
+      // (eso producía saldos negativos cuando el admin ya había pagado).
+      const [profilesRes, pedidosRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("user_id, full_name, store_name")
@@ -118,32 +130,23 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
         supabase
           .from("pedidos")
           .select("client_user_id, utilidad")
-          .in("estado", ["Entregado", "Liquidado"])
+          .eq("estado", "Liquidado")
           .in("client_user_id", clientIds),
-        supabase.from("transacciones_billetera").select("client_user_id, monto").in("client_user_id", clientIds),
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
       if (pedidosRes.error) throw pedidosRes.error;
-      if (pagosRes.error) throw pagosRes.error;
 
       if (cancelRef.current) return;
 
       const profiles = profilesRes.data ?? [];
       const pedidos = pedidosRes.data ?? [];
-      const pagos = pagosRes.data ?? [];
 
-      // Precalcular mapas para O(n) en lugar de O(n²) con .filter por cada tienda
-      const utilidadPorCliente = new Map<string, number>();
+      // Mapa O(n) de utilidad neta por cliente (== "Neto a Pagar" de la tabla)
+      const netoPorCliente = new Map<string, number>();
       for (const ped of pedidos) {
-        const prev = utilidadPorCliente.get(ped.client_user_id) ?? 0;
-        utilidadPorCliente.set(ped.client_user_id, prev + (ped.utilidad ?? 0));
-      }
-
-      const pagadoPorCliente = new Map<string, number>();
-      for (const pago of pagos) {
-        const prev = pagadoPorCliente.get(pago.client_user_id) ?? 0;
-        pagadoPorCliente.set(pago.client_user_id, prev + (pago.monto ?? 0));
+        const prev = netoPorCliente.get(ped.client_user_id) ?? 0;
+        netoPorCliente.set(ped.client_user_id, prev + (ped.utilidad ?? 0));
       }
 
       const storeData: StoreBalance[] = profiles
@@ -151,7 +154,7 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
           user_id: p.user_id,
           store_name: p.store_name,
           full_name: p.full_name,
-          saldoPendiente: (utilidadPorCliente.get(p.user_id) ?? 0) - (pagadoPorCliente.get(p.user_id) ?? 0),
+          saldoPendiente: netoPorCliente.get(p.user_id) ?? 0,
         }))
         .sort((a, b) => b.saldoPendiente - a.saldoPendiente);
 
@@ -349,18 +352,47 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
                   <SelectValue placeholder="Seleccionar tienda" />
                 </SelectTrigger>
                 <SelectContent>
-                  {stores.map((s) => (
-                    <SelectItem key={s.user_id} value={s.user_id}>
-                      <div className="flex items-center gap-2">
-                        <Store className="h-3.5 w-3.5 text-muted-foreground" />
-                        {s.store_name ?? s.full_name} — ${formatCOP(s.saldoPendiente)}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {stores.map((s) => {
+                    const isNegative = s.saldoPendiente < 0;
+                    const isZero = s.saldoPendiente === 0;
+                    const label = s.store_name ?? s.full_name;
+                    return (
+                      <SelectItem key={s.user_id} value={s.user_id}>
+                        <div className="flex items-center gap-2">
+                          <Store className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-medium">{label}</span>
+                          <span
+                            className={
+                              isNegative
+                                ? "text-red-600 font-semibold"
+                                : isZero
+                                ? "text-muted-foreground"
+                                : "text-emerald-700 font-semibold"
+                            }
+                          >
+                            {isNegative
+                              ? `— Deuda pendiente: -$${formatCOP(Math.abs(s.saldoPendiente))}`
+                              : `— Saldo a favor: $${formatCOP(s.saldoPendiente)}`}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             )}
           </div>
+
+          {/* FIX: Bloqueo visible cuando la tienda tiene deuda pendiente */}
+          {hasNegativeBalance && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>
+                No se puede registrar un pago a una tienda con saldo negativo.
+                Esta tienda tiene una <strong>deuda pendiente de ${formatCOP(Math.abs(selectedStore!.saldoPendiente))}</strong> con la plataforma.
+              </span>
+            </div>
+          )}
 
           {/* Resumen de saldo */}
           {selectedStore && (
@@ -399,8 +431,9 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
               inputMode="numeric" // FIX: teclado numérico en móvil
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
+              disabled={hasNegativeBalance}
             />
-            {exceedsSaldo && (
+            {exceedsSaldo && !hasNegativeBalance && (
               <div className="flex items-center gap-1.5 text-sm text-amber-600">
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 El monto excede el saldo de ${formatCOP(selectedStore!.saldoPendiente)}
