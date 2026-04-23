@@ -862,6 +862,10 @@ const MotorizadoDashboard = () => {
   );
 
 
+  const pendingCount = pedidos.filter((p) => {
+    const s = p.estado?.toLowerCase();
+    return s === "asignado" || s === "pendiente" || s === "en bodega";
+  }).length;
   const inTransitCount = pedidos.filter(
     (p) =>
       p.estado?.toLowerCase() === "en camino" ||
