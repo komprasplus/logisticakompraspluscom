@@ -352,18 +352,47 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
                   <SelectValue placeholder="Seleccionar tienda" />
                 </SelectTrigger>
                 <SelectContent>
-                  {stores.map((s) => (
-                    <SelectItem key={s.user_id} value={s.user_id}>
-                      <div className="flex items-center gap-2">
-                        <Store className="h-3.5 w-3.5 text-muted-foreground" />
-                        {s.store_name ?? s.full_name} — ${formatCOP(s.saldoPendiente)}
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {stores.map((s) => {
+                    const isNegative = s.saldoPendiente < 0;
+                    const isZero = s.saldoPendiente === 0;
+                    const label = s.store_name ?? s.full_name;
+                    return (
+                      <SelectItem key={s.user_id} value={s.user_id}>
+                        <div className="flex items-center gap-2">
+                          <Store className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="font-medium">{label}</span>
+                          <span
+                            className={
+                              isNegative
+                                ? "text-red-600 font-semibold"
+                                : isZero
+                                ? "text-muted-foreground"
+                                : "text-emerald-700 font-semibold"
+                            }
+                          >
+                            {isNegative
+                              ? `— Deuda pendiente: -$${formatCOP(Math.abs(s.saldoPendiente))}`
+                              : `— Saldo a favor: $${formatCOP(s.saldoPendiente)}`}
+                          </span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             )}
           </div>
+
+          {/* FIX: Bloqueo visible cuando la tienda tiene deuda pendiente */}
+          {hasNegativeBalance && (
+            <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>
+                No se puede registrar un pago a una tienda con saldo negativo.
+                Esta tienda tiene una <strong>deuda pendiente de ${formatCOP(Math.abs(selectedStore!.saldoPendiente))}</strong> con la plataforma.
+              </span>
+            </div>
+          )}
 
           {/* Resumen de saldo */}
           {selectedStore && (
