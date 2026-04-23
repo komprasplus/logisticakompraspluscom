@@ -431,8 +431,15 @@ const RegistrarPagoModal = ({ open, onOpenChange, onPaymentComplete }: Registrar
               inputMode="numeric" // FIX: teclado numérico en móvil
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
+              disabled={hasNegativeBalance}
             />
-            {exceedsSaldo && (
+            {exceedsSaldo && !hasNegativeBalance && (
+              <div className="flex items-center gap-1.5 text-sm text-amber-600">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                El monto excede el saldo de ${formatCOP(selectedStore!.saldoPendiente)}
+              </div>
+            )}
+          </div>
               <div className="flex items-center gap-1.5 text-sm text-amber-600">
                 <AlertTriangle className="h-4 w-4 flex-shrink-0" />
                 El monto excede el saldo de ${formatCOP(selectedStore!.saldoPendiente)}
