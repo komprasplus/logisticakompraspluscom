@@ -192,8 +192,10 @@ const BilleteraRetirosView = () => {
     queryKey: ["wallet-balance", userId, orgId],
     queryFn: async () => {
       // Source of truth: transacciones_billetera
+      // Saldo = CREDITO_ENTREGA + TRANSFER_IN + AJUSTE_CREDITO
+      //       − PAGO_TIENDA − TRANSFER_OUT − DEBITO_DEVOLUCION − AJUSTE_DEBITO − retiros
       // All queries include organizacion_id for multi-tenant RLS compliance
-      const [creditosRes, pagosRes, withdrawalsRes, pendingWRes] = await Promise.all([
+      const [creditosRes, pagosRes, withdrawalsRes, pendingWRes, ajusteCredRes, ajusteDebRes, transfersInRes, transfersOutRes, debitosDevRes] = await Promise.all([
         supabase
           .from("transacciones_billetera")
           .select("monto")
@@ -216,6 +218,36 @@ const BilleteraRetirosView = () => {
           .select("amount")
           .eq("user_id", userId!)
           .eq("status", "Pending"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", userId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "AJUSTE_CREDITO"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", userId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "AJUSTE_DEBITO"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", userId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "TRANSFER_IN"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", userId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "TRANSFER_OUT"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", userId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "DEBITO_DEVOLUCION"),
       ]);
 
       // Total earned from deliveries (auto-created by DB trigger on estado→Entregado/Liquidado)
@@ -230,7 +262,20 @@ const BilleteraRetirosView = () => {
       // Pending withdrawal requests (reserved, not yet paid)
       const totalPending = (pendingWRes.data ?? []).reduce((sum, w) => sum + (w.amount ?? 0), 0);
 
-      const available = Math.max(0, totalCreditos - totalPagado - totalWithdrawn - totalPending);
+      // Manual reconciliation adjustments
+      const totalAjusteCred = (ajusteCredRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalAjusteDeb  = (ajusteDebRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+
+      // P2P transfers and return debits
+      const totalTransIn  = (transfersInRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalTransOut = (transfersOutRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalDebDev   = (debitosDevRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+
+      const available = Math.max(
+        0,
+        totalCreditos + totalTransIn + totalAjusteCred
+          - totalPagado - totalWithdrawn - totalPending - totalTransOut - totalDebDev - totalAjusteDeb
+      );
       return { available, totalPending };
     },
     enabled: !!userId && !!orgId,

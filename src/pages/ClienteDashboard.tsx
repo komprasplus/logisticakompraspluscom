@@ -106,9 +106,10 @@ const ClienteDashboard = () => {
   const walletQuery = useQuery({
     queryKey: ["billetera", "total", validUserId, orgId],
     queryFn: async () => {
-      // Available balance = CREDITO_ENTREGA + TRANSFER_IN − PAGO_TIENDA − TRANSFER_OUT − withdrawals
+      // Available balance = CREDITO_ENTREGA + TRANSFER_IN + AJUSTE_CREDITO
+      //                   − PAGO_TIENDA − TRANSFER_OUT − DEBITO_DEVOLUCION − AJUSTE_DEBITO − withdrawals
       // All queries include organizacion_id for multi-tenant RLS compliance
-      const [creditosRes, pagosRes, withdrawalsRes, transfersInRes, transfersOutRes, debitosDevRes] = await Promise.all([
+      const [creditosRes, pagosRes, withdrawalsRes, transfersInRes, transfersOutRes, debitosDevRes, ajusteCredRes, ajusteDebRes] = await Promise.all([
         supabase
           .from("transacciones_billetera")
           .select("monto")
@@ -144,6 +145,18 @@ const ClienteDashboard = () => {
           .eq("client_user_id", validUserId!)
           .eq("organizacion_id", orgId!)
           .eq("tipo", "DEBITO_DEVOLUCION"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", validUserId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "AJUSTE_CREDITO"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", validUserId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "AJUSTE_DEBITO"),
       ]);
       if (creditosRes.error) throw creditosRes.error;
 
@@ -153,8 +166,14 @@ const ClienteDashboard = () => {
       const totalTransIn  = (transfersInRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
       const totalTransOut = (transfersOutRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
       const totalDebitosDev = (debitosDevRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalAjusteCred = (ajusteCredRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalAjusteDeb  = (ajusteDebRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
 
-      return Math.max(0, totalCreditos + totalTransIn - totalPagado - totalRetirado - totalTransOut - totalDebitosDev);
+      return Math.max(
+        0,
+        totalCreditos + totalTransIn + totalAjusteCred
+          - totalPagado - totalRetirado - totalTransOut - totalDebitosDev - totalAjusteDeb
+      );
     },
     enabled: !!validUserId && !!orgId,
     staleTime: 2 * 60 * 1000,

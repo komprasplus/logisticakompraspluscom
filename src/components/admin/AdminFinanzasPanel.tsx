@@ -11,8 +11,10 @@ import {
   Smartphone,
   Filter,
   Key,
+  AlertTriangle,
 } from "lucide-react";
 import BoldReconciliationUploader from "./BoldReconciliationUploader";
+import AjusteManualBilleteraModal from "./AjusteManualBilleteraModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -127,6 +129,7 @@ const AdminFinanzasPanel = () => {
     action: "Approved" | "Rejected";
   } | null>(null);
   const [adminNotes, setAdminNotes] = useState("");
+  const [showAjusteModal, setShowAjusteModal] = useState(false);
 
   // ── Queries ─────────────────────────────────────────────────────────────────
 
@@ -384,6 +387,14 @@ const AdminFinanzasPanel = () => {
             <Key className="h-4 w-4" />
             Exportar Lote Llaves (Bre-B)
           </Button>
+          <Button
+            onClick={() => setShowAjusteModal(true)}
+            variant="outline"
+            className="gap-2 rounded-xl border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          >
+            <AlertTriangle className="h-4 w-4" />
+            Ajuste Manual de Saldo
+          </Button>
         </div>
       </div>
 
@@ -570,6 +581,18 @@ const AdminFinanzasPanel = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Ajuste Manual de Saldo Modal */}
+      <AjusteManualBilleteraModal
+        open={showAjusteModal}
+        onOpenChange={setShowAjusteModal}
+        onComplete={() => {
+          // Refresh related queries so balances reflect the manual adjustment
+          queryClient.invalidateQueries({ queryKey: ["admin-withdrawals"] });
+          queryClient.invalidateQueries({ queryKey: ["wallet-balance"] });
+          queryClient.invalidateQueries({ queryKey: ["billetera"] });
+        }}
+      />
     </motion.div>
   );
 };
