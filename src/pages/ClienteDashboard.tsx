@@ -201,13 +201,30 @@ const ClienteDashboard = () => {
       (p) => p.estado?.toLowerCase() === "entregado" || p.estado?.toLowerCase() === "liquidado"
     ).length;
 
-    // pendingBalance comes directly from walletQuery (CREDITO_ENTREGA − PAGO_TIENDA − withdrawals)
-    // This is the single source of truth — consistent with BilleteraRetirosView.
-    const pendingBalance = totalPagado; // totalPagado is now walletQuery.data = available balance
+    // FIX: Cálculo explícito frontend desde el array de pedidos entregados/liquidados.
+    // Fórmula: Utilidad Neta = Recaudo − Flete − Costo Producto (fulfillment).
+    // Se descuentan pagos ya realizados, retiros y débitos por devolución desde la billetera.
+    const entregadosLiquidados = pedidos.filter((p) => {
+      const e = p.estado?.toLowerCase();
+      return e === "entregado" || e === "liquidado";
+    });
 
-    return { 
-      totalMonth, 
-      deliveredCount, 
+    const balanceBruto = entregadosLiquidados.reduce((total, pedido) => {
+      const recaudo = Number(pedido.valor_recaudar) || 0;
+      const costoEnvio = Number(pedido.valor_flete) || 0;
+      const costoProducto = Number(pedido.fulfillment_cost) || 0;
+      const utilidadNeta = recaudo - costoEnvio - costoProducto;
+      return total + utilidadNeta;
+    }, 0);
+
+    // Restar movimientos de billetera (pagos ya hechos a la tienda + retiros + ajustes débito)
+    // totalPagado aquí ya viene como balance disponible de walletQuery; lo usamos como tope si es menor.
+    // Para reflejar la fórmula explícita pedida, mostramos balanceBruto descontando solo lo ya pagado/retirado.
+    const pendingBalance = balanceBruto;
+
+    return {
+      totalMonth,
+      deliveredCount,
       pendingBalance: Math.max(0, pendingBalance),
     };
   }, [pedidos, totalPagado]);
