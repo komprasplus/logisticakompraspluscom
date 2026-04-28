@@ -211,8 +211,8 @@ const ClienteDashboard = () => {
     ).length;
 
     // FIX: Cálculo explícito frontend desde el array de pedidos entregados/liquidados.
-    // Fórmula: Utilidad Neta = Recaudo − Flete − Costo Producto (fulfillment).
-    // Se descuentan pagos ya realizados, retiros y débitos por devolución desde la billetera.
+    // Fórmula: Utilidad Neta por pedido = Recaudo − Flete − Costo Producto (fulfillment).
+    // Balance Pendiente = Σ utilidad neta + otros ingresos billetera − egresos ya realizados.
     const entregadosLiquidados = pedidos.filter((p) => {
       const e = p.estado?.toLowerCase();
       return e === "entregado" || e === "liquidado";
@@ -226,17 +226,14 @@ const ClienteDashboard = () => {
       return total + utilidadNeta;
     }, 0);
 
-    // Restar movimientos de billetera (pagos ya hechos a la tienda + retiros + ajustes débito)
-    // totalPagado aquí ya viene como balance disponible de walletQuery; lo usamos como tope si es menor.
-    // Para reflejar la fórmula explícita pedida, mostramos balanceBruto descontando solo lo ya pagado/retirado.
-    const pendingBalance = balanceBruto;
+    const pendingBalance = balanceBruto + walletOtrosIngresos - walletEgresos;
 
     return {
       totalMonth,
       deliveredCount,
       pendingBalance: Math.max(0, pendingBalance),
     };
-  }, [pedidos, totalPagado]);
+  }, [pedidos, walletEgresos, walletOtrosIngresos]);
 
   const novedadesCount = useMemo(() => {
     return pedidos.filter((p) => p.estado?.toLowerCase() === "novedad").length;
