@@ -169,11 +169,18 @@ const ClienteDashboard = () => {
       const totalAjusteCred = (ajusteCredRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
       const totalAjusteDeb  = (ajusteDebRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
 
-      return Math.max(
+      const available = Math.max(
         0,
         totalCreditos + totalTransIn + totalAjusteCred
           - totalPagado - totalRetirado - totalTransOut - totalDebitosDev - totalAjusteDeb
       );
+
+      // Egresos totales (lo que ya salió o está separado de la billetera)
+      const egresos = totalPagado + totalRetirado + totalTransOut + totalDebitosDev + totalAjusteDeb;
+      // Ingresos no provenientes de entregas (transferencias y ajustes manuales)
+      const otrosIngresos = totalTransIn + totalAjusteCred;
+
+      return { available, egresos, otrosIngresos };
     },
     enabled: !!validUserId && !!orgId,
     staleTime: 2 * 60 * 1000,
@@ -182,7 +189,9 @@ const ClienteDashboard = () => {
     refetchInterval: 2 * 60 * 1000,
     retry: 1,
   });
-  const totalPagado = walletQuery.data ?? 0;
+  // walletQuery.data.available is the source of truth for the wallet view; not used in dashboard card
+  const walletEgresos = walletQuery.data?.egresos ?? 0;
+  const walletOtrosIngresos = walletQuery.data?.otrosIngresos ?? 0;
 
   // Calculate stats - Wallet only shows liquidated orders
   const stats = useMemo(() => {
@@ -201,16 +210,30 @@ const ClienteDashboard = () => {
       (p) => p.estado?.toLowerCase() === "entregado" || p.estado?.toLowerCase() === "liquidado"
     ).length;
 
-    // pendingBalance comes directly from walletQuery (CREDITO_ENTREGA − PAGO_TIENDA − withdrawals)
-    // This is the single source of truth — consistent with BilleteraRetirosView.
-    const pendingBalance = totalPagado; // totalPagado is now walletQuery.data = available balance
+    // FIX: Cálculo explícito frontend desde el array de pedidos entregados/liquidados.
+    // Fórmula: Utilidad Neta por pedido = Recaudo − Flete − Costo Producto (fulfillment).
+    // Balance Pendiente = Σ utilidad neta + otros ingresos billetera − egresos ya realizados.
+    const entregadosLiquidados = pedidos.filter((p) => {
+      const e = p.estado?.toLowerCase();
+      return e === "entregado" || e === "liquidado";
+    });
 
-    return { 
-      totalMonth, 
-      deliveredCount, 
+    const balanceBruto = entregadosLiquidados.reduce((total, pedido) => {
+      const recaudo = Number(pedido.valor_recaudar) || 0;
+      const costoEnvio = Number(pedido.valor_flete) || 0;
+      const costoProducto = Number(pedido.fulfillment_cost) || 0;
+      const utilidadNeta = recaudo - costoEnvio - costoProducto;
+      return total + utilidadNeta;
+    }, 0);
+
+    const pendingBalance = balanceBruto + walletOtrosIngresos - walletEgresos;
+
+    return {
+      totalMonth,
+      deliveredCount,
       pendingBalance: Math.max(0, pendingBalance),
     };
-  }, [pedidos, totalPagado]);
+  }, [pedidos, walletEgresos, walletOtrosIngresos]);
 
   const novedadesCount = useMemo(() => {
     return pedidos.filter((p) => p.estado?.toLowerCase() === "novedad").length;
