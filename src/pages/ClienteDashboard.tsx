@@ -333,7 +333,11 @@ const ClienteDashboard = () => {
                 pendingBalance={stats.pendingBalance}
                 onCreatePedido={() => setShowNuevoPedido(true)}
                 onNavigate={setActiveView}
-                onOpenLedger={() => setShowLedger(true)}
+                onOpenLedger={() => {
+                  // Invalidate wallet cache so card and ledger always match
+                  queryClient.invalidateQueries({ queryKey: ["billetera"] });
+                  setShowLedger(true);
+                }}
               />
             )}
 
