@@ -169,11 +169,18 @@ const ClienteDashboard = () => {
       const totalAjusteCred = (ajusteCredRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
       const totalAjusteDeb  = (ajusteDebRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
 
-      return Math.max(
+      const available = Math.max(
         0,
         totalCreditos + totalTransIn + totalAjusteCred
           - totalPagado - totalRetirado - totalTransOut - totalDebitosDev - totalAjusteDeb
       );
+
+      // Egresos totales (lo que ya salió o está separado de la billetera)
+      const egresos = totalPagado + totalRetirado + totalTransOut + totalDebitosDev + totalAjusteDeb;
+      // Ingresos no provenientes de entregas (transferencias y ajustes manuales)
+      const otrosIngresos = totalTransIn + totalAjusteCred;
+
+      return { available, egresos, otrosIngresos };
     },
     enabled: !!validUserId && !!orgId,
     staleTime: 2 * 60 * 1000,
@@ -182,7 +189,9 @@ const ClienteDashboard = () => {
     refetchInterval: 2 * 60 * 1000,
     retry: 1,
   });
-  const totalPagado = walletQuery.data ?? 0;
+  const totalPagado = walletQuery.data?.available ?? 0;
+  const walletEgresos = walletQuery.data?.egresos ?? 0;
+  const walletOtrosIngresos = walletQuery.data?.otrosIngresos ?? 0;
 
   // Calculate stats - Wallet only shows liquidated orders
   const stats = useMemo(() => {
