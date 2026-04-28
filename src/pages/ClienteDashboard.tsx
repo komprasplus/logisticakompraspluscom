@@ -189,7 +189,7 @@ const ClienteDashboard = () => {
     refetchInterval: 2 * 60 * 1000,
     retry: 1,
   });
-  const totalPagado = walletQuery.data?.available ?? 0;
+  // walletQuery.data.available is the source of truth for the wallet view; not used in dashboard card
   const walletEgresos = walletQuery.data?.egresos ?? 0;
   const walletOtrosIngresos = walletQuery.data?.otrosIngresos ?? 0;
 
