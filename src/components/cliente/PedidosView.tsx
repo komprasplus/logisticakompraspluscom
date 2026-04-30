@@ -589,222 +589,188 @@ const PedidosView = ({
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Grid de alta densidad — Enterprise micro-cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
             {paginatedItems.map((pedido, index) => {
               const statusInfo = getStatusInfo(pedido.estado);
               const StatusIcon = statusInfo.icon;
               const isEditable = canEditOrder(pedido.estado);
               const isNovedad = pedido.estado?.toLowerCase() === "novedad";
-              /*
-                FIX: `isDelivered` se llamaba dos veces por pedido.
-                `hasDeliveryEvidence` y la condición `!isDelivered(pedido.estado)`
-                más abajo computaban la misma función. Calculado una vez.
-              */
               const isDeliveredPedido = isDelivered(pedido.estado);
-              const hasDeliveryEvidence = isDeliveredPedido && !!pedido.foto_evidencia;
-              const hasOtherEvidence = !!pedido.foto_evidencia && !isDeliveredPedido;
+              const hasEvidence = !!pedido.foto_evidencia;
               const netProfit = getNetProfit(pedido);
+              const locationLine = [pedido.barrio, pedido.municipio].filter(Boolean).join(", ") || "Sin ubicación";
 
               return (
                 <motion.div
                   key={pedido.id}
-                  className={`neu-flat overflow-hidden transition-all duration-200 hover:neu-elevated hover:-translate-y-1 ${
+                  className={`neu-flat overflow-hidden rounded-xl flex flex-col transition-all duration-200 hover:neu-elevated hover:-translate-y-0.5 ${
                     isNovedad ? "ring-2 ring-orange-400/50" : ""
                   }`}
-                  initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.95 }}
+                  initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.97 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: prefersReducedMotion ? 0 : index * 0.03 }}
+                  transition={{ delay: prefersReducedMotion ? 0 : Math.min(index * 0.015, 0.3) }}
                 >
-                  {/* Card Header */}
-                  <div className="px-4 py-3 flex items-center justify-between border-b border-border/50 bg-muted/30">
-                    <span className="text-sm font-bold text-foreground">{pedido.numero_guia || `#${pedido.id}`}</span>
+                  {/* Header ultra-compacto: ID + Badge */}
+                  <div className="px-3 pt-3 flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono text-muted-foreground truncate" title={pedido.numero_guia || `#${pedido.id}`}>
+                      {pedido.numero_guia || `#${pedido.id}`}
+                    </span>
                     <div
-                      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${statusInfo.color} ${statusInfo.textColor}`}
+                      className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full ${statusInfo.color} ${statusInfo.textColor} flex-shrink-0`}
                       role="status"
                       aria-label={`Estado: ${statusInfo.label}`}
                     >
-                      <StatusIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span className="text-xs font-semibold">{statusInfo.label}</span>
+                      <StatusIcon className="h-2.5 w-2.5" aria-hidden="true" />
+                      <span className="text-[10px] font-semibold leading-none">{statusInfo.label}</span>
                     </div>
                   </div>
 
-                  {/* Card Body */}
-                  <div className="p-4 space-y-3">
-                    {/* Destinatario */}
-                    <div>
-                      <p className="font-bold text-foreground text-base truncate">
+                  {/* Body compacto */}
+                  <div className="p-3 pt-2 space-y-2 flex-1 flex flex-col">
+                    {/* Cliente + ubicación */}
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-foreground truncate" title={pedido.cliente_nombre || ""}>
                         {pedido.cliente_nombre || "Sin destinatario"}
                       </p>
-                      <div className="flex items-start gap-1.5 mt-1">
-                        <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5 flex-shrink-0" aria-hidden="true" />
-                        <p className="text-xs text-muted-foreground line-clamp-2">
-                          {pedido.direccion_entrega || "Sin dirección"}
-                          {pedido.barrio && ` - ${pedido.barrio}`}
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1" title={locationLine}>
+                        <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                        <span className="truncate">{locationLine}</span>
+                      </p>
+                    </div>
+
+                    {/* Bloque de Producto */}
+                    <div className="flex items-center gap-2 bg-muted/50 dark:bg-muted/30 rounded p-1.5">
+                      <div className="w-8 h-8 rounded bg-background flex items-center justify-center flex-shrink-0 border border-border/50">
+                        <Package className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium text-foreground truncate" title={pedido.producto_nombre || ""}>
+                          {pedido.producto_nombre || "Sin producto"}
                         </p>
                       </div>
                     </div>
 
-                    {/* Métricas financieras */}
-                    <div className="flex items-center gap-4 py-2 px-3 rounded-xl neu-pressed">
-                      {pedido.metodo_pago === "anticipado" ? (
-                        <div className="flex-1 flex items-center justify-center">
-                          <span className="bg-primary/15 text-primary text-xs font-bold px-3 py-1 rounded-full">
-                            ✓ PAGADO
-                          </span>
+                    {/* Bloque Financiero — una línea */}
+                    {pedido.metodo_pago === "anticipado" ? (
+                      <div className="flex items-center justify-center py-1">
+                        <span className="bg-primary/15 text-primary text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          ✓ PAGADO ANTICIPADO
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-2 px-1">
+                        <div className="min-w-0">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide leading-none">Recaudo</p>
+                          <p className="text-sm font-bold text-foreground truncate">
+                            {formatCOP(pedido.valor_recaudar ?? 0)}
+                          </p>
                         </div>
-                      ) : (
-                        <>
-                          <div className="flex-1 flex items-center gap-2">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/15">
-                              <DollarSign className="h-4 w-4 text-green-600" aria-hidden="true" />
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Recaudar</p>
-                              <p className="text-sm font-bold text-green-600">
-                                {formatCOP(pedido.valor_recaudar ?? 0)}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="w-px h-8 bg-border" />
-                          <div className="flex-1 flex items-center gap-2">
-                            <div
-                              className={`flex h-8 w-8 items-center justify-center rounded-lg ${netProfit > 0 ? "bg-emerald-500/15" : "bg-destructive/15"}`}
-                            >
-                              <TrendingUp
-                                className={`h-4 w-4 ${netProfit > 0 ? "text-emerald-600" : "text-destructive"}`}
-                                aria-hidden="true"
-                              />
-                            </div>
-                            <div>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Utilidad</p>
-                              <p
-                                className={`text-sm font-bold ${netProfit > 0 ? "text-emerald-600" : "text-destructive"}`}
-                              >
-                                {formatCOP(netProfit)}
-                              </p>
-                            </div>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Botón de foto de entrega (pedidos entregados) */}
-                    {hasDeliveryEvidence && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="w-full gap-2 bg-green-500/10 border-green-500/30 text-green-700 hover:bg-green-500/20"
-                        onClick={() => onViewEvidence(pedido.foto_evidencia!)}
-                        aria-label={`Ver foto de entrega de ${pedido.cliente_nombre ?? pedido.numero_guia ?? `pedido #${pedido.id}`}`}
-                      >
-                        <Camera className="h-4 w-4" aria-hidden="true" />
-                        Ver Foto de Entrega
-                      </Button>
-                    )}
-
-                    {/* Miniatura de evidencia (pedidos no entregados) */}
-                    {hasOtherEvidence && (
-                      <button
-                        type="button"
-                        onClick={() => onViewEvidence(pedido.foto_evidencia!)}
-                        aria-label={`Ver evidencia de ${pedido.cliente_nombre ?? pedido.numero_guia ?? `pedido #${pedido.id}`}`}
-                        className="w-full rounded-xl overflow-hidden border-2 border-border hover:border-primary transition-colors group relative h-24"
-                      >
-                        <img
-                          src={pedido.foto_evidencia!}
-                          alt={`Evidencia — ${pedido.cliente_nombre ?? pedido.numero_guia ?? `#${pedido.id}`}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Image className="h-6 w-6 text-white" aria-hidden="true" />
+                        <div className="min-w-0 text-right">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wide leading-none">Utilidad</p>
+                          <p className={`text-sm font-bold truncate ${netProfit > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                            {formatCOP(netProfit)}
+                          </p>
                         </div>
-                      </button>
-                    )}
-
-                    {/* Alerta de novedad */}
-                    {isNovedad && pedido.tipo_novedad && (
-                      <div
-                        className="rounded-xl bg-orange-500/10 border border-orange-500/20 p-3 flex items-center gap-2"
-                        role="alert"
-                      >
-                        <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" aria-hidden="true" />
-                        <p className="text-xs text-orange-600 font-medium flex-1">{pedido.tipo_novedad}</p>
                       </div>
                     )}
-                  </div>
 
-                  {/* Card Footer - Acciones */}
-                  <div className="px-4 pb-4 pt-0 flex gap-2">
-                    {isNovedad ? (
-                      <>
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="flex-1 h-10 gap-2 bg-orange-500 hover:bg-orange-600 text-white"
-                          onClick={() => onRespond(pedido)}
-                          aria-label={`Responder novedad del pedido ${pedido.numero_guia ?? `#${pedido.id}`}`}
-                        >
-                          <MessageSquare className="h-4 w-4" aria-hidden="true" />
-                          Responder
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="h-10 px-4"
-                          onClick={() => onPrint(pedido)}
-                          aria-label={`Imprimir guía del pedido ${pedido.numero_guia ?? `#${pedido.id}`}`}
-                        >
-                          <Printer className="h-4 w-4" aria-hidden="true" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        {isEditable && (
+                    {/* Alerta de novedad — compacta */}
+                    {isNovedad && pedido.tipo_novedad && (
+                      <div
+                        className="rounded bg-orange-500/10 border border-orange-500/20 px-2 py-1 flex items-center gap-1"
+                        role="alert"
+                      >
+                        <AlertTriangle className="h-3 w-3 text-orange-500 flex-shrink-0" aria-hidden="true" />
+                        <p className="text-[10px] text-orange-600 dark:text-orange-400 font-medium truncate">{pedido.tipo_novedad}</p>
+                      </div>
+                    )}
+
+                    {/* Spacer para empujar acciones al fondo */}
+                    <div className="flex-1" />
+
+                    {/* Acciones — fila compacta */}
+                    <div className="flex gap-1.5 pt-1">
+                      {isNovedad ? (
+                        <>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="flex-1 h-7 px-2 gap-1 bg-orange-500 hover:bg-orange-600 text-white text-xs"
+                            onClick={() => onRespond(pedido)}
+                            aria-label={`Responder novedad ${pedido.numero_guia ?? `#${pedido.id}`}`}
+                          >
+                            <MessageSquare className="h-3 w-3" aria-hidden="true" />
+                            Responder
+                          </Button>
                           <Button
                             type="button"
                             size="sm"
                             variant="outline"
-                            className="flex-1 h-10 gap-2"
-                            onClick={() => onEdit(pedido)}
-                            aria-label={`Editar pedido ${pedido.numero_guia ?? `#${pedido.id}`}`}
+                            className="h-7 w-7 p-0 flex-shrink-0"
+                            onClick={() => onPrint(pedido)}
+                            aria-label={`Imprimir guía ${pedido.numero_guia ?? `#${pedido.id}`}`}
                           >
-                            <Edit className="h-4 w-4" aria-hidden="true" />
-                            Editar
+                            <Printer className="h-3 w-3" aria-hidden="true" />
                           </Button>
-                        )}
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={isEditable ? "secondary" : "outline"}
-                          className={`h-10 gap-2 ${isEditable ? "" : "flex-1"}`}
-                          onClick={() => onPrint(pedido)}
-                          aria-label={`Imprimir guía del pedido ${pedido.numero_guia ?? `#${pedido.id}`}`}
-                        >
-                          <Printer className="h-4 w-4" aria-hidden="true" />
-                          Guía
-                        </Button>
-                      </>
-                    )}
+                        </>
+                      ) : (
+                        <>
+                          {isEditable && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-7 w-7 p-0 flex-shrink-0"
+                              onClick={() => onEdit(pedido)}
+                              aria-label={`Editar pedido ${pedido.numero_guia ?? `#${pedido.id}`}`}
+                            >
+                              <Edit className="h-3 w-3" aria-hidden="true" />
+                            </Button>
+                          )}
+                          {hasEvidence && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className={`h-7 w-7 p-0 flex-shrink-0 ${isDeliveredPedido ? "border-green-500/40 text-green-700 hover:bg-green-500/10 dark:text-green-400" : ""}`}
+                              onClick={() => onViewEvidence(pedido.foto_evidencia!)}
+                              aria-label={`Ver evidencia ${pedido.numero_guia ?? `#${pedido.id}`}`}
+                            >
+                              <Camera className="h-3 w-3" aria-hidden="true" />
+                            </Button>
+                          )}
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="default"
+                            className="flex-1 h-7 px-2 gap-1 text-xs"
+                            onClick={() => onPrint(pedido)}
+                            aria-label={`Imprimir guía ${pedido.numero_guia ?? `#${pedido.id}`}`}
+                          >
+                            <Printer className="h-3 w-3" aria-hidden="true" />
+                            Guía
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               );
             })}
           </div>
 
-          {totalPages > 1 && (
-            <PaginationControls
-              currentPage={currentPage}
-              totalPages={totalPages}
-              startIndex={startIndex}
-              endIndex={endIndex}
-              totalItems={totalItems}
-              itemsPerPage={itemsPerPage}
-              onPageChange={goToPage}
-              onItemsPerPageChange={setItemsPerPage}
-            />
-          )}
+          {/* Paginación — siempre visible cuando hay resultados */}
+          <PaginationControls
+            currentPage={currentPage}
+            totalPages={totalPages}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            totalItems={totalItems}
+            itemsPerPage={itemsPerPage}
+            onPageChange={goToPage}
+            onItemsPerPageChange={setItemsPerPage}
+          />
         </>
       )}
 
