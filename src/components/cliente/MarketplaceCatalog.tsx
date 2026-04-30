@@ -528,6 +528,35 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       </div>
                     </div>
 
+                    {/* Prueba social — Tendencia / Top Ventas */}
+                    {(detailProduct.unidades_vendidas ?? 0) > 0 && (
+                      <div className={cn(
+                        "rounded-xl border p-4 space-y-2",
+                        (detailProduct.unidades_vendidas ?? 0) > TRENDING_THRESHOLD
+                          ? "border-orange-500/40 bg-gradient-to-r from-orange-500/10 to-red-500/10"
+                          : "border-border/60 bg-muted/40"
+                      )}>
+                        <div className="flex items-center gap-2">
+                          {(detailProduct.unidades_vendidas ?? 0) > TRENDING_THRESHOLD ? (
+                            <Flame className="h-5 w-5 text-orange-500" />
+                          ) : (
+                            <TrendingUp className="h-5 w-5 text-primary" />
+                          )}
+                          <p className="text-sm font-semibold text-foreground">
+                            {(detailProduct.unidades_vendidas ?? 0) > TRENDING_THRESHOLD ? (
+                              <>¡Producto ganador! <Rocket className="inline h-4 w-4" /> {detailProduct.unidades_vendidas} unidades vendidas recientemente.</>
+                            ) : (
+                              <>📈 {detailProduct.unidades_vendidas} unidades vendidas hasta ahora.</>
+                            )}
+                          </p>
+                        </div>
+                        <Progress
+                          value={Math.min(100, ((detailProduct.unidades_vendidas ?? 0) / (TRENDING_THRESHOLD * 2)) * 100)}
+                          className="h-2"
+                        />
+                      </div>
+                    )}
+
                     {/* Tabs */}
                     <Tabs defaultValue="detalles" className="w-full">
                       <TabsList className="grid w-full grid-cols-2">
