@@ -23,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { formatCOP } from "@/lib/tarifas";
 import { useAuth } from "@/hooks/useAuth";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
-import CreateProductModal from "./CreateProductModal";
+import NuevoProductoMarketplace from "./NuevoProductoMarketplace";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -539,7 +539,7 @@ const InventarioView = () => {
       )}
 
       {/* Modal crear producto */}
-      <CreateProductModal
+      <NuevoProductoMarketplace
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSuccess={fetchInventory}
