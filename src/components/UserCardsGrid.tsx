@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getAccountTypeLabel, isLegacyAccount } from "@/lib/accountType";
 
 interface Profile {
   id: string;
@@ -19,6 +20,7 @@ interface Profile {
   is_online?: boolean;
   fulfillment_rate?: number | null;
   organizacion_id?: string | null;
+  tipo_cuenta?: string | null;
 }
 
 interface UserRole {
@@ -93,7 +95,7 @@ const UserCardsGrid = ({
     }
   };
 
-  const getRoleLabel = (role: string) => {
+  const getRoleLabel = (role: string, tipoCuenta?: string | null) => {
     switch (role) {
       case "super_admin":
         return "Super Admin";
@@ -102,13 +104,15 @@ const UserCardsGrid = ({
       case "motorizado":
         return "Motorizado";
       case "cliente":
-        return "Tienda";
+      case "tienda":
+        // Map to new account-type taxonomy with legacy fallback
+        return getAccountTypeLabel(role, tipoCuenta);
       case "despachador":
         return "Despachador";
       case "aliado_logistico":
         return "Aliado Logístico";
       default:
-        return "Usuario";
+        return role || "Usuario";
     }
   };
 
@@ -211,8 +215,9 @@ const UserCardsGrid = ({
                     <Badge
                       variant="outline"
                       className={`text-xs ${getRoleBadgeColor(role)}`}
+                      title={isLegacyAccount(role, user.tipo_cuenta) ? "Cuenta legacy: el usuario aún no eligió Dropshipper o Proveedor" : undefined}
                     >
-                      {getRoleLabel(role)}
+                      {getRoleLabel(role, user.tipo_cuenta)}
                     </Badge>
                   )}
                   {showOrganization && user.organizacion_id && orgMap[user.organizacion_id] && (
