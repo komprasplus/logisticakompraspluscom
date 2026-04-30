@@ -14,19 +14,15 @@ import EvidencePhotoModal from "@/components/EvidencePhotoModal";
 import ClienteSidebar, { ClienteView } from "@/components/cliente/ClienteSidebar";
 import ClienteHeader from "@/components/cliente/ClienteHeader";
 import DashboardView from "@/components/cliente/DashboardView";
-import PedidosView from "@/components/cliente/PedidosView";
-import NovedadesView from "@/components/cliente/NovedadesView";
+import EnviosView from "@/components/cliente/EnviosView";
 import ReportesView from "@/components/cliente/ReportesView";
 import MiTiendaView from "@/components/cliente/MiTiendaView";
-import DevolucionesView from "@/components/cliente/DevolucionesView";
 import IntegracionesView from "@/components/cliente/IntegracionesView";
 import ApiDocsView from "@/components/cliente/ApiDocsView";
 import InventarioView from "@/components/cliente/InventarioView";
 import MarketplaceCatalog from "@/components/cliente/MarketplaceCatalog";
-import HistorialTransaccionesView from "@/components/cliente/HistorialTransaccionesView";
-import BilleteraRetirosView from "@/components/cliente/BilleteraRetirosView";
+import BilleteraCombinedView from "@/components/cliente/BilleteraCombinedView";
 import LedgerDrawer from "@/components/cliente/LedgerDrawer";
-import P2PTransferWidget from "@/components/cliente/P2PTransferWidget";
 import WarehouseStatus, { checkWarehouseOpen } from "@/components/cliente/WarehouseStatus";
 import BulkOrderUploadModal from "@/components/admin/BulkOrderUploadModal";
 import { AnimatePresence } from "framer-motion";
@@ -366,29 +362,30 @@ const ClienteDashboard = () => {
               />
             )}
 
-            {activeView === "pedidos" && (
-              <PedidosView
-                key="pedidos"
+            {/* Vistas consolidadas: "pedidos" agrupa Mis Pedidos + Novedades +
+                Devoluciones bajo pestañas; las claves legacy redirigen al
+                tab correspondiente para no romper navegación existente. */}
+            {(activeView === "pedidos" ||
+              activeView === "novedades" ||
+              activeView === "devoluciones") && (
+              <EnviosView
+                key="envios"
                 pedidos={pedidos}
                 loading={isLoading}
                 onEdit={setEditingPedido}
                 onPrint={setPrintingPedido}
                 onRespond={setInstructionsPedido}
                 onViewEvidence={setEvidencePhoto}
+                onRefresh={refetch}
                 error={error}
                 hasCache={hasCache}
-              />
-            )}
-
-            {activeView === "novedades" && (
-              <NovedadesView
-                key="novedades"
-                pedidos={pedidos}
-                loading={isLoading}
-                onRespond={setInstructionsPedido}
-                onPrint={setPrintingPedido}
-                onViewEvidence={setEvidencePhoto}
-                onRefresh={refetch}
+                initialTab={
+                  activeView === "novedades"
+                    ? "novedades"
+                    : activeView === "devoluciones"
+                      ? "devoluciones"
+                      : "todos"
+                }
               />
             )}
 
@@ -398,10 +395,6 @@ const ClienteDashboard = () => {
 
             {activeView === "tienda" && (
               <MiTiendaView key="tienda" />
-            )}
-
-            {activeView === "devoluciones" && (
-              <DevolucionesView key="devoluciones" pedidos={pedidos} loading={isLoading} />
             )}
 
             {activeView === "integraciones" && user?.id && (
@@ -426,24 +419,22 @@ const ClienteDashboard = () => {
               />
             )}
 
-            {activeView === "billetera" && (
-              <HistorialTransaccionesView key="billetera" />
-            )}
-
-            {activeView === "retiros" && (
-              <BilleteraRetirosView key="retiros" />
-            )}
-
-            {activeView === "transferencias" && (
-              <motion.div
-                key="transferencias"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                className="max-w-md mx-auto"
-              >
-                <P2PTransferWidget />
-              </motion.div>
+            {/* Vista consolidada Billetera: agrupa Retiros + Transferir +
+                Historial. Las claves legacy "retiros" y "transferencias"
+                abren la pestaña correspondiente. */}
+            {(activeView === "billetera" ||
+              activeView === "retiros" ||
+              activeView === "transferencias") && (
+              <BilleteraCombinedView
+                key="billetera"
+                initialTab={
+                  activeView === "retiros"
+                    ? "retiros"
+                    : activeView === "transferencias"
+                      ? "transferir"
+                      : "retiros"
+                }
+              />
             )}
           </AnimatePresence>
         </div>
