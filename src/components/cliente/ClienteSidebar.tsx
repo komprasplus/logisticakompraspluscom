@@ -174,10 +174,19 @@ const ClienteSidebar = ({
 
   // Para proveedores ocultamos el catálogo (es para abastecerse, ellos son la fuente)
   // y dejamos visibles inventario, pedidos a despachar, billetera y reportes.
-  const visibleNavItems = navItems.filter((item) => {
-    if (isProveedor && item.key === "catalogo") return false;
-    return true;
-  });
+  // Para dropshippers renombramos "Inventario" → "Mi Inventario Propio" para
+  // diferenciarlo claramente de la Megabodega/Catálogo de Suministro.
+  const visibleNavItems = navItems
+    .filter((item) => {
+      if (isProveedor && item.key === "catalogo") return false;
+      return true;
+    })
+    .map((item) => {
+      if (!isProveedor && item.key === "inventario") {
+        return { ...item, label: "Mi Inventario Propio" } as typeof item;
+      }
+      return item;
+    });
   /*
     FIX: respetar `prefers-reduced-motion`.
     Los efectos `whileHover: scale(1.02)` y `whileTap: scale(0.98)` se
