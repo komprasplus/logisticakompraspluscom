@@ -1666,21 +1666,38 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* Costo del producto (opcional) - hide in multi-product mode and RECOGIDA */}
-              {tipoServicio === "ENVIO" && !isMultiProductMode && (
-                <div className="relative">
-                  <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="number"
-                    placeholder="Costo Producto / Proveeduría (opcional)"
-                    value={valorProducto}
-                    onChange={(e) => setValorProducto(e.target.value)}
-                    min="0"
-                    step="100"
-                    className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-              )}
+              {/* Costo del producto - hide in multi-product mode and RECOGIDA.
+                  Locked (read-only) when product comes from the Marketplace:
+                  the dropshipper cannot edit the supplier's base cost. */}
+              {tipoServicio === "ENVIO" && !isMultiProductMode && (() => {
+                const isFromMarketplace = inventoryPrefill?.source === "marketplace";
+                return (
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="number"
+                        placeholder={isFromMarketplace ? "Costo Proveeduría (fijado por proveedor)" : "Costo Producto / Proveeduría (opcional)"}
+                        value={valorProducto}
+                        onChange={(e) => setValorProducto(e.target.value)}
+                        readOnly={isFromMarketplace}
+                        disabled={isFromMarketplace}
+                        min="0"
+                        step="100"
+                        className={cn(
+                          "w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
+                          isFromMarketplace && "cursor-not-allowed bg-muted/40 text-muted-foreground"
+                        )}
+                      />
+                    </div>
+                    {isFromMarketplace && (
+                      <p className="text-[11px] text-muted-foreground pl-1">
+                        🔒 Costo base definido por el proveedor. No editable.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Tarifa y cálculo automático */}
               {(addressSelected || municipioSeleccionado) && (
