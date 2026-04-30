@@ -134,8 +134,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Fetch role (with retries)
-      const { data: roleData, error: roleError } = await withRetry(() =>
-        supabase
+      const { data: roleData, error: roleError } = await withRetry(async () =>
+        await supabase
           .from("user_roles")
           .select("role")
           .eq("user_id", userId)
