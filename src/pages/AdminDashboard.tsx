@@ -1758,8 +1758,30 @@ const AdminDashboard = () => {
       <AdminSidebar 
         activeSection={activeSection} 
         onSectionChange={(section) => {
-          if (isAliado && !["despacho", "mapa", "novedades"].includes(section)) return;
-          setActiveSection(section);
+          // Map legacy section IDs to new consolidated sections + pre-select tab
+          const legacyMap: Record<string, { parent: string; tab?: string }> = {
+            despacho: { parent: "despachos", tab: "todos" },
+            novedades: { parent: "despachos", tab: "novedades" },
+            liquidaciones: { parent: "tesoreria", tab: "liquidaciones" },
+            finanzas: { parent: "tesoreria", tab: "pagos" },
+            "admin-wallet": { parent: "tesoreria", tab: "rentabilidad" },
+            "liquidacion-aliados": { parent: "tesoreria", tab: "aliados" },
+            "webhook-monitor": { parent: "monitoreo", tab: "webhook" },
+            flex: { parent: "monitoreo", tab: "flex" },
+            auditoria: { parent: "monitoreo", tab: "auditoria" },
+            integraciones: { parent: "configuracion", tab: "integraciones" },
+            "super-admin": { parent: "configuracion", tab: "super-admin" },
+          };
+          const resolved = legacyMap[section];
+          const target = resolved ? resolved.parent : section;
+          if (isAliado && !["despachos", "mapa"].includes(target)) return;
+          if (resolved?.tab) {
+            if (resolved.parent === "despachos") setDespachosTab(resolved.tab);
+            if (resolved.parent === "tesoreria") setTesoreriaTab(resolved.tab);
+            if (resolved.parent === "monitoreo") setMonitoreoTab(resolved.tab);
+            if (resolved.parent === "configuracion") setConfiguracionTab(resolved.tab);
+          }
+          setActiveSection(target);
         }}
         novedadesCount={stats.novedad}
         userRole={userRole}
