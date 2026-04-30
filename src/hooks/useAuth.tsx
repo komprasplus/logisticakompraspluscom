@@ -24,6 +24,7 @@ interface AuthContextType {
   role: AppRole | null;
   profile: ProfileData | null;
   loading: boolean;
+  roleFetchFailed: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -59,6 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<AppRole | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roleFetchFailed, setRoleFetchFailed] = useState(false);
 
   // Emergency: prevent double-fetch storms (onAuthStateChange + getSession can both fire)
   const fetchInFlightRef = useRef(false);
@@ -75,13 +77,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (last?.userId === userId && Date.now() - last.at < 5000) return;
 
     fetchInFlightRef.current = true;
+    setRoleFetchFailed(false);
+
+    // Silent retry helper with exponential backoff (3 attempts total)
+    const withRetry = async <T,>(fn: () => Promise<T>): Promise<T> => {
+      const delays = [0, 600, 1500];
+      let lastErr: unknown;
+      for (let i = 0; i < delays.length; i++) {
+        if (delays[i] > 0) await new Promise((r) => setTimeout(r, delays[i]));
+        try {
+          return await fn();
+        } catch (err) {
+          lastErr = err;
+          console.warn(`[Auth] fetch attempt ${i + 1} failed, retrying...`, err);
+        }
+      }
+      throw lastErr;
+    };
+
     try {
-      // Fetch profile
-      const { data: profileData } = await supabase
-        .from("profiles")
-        .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut, organizacion_id, tipo_cuenta")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Fetch profile (with retries)
+      const { data: profileData, error: profileError } = await withRetry(async () =>
+        await supabase
+          .from("profiles")
+          .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut, organizacion_id, tipo_cuenta")
+          .eq("user_id", userId)
+          .maybeSingle()
+      );
+      if (profileError) throw profileError;
 
       if (profileData) {
         setProfile(profileData);
@@ -96,7 +119,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           if (orgData && orgData.plan_activo === false) {
             console.warn("[Auth] Organization suspended, signing out user...");
-            // Defer sign-out to avoid state conflicts within the callback
             setTimeout(async () => {
               await supabase.auth.signOut();
               currentUserIdRef.current = null;
@@ -104,7 +126,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setUser(null);
               setRole(null);
               setProfile(null);
-              // Dispatch custom event so the UI can show a toast
               window.dispatchEvent(new CustomEvent("org-suspended"));
             }, 0);
             return;
@@ -112,23 +133,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
-      // Fetch role
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Fetch role (with retries)
+      const { data: roleData, error: roleError } = await withRetry(async () =>
+        await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .maybeSingle()
+      );
+      if (roleError) throw roleError;
 
       if (roleData) {
         setRole(roleData.role as AppRole);
+      } else {
+        // No role assigned in DB — surface graceful error instead of trapping user
+        setRoleFetchFailed(true);
       }
-      
+
       // Reset error count on success
       authErrorCountRef.current = 0;
     } catch (error) {
-      console.error("Error fetching user data:", error);
+      console.error("Error fetching user data after retries:", error);
       authErrorCountRef.current += 1;
-      
+      setRoleFetchFailed(true);
+
       // If too many errors, clear potentially corrupted session
       if (authErrorCountRef.current >= 3) {
         console.warn("[Auth] Too many fetch errors, clearing session...");
@@ -290,7 +318,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, role, profile, loading, signIn, signOut, refreshProfile }}
+      value={{ user, session, role, profile, loading, roleFetchFailed, signIn, signOut, refreshProfile }}
     >
       {children}
     </AuthContext.Provider>
