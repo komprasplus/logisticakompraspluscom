@@ -327,29 +327,33 @@ const ClienteDashboard = () => {
                 </span>
               </motion.button>
 
-              {/* Bulk Upload Button */}
-              <motion.button
-                onClick={() => setShowBulkUpload(true)}
-                className="relative group flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold text-primary overflow-hidden flex-1 sm:flex-none border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Upload className="h-5 w-5" />
-                <span className="hidden sm:inline">Carga Masiva</span>
-              </motion.button>
+              {/* Bulk Upload + Nuevo Pedido — solo para dropshippers/legacy.
+                  Los proveedores no generan guías de envío, despachan pedidos. */}
+              {!isProveedor && (
+                <>
+                  <motion.button
+                    onClick={() => setShowBulkUpload(true)}
+                    className="relative group flex items-center justify-center gap-2 rounded-xl px-4 py-4 text-sm font-bold text-primary overflow-hidden flex-1 sm:flex-none border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <Upload className="h-5 w-5" />
+                    <span className="hidden sm:inline">Carga Masiva</span>
+                  </motion.button>
 
-              {/* New Order Button */}
-              <motion.button
-                onClick={() => setShowNuevoPedido(true)}
-                className="relative group flex items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-bold text-primary-foreground overflow-hidden flex-1 sm:flex-none bg-primary shadow-lg"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="relative flex items-center gap-2">
-                  <Plus className="h-5 w-5" />
-                  <span>Nuevo Pedido</span>
-                </div>
-              </motion.button>
+                  <motion.button
+                    onClick={() => setShowNuevoPedido(true)}
+                    className="relative group flex items-center justify-center gap-2 rounded-xl px-6 py-4 text-sm font-bold text-primary-foreground overflow-hidden flex-1 sm:flex-none bg-primary shadow-lg"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <div className="relative flex items-center gap-2">
+                      <Plus className="h-5 w-5" />
+                      <span>Nuevo Pedido</span>
+                    </div>
+                  </motion.button>
+                </>
+              )}
             </div>
           </div>
 
