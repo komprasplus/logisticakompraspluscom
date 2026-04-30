@@ -128,14 +128,75 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
     staleTime: 60_000,
   });
 
+  // Favoritos del usuario actual
+  const { data: favoriteIds = [] } = useQuery({
+    queryKey: ["marketplace-favorites", userId],
+    queryFn: async () => {
+      if (!userId) return [] as string[];
+      const { data, error } = await (supabase as any)
+        .from("marketplace_favorites")
+        .select("product_id")
+        .eq("user_id", userId);
+      if (error) throw error;
+      return (data ?? []).map((r: any) => r.product_id as string);
+    },
+    enabled: !!userId,
+    staleTime: 30_000,
+  });
+
+  const favoritesSet = new Set(favoriteIds);
+
+  const toggleFavorite = useMutation({
+    mutationFn: async (productId: string) => {
+      if (!userId) throw new Error("No autenticado");
+      const isFav = favoritesSet.has(productId);
+      if (isFav) {
+        const { error } = await (supabase as any)
+          .from("marketplace_favorites")
+          .delete()
+          .eq("user_id", userId)
+          .eq("product_id", productId);
+        if (error) throw error;
+        return { productId, added: false };
+      } else {
+        const { error } = await (supabase as any)
+          .from("marketplace_favorites")
+          .insert({ user_id: userId, product_id: productId, organizacion_id: orgId });
+        if (error) throw error;
+        return { productId, added: true };
+      }
+    },
+    onMutate: async (productId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["marketplace-favorites", userId] });
+      const prev = queryClient.getQueryData<string[]>(["marketplace-favorites", userId]) ?? [];
+      const next = prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId];
+      queryClient.setQueryData(["marketplace-favorites", userId], next);
+      return { prev };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["marketplace-favorites", userId], ctx.prev);
+      toast.error("No se pudo actualizar favoritos");
+    },
+    onSuccess: (res) => {
+      toast.success(res.added ? "Añadido a favoritos ❤️" : "Eliminado de favoritos");
+    },
+  });
+
   const filtered = products
     .filter((p) => {
+      const term = search.toLowerCase().trim();
       const matchSearch =
-        p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-        p.sku.toLowerCase().includes(search.toLowerCase());
+        !term ||
+        p.product_name.toLowerCase().includes(term) ||
+        p.sku.toLowerCase().includes(term) ||
+        (p.short_id ?? "").toLowerCase().includes(term) ||
+        (p.description ?? "").toLowerCase().includes(term);
       const matchProveedor = !selectedProveedor || p.created_by === selectedProveedor;
       const matchTrending = !trendingOnly || (p.unidades_vendidas ?? 0) > TRENDING_THRESHOLD;
-      return matchSearch && matchProveedor && matchTrending;
+      const matchTab = activeTab === "explorar" || favoritesSet.has(p.id);
+      return matchSearch && matchProveedor && matchTrending && matchTab;
     })
     .sort((a, b) => {
       switch (sortBy) {
