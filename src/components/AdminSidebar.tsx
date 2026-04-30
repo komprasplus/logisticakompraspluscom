@@ -1,25 +1,19 @@
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
-import { 
-  MapPin, 
-  Package, 
-  Warehouse, 
-  AlertTriangle, 
-  DollarSign, 
+import {
+  MapPin,
+  Package,
+  Warehouse,
   Settings,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LucideIcon,
   Truck,
   LayoutDashboard,
   FileText,
-  Database,
-  Key,
-  Zap,
-  ShieldCheck,
-  Satellite,
+  Activity,
   Wallet,
-  Handshake,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,200 +24,189 @@ interface AdminSidebarProps {
   userRole?: string | null;
 }
 
-const ALIADO_ALLOWED_SECTIONS = ["despacho", "mapa", "novedades"];
+const ALIADO_ALLOWED_SECTIONS = ["despachos", "mapa"];
 
-// 3D Icon wrapper component with neumorphic depth effect
-const Icon3D = ({ 
-  icon: IconComponent, 
-  isActive, 
+// Maps legacy section IDs to the new consolidated section
+const LEGACY_TO_NEW: Record<string, string> = {
+  despacho: "despachos",
+  novedades: "despachos",
+  liquidaciones: "tesoreria",
+  finanzas: "tesoreria",
+  "admin-wallet": "tesoreria",
+  "liquidacion-aliados": "tesoreria",
+  "webhook-monitor": "monitoreo",
+  flex: "monitoreo",
+  auditoria: "monitoreo",
+  integraciones: "configuracion",
+  "super-admin": "configuracion",
+};
+
+const Icon3D = ({
+  icon: IconComponent,
+  isActive,
   colorClass = "from-primary to-secondary",
-  accentColor = "bg-primary/10"
-}: { 
-  icon: LucideIcon; 
-  isActive: boolean; 
+  accentColor = "bg-primary/10",
+}: {
+  icon: LucideIcon;
+  isActive: boolean;
   colorClass?: string;
   accentColor?: string;
 }) => (
   <div className="relative">
-    {/* Shadow layer for 3D depth */}
-    <div className={cn(
-      "absolute inset-0 rounded-2xl blur-sm transition-all duration-300",
-      isActive ? "bg-primary/40 translate-y-1" : "bg-transparent"
-    )} />
-    {/* Main icon container with gradient */}
-    <div className={cn(
-      "relative flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-300",
-      isActive 
-        ? `bg-gradient-to-br ${colorClass} shadow-lg` 
-        : `${accentColor} neu-flat`
-    )}>
-      <IconComponent className={cn(
-        "h-5 w-5 transition-all duration-300",
-        isActive 
-          ? "text-white drop-shadow-sm" 
-          : "text-muted-foreground"
-      )} 
-      strokeWidth={isActive ? 2.5 : 2}
+    <div
+      className={cn(
+        "absolute inset-0 rounded-2xl blur-sm transition-all duration-300",
+        isActive ? "bg-primary/40 translate-y-1" : "bg-transparent",
+      )}
+    />
+    <div
+      className={cn(
+        "relative flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-300",
+        isActive ? `bg-gradient-to-br ${colorClass} shadow-lg` : `${accentColor} neu-flat`,
+      )}
+    >
+      <IconComponent
+        className={cn(
+          "h-5 w-5 transition-all duration-300",
+          isActive ? "text-white drop-shadow-sm" : "text-muted-foreground",
+        )}
+        strokeWidth={isActive ? 2.5 : 2}
       />
     </div>
   </div>
 );
 
-const menuItems = [
-  { 
-    id: "analytics", 
-    label: "Control Tower", 
-    icon: LayoutDashboard,
-    description: "Analíticas en tiempo real",
-    colorClass: "from-primary to-blue-600",
-    accentColor: "bg-primary/10"
-  },
-  { 
-    id: "mapa", 
-    label: "Mapa Real-time", 
-    icon: MapPin,
-    description: "Vista en vivo de entregas",
-    colorClass: "from-blue-500 to-cyan-500",
-    accentColor: "bg-blue-500/10"
-  },
-  { 
-    id: "despacho", 
-    label: "Despacho", 
-    icon: Package,
-    description: "Gestión de pedidos",
-    colorClass: "from-emerald-500 to-teal-500",
-    accentColor: "bg-emerald-500/10"
-  },
-  { 
-    id: "inventario", 
-    label: "Inventario Bodega", 
-    icon: Warehouse,
-    description: "Control de stock",
-    colorClass: "from-amber-500 to-orange-500",
-    accentColor: "bg-amber-500/10"
-  },
-  { 
-    id: "novedades", 
-    label: "Novedades", 
-    icon: AlertTriangle,
-    description: "Pedidos con problemas",
-    badge: true,
-    colorClass: "from-orange-500 to-red-500",
-    accentColor: "bg-orange-500/10"
-  },
-  { 
-    id: "liquidaciones", 
-    label: "Liquidaciones", 
-    icon: DollarSign,
-    description: "Cierre de entregas",
-    colorClass: "from-violet-500 to-purple-500",
-    accentColor: "bg-violet-500/10"
-  },
-  { 
-    id: "informes", 
-    label: "Informes", 
-    icon: FileText,
-    description: "Reportes y exportación",
-    colorClass: "from-indigo-500 to-blue-500",
-    accentColor: "bg-indigo-500/10"
-  },
-  { 
-    id: "configuracion", 
-    label: "Configuración", 
-    icon: Settings,
-    description: "Ajustes del sistema",
-    colorClass: "from-slate-500 to-gray-500",
-    accentColor: "bg-slate-500/10"
-  },
-  { 
-    id: "auditoria", 
-    label: "Auditoría", 
-    icon: Database,
-    description: "Vista bruta de Supabase",
-    colorClass: "from-rose-500 to-pink-500",
-    accentColor: "bg-rose-500/10"
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  description: string;
+  colorClass: string;
+  accentColor: string;
+  badge?: boolean;
+}
+
+interface MenuGroup {
+  label: string;
+  items: MenuItem[];
+}
+
+const MENU_GROUPS: MenuGroup[] = [
+  {
+    label: "🚚 Operaciones",
+    items: [
+      {
+        id: "analytics",
+        label: "Control Tower",
+        icon: LayoutDashboard,
+        description: "Analíticas en tiempo real",
+        colorClass: "from-primary to-blue-600",
+        accentColor: "bg-primary/10",
+      },
+      {
+        id: "mapa",
+        label: "Mapa Real-time",
+        icon: MapPin,
+        description: "Vista en vivo de entregas",
+        colorClass: "from-blue-500 to-cyan-500",
+        accentColor: "bg-blue-500/10",
+      },
+      {
+        id: "despachos",
+        label: "Centro de Despachos",
+        icon: Package,
+        description: "Pedidos, ruta y novedades",
+        badge: true,
+        colorClass: "from-emerald-500 to-teal-500",
+        accentColor: "bg-emerald-500/10",
+      },
+      {
+        id: "inventario",
+        label: "Inventario Bodega",
+        icon: Warehouse,
+        description: "Control de stock",
+        colorClass: "from-amber-500 to-orange-500",
+        accentColor: "bg-amber-500/10",
+      },
+    ],
   },
   {
-    id: "finanzas",
-    label: "Admin Finanzas",
-    icon: DollarSign,
-    description: "Retiros y pagos a tiendas",
-    colorClass: "from-emerald-500 to-green-600",
-    accentColor: "bg-emerald-500/10"
+    label: "💰 Finanzas",
+    items: [
+      {
+        id: "tesoreria",
+        label: "Tesorería",
+        icon: Wallet,
+        description: "Liquidación, pagos y rentabilidad",
+        colorClass: "from-emerald-500 to-green-600",
+        accentColor: "bg-emerald-500/10",
+      },
+    ],
   },
   {
-    id: "admin-wallet",
-    label: "Billetera Admin",
-    icon: Wallet,
-    description: "Rentabilidad por envío",
-    colorClass: "from-teal-500 to-cyan-600",
-    accentColor: "bg-teal-500/10"
+    label: "📊 Análisis y Sistema",
+    items: [
+      {
+        id: "informes",
+        label: "Informes",
+        icon: FileText,
+        description: "Reportes y exportación",
+        colorClass: "from-indigo-500 to-blue-500",
+        accentColor: "bg-indigo-500/10",
+      },
+      {
+        id: "monitoreo",
+        label: "Monitoreo Técnico",
+        icon: Activity,
+        description: "Webhooks, Flex y auditoría",
+        colorClass: "from-violet-500 to-purple-600",
+        accentColor: "bg-violet-500/10",
+      },
+    ],
   },
   {
-    id: "integraciones", 
-    label: "API & Integraciones", 
-    icon: Key,
-    description: "Webhooks y llaves API",
-    colorClass: "from-cyan-500 to-teal-500",
-    accentColor: "bg-cyan-500/10"
-  },
-  {
-    id: "flex",
-    label: "Monitor Flex",
-    icon: Zap,
-    description: "Mercado Libre Flex",
-    colorClass: "from-amber-500 to-yellow-500",
-    accentColor: "bg-amber-500/10"
-  },
-  {
-    id: "webhook-monitor",
-    label: "Webhook Monitor",
-    icon: Satellite,
-    description: "Shadow Layer entrante",
-    colorClass: "from-violet-500 to-purple-600",
-    accentColor: "bg-violet-500/10"
-  },
-  {
-    id: "liquidacion-aliados",
-    label: "Cuentas Aliados",
-    icon: Handshake,
-    description: "Liquidación aliados logísticos",
-    colorClass: "from-sky-500 to-blue-600",
-    accentColor: "bg-sky-500/10",
-    superAdminOnly: true,
+    label: "⚙️ Ajustes",
+    items: [
+      {
+        id: "configuracion",
+        label: "Configuración General",
+        icon: Settings,
+        description: "Usuarios, API y sistema",
+        colorClass: "from-slate-500 to-gray-500",
+        accentColor: "bg-slate-500/10",
+      },
+    ],
   },
 ];
 
-const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, userRole }: AdminSidebarProps) => {
+const AdminSidebar = ({
+  activeSection,
+  onSectionChange,
+  novedadesCount = 0,
+  userRole,
+}: AdminSidebarProps) => {
   const { branding } = useTheme();
-  const isSuperAdmin = userRole === "super_admin";
-
   const isAliado = userRole === "aliado_logistico";
-
-  let allMenuItems = isSuperAdmin
-    ? [...menuItems, {
-        id: "super-admin",
-        label: "Súper Admin",
-        icon: ShieldCheck,
-        description: "Gestión de organizaciones",
-        colorClass: "from-yellow-500 to-amber-600",
-        accentColor: "bg-yellow-500/10",
-      }]
-    : menuItems.filter(item => !(item as any).superAdminOnly);
-
-  if (isAliado) {
-    allMenuItems = allMenuItems.filter(item => ALIADO_ALLOWED_SECTIONS.includes(item.id));
-  }
   const [collapsed, setCollapsed] = useState(false);
 
+  // Resolve current parent section (handles legacy IDs)
+  const currentParent = LEGACY_TO_NEW[activeSection] ?? activeSection;
+
+  const groups = isAliado
+    ? MENU_GROUPS.map((g) => ({
+        ...g,
+        items: g.items.filter((it) => ALIADO_ALLOWED_SECTIONS.includes(it.id)),
+      })).filter((g) => g.items.length > 0)
+    : MENU_GROUPS;
+
   return (
-    <aside 
+    <aside
       className={cn(
         "flex flex-col glass-strong transition-all duration-300 h-full border-r border-white/20",
-        collapsed ? "w-24" : "w-80"
+        collapsed ? "w-24" : "w-80",
       )}
     >
-      {/* Logo - Glassmorphic Header */}
+      {/* Logo */}
       <div className="flex items-center justify-between p-5 border-b border-white/10">
         {!collapsed && (
           <div className="flex items-center gap-2 min-w-0">
@@ -246,6 +229,7 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, user
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-3 rounded-2xl neu-flat hover:shadow-elevated transition-all duration-200"
+          aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
         >
           {collapsed ? (
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
@@ -256,50 +240,59 @@ const AdminSidebar = ({ activeSection, onSectionChange, novedadesCount = 0, user
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-3">
-        {allMenuItems.map((item) => {
-          const isActive = activeSection === item.id;
-          
-          return (
-            <button
-              key={item.id}
-              onClick={() => onSectionChange(item.id)}
-              className={cn(
-                "w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300",
-                isActive 
-                  ? "neu-pressed" 
-                  : "neu-flat hover:shadow-elevated"
-              )}
-            >
-              <div className="relative">
-                <Icon3D 
-                  icon={item.icon} 
-                  isActive={isActive}
-                  colorClass={item.colorClass}
-                  accentColor={item.accentColor}
-                />
-                {item.badge && novedadesCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 text-[10px] font-bold text-white shadow-lg animate-pulse">
-                    {novedadesCount > 9 ? "9+" : novedadesCount}
-                  </span>
-                )}
-              </div>
-              {!collapsed && (
-                <div className="flex-1 text-left">
-                  <p className={cn(
-                    "text-sm font-bold transition-colors duration-200",
-                    isActive ? "text-foreground" : "text-muted-foreground"
-                  )}>
-                    {item.label}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {item.description}
-                  </p>
-                </div>
-              )}
-            </button>
-          );
-        })}
+      <nav className="flex-1 p-4 overflow-y-auto space-y-5">
+        {groups.map((group) => (
+          <div key={group.label} className="space-y-2">
+            {!collapsed && (
+              <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                {group.label}
+              </p>
+            )}
+            <div className="space-y-2">
+              {group.items.map((item) => {
+                const isActive = currentParent === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onSectionChange(item.id)}
+                    className={cn(
+                      "w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300",
+                      isActive ? "neu-pressed" : "neu-flat hover:shadow-elevated",
+                    )}
+                  >
+                    <div className="relative">
+                      <Icon3D
+                        icon={item.icon}
+                        isActive={isActive}
+                        colorClass={item.colorClass}
+                        accentColor={item.accentColor}
+                      />
+                      {item.badge && novedadesCount > 0 && (
+                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 text-[10px] font-bold text-white shadow-lg animate-pulse">
+                          {novedadesCount > 9 ? "9+" : novedadesCount}
+                        </span>
+                      )}
+                    </div>
+                    {!collapsed && (
+                      <div className="flex-1 text-left">
+                        <p
+                          className={cn(
+                            "text-sm font-bold transition-colors duration-200",
+                            isActive ? "text-foreground" : "text-muted-foreground",
+                          )}
+                        >
+                          {item.label}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{item.description}</p>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}

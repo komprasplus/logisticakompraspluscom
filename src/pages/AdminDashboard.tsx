@@ -35,6 +35,7 @@ import {
   Upload,
   CalendarCheck,
   Banknote,
+  Wallet,
 } from "lucide-react";
  import { TrendingUp, LayoutDashboard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -205,7 +206,12 @@ const AdminDashboard = () => {
   // UI state
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const isAliado = userRole === "aliado_logistico";
-  const [activeSection, setActiveSection] = useState<string>(isAliado ? "despacho" : "analytics");
+  const [activeSection, setActiveSection] = useState<string>(isAliado ? "despachos" : "analytics");
+  // Sub-tab state for consolidated sections
+  const [despachosTab, setDespachosTab] = useState<string>("todos");
+  const [tesoreriaTab, setTesoreriaTab] = useState<string>("liquidaciones");
+  const [monitoreoTab, setMonitoreoTab] = useState<string>("webhook");
+  const [configuracionTab, setConfiguracionTab] = useState<string>("usuarios");
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [municipioFilter, setMunicipioFilter] = useState<string>("todos");
@@ -748,8 +754,8 @@ const AdminDashboard = () => {
     cancelled: cancelledCount,
   };
 
-  const renderMainContent = () => {
-    switch (activeSection) {
+  const renderSectionById = (sectionId: string): React.ReactNode => {
+    switch (sectionId) {
       case "analytics":
         return (
           <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
@@ -1635,7 +1641,7 @@ const AdminDashboard = () => {
           </motion.div>
         );
 
-      case "configuracion":
+      case "configuracion-usuarios":
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
             {/* Admin Notes Section */}
@@ -1747,14 +1753,203 @@ const AdminDashboard = () => {
     }
   };
 
+  // Consolidated section wrapper: renders Tabs UI for new grouped sections,
+  // delegating to legacy section renderers via renderSectionById.
+  const renderMainContent = (): React.ReactNode => {
+    // Centro de Despachos (Despacho + Novedades)
+    if (activeSection === "despachos") {
+      return (
+        <div className="flex flex-col h-full">
+          <div className="px-4 pt-4">
+            <Tabs value={despachosTab} onValueChange={setDespachosTab} className="w-full">
+              <TabsList className="grid w-full max-w-md grid-cols-3">
+                <TabsTrigger value="todos" className="gap-2">
+                  <Package className="h-4 w-4" />
+                  Todos
+                </TabsTrigger>
+                <TabsTrigger value="en-ruta" className="gap-2">
+                  <Truck className="h-4 w-4" />
+                  En Ruta
+                </TabsTrigger>
+                <TabsTrigger value="novedades" className="gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Novedades
+                  {stats.novedad > 0 && (
+                    <span className="ml-1 rounded-full bg-orange-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                      {stats.novedad}
+                    </span>
+                  )}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          <div className="flex-1">
+            {despachosTab === "novedades"
+              ? renderSectionById("novedades")
+              : renderSectionById("despacho")}
+          </div>
+        </div>
+      );
+    }
+
+    // Tesorería (Liquidaciones + Pagos a Tiendas + Mi Rentabilidad + Liquidación Aliados)
+    if (activeSection === "tesoreria") {
+      const isSuperAdmin = userRole === "super_admin";
+      return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <Wallet className="h-6 w-6 text-emerald-600" />
+            <h2 className="text-xl font-bold text-foreground">Tesorería</h2>
+          </div>
+          <Tabs value={tesoreriaTab} onValueChange={setTesoreriaTab} className="w-full">
+            <TabsList className={`grid w-full ${isSuperAdmin ? "grid-cols-4" : "grid-cols-3"} mb-4`}>
+              <TabsTrigger value="liquidaciones" className="gap-2">
+                <DollarSign className="h-4 w-4" />
+                <span className="hidden sm:inline">Cierre y Liquidación</span>
+                <span className="sm:hidden">Cierre</span>
+              </TabsTrigger>
+              <TabsTrigger value="pagos" className="gap-2">
+                <Store className="h-4 w-4" />
+                <span className="hidden sm:inline">Pagos a Tiendas</span>
+                <span className="sm:hidden">Pagos</span>
+              </TabsTrigger>
+              <TabsTrigger value="rentabilidad" className="gap-2">
+                <TrendingUp className="h-4 w-4" />
+                <span className="hidden sm:inline">Mi Rentabilidad</span>
+                <span className="sm:hidden">Rent.</span>
+              </TabsTrigger>
+              {isSuperAdmin && (
+                <TabsTrigger value="aliados" className="gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  <span className="hidden sm:inline">Liquidación Aliados</span>
+                  <span className="sm:hidden">Aliados</span>
+                </TabsTrigger>
+              )}
+            </TabsList>
+            <TabsContent value="liquidaciones" className="mt-0">
+              {renderSectionById("liquidaciones")}
+            </TabsContent>
+            <TabsContent value="pagos" className="mt-0">
+              {renderSectionById("finanzas")}
+            </TabsContent>
+            <TabsContent value="rentabilidad" className="mt-0">
+              {renderSectionById("admin-wallet")}
+            </TabsContent>
+            {isSuperAdmin && (
+              <TabsContent value="aliados" className="mt-0">
+                {renderSectionById("liquidacion-aliados")}
+              </TabsContent>
+            )}
+          </Tabs>
+        </motion.div>
+      );
+    }
+
+    // Monitoreo Técnico (Webhook Monitor + Monitor Flex + Auditoría)
+    if (activeSection === "monitoreo") {
+      return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <LayoutDashboard className="h-6 w-6 text-violet-600" />
+            <h2 className="text-xl font-bold text-foreground">Monitoreo Técnico</h2>
+          </div>
+          <Tabs value={monitoreoTab} onValueChange={setMonitoreoTab} className="w-full">
+            <TabsList className="grid w-full max-w-xl grid-cols-3 mb-4">
+              <TabsTrigger value="webhook">Webhook Monitor</TabsTrigger>
+              <TabsTrigger value="flex">Monitor Flex</TabsTrigger>
+              <TabsTrigger value="auditoria">Auditoría</TabsTrigger>
+            </TabsList>
+            <TabsContent value="webhook" className="mt-0">
+              {renderSectionById("webhook-monitor")}
+            </TabsContent>
+            <TabsContent value="flex" className="mt-0">
+              {renderSectionById("flex")}
+            </TabsContent>
+            <TabsContent value="auditoria" className="mt-0">
+              {renderSectionById("auditoria")}
+            </TabsContent>
+          </Tabs>
+        </motion.div>
+      );
+    }
+
+    // Configuración General (Usuarios + API & Integraciones + Súper Admin)
+    if (activeSection === "configuracion") {
+      const isSuperAdmin = userRole === "super_admin";
+      return (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+          <div className="mb-4 flex items-center gap-2">
+            <LayoutDashboard className="h-6 w-6 text-slate-600" />
+            <h2 className="text-xl font-bold text-foreground">Configuración General</h2>
+          </div>
+          <Tabs value={configuracionTab} onValueChange={setConfiguracionTab} className="w-full">
+            <TabsList className={`grid w-full max-w-xl ${isSuperAdmin ? "grid-cols-3" : "grid-cols-2"} mb-4`}>
+              <TabsTrigger value="usuarios" className="gap-2">
+                <Users className="h-4 w-4" />
+                Usuarios
+              </TabsTrigger>
+              <TabsTrigger value="integraciones" className="gap-2">
+                <Key className="h-4 w-4" />
+                <span className="hidden sm:inline">API & Integraciones</span>
+                <span className="sm:hidden">API</span>
+              </TabsTrigger>
+              {isSuperAdmin && (
+                <TabsTrigger value="super-admin" className="gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  <span className="hidden sm:inline">Súper Admin</span>
+                  <span className="sm:hidden">Super</span>
+                </TabsTrigger>
+              )}
+            </TabsList>
+            <TabsContent value="usuarios" className="mt-0">
+              {renderSectionById("configuracion-usuarios")}
+            </TabsContent>
+            <TabsContent value="integraciones" className="mt-0">
+              {renderSectionById("integraciones")}
+            </TabsContent>
+            {isSuperAdmin && (
+              <TabsContent value="super-admin" className="mt-0">
+                {renderSectionById("super-admin")}
+              </TabsContent>
+            )}
+          </Tabs>
+        </motion.div>
+      );
+    }
+
+    return renderSectionById(activeSection);
+  };
+
   return (
     <div className="min-h-screen flex bg-background">
       {/* Sidebar */}
       <AdminSidebar 
         activeSection={activeSection} 
         onSectionChange={(section) => {
-          if (isAliado && !["despacho", "mapa", "novedades"].includes(section)) return;
-          setActiveSection(section);
+          // Map legacy section IDs to new consolidated sections + pre-select tab
+          const legacyMap: Record<string, { parent: string; tab?: string }> = {
+            despacho: { parent: "despachos", tab: "todos" },
+            novedades: { parent: "despachos", tab: "novedades" },
+            liquidaciones: { parent: "tesoreria", tab: "liquidaciones" },
+            finanzas: { parent: "tesoreria", tab: "pagos" },
+            "admin-wallet": { parent: "tesoreria", tab: "rentabilidad" },
+            "liquidacion-aliados": { parent: "tesoreria", tab: "aliados" },
+            "webhook-monitor": { parent: "monitoreo", tab: "webhook" },
+            flex: { parent: "monitoreo", tab: "flex" },
+            auditoria: { parent: "monitoreo", tab: "auditoria" },
+            integraciones: { parent: "configuracion", tab: "integraciones" },
+            "super-admin": { parent: "configuracion", tab: "super-admin" },
+          };
+          const resolved = legacyMap[section];
+          const target = resolved ? resolved.parent : section;
+          if (isAliado && !["despachos", "mapa"].includes(target)) return;
+          if (resolved?.tab) {
+            if (resolved.parent === "despachos") setDespachosTab(resolved.tab);
+            if (resolved.parent === "tesoreria") setTesoreriaTab(resolved.tab);
+            if (resolved.parent === "monitoreo") setMonitoreoTab(resolved.tab);
+            if (resolved.parent === "configuracion") setConfiguracionTab(resolved.tab);
+          }
+          setActiveSection(target);
         }}
         novedadesCount={stats.novedad}
         userRole={userRole}
