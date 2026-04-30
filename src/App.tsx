@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 // Eager-load lightweight pages
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import Registro from "./pages/Registro";
 import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
@@ -153,6 +154,8 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/registro" element={<Registro />} />
+      <Route path="/signup" element={<Navigate to="/registro" replace />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       
       {/* White-label tenant routes */}
