@@ -753,8 +753,8 @@ const AdminDashboard = () => {
     cancelled: cancelledCount,
   };
 
-  const renderMainContent = () => {
-    switch (activeSection) {
+  const renderSectionById = (sectionId: string): React.ReactNode => {
+    switch (sectionId) {
       case "analytics":
         return (
           <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
