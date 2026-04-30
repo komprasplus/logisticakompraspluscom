@@ -891,121 +891,108 @@ const NuevoPedidoModal = ({
 
         {/* Modal */}
         <motion.div
-          className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4 rounded-2xl bg-card shadow-xl"
+          className="relative z-10 w-full max-w-5xl max-h-[92vh] flex flex-col mx-4 rounded-2xl bg-card shadow-2xl overflow-hidden"
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card p-4">
+          <div className="shrink-0 flex items-center justify-between border-b border-border bg-card px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
                 <Package className="h-5 w-5 text-primary" />
               </div>
-              <h2 className="text-lg font-bold text-foreground">Nuevo Pedido</h2>
+              <div>
+                <h2 className="text-xl font-bold text-foreground">📦 Nuevo Pedido</h2>
+                <p className="text-xs text-muted-foreground">Completa los datos del cliente y del producto</p>
+              </div>
             </div>
             <button
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted transition-colors"
             >
               <X className="h-5 w-5 text-muted-foreground" />
             </button>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-4 space-y-5">
+          {/* Form — scrollable body + sticky footer */}
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
 
-            {/* ============ SECTION 0: Service Type ============ */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Tipo de Servicio
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
+            {/* Top header row: Service type + Payment method (full width) */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-3 pb-3 border-b border-border">
+
+              {/* Tipo de Servicio segmented */}
+              <div className="inline-flex items-center rounded-full border border-border bg-muted/40 p-1 mx-auto md:mx-0">
                 <button
                   type="button"
                   onClick={() => setTipoServicio("ENVIO")}
                   className={cn(
-                    "group flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                    "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all",
                     tipoServicio === "ENVIO"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      ? "bg-primary text-primary-foreground shadow"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <Truck className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Envío a Cliente</span>
+                  <Truck className="w-3.5 h-3.5" /> 🚚 Envío
                 </button>
                 <button
                   type="button"
                   onClick={() => setTipoServicio("RECOGIDA")}
                   className={cn(
-                    "group flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                    "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all",
                     tipoServicio === "RECOGIDA"
-                      ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      ? "bg-orange-500 text-white shadow"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <RotateCcw className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Logística Inversa</span>
-                </button>
-              </div>
-              {tipoServicio === "RECOGIDA" && (
-                <p className="text-xs text-orange-600 dark:text-orange-400 bg-orange-500/10 p-2 rounded-lg border border-orange-500/30">
-                  🔄 <strong>Recogida:</strong> El motorizado recogerá el paquete en la dirección del cliente y lo llevará a la bodega. No se recauda dinero.
-                </p>
-              )}
-            </div>
-            
-            {/* ============ SECTION 1: Payment Method (FIRST) ============ */}
-            {tipoServicio === "RECOGIDA" ? (
-              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm text-orange-600 dark:text-orange-400">
-                💰 <strong>Recaudo: $0</strong> — En logística inversa no se recauda dinero. El flete se cobra internamente.
-              </div>
-            ) : (
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Método de Pago
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMetodoPago("efectivo")}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
-                    metodoPago === "efectivo"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                  )}
-                >
-                  <Banknote className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Contra Entrega</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMetodoPago("anticipado");
-                    setValorRecaudar("");
-                  }}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
-                    metodoPago === "anticipado"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                  )}
-                >
-                  <CreditCard className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Pago Anticipado</span>
+                  <RotateCcw className="w-3.5 h-3.5" /> 🔄 Logística Inversa
                 </button>
               </div>
 
-              {/* Valor a Recaudar - Only show for Contra Entrega */}
-              {metodoPago === "efectivo" && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="relative"
-                >
+              {/* Método de Pago segmented (hidden in RECOGIDA) */}
+              {tipoServicio === "ENVIO" && (
+                <div className="inline-flex items-center rounded-full border border-border bg-muted/40 p-1 mx-auto md:mx-0">
+                  <button
+                    type="button"
+                    onClick={() => setMetodoPago("efectivo")}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all",
+                      metodoPago === "efectivo"
+                        ? "bg-primary text-primary-foreground shadow"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Banknote className="w-3.5 h-3.5" /> 💵 Contra Entrega
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMetodoPago("anticipado"); setValorRecaudar(""); }}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all",
+                      metodoPago === "anticipado"
+                        ? "bg-primary text-primary-foreground shadow"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <CreditCard className="w-3.5 h-3.5" /> 💳 Pago Anticipado
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* /Top header row */}
+
+            {tipoServicio === "RECOGIDA" && (
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm text-orange-600 dark:text-orange-400">
+                💰 <strong>Recaudo: $0</strong> — En logística inversa no se recauda dinero. El flete se cobra internamente.
+              </div>
+            )}
+
+            {/* Valor a Recaudar (full width band) */}
+            {tipoServicio === "ENVIO" && metodoPago === "efectivo" && (
+              <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">💵 Valor a Recaudar</h3>
+                <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="number"
@@ -1021,26 +1008,30 @@ const NuevoPedidoModal = ({
                       isMultiProductMode && orderItems.length > 0 && "bg-muted cursor-not-allowed"
                     )}
                   />
-                  {isMultiProductMode && orderItems.length > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      💡 Calculado automáticamente desde los productos añadidos.
-                    </p>
-                  )}
-                </motion.div>
-              )}
-
-              {metodoPago === "anticipado" && (
-                <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
-                  💳 El flete se cobrará internamente. No hay recaudo en la entrega.
-                </p>
-              )}
-            </div>
+                </div>
+                {isMultiProductMode && orderItems.length > 0 && (
+                  <p className="text-xs text-muted-foreground">💡 Calculado automáticamente desde los productos añadidos.</p>
+                )}
+              </div>
             )}
+
+            {tipoServicio === "ENVIO" && metodoPago === "anticipado" && (
+              <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
+                💳 El flete se cobrará internamente. No hay recaudo en la entrega.
+              </p>
+            )}
+
+            {/* ============ TWO COLUMN BODY ============ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* ===================== LEFT COLUMN ===================== */}
+            <div className="space-y-5 rounded-2xl border border-border bg-card p-5">
 
             {/* ============ SECTION 2: Client Data ============ */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Datos del Cliente
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                👤 Datos del Cliente
+
               </h3>
               
               {/* Nombre */}
@@ -1258,16 +1249,20 @@ const NuevoPedidoModal = ({
                 </div>
               )}
             </div>
+            {/* /LEFT COLUMN */}
+            </div>
+
+            {/* ===================== RIGHT COLUMN ===================== */}
+            <div className="space-y-5 rounded-2xl border border-border bg-card p-5">
 
             {/* ============ SECTION 4: Package / Products ============ */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4" />
-                {tipoServicio === "RECOGIDA" 
-                  ? "Descripción del Paquete a Recoger" 
-                  : isMultiProductMode ? "Productos del Pedido" : "Detalles del Paquete"}
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                {tipoServicio === "RECOGIDA"
+                  ? <>📦 Descripción del Paquete a Recoger</>
+                  : isMultiProductMode ? <>📦 Productos del Pedido</> : <>📦 Detalles del Paquete</>}
               </h3>
-              
+
               {/* ===== RECOGIDA MODE: Simple textarea ===== */}
               {tipoServicio === "RECOGIDA" && (
                 <div className="space-y-2">
@@ -1846,30 +1841,48 @@ const NuevoPedidoModal = ({
                 ⚠️ Debes seleccionar al menos una variante antes de crear el pedido.
               </p>
             )}
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))
-              }
-              className={cn(
-                "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
-                "bg-primary text-primary-foreground hover:opacity-90",
-                (loading || (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))) && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Creando pedido...
-                </>
-              ) : (
-                <>
-                  <Package className="h-5 w-5" />
-                  Crear Pedido
-                </>
-              )}
-            </button>
+            </div>
+            {/* /RIGHT COLUMN */}
+            </div>
+            {/* /TWO COLUMN BODY */}
+            </div>
+            {/* /scrollable body */}
+
+            {/* ============ STICKY FOOTER ============ */}
+            <div className="shrink-0 border-t border-border bg-card px-6 py-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))
+                }
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold transition-all shadow-lg",
+                  "bg-primary text-primary-foreground hover:opacity-90",
+                  (loading || (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))) && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Creando pedido...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-5 w-5" />
+                    Confirmar y Crear Pedido
+                  </>
+                )}
+              </button>
+            </div>
           </form>
         </motion.div>
       </div>
