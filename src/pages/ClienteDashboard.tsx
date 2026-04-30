@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePedidosQuery } from "@/hooks/usePedidosQuery";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
-import EditPedidoModal from "@/components/EditPedidoModal";
+
 import PrintGuiaModal from "@/components/PrintGuiaModal";
 import ClientOrderInstructions from "@/components/ClientOrderInstructions";
 import EvidencePhotoModal from "@/components/EvidencePhotoModal";
