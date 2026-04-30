@@ -401,8 +401,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       )}
 
 
-      {/* Carrusel de Proveedores Destacados — siempre se renderiza,
-          incluso si no hay proveedores aún (muestra solo "Todos"). */}
+      {/* Carrusel de Proveedores Destacados — solo en pestaña Explorar */}
+      {activeTab === "explorar" && (
       <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Proveedores destacados</h3>
