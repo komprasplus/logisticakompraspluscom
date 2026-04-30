@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<AppRole | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roleFetchFailed, setRoleFetchFailed] = useState(false);
 
   // Emergency: prevent double-fetch storms (onAuthStateChange + getSession can both fire)
   const fetchInFlightRef = useRef(false);
