@@ -46,12 +46,22 @@ interface MarketplaceCatalogProps {
   }) => void;
 }
 
+interface ProveedorDestacado {
+  user_id: string;
+  store_name: string | null;
+  full_name: string;
+  logo_url: string | null;
+  avatar_url: string | null;
+  product_count: number;
+}
+
 const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const { profile } = useAuth();
   const orgId = profile?.organizacion_id;
   const [search, setSearch] = useState("");
   const [detailProduct, setDetailProduct] = useState<MarketplaceProduct | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [selectedProveedor, setSelectedProveedor] = useState<string | null>(null);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["marketplace-catalog", orgId],
@@ -69,10 +79,55 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
     staleTime: 60_000,
   });
 
-  const filtered = products.filter(p =>
-    p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku.toLowerCase().includes(search.toLowerCase())
-  );
+  // Proveedores destacados: perfiles tipo_cuenta='proveedor' cruzados con conteo de productos activos
+  const { data: proveedores = [] } = useQuery({
+    queryKey: ["marketplace-proveedores", orgId, products.length],
+    queryFn: async () => {
+      const supplierIds = Array.from(
+        new Set(
+          products
+            .map((p) => p.created_by)
+            .filter((id): id is string => !!id)
+        )
+      );
+      if (supplierIds.length === 0) return [] as ProveedorDestacado[];
+
+      const { data: profilesData, error } = await (supabase as any)
+        .from("profiles")
+        .select("user_id, store_name, full_name, logo_url, avatar_url, tipo_cuenta")
+        .in("user_id", supplierIds)
+        .eq("tipo_cuenta", "proveedor");
+      if (error) throw error;
+
+      // Contar productos activos por proveedor
+      const counts = new Map<string, number>();
+      products.forEach((p) => {
+        if (p.created_by) counts.set(p.created_by, (counts.get(p.created_by) ?? 0) + 1);
+      });
+
+      return (profilesData ?? [])
+        .map((pr: any) => ({
+          user_id: pr.user_id,
+          store_name: pr.store_name,
+          full_name: pr.full_name,
+          logo_url: pr.logo_url,
+          avatar_url: pr.avatar_url,
+          product_count: counts.get(pr.user_id) ?? 0,
+        }))
+        .filter((p: ProveedorDestacado) => p.product_count > 0)
+        .sort((a: ProveedorDestacado, b: ProveedorDestacado) => b.product_count - a.product_count);
+    },
+    enabled: !!orgId && products.length > 0,
+    staleTime: 60_000,
+  });
+
+  const filtered = products.filter((p) => {
+    const matchSearch =
+      p.product_name.toLowerCase().includes(search.toLowerCase()) ||
+      p.sku.toLowerCase().includes(search.toLowerCase());
+    const matchProveedor = !selectedProveedor || p.created_by === selectedProveedor;
+    return matchSearch && matchProveedor;
+  });
 
   const openDetails = (product: MarketplaceProduct) => {
     setDetailProduct(product);
@@ -128,7 +183,104 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
         />
       </div>
 
-      {/* Grid */}
+      {/* Carrusel de Proveedores Destacados */}
+      {proveedores.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Proveedores destacados</h3>
+            {selectedProveedor && (
+              <button
+                type="button"
+                onClick={() => setSelectedProveedor(null)}
+                className="text-xs text-primary font-medium hover:underline"
+              >
+                Limpiar filtro
+              </button>
+            )}
+          </div>
+
+          <div
+            className="flex flex-row gap-3 overflow-x-auto py-2 -mx-1 px-1"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            {/* Tarjeta "Todos" */}
+            <button
+              type="button"
+              onClick={() => setSelectedProveedor(null)}
+              className={cn(
+                "flex-shrink-0 rounded-xl border shadow-sm p-3 flex items-center gap-3 bg-card transition-all min-w-[200px]",
+                !selectedProveedor
+                  ? "border-primary ring-2 ring-primary/30"
+                  : "border-border hover:border-primary/40",
+              )}
+            >
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Boxes className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex flex-col items-start min-w-0">
+                <span className="font-semibold text-sm text-foreground">Todos</span>
+                <span className="text-xs text-primary font-medium">
+                  {products.length} Productos
+                </span>
+              </div>
+            </button>
+
+            {proveedores.map((prov) => {
+              const isSelected = selectedProveedor === prov.user_id;
+              const displayName = prov.store_name || prov.full_name;
+              const initials = displayName
+                .split(" ")
+                .map((s) => s[0])
+                .filter(Boolean)
+                .slice(0, 2)
+                .join("")
+                .toUpperCase();
+              const avatar = prov.logo_url || prov.avatar_url;
+
+              return (
+                <button
+                  key={prov.user_id}
+                  type="button"
+                  onClick={() =>
+                    setSelectedProveedor(isSelected ? null : prov.user_id)
+                  }
+                  className={cn(
+                    "flex-shrink-0 rounded-xl border shadow-sm p-3 flex items-center gap-3 bg-card transition-all min-w-[220px]",
+                    isSelected
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-border hover:border-primary/40",
+                  )}
+                >
+                  <div className="h-12 w-12 rounded-full bg-muted overflow-hidden flex items-center justify-center flex-shrink-0">
+                    {avatar ? (
+                      <img
+                        src={avatar}
+                        alt={displayName}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="text-sm font-bold text-muted-foreground">
+                        {initials || "?"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-start min-w-0">
+                    <span className="font-semibold text-sm text-foreground truncate max-w-[140px]">
+                      {displayName}
+                    </span>
+                    <span className="text-xs font-medium text-primary">
+                      {prov.product_count}{" "}
+                      {prov.product_count === 1 ? "Producto" : "Productos"}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />

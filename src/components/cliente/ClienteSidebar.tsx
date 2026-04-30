@@ -41,6 +41,8 @@ interface ClienteSidebarProps {
   novedadesCount: number;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  /** Tipo de cuenta del usuario logueado: 'dropshipper' | 'proveedor' | null (legacy) */
+  tipoCuenta?: string | null;
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -166,7 +168,16 @@ const ClienteSidebar = ({
   novedadesCount,
   collapsed,
   onToggleCollapse,
+  tipoCuenta,
 }: ClienteSidebarProps) => {
+  const isProveedor = tipoCuenta === "proveedor";
+
+  // Para proveedores ocultamos el catálogo (es para abastecerse, ellos son la fuente)
+  // y dejamos visibles inventario, pedidos a despachar, billetera y reportes.
+  const visibleNavItems = navItems.filter((item) => {
+    if (isProveedor && item.key === "catalogo") return false;
+    return true;
+  });
   /*
     FIX: respetar `prefers-reduced-motion`.
     Los efectos `whileHover: scale(1.02)` y `whileTap: scale(0.98)` se
@@ -197,7 +208,7 @@ const ClienteSidebar = ({
     >
       {/* Ítems de navegación */}
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto" aria-label="Secciones del panel">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.key;
           const showBadge = item.key === "novedades" && novedadesCount > 0;
