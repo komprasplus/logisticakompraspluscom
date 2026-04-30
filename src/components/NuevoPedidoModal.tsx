@@ -1950,7 +1950,7 @@ const NuevoPedidoModal = ({
             </div>
 
             {/* ============ SECTION 7: Assignment (Admin Only) ============ */}
-            {isAdmin && (
+            {isAdmin && !isEditMode && (
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
