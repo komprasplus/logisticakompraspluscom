@@ -168,7 +168,16 @@ const ClienteSidebar = ({
   novedadesCount,
   collapsed,
   onToggleCollapse,
+  tipoCuenta,
 }: ClienteSidebarProps) => {
+  const isProveedor = tipoCuenta === "proveedor";
+
+  // Para proveedores ocultamos el catálogo (es para abastecerse, ellos son la fuente)
+  // y dejamos visibles inventario, pedidos a despachar, billetera y reportes.
+  const visibleNavItems = navItems.filter((item) => {
+    if (isProveedor && item.key === "catalogo") return false;
+    return true;
+  });
   /*
     FIX: respetar `prefers-reduced-motion`.
     Los efectos `whileHover: scale(1.02)` y `whileTap: scale(0.98)` se
