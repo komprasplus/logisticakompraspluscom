@@ -790,6 +790,32 @@ const NuevoPedidoModal = ({
       // Add organizacion_id
       if (orgId) pedidoData.organizacion_id = orgId;
 
+      // ===== EDIT MODE: UPDATE existing pedido =====
+      if (isEditMode && orderToEdit) {
+        // Strip insert-only fields
+        const { numero_guia, client_user_id, organizacion_id, estado, ...updatePayload } = pedidoData;
+        (updatePayload as any).fecha_actualizacion = new Date().toISOString();
+
+        const { error: updateError } = await supabase
+          .from("pedidos")
+          .update(updatePayload)
+          .eq("id", orderToEdit.id);
+
+        if (updateError) {
+          console.error("Error actualizando pedido:", updateError);
+          toast.error("Error al actualizar el pedido");
+          setLoading(false);
+          return;
+        }
+
+        toast.success(`Pedido #${orderToEdit.id} actualizado correctamente`);
+        resetForm();
+        onSuccess();
+        onClose();
+        setLoading(false);
+        return;
+      }
+
       const { data: newPedido, error } = await supabase.from("pedidos").insert(pedidoData).select("id").single();
 
       if (error) {
@@ -798,6 +824,7 @@ const NuevoPedidoModal = ({
         setLoading(false);
         return;
       }
+
 
       if (!hasCoords) {
         toast.warning("Pedido creado sin coordenadas. Puedes editarlo luego para agregar ubicación.");
