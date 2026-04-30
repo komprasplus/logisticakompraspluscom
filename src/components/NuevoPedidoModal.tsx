@@ -1249,16 +1249,20 @@ const NuevoPedidoModal = ({
                 </div>
               )}
             </div>
+            {/* /LEFT COLUMN */}
+            </div>
+
+            {/* ===================== RIGHT COLUMN ===================== */}
+            <div className="space-y-5 rounded-2xl border border-border bg-card p-5">
 
             {/* ============ SECTION 4: Package / Products ============ */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-                <ShoppingCart className="h-4 w-4" />
-                {tipoServicio === "RECOGIDA" 
-                  ? "Descripción del Paquete a Recoger" 
-                  : isMultiProductMode ? "Productos del Pedido" : "Detalles del Paquete"}
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                {tipoServicio === "RECOGIDA"
+                  ? <>📦 Descripción del Paquete a Recoger</>
+                  : isMultiProductMode ? <>📦 Productos del Pedido</> : <>📦 Detalles del Paquete</>}
               </h3>
-              
+
               {/* ===== RECOGIDA MODE: Simple textarea ===== */}
               {tipoServicio === "RECOGIDA" && (
                 <div className="space-y-2">
