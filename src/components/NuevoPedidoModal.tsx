@@ -81,6 +81,10 @@ interface InventoryPrefill {
   maxStock?: number;
   productType?: string;
   source?: "inventory" | "marketplace";
+  // Split-payments: only set when source === "marketplace"
+  marketplaceProductId?: string;
+  supplierUserId?: string | null;
+  costPrice?: number;
 }
 
 // State for current user's fulfillment rate
