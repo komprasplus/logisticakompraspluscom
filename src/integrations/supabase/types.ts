@@ -1048,6 +1048,7 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          direccion: string | null
           email: string | null
           fulfillment_rate: number | null
           full_name: string
@@ -1063,6 +1064,7 @@ export type Database = {
           phone: string | null
           status: string
           store_name: string | null
+          tipo_cuenta: string | null
           transaction_pin: string | null
           updated_at: string
           user_id: string
@@ -1071,6 +1073,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          direccion?: string | null
           email?: string | null
           fulfillment_rate?: number | null
           full_name: string
@@ -1086,6 +1089,7 @@ export type Database = {
           phone?: string | null
           status?: string
           store_name?: string | null
+          tipo_cuenta?: string | null
           transaction_pin?: string | null
           updated_at?: string
           user_id: string
@@ -1094,6 +1098,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          direccion?: string | null
           email?: string | null
           fulfillment_rate?: number | null
           full_name?: string
@@ -1109,6 +1114,7 @@ export type Database = {
           phone?: string | null
           status?: string
           store_name?: string | null
+          tipo_cuenta?: string | null
           transaction_pin?: string | null
           updated_at?: string
           user_id?: string
