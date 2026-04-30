@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
-  Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket,
+  Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket, Compass,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -10,7 +10,7 @@ const TRENDING_THRESHOLD = 50;
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -25,6 +25,7 @@ interface MarketplaceProduct {
   product_name: string;
   description: string | null;
   sku: string;
+  short_id?: string | null;
   cost_price: number;
   suggested_price: number;
   stock_available: number;
