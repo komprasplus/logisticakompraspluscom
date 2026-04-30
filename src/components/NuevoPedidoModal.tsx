@@ -105,12 +105,35 @@ interface OrderItem {
   maxStock?: number;
 }
 
+export interface OrderToEdit {
+  id: number;
+  cliente_nombre?: string | null;
+  client_phone?: string | null;
+  direccion_entrega?: string | null;
+  barrio?: string | null;
+  zona?: string | null;
+  municipio?: string | null;
+  producto_nombre?: string | null;
+  valor_recaudar?: number | null;
+  valor_producto?: number | null;
+  metodo_pago?: string | null;
+  fecha_entrega?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  observaciones?: string | null;
+  quantity?: number | null;
+  motorizado_asignado?: string | null;
+  inventory_item_id?: string | null;
+  tipo_servicio?: string | null;
+}
+
 interface NuevoPedidoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   isAdmin: boolean;
   inventoryPrefill?: InventoryPrefill;
+  orderToEdit?: OrderToEdit | null;
 }
 
 const NuevoPedidoModal = ({
@@ -119,7 +142,9 @@ const NuevoPedidoModal = ({
   onSuccess,
   isAdmin,
   inventoryPrefill,
+  orderToEdit,
 }: NuevoPedidoModalProps) => {
+  const isEditMode = !!orderToEdit;
   const { profile, user } = useAuth();
   const orgId = profile?.organizacion_id;
 
@@ -197,7 +222,8 @@ const NuevoPedidoModal = ({
 
   // ====== MULTI-PRODUCT STATE ======
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const isMultiProductMode = !inventoryPrefill; // Multi-product when NOT coming from inventory
+  // Multi-product when NOT coming from inventory AND NOT editing
+  const isMultiProductMode = !inventoryPrefill && !isEditMode;
   
   // Schedule — Cut-off 14:00 + skip Sundays & Colombian holidays
   const computeDefaultDeliveryDate = () => getMinDeliveryDate();
@@ -336,6 +362,60 @@ const NuevoPedidoModal = ({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inventoryPrefill, isOpen]);
+
+  // ============ EDIT MODE PRE-FILL ============
+  useEffect(() => {
+    if (!orderToEdit || !isOpen) return;
+
+    setTipoServicio((orderToEdit.tipo_servicio as "ENVIO" | "RECOGIDA") || "ENVIO");
+    setClienteNombre(orderToEdit.cliente_nombre || "");
+    setClienteTelefono(orderToEdit.client_phone || "");
+
+    // Resolve departamento from municipio
+    const muni = orderToEdit.municipio || "";
+    if (muni) {
+      const allDepts = getDepartamentos();
+      const foundDept = allDepts.find((d) =>
+        getMunicipiosByDepartamento(d).includes(muni)
+      );
+      if (foundDept) setDepartamentoSeleccionado(foundDept);
+      setMunicipioSeleccionado(muni);
+    }
+
+    // Strip "..., municipio, departamento" tail if present so the user sees the
+    // exact street they typed originally.
+    const fullAddress = orderToEdit.direccion_entrega || "";
+    const cleanedAddress = muni
+      ? fullAddress.replace(new RegExp(`,\\s*${muni}.*$`, "i"), "").trim()
+      : fullAddress;
+    setDireccionManual(cleanedAddress);
+    setDireccionCompleta(fullAddress);
+    setBarrio(orderToEdit.barrio || "");
+    setAddressSelected(!!fullAddress);
+
+    setProductoNombre(orderToEdit.producto_nombre || "");
+    setValorProducto(
+      orderToEdit.valor_producto != null ? String(orderToEdit.valor_producto) : ""
+    );
+    setValorRecaudar(
+      orderToEdit.valor_recaudar != null ? String(orderToEdit.valor_recaudar) : ""
+    );
+    setMetodoPago(((orderToEdit.metodo_pago as "efectivo" | "anticipado") || "efectivo"));
+    setQuantity(orderToEdit.quantity || 1);
+    setInventoryItemId(orderToEdit.inventory_item_id || null);
+    setObservaciones(orderToEdit.observaciones || "");
+    setMotorizadoAsignado(orderToEdit.motorizado_asignado || "");
+
+    if (orderToEdit.fecha_entrega) {
+      // Parse YYYY-MM-DD locally to avoid timezone shift
+      const [y, m, d] = orderToEdit.fecha_entrega.split("-").map(Number);
+      if (y && m && d) setFechaEntrega(new Date(y, m - 1, d));
+    }
+
+    setConfirmedLat(orderToEdit.latitud ?? null);
+    setConfirmedLng(orderToEdit.longitud ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderToEdit, isOpen]);
 
   // Update observaciones when quantity changes (for inventory orders)
   useEffect(() => {
@@ -710,6 +790,32 @@ const NuevoPedidoModal = ({
       // Add organizacion_id
       if (orgId) pedidoData.organizacion_id = orgId;
 
+      // ===== EDIT MODE: UPDATE existing pedido =====
+      if (isEditMode && orderToEdit) {
+        // Strip insert-only fields
+        const { numero_guia, client_user_id, organizacion_id, estado, ...updatePayload } = pedidoData;
+        (updatePayload as any).fecha_actualizacion = new Date().toISOString();
+
+        const { error: updateError } = await supabase
+          .from("pedidos")
+          .update(updatePayload)
+          .eq("id", orderToEdit.id);
+
+        if (updateError) {
+          console.error("Error actualizando pedido:", updateError);
+          toast.error("Error al actualizar el pedido");
+          setLoading(false);
+          return;
+        }
+
+        toast.success(`Pedido #${orderToEdit.id} actualizado correctamente`);
+        resetForm();
+        onSuccess();
+        onClose();
+        setLoading(false);
+        return;
+      }
+
       const { data: newPedido, error } = await supabase.from("pedidos").insert(pedidoData).select("id").single();
 
       if (error) {
@@ -718,6 +824,7 @@ const NuevoPedidoModal = ({
         setLoading(false);
         return;
       }
+
 
       if (!hasCoords) {
         toast.warning("Pedido creado sin coordenadas. Puedes editarlo luego para agregar ubicación.");
@@ -926,8 +1033,14 @@ const NuevoPedidoModal = ({
                 <Package className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-foreground">📦 Nuevo Pedido</h2>
-                <p className="text-xs text-muted-foreground">Completa los datos del cliente y del producto</p>
+                <h2 className="text-xl font-bold text-foreground">
+                  {isEditMode ? `✏️ Editar Pedido #${orderToEdit?.id}` : "📦 Nuevo Pedido"}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {isEditMode
+                    ? "Modifica los datos del pedido. Los cambios se guardarán inmediatamente."
+                    : "Completa los datos del cliente y del producto"}
+                </p>
               </div>
             </div>
             <button
@@ -1837,7 +1950,7 @@ const NuevoPedidoModal = ({
             </div>
 
             {/* ============ SECTION 7: Assignment (Admin Only) ============ */}
-            {isAdmin && (
+            {isAdmin && !isEditMode && (
               <div className="space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
@@ -1926,12 +2039,12 @@ const NuevoPedidoModal = ({
                 {loading ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    Creando pedido...
+                    {isEditMode ? "Guardando cambios..." : "Creando pedido..."}
                   </>
                 ) : (
                   <>
                     <CheckCircle className="h-5 w-5" />
-                    Confirmar y Crear Pedido
+                    {isEditMode ? "Guardar Cambios" : "Confirmar y Crear Pedido"}
                   </>
                 )}
               </button>

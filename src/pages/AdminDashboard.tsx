@@ -47,7 +47,7 @@ import AdminMapGoogle from "@/components/AdminMapGoogle";
 import AuditOrdersPanel from "@/components/admin/AuditOrdersPanel";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 import CriticalErrorBoundary from "@/components/CriticalErrorBoundary";
-import EditPedidoModal from "@/components/EditPedidoModal";
+
 import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
 import NovedadCompactCard from "@/components/NovedadCompactCard";
@@ -1889,16 +1889,17 @@ const AdminDashboard = () => {
         remitentes={getClientRemitentes()}
         onPrintComplete={handleBulkPrintComplete}
       />
-      <EditPedidoModal
+      <NuevoPedidoModal
         isOpen={showEditPedido}
         onClose={() => {
           setShowEditPedido(false);
           setSelectedPedidoForEdit(null);
         }}
-        pedido={selectedPedidoForEdit}
         onSuccess={() => {
           fetchPedidos();
         }}
+        isAdmin={true}
+        orderToEdit={selectedPedidoForEdit as any}
       />
       <BulkReassignModal
         isOpen={showBulkReassign}
