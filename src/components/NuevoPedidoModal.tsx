@@ -1641,10 +1641,11 @@ const NuevoPedidoModal = ({
                     </>
                   )}
 
-                  {/* Total producto: sum of all variant rows OR single price * qty */}
+                  {/* Costo base total: cost_price * qty (NOT the PVP).
+                      The dropshipper sees their cost base before adding freight & margin. */}
                   <div className="flex items-center justify-between text-sm pt-1 border-t border-border/50">
                     <span className="text-muted-foreground">
-                      Total producto
+                      💼 Costo base
                       {isVariableProduct && variantsTotalQuantity > 0
                         ? ` (${variantsTotalQuantity} u.)`
                         : ""}:
@@ -1653,7 +1654,9 @@ const NuevoPedidoModal = ({
                       {formatCOP(
                         isVariableProduct
                           ? variantsSubtotal
-                          : inventoryPrefill.price * quantity
+                          : (typeof inventoryPrefill.costPrice === "number"
+                              ? inventoryPrefill.costPrice
+                              : inventoryPrefill.price) * quantity
                       )}
                     </span>
                   </div>
