@@ -1841,30 +1841,48 @@ const NuevoPedidoModal = ({
                 ⚠️ Debes seleccionar al menos una variante antes de crear el pedido.
               </p>
             )}
-            <button
-              type="submit"
-              disabled={
-                loading ||
-                (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))
-              }
-              className={cn(
-                "w-full flex items-center justify-center gap-2 rounded-xl py-3 font-bold transition-all",
-                "bg-primary text-primary-foreground hover:opacity-90",
-                (loading || (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))) && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Creando pedido...
-                </>
-              ) : (
-                <>
-                  <Package className="h-5 w-5" />
-                  Crear Pedido
-                </>
-              )}
-            </button>
+            </div>
+            {/* /RIGHT COLUMN */}
+            </div>
+            {/* /TWO COLUMN BODY */}
+            </div>
+            {/* /scrollable body */}
+
+            {/* ============ STICKY FOOTER ============ */}
+            <div className="shrink-0 border-t border-border bg-card px-6 py-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={loading}
+                className="rounded-xl border border-border bg-background px-5 py-2.5 text-sm font-semibold text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))
+                }
+                className={cn(
+                  "flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-bold transition-all shadow-lg",
+                  "bg-primary text-primary-foreground hover:opacity-90",
+                  (loading || (isVariableProduct && !!inventoryItemId && !selectedVariants.some(r => r.variantId))) && "opacity-50 cursor-not-allowed"
+                )}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Creando pedido...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-5 w-5" />
+                    Confirmar y Crear Pedido
+                  </>
+                )}
+              </button>
+            </div>
           </form>
         </motion.div>
       </div>
