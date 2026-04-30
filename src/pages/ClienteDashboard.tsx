@@ -251,6 +251,13 @@ const ClienteDashboard = () => {
   const logoUrl = (profile as { logo_url?: string })?.logo_url || null;
   const isProveedor = profile?.tipo_cuenta === "proveedor";
 
+  // Si un proveedor cae en una vista que no le corresponde, lo movemos a "pedidos"
+  useEffect(() => {
+    if (isProveedor && activeView === "catalogo") {
+      setActiveView("pedidos");
+    }
+  }, [isProveedor, activeView]);
+
   // Show loading state while auth initializes to prevent premature empty states
   if (authLoading) {
     return (
