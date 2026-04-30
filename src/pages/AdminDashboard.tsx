@@ -47,7 +47,7 @@ import AdminMapGoogle from "@/components/AdminMapGoogle";
 import AuditOrdersPanel from "@/components/admin/AuditOrdersPanel";
 import MapErrorBoundary from "@/components/MapErrorBoundary";
 import CriticalErrorBoundary from "@/components/CriticalErrorBoundary";
-import EditPedidoModal from "@/components/EditPedidoModal";
+
 import AdminSidebar from "@/components/AdminSidebar";
 import NovedadesPanel from "@/components/NovedadesPanel";
 import NovedadCompactCard from "@/components/NovedadCompactCard";
