@@ -179,10 +179,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
         />
       </div>
 
-      {/* Carrusel de Proveedores Destacados — siempre se renderiza */}
-      {(
-        <></>
-      )}
+      {/* Carrusel de Proveedores Destacados — siempre se renderiza,
+          incluso si no hay proveedores aún (muestra solo "Todos"). */}
       <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Proveedores destacados</h3>
@@ -277,7 +275,6 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
             })}
           </div>
         </div>
-      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16">
