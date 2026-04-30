@@ -1889,16 +1889,17 @@ const AdminDashboard = () => {
         remitentes={getClientRemitentes()}
         onPrintComplete={handleBulkPrintComplete}
       />
-      <EditPedidoModal
+      <NuevoPedidoModal
         isOpen={showEditPedido}
         onClose={() => {
           setShowEditPedido(false);
           setSelectedPedidoForEdit(null);
         }}
-        pedido={selectedPedidoForEdit}
         onSuccess={() => {
           fetchPedidos();
         }}
+        isAdmin={true}
+        orderToEdit={selectedPedidoForEdit as any}
       />
       <BulkReassignModal
         isOpen={showBulkReassign}
