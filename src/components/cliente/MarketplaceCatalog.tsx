@@ -615,7 +615,7 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                   onClick={() => handleGenerateOrder(detailProduct)}
                 >
                   <ShoppingBag className="h-5 w-5" />
-                  Generar Orden
+                  {detailProduct.stock_available <= 0 ? "Agotado temporalmente" : "Generar Orden"}
                 </Button>
               </div>
             </>
