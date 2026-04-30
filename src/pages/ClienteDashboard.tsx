@@ -504,11 +504,12 @@ const ClienteDashboard = () => {
         } : undefined}
       />
 
-      <EditPedidoModal
-        pedido={editingPedido}
+      <NuevoPedidoModal
         isOpen={!!editingPedido}
         onClose={() => setEditingPedido(null)}
         onSuccess={refetch}
+        isAdmin={false}
+        orderToEdit={editingPedido as any}
       />
 
       <PrintGuiaModal
