@@ -222,7 +222,8 @@ const NuevoPedidoModal = ({
 
   // ====== MULTI-PRODUCT STATE ======
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  const isMultiProductMode = !inventoryPrefill; // Multi-product when NOT coming from inventory
+  // Multi-product when NOT coming from inventory AND NOT editing
+  const isMultiProductMode = !inventoryPrefill && !isEditMode;
   
   // Schedule — Cut-off 14:00 + skip Sundays & Colombian holidays
   const computeDefaultDeliveryDate = () => getMinDeliveryDate();
