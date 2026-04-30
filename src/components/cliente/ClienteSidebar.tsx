@@ -98,7 +98,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       {
         key: "catalogo",
-        label: "Catálogo Suministro",
+        label: "Catálogo Mega Bodega",
         icon: ShoppingBag,
         gradient: "from-pink-500 to-rose-600",
         shadow: "shadow-pink-500/30",
