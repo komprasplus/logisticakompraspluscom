@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
-  Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket,
+  Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket, Compass,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -10,7 +10,7 @@ const TRENDING_THRESHOLD = 50;
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -25,6 +25,7 @@ interface MarketplaceProduct {
   product_name: string;
   description: string | null;
   sku: string;
+  short_id?: string | null;
   cost_price: number;
   suggested_price: number;
   stock_available: number;
@@ -61,14 +62,17 @@ interface ProveedorDestacado {
 }
 
 const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const orgId = profile?.organizacion_id;
+  const userId = user?.id;
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [detailProduct, setDetailProduct] = useState<MarketplaceProduct | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [selectedProveedor, setSelectedProveedor] = useState<string | null>(null);
   const [trendingOnly, setTrendingOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "trending" | "price_asc" | "price_desc">("name");
+  const [activeTab, setActiveTab] = useState<"explorar" | "favoritos">("explorar");
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["marketplace-catalog", orgId],
@@ -124,14 +128,75 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
     staleTime: 60_000,
   });
 
+  // Favoritos del usuario actual
+  const { data: favoriteIds = [] } = useQuery({
+    queryKey: ["marketplace-favorites", userId],
+    queryFn: async () => {
+      if (!userId) return [] as string[];
+      const { data, error } = await (supabase as any)
+        .from("marketplace_favorites")
+        .select("product_id")
+        .eq("user_id", userId);
+      if (error) throw error;
+      return (data ?? []).map((r: any) => r.product_id as string);
+    },
+    enabled: !!userId,
+    staleTime: 30_000,
+  });
+
+  const favoritesSet = new Set(favoriteIds);
+
+  const toggleFavorite = useMutation({
+    mutationFn: async (productId: string) => {
+      if (!userId) throw new Error("No autenticado");
+      const isFav = favoritesSet.has(productId);
+      if (isFav) {
+        const { error } = await (supabase as any)
+          .from("marketplace_favorites")
+          .delete()
+          .eq("user_id", userId)
+          .eq("product_id", productId);
+        if (error) throw error;
+        return { productId, added: false };
+      } else {
+        const { error } = await (supabase as any)
+          .from("marketplace_favorites")
+          .insert({ user_id: userId, product_id: productId, organizacion_id: orgId });
+        if (error) throw error;
+        return { productId, added: true };
+      }
+    },
+    onMutate: async (productId: string) => {
+      await queryClient.cancelQueries({ queryKey: ["marketplace-favorites", userId] });
+      const prev = queryClient.getQueryData<string[]>(["marketplace-favorites", userId]) ?? [];
+      const next = prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId];
+      queryClient.setQueryData(["marketplace-favorites", userId], next);
+      return { prev };
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(["marketplace-favorites", userId], ctx.prev);
+      toast.error("No se pudo actualizar favoritos");
+    },
+    onSuccess: (res) => {
+      toast.success(res.added ? "Añadido a favoritos ❤️" : "Eliminado de favoritos");
+    },
+  });
+
   const filtered = products
     .filter((p) => {
+      const term = search.toLowerCase().trim();
       const matchSearch =
-        p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-        p.sku.toLowerCase().includes(search.toLowerCase());
+        !term ||
+        p.product_name.toLowerCase().includes(term) ||
+        p.sku.toLowerCase().includes(term) ||
+        (p.short_id ?? "").toLowerCase().includes(term) ||
+        (p.description ?? "").toLowerCase().includes(term);
       const matchProveedor = !selectedProveedor || p.created_by === selectedProveedor;
       const matchTrending = !trendingOnly || (p.unidades_vendidas ?? 0) > TRENDING_THRESHOLD;
-      return matchSearch && matchProveedor && matchTrending;
+      const matchTab = activeTab === "explorar" || favoritesSet.has(p.id);
+      return matchSearch && matchProveedor && matchTrending && matchTab;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -197,12 +262,31 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
         </p>
       </div>
 
+      {/* Tabs principales: Explorar / Mis Favoritos */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="explorar" className="gap-1.5">
+            <Compass className="h-4 w-4" />
+            Explorar
+          </TabsTrigger>
+          <TabsTrigger value="favoritos" className="gap-1.5">
+            <Heart className={cn("h-4 w-4", activeTab === "favoritos" && "fill-current")} />
+            Mis Favoritos
+            {favoriteIds.length > 0 && (
+              <span className="ml-1 text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-primary/15 text-primary">
+                {favoriteIds.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Search + Filters */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar producto o SKU..."
+            placeholder="Buscar por nombre, SKU o REF-..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -252,7 +336,7 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       </div>
 
       {/* Productos en Tendencia – carrusel destacado */}
-      {!trendingOnly && topTrending.length > 0 && (
+      {activeTab === "explorar" && !trendingOnly && topTrending.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
@@ -317,8 +401,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       )}
 
 
-      {/* Carrusel de Proveedores Destacados — siempre se renderiza,
-          incluso si no hay proveedores aún (muestra solo "Todos"). */}
+      {/* Carrusel de Proveedores Destacados — solo en pestaña Explorar */}
+      {activeTab === "explorar" && (
       <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Proveedores destacados</h3>
@@ -413,6 +497,7 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
             })}
           </div>
         </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16">
@@ -420,9 +505,21 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <Package className="h-14 w-14 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No hay productos disponibles</p>
-          <p className="text-xs mt-1">El administrador aún no ha publicado productos en el marketplace</p>
+          {activeTab === "favoritos" ? (
+            <>
+              <Heart className="h-14 w-14 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Aún no tienes productos favoritos</p>
+              <p className="text-xs mt-1">
+                Toca el corazón <Heart className="inline h-3 w-3" /> en cualquier producto para guardarlo aquí
+              </p>
+            </>
+          ) : (
+            <>
+              <Package className="h-14 w-14 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No hay productos disponibles</p>
+              <p className="text-xs mt-1">El administrador aún no ha publicado productos en el marketplace</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
@@ -464,17 +561,56 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       </span>
                     </div>
                   )}
+
+                  {/* Badge Ref short_id (arriba izquierda) */}
+                  {product.short_id && (
+                    <span className="absolute top-2 left-2 bg-background/85 backdrop-blur-sm text-foreground text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-border/60 shadow-sm">
+                      {product.short_id}
+                    </span>
+                  )}
+
+                  {/* Botón Favorito (arriba derecha, flotante) */}
+                  <button
+                    type="button"
+                    aria-label={favoritesSet.has(product.id) ? "Quitar de favoritos" : "Añadir a favoritos"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!userId) {
+                        toast.error("Debes iniciar sesión");
+                        return;
+                      }
+                      toggleFavorite.mutate(product.id);
+                    }}
+                    className={cn(
+                      "absolute top-2 right-2 h-8 w-8 rounded-full flex items-center justify-center",
+                      "bg-background/85 backdrop-blur-sm border border-border/60 shadow-sm",
+                      "hover:scale-110 active:scale-95 transition-transform",
+                    )}
+                  >
+                    <Heart
+                      className={cn(
+                        "h-4 w-4 transition-colors",
+                        favoritesSet.has(product.id)
+                          ? "fill-red-500 text-red-500"
+                          : "text-muted-foreground",
+                      )}
+                    />
+                  </button>
+
+                  {/* Stock bajo (abajo derecha) */}
                   {!outOfStock && product.stock_available <= 5 && (
-                    <span className="absolute top-2 right-2 bg-amber-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    <span className="absolute bottom-2 right-2 bg-amber-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                       Quedan {product.stock_available}
                     </span>
                   )}
+
+                  {/* Tendencia (abajo izquierda) */}
                   {isTrending && (
                     <span
-                      className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-lg animate-pulse"
+                      className="absolute bottom-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-lg animate-pulse"
                       title={`${sold} unidades vendidas`}
                     >
-                      <Flame className="h-3 w-3" /> En Tendencia
+                      <Flame className="h-3 w-3" /> Tendencia
                     </span>
                   )}
                 </div>
@@ -485,9 +621,16 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                     <h3 className="font-semibold text-sm text-foreground line-clamp-2 leading-tight">
                       {product.product_name}
                     </h3>
-                    <p className="text-[11px] text-muted-foreground font-mono mt-1">
-                      SKU: {product.sku}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {product.short_id && (
+                        <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                          {product.short_id}
+                        </span>
+                      )}
+                      <p className="text-[11px] text-muted-foreground font-mono">
+                        SKU: {product.sku}
+                      </p>
+                    </div>
                     <div className="mt-1.5">
                       {(product.product_type || "Simple") === "Variable" ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
@@ -613,7 +756,14 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
                         {detailProduct.product_name}
                       </h1>
-                      <p className="text-xs font-mono text-muted-foreground">SKU: {detailProduct.sku}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {detailProduct.short_id && (
+                          <span className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                            {detailProduct.short_id}
+                          </span>
+                        )}
+                        <p className="text-xs font-mono text-muted-foreground">SKU: {detailProduct.sku}</p>
+                      </div>
                     </div>
 
                     {/* Description */}
@@ -737,10 +887,23 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                   variant="outline"
                   size="lg"
                   className="gap-2 max-sm:px-3"
-                  onClick={() => toast.success("Agregado a favoritos")}
+                  onClick={() => {
+                    if (!userId) {
+                      toast.error("Debes iniciar sesión");
+                      return;
+                    }
+                    toggleFavorite.mutate(detailProduct.id);
+                  }}
                 >
-                  <Heart className="h-4 w-4" />
-                  <span className="max-sm:hidden">Favoritos</span>
+                  <Heart
+                    className={cn(
+                      "h-4 w-4",
+                      favoritesSet.has(detailProduct.id) && "fill-red-500 text-red-500",
+                    )}
+                  />
+                  <span className="max-sm:hidden">
+                    {favoritesSet.has(detailProduct.id) ? "Guardado" : "Favoritos"}
+                  </span>
                 </Button>
                 <Button
                   size="lg"

@@ -479,6 +479,38 @@ export type Database = {
         }
         Relationships: []
       }
+      marketplace_favorites: {
+        Row: {
+          created_at: string
+          id: string
+          organizacion_id: string | null
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organizacion_id?: string | null
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organizacion_id?: string | null
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketplace_favorites_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       marketplace_products: {
         Row: {
           category: string | null
@@ -495,6 +527,7 @@ export type Database = {
           organizacion_id: string | null
           product_name: string
           product_type: string
+          short_id: string | null
           sku: string
           stock_available: number
           suggested_price: number
@@ -516,6 +549,7 @@ export type Database = {
           organizacion_id?: string | null
           product_name: string
           product_type?: string
+          short_id?: string | null
           sku: string
           stock_available?: number
           suggested_price?: number
@@ -537,6 +571,7 @@ export type Database = {
           organizacion_id?: string | null
           product_name?: string
           product_type?: string
+          short_id?: string | null
           sku?: string
           stock_available?: number
           suggested_price?: number
@@ -1561,6 +1596,7 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: Json
       }
+      generate_marketplace_short_id: { Args: never; Returns: string }
       get_public_tracking_info: {
         Args: { search_tracking_number: string }
         Returns: Json
