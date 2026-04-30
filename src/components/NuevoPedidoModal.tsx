@@ -142,7 +142,9 @@ const NuevoPedidoModal = ({
   onSuccess,
   isAdmin,
   inventoryPrefill,
+  orderToEdit,
 }: NuevoPedidoModalProps) => {
+  const isEditMode = !!orderToEdit;
   const { profile, user } = useAuth();
   const orgId = profile?.organizacion_id;
 
