@@ -732,6 +732,7 @@ const NuevoPedidoModal = ({
           // Insert one order_items row per selected variant for full traceability
           if (newPedido?.id && validRows.length > 0) {
             try {
+              const isFromMarketplace = inventoryPrefill?.source === "marketplace";
               const variantItemsToInsert = validRows.map(r => {
                 const v = variants.find((vv: any) => vv.id === r.variantId);
                 return {
@@ -743,6 +744,10 @@ const NuevoPedidoModal = ({
                   inventory_item_id: inventoryPrefill?.inventoryItemId || null,
                   variant_id: r.variantId,
                   organizacion_id: orgId || 'a0000000-0000-0000-0000-000000000001',
+                  // Split-payments snapshot (only when sourced from marketplace)
+                  marketplace_product_id: isFromMarketplace ? inventoryPrefill?.marketplaceProductId ?? null : null,
+                  supplier_user_id: isFromMarketplace ? inventoryPrefill?.supplierUserId ?? null : null,
+                  supplier_cost_snapshot: isFromMarketplace ? inventoryPrefill?.costPrice ?? null : null,
                 };
               });
               const { error: viErr } = await (supabase as any)
