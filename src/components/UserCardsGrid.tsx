@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { getAccountTypeLabel, isLegacyAccount } from "@/lib/accountType";
 
 interface Profile {
   id: string;
@@ -19,6 +20,7 @@ interface Profile {
   is_online?: boolean;
   fulfillment_rate?: number | null;
   organizacion_id?: string | null;
+  tipo_cuenta?: string | null;
 }
 
 interface UserRole {
