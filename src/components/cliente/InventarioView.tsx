@@ -68,7 +68,8 @@ const InventarioView = () => {
 
   const cancelRef = useRef(false);
   const prefersReducedMotion = useReducedMotion();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const isProveedor = profile?.tipo_cuenta === "proveedor";
 
   /*
     FIX: IDs únicos para el modal de edición inline (asociar label → input).
@@ -291,8 +292,14 @@ const InventarioView = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">Mi Inventario</h2>
-          <p className="text-sm text-muted-foreground">Gestiona tus productos y controla el stock</p>
+          <h2 className="text-2xl font-bold text-foreground">
+            {isProveedor ? "Mi Inventario" : "Mi Inventario Propio"}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {isProveedor
+              ? "Publica productos al catálogo de suministro y controla el stock"
+              : "Inventario privado para fulfillment — no se muestra en la Megabodega"}
+          </p>
         </div>
         <motion.button
           type="button"
@@ -537,6 +544,8 @@ const InventarioView = () => {
         onClose={() => setShowAddModal(false)}
         onSuccess={fetchInventory}
         userId={user?.id ?? ""}
+        tipoCuenta={profile?.tipo_cuenta}
+        organizacionId={profile?.organizacion_id}
       />
 
       {/* Modal editar producto (inline) */}
