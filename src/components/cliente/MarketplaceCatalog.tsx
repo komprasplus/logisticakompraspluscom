@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
-  Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket, Compass,
+  Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket, Compass, Store,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 
@@ -255,7 +255,7 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       <div>
         <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
           <ShoppingBag className="h-5 w-5 text-primary" />
-          Catálogo de Suministro
+          Catálogo Mega Bodega
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
           Explora los productos disponibles y genera tus órdenes de envío
