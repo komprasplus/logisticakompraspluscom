@@ -295,6 +295,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
           {filtered.map(product => {
             const margin = product.suggested_price - product.cost_price;
             const outOfStock = product.stock_available <= 0;
+            const sold = product.unidades_vendidas ?? 0;
+            const isTrending = sold > TRENDING_THRESHOLD;
 
             return (
               <motion.div
