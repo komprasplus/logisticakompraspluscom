@@ -1641,7 +1641,7 @@ const AdminDashboard = () => {
           </motion.div>
         );
 
-      case "configuracion":
+      case "configuracion-usuarios":
         return (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
             {/* Admin Notes Section */}
