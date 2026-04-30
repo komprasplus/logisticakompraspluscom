@@ -286,13 +286,20 @@ const NuevoPedidoModal = ({
   }, [departamentoSeleccionado, municipioSeleccionado]);
   
   const utilidadCalculada = useMemo(() => {
+    const flete = Number(tarifaInfo.valor) || 0;
+    const fulfillment = Number(fulfillmentInfo.rate) || 0;
     if (metodoPago === "anticipado") {
-      return -tarifaInfo.valor;
+      return -(flete + fulfillment);
     }
-    const recaudo = valorRecaudar ? parseFloat(valorRecaudar) : 0;
-    const producto = valorProducto ? parseFloat(valorProducto) : 0;
-    return calcularUtilidad(recaudo, producto, tarifaInfo.valor);
-  }, [valorRecaudar, valorProducto, tarifaInfo.valor, metodoPago]);
+    const recaudo = Number(valorRecaudar) || 0;
+    const costoUnitario = Number(valorProducto) || 0;
+    // Use total quantity (multi-variant or single-product selector)
+    const cantidadEfectiva = isVariableProduct
+      ? Math.max(variantsTotalQuantity, 1)
+      : (Number(quantity) || 1);
+    const costoTotalProducto = costoUnitario * cantidadEfectiva;
+    return recaudo - costoTotalProducto - flete - fulfillment;
+  }, [valorRecaudar, valorProducto, tarifaInfo.valor, metodoPago, quantity, isVariableProduct, variantsTotalQuantity, fulfillmentInfo.rate]);
 
   // Fetch motorizados and stores for admin selector
   useEffect(() => {
