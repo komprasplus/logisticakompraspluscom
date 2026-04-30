@@ -62,14 +62,17 @@ interface ProveedorDestacado {
 }
 
 const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const orgId = profile?.organizacion_id;
+  const userId = user?.id;
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [detailProduct, setDetailProduct] = useState<MarketplaceProduct | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [selectedProveedor, setSelectedProveedor] = useState<string | null>(null);
   const [trendingOnly, setTrendingOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "trending" | "price_asc" | "price_desc">("name");
+  const [activeTab, setActiveTab] = useState<"explorar" | "favoritos">("explorar");
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["marketplace-catalog", orgId],
