@@ -497,6 +497,7 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
             })}
           </div>
         </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16">
