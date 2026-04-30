@@ -10,7 +10,7 @@ import {
   XCircle,
   CheckCircle2,
   Truck,
-  Image,
+  
   MessageSquare,
   Search,
   MapPin,
@@ -21,7 +21,7 @@ import {
   Camera,
   FileText,
 } from "lucide-react";
-import { TrendingUp } from "lucide-react";
+
 import PedidosSkeleton from "./PedidosSkeleton";
 import ManifiestoModal from "./ManifiestoModal";
 import { useAuth } from "@/hooks/useAuth";
