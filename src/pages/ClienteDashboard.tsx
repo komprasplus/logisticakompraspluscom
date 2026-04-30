@@ -191,9 +191,11 @@ const ClienteDashboard = () => {
     refetchInterval: 2 * 60 * 1000,
     retry: 1,
   });
-  // walletQuery.data.available is the source of truth for the wallet view; not used in dashboard card
-  const walletEgresos = walletQuery.data?.egresos ?? 0;
-  const walletOtrosIngresos = walletQuery.data?.otrosIngresos ?? 0;
+  // SINGLE SOURCE OF TRUTH: el "Balance Pendiente" del dashboard se lee
+  // EXCLUSIVAMENTE desde transacciones_billetera (vía walletQuery.data.available),
+  // exactamente la misma fuente que alimenta el modal de Historial / Billetera.
+  // Nunca recalcular sumando pedidos: produce valores inflados frente al ledger real.
+  const walletAvailable = walletQuery.data?.available ?? 0;
 
   // Calculate stats - Wallet only shows liquidated orders
   const stats = useMemo(() => {
@@ -212,30 +214,12 @@ const ClienteDashboard = () => {
       (p) => p.estado?.toLowerCase() === "entregado" || p.estado?.toLowerCase() === "liquidado"
     ).length;
 
-    // FIX: Cálculo explícito frontend desde el array de pedidos entregados/liquidados.
-    // Fórmula: Utilidad Neta por pedido = Recaudo − Flete − Costo Producto (fulfillment).
-    // Balance Pendiente = Σ utilidad neta + otros ingresos billetera − egresos ya realizados.
-    const entregadosLiquidados = pedidos.filter((p) => {
-      const e = p.estado?.toLowerCase();
-      return e === "entregado" || e === "liquidado";
-    });
-
-    const balanceBruto = entregadosLiquidados.reduce((total, pedido) => {
-      const recaudo = Number(pedido.valor_recaudar) || 0;
-      const costoEnvio = Number(pedido.valor_flete) || 0;
-      const costoProducto = Number(pedido.fulfillment_cost) || 0;
-      const utilidadNeta = recaudo - costoEnvio - costoProducto;
-      return total + utilidadNeta;
-    }, 0);
-
-    const pendingBalance = balanceBruto + walletOtrosIngresos - walletEgresos;
-
     return {
       totalMonth,
       deliveredCount,
-      pendingBalance: Math.max(0, pendingBalance),
+      pendingBalance: walletAvailable,
     };
-  }, [pedidos, walletEgresos, walletOtrosIngresos]);
+  }, [pedidos, walletAvailable]);
 
   const novedadesCount = useMemo(() => {
     return pedidos.filter((p) => p.estado?.toLowerCase() === "novedad").length;
