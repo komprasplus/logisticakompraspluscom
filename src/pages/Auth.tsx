@@ -1,6 +1,6 @@
 import { useState, useEffect, forwardRef } from "react";
 import { motion } from "framer-motion";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { Loader2, Mail, Lock, AlertCircle, Truck, Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -373,6 +373,14 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
               )}
               {googleLoading ? "Conectando..." : "Continuar con Google"}
             </button>
+
+            {/* Sign-up link */}
+            <div className="text-center text-sm text-muted-foreground pt-2">
+              ¿No tienes cuenta?{" "}
+              <Link to="/registro" className="text-primary font-semibold hover:underline">
+                Crear cuenta
+              </Link>
+            </div>
             </form>
           </motion.div>
         )}
