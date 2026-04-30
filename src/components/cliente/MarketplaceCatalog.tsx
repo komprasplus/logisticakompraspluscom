@@ -31,6 +31,7 @@ interface MarketplaceProduct {
   dimensions?: string | null;
   category?: string | null;
   warranty?: string | null;
+  created_by?: string | null;
 }
 
 interface MarketplaceCatalogProps {
@@ -40,6 +41,8 @@ interface MarketplaceCatalogProps {
     suggestedPrice: number;
     marketplaceProductId: string;
     productType?: string;
+    costPrice: number;
+    supplierUserId: string | null;
   }) => void;
 }
 
@@ -87,6 +90,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       suggestedPrice: product.suggested_price,
       marketplaceProductId: product.id,
       productType: product.product_type,
+      costPrice: product.cost_price,
+      supplierUserId: product.created_by ?? null,
     });
     setDetailProduct(null);
   };

@@ -591,11 +591,14 @@ export type Database = {
           id: string
           inventory_item_id: string | null
           line_total: number | null
+          marketplace_product_id: string | null
           organizacion_id: string | null
           pedido_id: number
           product_name: string
           quantity: number
           sku: string | null
+          supplier_cost_snapshot: number | null
+          supplier_user_id: string | null
           unit_price: number
           variant_id: string | null
         }
@@ -604,11 +607,14 @@ export type Database = {
           id?: string
           inventory_item_id?: string | null
           line_total?: number | null
+          marketplace_product_id?: string | null
           organizacion_id?: string | null
           pedido_id: number
           product_name: string
           quantity?: number
           sku?: string | null
+          supplier_cost_snapshot?: number | null
+          supplier_user_id?: string | null
           unit_price?: number
           variant_id?: string | null
         }
@@ -617,11 +623,14 @@ export type Database = {
           id?: string
           inventory_item_id?: string | null
           line_total?: number | null
+          marketplace_product_id?: string | null
           organizacion_id?: string | null
           pedido_id?: number
           product_name?: string
           quantity?: number
           sku?: string | null
+          supplier_cost_snapshot?: number | null
+          supplier_user_id?: string | null
           unit_price?: number
           variant_id?: string | null
         }

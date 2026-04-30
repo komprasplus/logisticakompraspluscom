@@ -67,6 +67,7 @@ const ClienteDashboard = () => {
   const [showNuevoPedido, setShowNuevoPedido] = useState(false);
   const [marketplacePrefill, setMarketplacePrefill] = useState<{
     productName: string; sku: string; suggestedPrice: number; marketplaceProductId: string; productType?: string;
+    costPrice: number; supplierUserId: string | null;
   } | null>(null);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [editingPedido, setEditingPedido] = useState<Pedido | null>(null);
@@ -484,6 +485,9 @@ const ClienteDashboard = () => {
           sku: marketplacePrefill.sku,
           productType: marketplacePrefill.productType,
           source: "marketplace" as const,
+          marketplaceProductId: marketplacePrefill.marketplaceProductId,
+          supplierUserId: marketplacePrefill.supplierUserId,
+          costPrice: marketplacePrefill.costPrice,
         } : undefined}
       />
 
