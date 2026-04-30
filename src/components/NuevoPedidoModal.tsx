@@ -922,97 +922,77 @@ const NuevoPedidoModal = ({
             {/* Top header row: Service type + Payment method (full width) */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-3 pb-3 border-b border-border">
 
-            {/* ============ SECTION 0: Service Type ============ */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Tipo de Servicio
-              </h3>
-              <div className="grid grid-cols-2 gap-2">
+              {/* Tipo de Servicio segmented */}
+              <div className="inline-flex items-center rounded-full border border-border bg-muted/40 p-1 mx-auto md:mx-0">
                 <button
                   type="button"
                   onClick={() => setTipoServicio("ENVIO")}
                   className={cn(
-                    "group flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                    "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all",
                     tipoServicio === "ENVIO"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      ? "bg-primary text-primary-foreground shadow"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <Truck className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Envío a Cliente</span>
+                  <Truck className="w-3.5 h-3.5" /> 🚚 Envío
                 </button>
                 <button
                   type="button"
                   onClick={() => setTipoServicio("RECOGIDA")}
                   className={cn(
-                    "group flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
+                    "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all",
                     tipoServicio === "RECOGIDA"
-                      ? "border-orange-500 bg-orange-500/10 text-orange-600 dark:text-orange-400"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                      ? "bg-orange-500 text-white shadow"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <RotateCcw className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Logística Inversa</span>
-                </button>
-              </div>
-              {tipoServicio === "RECOGIDA" && (
-                <p className="text-xs text-orange-600 dark:text-orange-400 bg-orange-500/10 p-2 rounded-lg border border-orange-500/30">
-                  🔄 <strong>Recogida:</strong> El motorizado recogerá el paquete en la dirección del cliente y lo llevará a la bodega. No se recauda dinero.
-                </p>
-              )}
-            </div>
-            
-            {/* ============ SECTION 1: Payment Method (FIRST) ============ */}
-            {tipoServicio === "RECOGIDA" ? (
-              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm text-orange-600 dark:text-orange-400">
-                💰 <strong>Recaudo: $0</strong> — En logística inversa no se recauda dinero. El flete se cobra internamente.
-              </div>
-            ) : (
-            <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Método de Pago
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMetodoPago("efectivo")}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
-                    metodoPago === "efectivo"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                  )}
-                >
-                  <Banknote className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Contra Entrega</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMetodoPago("anticipado");
-                    setValorRecaudar("");
-                  }}
-                  className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-medium transition-all",
-                    metodoPago === "anticipado"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-muted/30 text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                  )}
-                >
-                  <CreditCard className="w-4 h-4 shrink-0" />
-                  <span className="truncate">Pago Anticipado</span>
+                  <RotateCcw className="w-3.5 h-3.5" /> 🔄 Logística Inversa
                 </button>
               </div>
 
-              {/* Valor a Recaudar - Only show for Contra Entrega */}
-              {metodoPago === "efectivo" && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="relative"
-                >
+              {/* Método de Pago segmented (hidden in RECOGIDA) */}
+              {tipoServicio === "ENVIO" && (
+                <div className="inline-flex items-center rounded-full border border-border bg-muted/40 p-1 mx-auto md:mx-0">
+                  <button
+                    type="button"
+                    onClick={() => setMetodoPago("efectivo")}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all",
+                      metodoPago === "efectivo"
+                        ? "bg-primary text-primary-foreground shadow"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Banknote className="w-3.5 h-3.5" /> 💵 Contra Entrega
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setMetodoPago("anticipado"); setValorRecaudar(""); }}
+                    className={cn(
+                      "flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-semibold transition-all",
+                      metodoPago === "anticipado"
+                        ? "bg-primary text-primary-foreground shadow"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <CreditCard className="w-3.5 h-3.5" /> 💳 Pago Anticipado
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* /Top header row */}
+
+            {tipoServicio === "RECOGIDA" && (
+              <div className="rounded-lg border border-orange-500/30 bg-orange-500/5 p-3 text-sm text-orange-600 dark:text-orange-400">
+                💰 <strong>Recaudo: $0</strong> — En logística inversa no se recauda dinero. El flete se cobra internamente.
+              </div>
+            )}
+
+            {/* Valor a Recaudar (full width band) */}
+            {tipoServicio === "ENVIO" && metodoPago === "efectivo" && (
+              <div className="rounded-2xl border border-border bg-card p-4 space-y-2">
+                <h3 className="text-sm font-bold text-foreground flex items-center gap-2">💵 Valor a Recaudar</h3>
+                <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="number"
@@ -1028,26 +1008,30 @@ const NuevoPedidoModal = ({
                       isMultiProductMode && orderItems.length > 0 && "bg-muted cursor-not-allowed"
                     )}
                   />
-                  {isMultiProductMode && orderItems.length > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      💡 Calculado automáticamente desde los productos añadidos.
-                    </p>
-                  )}
-                </motion.div>
-              )}
-
-              {metodoPago === "anticipado" && (
-                <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
-                  💳 El flete se cobrará internamente. No hay recaudo en la entrega.
-                </p>
-              )}
-            </div>
+                </div>
+                {isMultiProductMode && orderItems.length > 0 && (
+                  <p className="text-xs text-muted-foreground">💡 Calculado automáticamente desde los productos añadidos.</p>
+                )}
+              </div>
             )}
+
+            {tipoServicio === "ENVIO" && metodoPago === "anticipado" && (
+              <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded-lg">
+                💳 El flete se cobrará internamente. No hay recaudo en la entrega.
+              </p>
+            )}
+
+            {/* ============ TWO COLUMN BODY ============ */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* ===================== LEFT COLUMN ===================== */}
+            <div className="space-y-5 rounded-2xl border border-border bg-card p-5">
 
             {/* ============ SECTION 2: Client Data ============ */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                Datos del Cliente
+              <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
+                👤 Datos del Cliente
+
               </h3>
               
               {/* Nombre */}
