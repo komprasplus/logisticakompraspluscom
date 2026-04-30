@@ -2,8 +2,11 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
-  Eye, Heart, Tag, Boxes, ShieldCheck, Ruler,
+  Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket,
 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+
+const TRENDING_THRESHOLD = 50;
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
