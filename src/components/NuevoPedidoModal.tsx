@@ -302,16 +302,32 @@ const NuevoPedidoModal = ({
     }
   }, [isAdmin, isOpen]);
 
-  // Pre-fill from inventory when provided
+  // Pre-fill from inventory when provided.
+  // CRITICAL FINANCIAL BINDING:
+  //  - "Costo Producto / Proveeduría" (valorProducto) MUST come from cost_price.
+  //  - "Valor a Recaudar" (valorRecaudar) is pre-filled with the suggested PVP
+  //    (inventoryPrefill.price) so the dropshipper sees a starting sale price,
+  //    but stays fully editable.
   useEffect(() => {
     if (inventoryPrefill && isOpen) {
       setInventoryItemId(inventoryPrefill.inventoryItemId);
       setProductoNombre(inventoryPrefill.productName);
-      setValorProducto(inventoryPrefill.price.toString());
+      // Cost = supplier cost when available (marketplace), otherwise the inventory price
+      // (private inventory has no separate cost field, so its `price` acts as the base).
+      const costBase =
+        typeof inventoryPrefill.costPrice === "number"
+          ? inventoryPrefill.costPrice
+          : inventoryPrefill.price;
+      setValorProducto(costBase.toString());
+      // Suggested PVP pre-fills the recaudo (only for cash-on-delivery)
+      if (metodoPago === "efectivo") {
+        setValorRecaudar(inventoryPrefill.price.toString());
+      }
       setQuantity(inventoryPrefill.quantity);
       const detalles = `${inventoryPrefill.productName} (SKU: ${inventoryPrefill.sku}) x${inventoryPrefill.quantity}`;
       setObservaciones(detalles);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inventoryPrefill, isOpen]);
 
   // Update observaciones when quantity changes (for inventory orders)
@@ -1403,9 +1419,19 @@ const NuevoPedidoModal = ({
                       <p className="font-medium text-foreground">{inventoryPrefill.productName}</p>
                       <p className="text-xs text-muted-foreground font-mono">SKU: {inventoryPrefill.sku}</p>
                     </div>
-                    <span className="text-sm font-medium text-primary">
-                      {formatCOP(inventoryPrefill.price)} c/u
-                    </span>
+                    <div className="text-right">
+                      <span className="text-sm font-medium text-primary">
+                        {formatCOP(
+                          typeof inventoryPrefill.costPrice === "number"
+                            ? inventoryPrefill.costPrice
+                            : inventoryPrefill.price
+                        )}{" "}
+                        c/u
+                      </span>
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                        Costo base
+                      </p>
+                    </div>
                   </div>
 
                   {/* Variant Selector - MULTI-VARIANT for variable products */}
@@ -1615,10 +1641,11 @@ const NuevoPedidoModal = ({
                     </>
                   )}
 
-                  {/* Total producto: sum of all variant rows OR single price * qty */}
+                  {/* Costo base total: cost_price * qty (NOT the PVP).
+                      The dropshipper sees their cost base before adding freight & margin. */}
                   <div className="flex items-center justify-between text-sm pt-1 border-t border-border/50">
                     <span className="text-muted-foreground">
-                      Total producto
+                      💼 Costo base
                       {isVariableProduct && variantsTotalQuantity > 0
                         ? ` (${variantsTotalQuantity} u.)`
                         : ""}:
@@ -1627,7 +1654,9 @@ const NuevoPedidoModal = ({
                       {formatCOP(
                         isVariableProduct
                           ? variantsSubtotal
-                          : inventoryPrefill.price * quantity
+                          : (typeof inventoryPrefill.costPrice === "number"
+                              ? inventoryPrefill.costPrice
+                              : inventoryPrefill.price) * quantity
                       )}
                     </span>
                   </div>
@@ -1650,21 +1679,38 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* Costo del producto (opcional) - hide in multi-product mode and RECOGIDA */}
-              {tipoServicio === "ENVIO" && !isMultiProductMode && (
-                <div className="relative">
-                  <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="number"
-                    placeholder="Costo Producto / Proveeduría (opcional)"
-                    value={valorProducto}
-                    onChange={(e) => setValorProducto(e.target.value)}
-                    min="0"
-                    step="100"
-                    className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                </div>
-              )}
+              {/* Costo del producto - hide in multi-product mode and RECOGIDA.
+                  Locked (read-only) when product comes from the Marketplace:
+                  the dropshipper cannot edit the supplier's base cost. */}
+              {tipoServicio === "ENVIO" && !isMultiProductMode && (() => {
+                const isFromMarketplace = inventoryPrefill?.source === "marketplace";
+                return (
+                  <div className="space-y-1">
+                    <div className="relative">
+                      <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <input
+                        type="number"
+                        placeholder={isFromMarketplace ? "Costo Proveeduría (fijado por proveedor)" : "Costo Producto / Proveeduría (opcional)"}
+                        value={valorProducto}
+                        onChange={(e) => setValorProducto(e.target.value)}
+                        readOnly={isFromMarketplace}
+                        disabled={isFromMarketplace}
+                        min="0"
+                        step="100"
+                        className={cn(
+                          "w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
+                          isFromMarketplace && "cursor-not-allowed bg-muted/40 text-muted-foreground"
+                        )}
+                      />
+                    </div>
+                    {isFromMarketplace && (
+                      <p className="text-[11px] text-muted-foreground pl-1">
+                        🔒 Costo base definido por el proveedor. No editable.
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Tarifa y cálculo automático */}
               {(addressSelected || municipioSeleccionado) && (
