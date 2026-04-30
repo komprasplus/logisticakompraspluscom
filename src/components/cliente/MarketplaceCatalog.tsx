@@ -335,6 +335,14 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       Quedan {product.stock_available}
                     </span>
                   )}
+                  {isTrending && (
+                    <span
+                      className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-lg animate-pulse"
+                      title={`${sold} unidades vendidas`}
+                    >
+                      <Flame className="h-3 w-3" /> En Tendencia
+                    </span>
+                  )}
                 </div>
 
                 {/* Info */}
