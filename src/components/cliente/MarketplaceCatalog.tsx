@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatCOP } from "@/lib/tarifas";
@@ -66,6 +67,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const [detailProduct, setDetailProduct] = useState<MarketplaceProduct | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [selectedProveedor, setSelectedProveedor] = useState<string | null>(null);
+  const [trendingOnly, setTrendingOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<"name" | "trending" | "price_asc" | "price_desc">("name");
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["marketplace-catalog", orgId],
@@ -121,13 +124,35 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
     staleTime: 60_000,
   });
 
-  const filtered = products.filter((p) => {
-    const matchSearch =
-      p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase());
-    const matchProveedor = !selectedProveedor || p.created_by === selectedProveedor;
-    return matchSearch && matchProveedor;
-  });
+  const filtered = products
+    .filter((p) => {
+      const matchSearch =
+        p.product_name.toLowerCase().includes(search.toLowerCase()) ||
+        p.sku.toLowerCase().includes(search.toLowerCase());
+      const matchProveedor = !selectedProveedor || p.created_by === selectedProveedor;
+      const matchTrending = !trendingOnly || (p.unidades_vendidas ?? 0) > TRENDING_THRESHOLD;
+      return matchSearch && matchProveedor && matchTrending;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "trending":
+          return (b.unidades_vendidas ?? 0) - (a.unidades_vendidas ?? 0);
+        case "price_asc":
+          return a.suggested_price - b.suggested_price;
+        case "price_desc":
+          return b.suggested_price - a.suggested_price;
+        default:
+          return a.product_name.localeCompare(b.product_name);
+      }
+    });
+
+  const trendingCount = products.filter(
+    (p) => (p.unidades_vendidas ?? 0) > TRENDING_THRESHOLD,
+  ).length;
+  const topTrending = [...products]
+    .filter((p) => (p.unidades_vendidas ?? 0) > 0)
+    .sort((a, b) => (b.unidades_vendidas ?? 0) - (a.unidades_vendidas ?? 0))
+    .slice(0, 8);
 
   const openDetails = (product: MarketplaceProduct) => {
     setDetailProduct(product);
@@ -172,16 +197,125 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
         </p>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar producto o SKU..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="pl-9"
-        />
+      {/* Search + Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar producto o SKU..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        <Button
+          type="button"
+          variant={trendingOnly ? "default" : "outline"}
+          size="sm"
+          onClick={() => {
+            const next = !trendingOnly;
+            setTrendingOnly(next);
+            if (next) setSortBy("trending");
+          }}
+          className={cn(
+            "gap-1.5 h-10",
+            trendingOnly &&
+              "bg-gradient-to-r from-orange-500 to-red-500 text-white hover:from-orange-600 hover:to-red-600 border-0",
+          )}
+        >
+          <Flame className="h-4 w-4" />
+          En Tendencia
+          {trendingCount > 0 && (
+            <span
+              className={cn(
+                "ml-1 text-[10px] font-bold rounded-full px-1.5 py-0.5",
+                trendingOnly ? "bg-white/25 text-white" : "bg-primary/15 text-primary",
+              )}
+            >
+              {trendingCount}
+            </span>
+          )}
+        </Button>
+
+        <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+          <SelectTrigger className="w-[200px] h-10">
+            <SelectValue placeholder="Ordenar por" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="name">Nombre (A-Z)</SelectItem>
+            <SelectItem value="trending">🔥 Más vendidos</SelectItem>
+            <SelectItem value="price_asc">Precio: menor a mayor</SelectItem>
+            <SelectItem value="price_desc">Precio: mayor a menor</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* Productos en Tendencia – carrusel destacado */}
+      {!trendingOnly && topTrending.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
+              <Flame className="h-4 w-4 text-orange-500" />
+              Productos en Tendencia
+              <span className="text-xs font-normal text-muted-foreground">
+                · Los más vendidos esta temporada
+              </span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                setTrendingOnly(true);
+                setSortBy("trending");
+              }}
+              className="text-xs text-primary font-medium hover:underline"
+            >
+              Ver todos →
+            </button>
+          </div>
+          <div
+            className="flex flex-row gap-3 overflow-x-auto py-2 -mx-1 px-1"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            {topTrending.map((p) => {
+              const sold = p.unidades_vendidas ?? 0;
+              const out = p.stock_available <= 0;
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => openDetails(p)}
+                  className={cn(
+                    "flex-shrink-0 w-[180px] rounded-xl overflow-hidden border bg-card shadow-sm",
+                    "hover:shadow-md hover:border-primary/40 transition-all text-left",
+                    out && "opacity-60",
+                  )}
+                >
+                  <div className="h-28 bg-muted/50 relative flex items-center justify-center">
+                    {p.image_url ? (
+                      <img src={p.image_url} alt={p.product_name} className="h-full w-full object-cover" loading="lazy" />
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-muted-foreground/30" />
+                    )}
+                    <span className="absolute top-1.5 left-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] font-extrabold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shadow">
+                      <Flame className="h-2.5 w-2.5" /> {sold}
+                    </span>
+                  </div>
+                  <div className="p-2 space-y-1">
+                    <p className="text-xs font-semibold text-foreground line-clamp-2 leading-tight">
+                      {p.product_name}
+                    </p>
+                    <p className="text-sm font-bold text-primary">
+                      {formatCOP(p.suggested_price)}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
 
       {/* Carrusel de Proveedores Destacados — siempre se renderiza,
           incluso si no hay proveedores aún (muestra solo "Todos"). */}
