@@ -23,7 +23,7 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showRoleFallback, setShowRoleFallback] = useState(false);
-  const { signIn, user, role, loading: authLoading, refreshProfile } = useAuth();
+  const { signIn, user, role, loading: authLoading, roleFetchFailed, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const { tenantSlug } = useParams<{ tenantSlug?: string }>();
   const { branding, loading: brandingLoading, isWhiteLabel } = useTenantBranding(tenantSlug);
@@ -33,23 +33,6 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
       redirectToPanel(role);
     }
   }, [user, role, authLoading, navigate]);
-
-  // Emergency: if session exists but role fetch fails/gets stuck (e.g., network "Failed to fetch"),
-  // allow the user to continue manually instead of being locked out on /auth.
-  useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      setShowRoleFallback(false);
-      return;
-    }
-    if (role) {
-      setShowRoleFallback(false);
-      return;
-    }
-
-    const t = window.setTimeout(() => setShowRoleFallback(true), 1500);
-    return () => window.clearTimeout(t);
-  }, [authLoading, user, role]);
 
   const redirectToPanel = (userRole: string) => {
     switch (userRole) {
