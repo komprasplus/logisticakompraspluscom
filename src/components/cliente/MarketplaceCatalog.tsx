@@ -505,9 +505,21 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
         </div>
       ) : filtered.length === 0 ? (
         <div className="text-center py-16 text-muted-foreground">
-          <Package className="h-14 w-14 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No hay productos disponibles</p>
-          <p className="text-xs mt-1">El administrador aún no ha publicado productos en el marketplace</p>
+          {activeTab === "favoritos" ? (
+            <>
+              <Heart className="h-14 w-14 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">Aún no tienes productos favoritos</p>
+              <p className="text-xs mt-1">
+                Toca el corazón <Heart className="inline h-3 w-3" /> en cualquier producto para guardarlo aquí
+              </p>
+            </>
+          ) : (
+            <>
+              <Package className="h-14 w-14 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No hay productos disponibles</p>
+              <p className="text-xs mt-1">El administrador aún no ha publicado productos en el marketplace</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
