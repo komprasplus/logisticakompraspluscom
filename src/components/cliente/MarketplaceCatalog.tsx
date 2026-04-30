@@ -90,6 +90,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       suggestedPrice: product.suggested_price,
       marketplaceProductId: product.id,
       productType: product.product_type,
+      costPrice: product.cost_price,
+      supplierUserId: product.created_by ?? null,
     });
     setDetailProduct(null);
   };
