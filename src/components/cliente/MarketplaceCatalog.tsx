@@ -262,12 +262,31 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
         </p>
       </div>
 
+      {/* Tabs principales: Explorar / Mis Favoritos */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="explorar" className="gap-1.5">
+            <Compass className="h-4 w-4" />
+            Explorar
+          </TabsTrigger>
+          <TabsTrigger value="favoritos" className="gap-1.5">
+            <Heart className={cn("h-4 w-4", activeTab === "favoritos" && "fill-current")} />
+            Mis Favoritos
+            {favoriteIds.length > 0 && (
+              <span className="ml-1 text-[10px] font-bold rounded-full px-1.5 py-0.5 bg-primary/15 text-primary">
+                {favoriteIds.length}
+              </span>
+            )}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Search + Filters */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Buscar producto o SKU..."
+            placeholder="Buscar por nombre, SKU o REF-..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
