@@ -22,7 +22,7 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [showRoleFallback, setShowRoleFallback] = useState(false);
+  const { signOut } = useAuth();
   const { signIn, user, role, loading: authLoading, roleFetchFailed, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const { tenantSlug } = useParams<{ tenantSlug?: string }>();
