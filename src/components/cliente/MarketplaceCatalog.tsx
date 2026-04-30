@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
+  Eye, Heart, Tag, Boxes, ShieldCheck, Ruler,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -9,6 +10,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { formatCOP } from "@/lib/tarifas";
 
@@ -23,6 +27,10 @@ interface MarketplaceProduct {
   image_url: string | null;
   is_active: boolean;
   product_type?: string;
+  weight_kg?: number | null;
+  dimensions?: string | null;
+  category?: string | null;
+  warranty?: string | null;
 }
 
 interface MarketplaceCatalogProps {
@@ -39,6 +47,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const { profile } = useAuth();
   const orgId = profile?.organizacion_id;
   const [search, setSearch] = useState("");
+  const [detailProduct, setDetailProduct] = useState<MarketplaceProduct | null>(null);
+  const [activeImage, setActiveImage] = useState<string | null>(null);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["marketplace-catalog", orgId],
@@ -61,7 +71,12 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
     p.sku.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleOrder = async (product: MarketplaceProduct) => {
+  const openDetails = (product: MarketplaceProduct) => {
+    setDetailProduct(product);
+    setActiveImage(product.image_url ?? null);
+  };
+
+  const handleGenerateOrder = (product: MarketplaceProduct) => {
     if (product.stock_available <= 0) {
       toast.error("Producto agotado");
       return;
@@ -73,7 +88,12 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       marketplaceProductId: product.id,
       productType: product.product_type,
     });
+    setDetailProduct(null);
   };
+
+  const galleryImages = detailProduct
+    ? [detailProduct.image_url].filter(Boolean) as string[]
+    : [];
 
   return (
     <motion.div
@@ -88,7 +108,7 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
           Catálogo de Suministro
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Selecciona productos y genera órdenes de envío directamente
+          Explora los productos disponibles y genera tus órdenes de envío
         </p>
       </div>
 
@@ -128,9 +148,10 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                 whileHover={{ y: -4 }}
                 className={cn(
                   "rounded-2xl overflow-hidden backdrop-blur-sm border border-border/50",
-                  "bg-card/80 shadow-sm hover:shadow-lg transition-all duration-300",
+                  "bg-card/80 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer",
                   outOfStock && "opacity-60",
                 )}
+                onClick={() => openDetails(product)}
               >
                 {/* Image */}
                 <div className="h-44 bg-muted/50 relative flex items-center justify-center overflow-hidden">
@@ -201,14 +222,14 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                     <span>Disponible: {product.stock_available} uds</span>
                   </div>
 
-                  {/* CTA */}
+                  {/* CTA → ahora abre detalles */}
                   <Button
+                    variant="outline"
                     className="w-full gap-2"
-                    disabled={outOfStock}
-                    onClick={() => handleOrder(product)}
+                    onClick={(e) => { e.stopPropagation(); openDetails(product); }}
                   >
-                    <ShoppingBag className="h-4 w-4" />
-                    Generar Orden
+                    <Eye className="h-4 w-4" />
+                    Ver Detalles
                   </Button>
                 </div>
               </motion.div>
@@ -216,6 +237,196 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
           })}
         </div>
       )}
+
+      {/* Product Detail Drawer / Full-screen */}
+      <Dialog open={!!detailProduct} onOpenChange={(o) => !o && setDetailProduct(null)}>
+        <DialogContent
+          className={cn(
+            "p-0 gap-0 overflow-hidden",
+            "max-w-6xl w-[96vw] h-[92vh] sm:rounded-2xl",
+            "max-sm:w-screen max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none",
+            "flex flex-col",
+          )}
+        >
+          {detailProduct && (
+            <>
+              {/* Scrollable content */}
+              <div className="flex-1 overflow-y-auto pb-28">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
+                  {/* Left – Gallery (40%) */}
+                  <div className="md:col-span-2 bg-muted/30 p-4 sm:p-6 md:border-r border-border/50">
+                    <div className="aspect-square w-full rounded-2xl overflow-hidden bg-muted/60 flex items-center justify-center mb-3">
+                      {activeImage ? (
+                        <img
+                          src={activeImage}
+                          alt={detailProduct.product_name}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <ImageIcon className="h-20 w-20 text-muted-foreground/30" />
+                      )}
+                    </div>
+                    {galleryImages.length > 1 && (
+                      <div className="grid grid-cols-4 gap-2">
+                        {galleryImages.map((img, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setActiveImage(img)}
+                            className={cn(
+                              "aspect-square rounded-lg overflow-hidden border-2 transition-all",
+                              activeImage === img ? "border-primary" : "border-transparent opacity-70 hover:opacity-100",
+                            )}
+                          >
+                            <img src={img} alt="" className="h-full w-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right – Info (60%) */}
+                  <div className="md:col-span-3 p-5 sm:p-7 space-y-6">
+                    {/* Header */}
+                    <div className="space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        {detailProduct.category && (
+                          <Badge variant="secondary" className="gap-1">
+                            <Tag className="h-3 w-3" /> {detailProduct.category}
+                          </Badge>
+                        )}
+                        <Badge variant="outline" className="gap-1">
+                          {(detailProduct.product_type || "Simple") === "Variable" ? "Con Variantes" : "Simple"}
+                        </Badge>
+                        {detailProduct.stock_available <= 0 ? (
+                          <Badge variant="destructive">Agotado</Badge>
+                        ) : detailProduct.stock_available <= 5 ? (
+                          <Badge className="bg-amber-500 hover:bg-amber-500/90 text-white">
+                            Stock bajo
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-emerald-500 hover:bg-emerald-500/90 text-white">
+                            Disponible
+                          </Badge>
+                        )}
+                      </div>
+                      <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
+                        {detailProduct.product_name}
+                      </h1>
+                      <p className="text-xs font-mono text-muted-foreground">SKU: {detailProduct.sku}</p>
+                    </div>
+
+                    {/* Description */}
+                    {detailProduct.description && (
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {detailProduct.description}
+                      </p>
+                    )}
+
+                    {/* Financial Block */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-border/60 bg-muted/40 p-4">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
+                          Costo Proveedor
+                        </p>
+                        <p className="text-xl font-bold text-foreground mt-1">
+                          {formatCOP(detailProduct.cost_price)}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border-2 border-primary/40 bg-primary/10 p-4">
+                        <p className="text-[11px] uppercase tracking-wide text-primary font-semibold">
+                          Precio Sugerido
+                        </p>
+                        <p className="text-xl font-bold text-primary mt-1">
+                          {formatCOP(detailProduct.suggested_price)}
+                        </p>
+                        {detailProduct.suggested_price - detailProduct.cost_price > 0 && (
+                          <p className="text-[11px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" />
+                            Margen: {formatCOP(detailProduct.suggested_price - detailProduct.cost_price)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Inventory bar */}
+                    <div className="rounded-xl border border-border/60 bg-card p-4 flex items-center gap-4">
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Boxes className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-xs text-muted-foreground">Stock disponible en bodega</p>
+                        <p className="text-lg font-bold text-foreground">
+                          {detailProduct.stock_available} <span className="text-sm font-normal text-muted-foreground">unidades</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <Tabs defaultValue="detalles" className="w-full">
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="detalles">Detalles Técnicos</TabsTrigger>
+                        <TabsTrigger value="garantias">Garantías / Políticas</TabsTrigger>
+                      </TabsList>
+                      <TabsContent value="detalles" className="mt-3 rounded-xl border border-border/60 p-4 space-y-2 text-sm">
+                        <div className="flex justify-between border-b border-border/40 pb-2">
+                          <span className="text-muted-foreground flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> SKU</span>
+                          <span className="font-mono font-medium">{detailProduct.sku}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-border/40 pb-2">
+                          <span className="text-muted-foreground flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5" /> Peso</span>
+                          <span className="font-medium">{detailProduct.weight_kg ? `${detailProduct.weight_kg} kg` : "N/D"}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-border/40 pb-2">
+                          <span className="text-muted-foreground flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5" /> Dimensiones</span>
+                          <span className="font-medium">{detailProduct.dimensions || "N/D"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Tipo de producto</span>
+                          <span className="font-medium">{detailProduct.product_type || "Simple"}</span>
+                        </div>
+                      </TabsContent>
+                      <TabsContent value="garantias" className="mt-3 rounded-xl border border-border/60 p-4 text-sm space-y-2">
+                        <div className="flex items-start gap-2">
+                          <ShieldCheck className="h-4 w-4 text-primary mt-0.5" />
+                          <p className="text-muted-foreground">
+                            {detailProduct.warranty || "Producto cubierto por garantía estándar de la plataforma. Contraentrega disponible. Devoluciones procesadas según política operativa de Plus Envíos."}
+                          </p>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sticky Bottom Action Bar */}
+              <div
+                className="absolute bottom-0 inset-x-0 bg-background/95 backdrop-blur-md border-t border-border z-50 px-4 sm:px-6 py-3 flex items-center gap-3"
+                style={{ boxShadow: "0 -4px 12px -2px rgba(0,0,0,0.1)" }}
+              >
+                <Button
+                  variant="outline"
+                  size="lg"
+                  className="gap-2 max-sm:px-3"
+                  onClick={() => toast.success("Agregado a favoritos")}
+                >
+                  <Heart className="h-4 w-4" />
+                  <span className="max-sm:hidden">Favoritos</span>
+                </Button>
+                <Button
+                  size="lg"
+                  className="flex-1 gap-2 font-semibold"
+                  disabled={detailProduct.stock_available <= 0}
+                  onClick={() => handleGenerateOrder(detailProduct)}
+                >
+                  <ShoppingBag className="h-5 w-5" />
+                  Generar Orden
+                </Button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };
