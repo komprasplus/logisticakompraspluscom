@@ -13,6 +13,16 @@ interface CreateProductModalProps {
   onClose: () => void;
   onSuccess: () => void;
   userId: string;
+  /**
+   * Account type of the logged-in user.
+   * - "proveedor" → product saved with `is_public = true` AND mirrored to
+   *   `marketplace_products` so it appears in the public Catálogo de Suministro.
+   * - "dropshipper" / null / legacy → saved as private inventory only
+   *   (`is_public = false`), used for fulfillment and not exposed in the marketplace.
+   */
+  tipoCuenta?: string | null;
+  /** Organization id required to mirror to marketplace_products for proveedores. */
+  organizacionId?: string | null;
 }
 
 interface NewProduct {
@@ -51,7 +61,15 @@ const EMPTY_PRODUCT: NewProduct = {
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
-const CreateProductModal = ({ isOpen, onClose, onSuccess, userId }: CreateProductModalProps) => {
+const CreateProductModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  userId,
+  tipoCuenta,
+  organizacionId,
+}: CreateProductModalProps) => {
+  const isProveedor = tipoCuenta === "proveedor";
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -275,27 +293,61 @@ const CreateProductModal = ({ isOpen, onClose, onSuccess, userId }: CreateProduc
         "inventory", la solución es regenerar los tipos con `supabase gen types`.
         El cast `as any` enmascara errores de schema que deberían ser visibles.
       */
-      const { error } = await supabase.from("inventory").insert({
+      const skuClean = product.sku.trim().toUpperCase();
+
+      // 1) Always insert into inventory. is_public flag separates Proveedor (public)
+      //    from Dropshipper (private fulfillment only).
+      const { error } = await (supabase as any).from("inventory").insert({
         client_user_id: userId,
-        sku: product.sku.trim().toUpperCase(),
+        sku: skuClean,
         product_name: product.product_name.trim(),
         stock_available: product.stock_available,
         price: product.price,
         fulfillment_value: fulfillmentInfo.rate,
         low_stock_threshold: product.low_stock_threshold,
         image_url: product.image_url,
+        is_public: isProveedor,
       });
 
       if (error) {
         if (error.code === "23505") {
-          toast.error(`Ya existe un producto con el SKU "${product.sku.trim().toUpperCase()}"`);
+          toast.error(`Ya existe un producto con el SKU "${skuClean}"`);
         } else {
           throw error;
         }
         return;
       }
 
-      toast.success("✅ Producto creado exitosamente");
+      // 2) Proveedor → also mirror to marketplace_products so the catálogo público
+      //    de suministro lo muestra de inmediato. Errors here are non-fatal: the
+      //    private inventory row was already created.
+      if (isProveedor && organizacionId) {
+        const { error: mpError } = await (supabase as any)
+          .from("marketplace_products")
+          .insert({
+            organizacion_id: organizacionId,
+            created_by: userId,
+            product_name: product.product_name.trim(),
+            sku: skuClean,
+            cost_price: product.price, // PVP del proveedor = costo para el dropshipper
+            suggested_price: product.price,
+            stock_available: product.stock_available,
+            image_url: product.image_url,
+            product_type: "Simple",
+            is_active: true,
+          });
+
+        if (mpError) {
+          console.error("Error mirroring product to marketplace_products:", mpError);
+          toast.warning("Producto creado en tu inventario, pero no se publicó en el catálogo público.");
+        }
+      }
+
+      toast.success(
+        isProveedor
+          ? "✅ Producto publicado en el catálogo de suministro"
+          : "✅ Producto creado en tu inventario privado",
+      );
       handleClose();
       onSuccess();
     } catch (error) {
@@ -304,7 +356,7 @@ const CreateProductModal = ({ isOpen, onClose, onSuccess, userId }: CreateProduc
     } finally {
       if (!cancelRef.current) setSaving(false);
     }
-  }, [product, userId, fulfillmentInfo.rate, handleClose, onSuccess]);
+  }, [product, userId, fulfillmentInfo.rate, handleClose, onSuccess, isProveedor, organizacionId]);
 
   // ── Render ─────────────────────────────────────────────────────────────────
 

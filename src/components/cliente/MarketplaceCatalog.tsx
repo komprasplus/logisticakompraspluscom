@@ -79,27 +79,21 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
     staleTime: 60_000,
   });
 
-  // Proveedores destacados: perfiles tipo_cuenta='proveedor' cruzados con conteo de productos activos
+  // Proveedores destacados:
+  // FIX: el carrusel ahora se renderiza siempre, incluso si los proveedores
+  // aún no tienen productos publicados ("0 Productos"). Antes dependíamos
+  // de cruzar `products.created_by`, lo que ocultaba proveedores nuevos
+  // (ej. "Tendencias Tiktok") hasta que subieran al menos un producto.
   const { data: proveedores = [] } = useQuery({
     queryKey: ["marketplace-proveedores", orgId, products.length],
     queryFn: async () => {
-      const supplierIds = Array.from(
-        new Set(
-          products
-            .map((p) => p.created_by)
-            .filter((id): id is string => !!id)
-        )
-      );
-      if (supplierIds.length === 0) return [] as ProveedorDestacado[];
-
       const { data: profilesData, error } = await (supabase as any)
         .from("profiles")
         .select("user_id, store_name, full_name, logo_url, avatar_url, tipo_cuenta")
-        .in("user_id", supplierIds)
         .eq("tipo_cuenta", "proveedor");
       if (error) throw error;
 
-      // Contar productos activos por proveedor
+      // Contar productos activos por proveedor (puede ser 0)
       const counts = new Map<string, number>();
       products.forEach((p) => {
         if (p.created_by) counts.set(p.created_by, (counts.get(p.created_by) ?? 0) + 1);
@@ -114,10 +108,12 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
           avatar_url: pr.avatar_url,
           product_count: counts.get(pr.user_id) ?? 0,
         }))
-        .filter((p: ProveedorDestacado) => p.product_count > 0)
-        .sort((a: ProveedorDestacado, b: ProveedorDestacado) => b.product_count - a.product_count);
+        .sort(
+          (a: ProveedorDestacado, b: ProveedorDestacado) =>
+            b.product_count - a.product_count,
+        );
     },
-    enabled: !!orgId && products.length > 0,
+    enabled: !!orgId,
     staleTime: 60_000,
   });
 
@@ -183,9 +179,9 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
         />
       </div>
 
-      {/* Carrusel de Proveedores Destacados */}
-      {proveedores.length > 0 && (
-        <div className="space-y-2">
+      {/* Carrusel de Proveedores Destacados — siempre se renderiza,
+          incluso si no hay proveedores aún (muestra solo "Todos"). */}
+      <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground">Proveedores destacados</h3>
             {selectedProveedor && (
@@ -279,7 +275,6 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
             })}
           </div>
         </div>
-      )}
 
       {isLoading ? (
         <div className="flex justify-center py-16">
