@@ -183,9 +183,9 @@ const ClienteSidebar = ({
     })
     .map((item) => {
       if (!isProveedor && item.key === "inventario") {
-        return { ...item, label: "Mi Inventario Propio" } as typeof item;
+        return { ...item, label: "Mi Inventario Propio" as string };
       }
-      return item;
+      return item as { key: typeof item.key; label: string; icon: typeof item.icon; gradient: string; shadow: string };
     });
   /*
     FIX: respetar `prefers-reduced-motion`.
