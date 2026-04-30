@@ -539,7 +539,7 @@ const InventarioView = () => {
       )}
 
       {/* Modal crear producto */}
-      <CreateProductModal
+      <NuevoProductoMarketplace
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSuccess={fetchInventory}
