@@ -1,0 +1,2 @@
+ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS is_public boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_inventory_is_public ON public.inventory(is_public) WHERE is_public = true;

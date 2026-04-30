@@ -339,6 +339,7 @@ export type Database = {
           id: string
           image_url: string | null
           is_deleted: boolean
+          is_public: boolean
           low_stock_threshold: number
           organizacion_id: string | null
           price: number | null
@@ -354,6 +355,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_deleted?: boolean
+          is_public?: boolean
           low_stock_threshold?: number
           organizacion_id?: string | null
           price?: number | null
@@ -369,6 +371,7 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_deleted?: boolean
+          is_public?: boolean
           low_stock_threshold?: number
           organizacion_id?: string | null
           price?: number | null
