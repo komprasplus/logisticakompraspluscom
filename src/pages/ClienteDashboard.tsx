@@ -282,6 +282,7 @@ const ClienteDashboard = () => {
         novedadesCount={novedadesCount}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        tipoCuenta={profile?.tipo_cuenta}
       />
 
       {/* Main Content */}
