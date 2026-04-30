@@ -47,6 +47,33 @@ const getInitials = (name: string): string =>
 */
 const sanitizePhone = (phone: string): string => phone.replace(/[\s\-().+]/g, "");
 
+// ─── Subcomponente: branding dinámico de la plataforma ────────────────────────
+
+const PlatformBrand = () => {
+  const { branding } = useTheme();
+  if (branding.logo_url) {
+    return (
+      <div className="flex items-center gap-2">
+        <img
+          src={branding.logo_url}
+          alt={branding.nombre}
+          className="h-10 w-auto max-w-[160px] object-contain"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-10 h-10 rounded-xl bg-gradient-button flex items-center justify-center shadow-md">
+        <Truck className="h-5 w-5 text-white" />
+      </div>
+      <span className="font-black text-lg tracking-tight hidden sm:block text-gradient-brand">
+        {branding.nombre}
+      </span>
+    </div>
+  );
+};
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 const ClienteHeader = ({
