@@ -100,7 +100,7 @@ const MENU_GROUPS: MenuGroup[] = [
         label: "Control Tower",
         icon: LayoutDashboard,
         description: "Analíticas en tiempo real",
-        colorClass: "from-primary to-blue-600",
+        colorClass: "from-primary to-primary/70",
         accentColor: "bg-primary/10",
       },
       {
@@ -108,8 +108,8 @@ const MENU_GROUPS: MenuGroup[] = [
         label: "Mapa Real-time",
         icon: MapPin,
         description: "Vista en vivo de entregas",
-        colorClass: "from-blue-500 to-cyan-500",
-        accentColor: "bg-blue-500/10",
+        colorClass: "from-primary to-secondary",
+        accentColor: "bg-primary/10",
       },
       {
         id: "despachos",
@@ -151,8 +151,8 @@ const MENU_GROUPS: MenuGroup[] = [
         label: "Informes",
         icon: FileText,
         description: "Reportes y exportación",
-        colorClass: "from-indigo-500 to-blue-500",
-        accentColor: "bg-indigo-500/10",
+        colorClass: "from-primary/80 to-secondary",
+        accentColor: "bg-primary/10",
       },
       {
         id: "monitoreo",

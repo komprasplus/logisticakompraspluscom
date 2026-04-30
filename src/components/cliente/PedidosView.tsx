@@ -53,7 +53,7 @@ const getStatusInfo = (status: string | null) => {
     case "recibido":
     case "pedido recibido":
     case "recibido en bodega":
-      return { label: "En Bodega", color: "bg-blue-500", textColor: "text-white", icon: Box };
+      return { label: "En Bodega", color: "bg-primary", textColor: "text-primary-foreground", icon: Box };
     case "pendiente":
       return { label: "Pendiente", color: "bg-amber-500", textColor: "text-white", icon: Clock };
     case "asignado":
