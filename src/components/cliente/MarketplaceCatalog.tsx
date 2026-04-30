@@ -46,12 +46,22 @@ interface MarketplaceCatalogProps {
   }) => void;
 }
 
+interface ProveedorDestacado {
+  user_id: string;
+  store_name: string | null;
+  full_name: string;
+  logo_url: string | null;
+  avatar_url: string | null;
+  product_count: number;
+}
+
 const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const { profile } = useAuth();
   const orgId = profile?.organizacion_id;
   const [search, setSearch] = useState("");
   const [detailProduct, setDetailProduct] = useState<MarketplaceProduct | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [selectedProveedor, setSelectedProveedor] = useState<string | null>(null);
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["marketplace-catalog", orgId],
@@ -69,10 +79,55 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
     staleTime: 60_000,
   });
 
-  const filtered = products.filter(p =>
-    p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-    p.sku.toLowerCase().includes(search.toLowerCase())
-  );
+  // Proveedores destacados: perfiles tipo_cuenta='proveedor' cruzados con conteo de productos activos
+  const { data: proveedores = [] } = useQuery({
+    queryKey: ["marketplace-proveedores", orgId, products.length],
+    queryFn: async () => {
+      const supplierIds = Array.from(
+        new Set(
+          products
+            .map((p) => p.created_by)
+            .filter((id): id is string => !!id)
+        )
+      );
+      if (supplierIds.length === 0) return [] as ProveedorDestacado[];
+
+      const { data: profilesData, error } = await (supabase as any)
+        .from("profiles")
+        .select("user_id, store_name, full_name, logo_url, avatar_url, tipo_cuenta")
+        .in("user_id", supplierIds)
+        .eq("tipo_cuenta", "proveedor");
+      if (error) throw error;
+
+      // Contar productos activos por proveedor
+      const counts = new Map<string, number>();
+      products.forEach((p) => {
+        if (p.created_by) counts.set(p.created_by, (counts.get(p.created_by) ?? 0) + 1);
+      });
+
+      return (profilesData ?? [])
+        .map((pr: any) => ({
+          user_id: pr.user_id,
+          store_name: pr.store_name,
+          full_name: pr.full_name,
+          logo_url: pr.logo_url,
+          avatar_url: pr.avatar_url,
+          product_count: counts.get(pr.user_id) ?? 0,
+        }))
+        .filter((p: ProveedorDestacado) => p.product_count > 0)
+        .sort((a: ProveedorDestacado, b: ProveedorDestacado) => b.product_count - a.product_count);
+    },
+    enabled: !!orgId && products.length > 0,
+    staleTime: 60_000,
+  });
+
+  const filtered = products.filter((p) => {
+    const matchSearch =
+      p.product_name.toLowerCase().includes(search.toLowerCase()) ||
+      p.sku.toLowerCase().includes(search.toLowerCase());
+    const matchProveedor = !selectedProveedor || p.created_by === selectedProveedor;
+    return matchSearch && matchProveedor;
+  });
 
   const openDetails = (product: MarketplaceProduct) => {
     setDetailProduct(product);
