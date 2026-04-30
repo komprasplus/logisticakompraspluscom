@@ -336,7 +336,7 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       </div>
 
       {/* Productos en Tendencia – carrusel destacado */}
-      {!trendingOnly && topTrending.length > 0 && (
+      {activeTab === "explorar" && !trendingOnly && topTrending.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-foreground flex items-center gap-1.5">
