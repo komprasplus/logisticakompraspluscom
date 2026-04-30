@@ -208,7 +208,7 @@ const ClienteSidebar = ({
     >
       {/* Ítems de navegación */}
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto" aria-label="Secciones del panel">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.key;
           const showBadge = item.key === "novedades" && novedadesCount > 0;
