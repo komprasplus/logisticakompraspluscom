@@ -1033,8 +1033,14 @@ const NuevoPedidoModal = ({
                 <Package className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-foreground">📦 Nuevo Pedido</h2>
-                <p className="text-xs text-muted-foreground">Completa los datos del cliente y del producto</p>
+                <h2 className="text-xl font-bold text-foreground">
+                  {isEditMode ? `✏️ Editar Pedido #${orderToEdit?.id}` : "📦 Nuevo Pedido"}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {isEditMode
+                    ? "Modifica los datos del pedido. Los cambios se guardarán inmediatamente."
+                    : "Completa los datos del cliente y del producto"}
+                </p>
               </div>
             </div>
             <button
