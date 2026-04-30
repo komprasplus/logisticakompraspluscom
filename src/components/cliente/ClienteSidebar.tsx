@@ -2,24 +2,24 @@ import { motion, useReducedMotion } from "framer-motion";
 import {
   LayoutDashboard,
   Package,
-  AlertTriangle,
   FileSpreadsheet,
   ChevronLeft,
   ChevronRight,
   Store,
-  RotateCcw,
   Plug,
   Boxes,
   Wallet,
   Book,
-  ArrowUpRight,
-  Send,
   ShoppingBag,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
+// NOTE: mantenemos las claves antiguas (novedades, devoluciones, retiros,
+// transferencias) en el tipo para que las redirecciones lógicas en el
+// dashboard sigan compilando, aunque ya no se rendericen como ítems
+// independientes en el sidebar.
 export type ClienteView =
   | "dashboard"
   | "pedidos"
@@ -41,124 +41,125 @@ interface ClienteSidebarProps {
   novedadesCount: number;
   collapsed: boolean;
   onToggleCollapse: () => void;
-  /** Tipo de cuenta del usuario logueado: 'dropshipper' | 'proveedor' | null (legacy) */
   tipoCuenta?: string | null;
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-/*
-  FIX: el magic number `104px` (altura del header) aparecía dos veces en el
-  componente — en `top-[104px]` y en `h-[calc(100vh-104px)]`.
-  Si la altura del header cambia (ej. al añadir un aviso de sistema),
-  hay que actualizarlo en dos lugares. Centralizado como constante.
-
-  Nota: idealmente esto iría en el design token del proyecto como una
-  CSS custom property `--header-height: 104px` compartida con el header.
-*/
 const HEADER_HEIGHT_PX = 104;
-
-/*
-  FIX: badge cap a 99+.
-  Un `novedadesCount` de 150 se mostraba como "150" en una insignia
-  diseñada para 1-2 dígitos, desbordando visualmente.
-*/
 const MAX_BADGE_COUNT = 99;
-const formatBadge = (count: number): string => (count > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : String(count));
+const formatBadge = (count: number): string =>
+  count > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : String(count);
 
-const navItems = [
+// ─── Estructura de navegación agrupada ────────────────────────────────────────
+// Refactor IA: el sidebar pasa de una lista plana de 13 ítems a 4 secciones
+// temáticas con 8-9 ítems en total (Novedades/Devoluciones se consolidan en
+// pestañas dentro de "Mis Pedidos"; Retiros/Transferir se consolidan en
+// "Billetera"). Esto reduce fatiga visual y mejora la jerarquía.
+
+interface NavItem {
+  key: ClienteView;
+  label: string;
+  icon: typeof LayoutDashboard;
+  gradient: string;
+  shadow: string;
+}
+
+interface NavSection {
+  id: string;
+  title: string; // Encabezado de sección (mayúscula pequeña, gris sutil)
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
   {
-    key: "dashboard" as ClienteView,
-    label: "Dashboard",
-    icon: LayoutDashboard,
-    gradient: "from-blue-500 to-blue-600",
-    shadow: "shadow-blue-500/30",
+    id: "principal",
+    title: "Principal",
+    items: [
+      {
+        key: "dashboard",
+        label: "Dashboard",
+        icon: LayoutDashboard,
+        gradient: "from-blue-500 to-blue-600",
+        shadow: "shadow-blue-500/30",
+      },
+      {
+        key: "pedidos",
+        label: "Mis Pedidos",
+        icon: Package,
+        gradient: "from-primary to-primary/80",
+        shadow: "shadow-primary/30",
+      },
+    ],
   },
   {
-    key: "pedidos" as ClienteView,
-    label: "Mis Pedidos",
-    icon: Package,
-    gradient: "from-primary to-primary/80",
-    shadow: "shadow-primary/30",
+    id: "productos",
+    title: "Productos",
+    items: [
+      {
+        key: "catalogo",
+        label: "Catálogo Suministro",
+        icon: ShoppingBag,
+        gradient: "from-pink-500 to-rose-600",
+        shadow: "shadow-pink-500/30",
+      },
+      {
+        key: "inventario",
+        label: "Mi Inventario Propio",
+        icon: Boxes,
+        gradient: "from-indigo-500 to-indigo-600",
+        shadow: "shadow-indigo-500/30",
+      },
+    ],
   },
   {
-    key: "novedades" as ClienteView,
-    label: "Novedades",
-    icon: AlertTriangle,
-    gradient: "from-orange-500 to-orange-600",
-    shadow: "shadow-orange-500/30",
+    id: "finanzas",
+    title: "Finanzas",
+    items: [
+      {
+        key: "billetera",
+        label: "Billetera",
+        icon: Wallet,
+        gradient: "from-teal-500 to-teal-600",
+        shadow: "shadow-teal-500/30",
+      },
+      {
+        key: "reportes",
+        label: "Reportes",
+        icon: FileSpreadsheet,
+        gradient: "from-emerald-500 to-emerald-600",
+        shadow: "shadow-emerald-500/30",
+      },
+    ],
   },
   {
-    key: "devoluciones" as ClienteView,
-    label: "Devoluciones",
-    icon: RotateCcw,
-    gradient: "from-red-500 to-red-600",
-    shadow: "shadow-red-500/30",
+    id: "configuracion",
+    title: "Configuración",
+    items: [
+      {
+        key: "tienda",
+        label: "Mi Tienda",
+        icon: Store,
+        gradient: "from-purple-500 to-purple-600",
+        shadow: "shadow-purple-500/30",
+      },
+      {
+        key: "integraciones",
+        label: "Integraciones",
+        icon: Plug,
+        gradient: "from-cyan-500 to-cyan-600",
+        shadow: "shadow-cyan-500/30",
+      },
+      {
+        key: "docs",
+        label: "Documentación",
+        icon: Book,
+        gradient: "from-gray-500 to-gray-600",
+        shadow: "shadow-gray-500/30",
+      },
+    ],
   },
-  {
-    key: "reportes" as ClienteView,
-    label: "Reportes",
-    icon: FileSpreadsheet,
-    gradient: "from-emerald-500 to-emerald-600",
-    shadow: "shadow-emerald-500/30",
-  },
-  {
-    key: "tienda" as ClienteView,
-    label: "Mi Tienda",
-    icon: Store,
-    gradient: "from-purple-500 to-purple-600",
-    shadow: "shadow-purple-500/30",
-  },
-  {
-    key: "inventario" as ClienteView,
-    label: "Inventario",
-    icon: Boxes,
-    gradient: "from-indigo-500 to-indigo-600",
-    shadow: "shadow-indigo-500/30",
-  },
-  {
-    key: "catalogo" as ClienteView,
-    label: "Catálogo Suministro",
-    icon: ShoppingBag,
-    gradient: "from-pink-500 to-rose-600",
-    shadow: "shadow-pink-500/30",
-  },
-  {
-    key: "billetera" as ClienteView,
-    label: "Billetera",
-    icon: Wallet,
-    gradient: "from-teal-500 to-teal-600",
-    shadow: "shadow-teal-500/30",
-  },
-  {
-    key: "retiros" as ClienteView,
-    label: "Retiros",
-    icon: ArrowUpRight,
-    gradient: "from-emerald-500 to-teal-600",
-    shadow: "shadow-emerald-500/30",
-  },
-  {
-    key: "transferencias" as ClienteView,
-    label: "Transferir",
-    icon: Send,
-    gradient: "from-violet-500 to-violet-600",
-    shadow: "shadow-violet-500/30",
-  },
-  {
-    key: "integraciones" as ClienteView,
-    label: "Integraciones",
-    icon: Plug,
-    gradient: "from-cyan-500 to-cyan-600",
-    shadow: "shadow-cyan-500/30",
-  },
-  {
-    key: "docs" as ClienteView,
-    label: "Documentación",
-    icon: Book,
-    gradient: "from-gray-500 to-gray-600",
-    shadow: "shadow-gray-500/30",
-  },
-] as const;
+];
 
 // ─── Componente ───────────────────────────────────────────────────────────────
 
@@ -171,29 +172,17 @@ const ClienteSidebar = ({
   tipoCuenta,
 }: ClienteSidebarProps) => {
   const isProveedor = tipoCuenta === "proveedor";
+  const prefersReducedMotion = useReducedMotion();
 
-  // Para proveedores ocultamos el catálogo (es para abastecerse, ellos son la fuente)
-  // y dejamos visibles inventario, pedidos a despachar, billetera y reportes.
-  // Para dropshippers renombramos "Inventario" → "Mi Inventario Propio" para
-  // diferenciarlo claramente de la Megabodega/Catálogo de Suministro.
-  const visibleNavItems = navItems
-    .filter((item) => {
+  // Filtrado por tipo de cuenta:
+  // - Proveedores no ven "Catálogo Suministro" (ellos son la fuente).
+  const visibleSections: NavSection[] = NAV_SECTIONS.map((section) => ({
+    ...section,
+    items: section.items.filter((item) => {
       if (isProveedor && item.key === "catalogo") return false;
       return true;
-    })
-    .map((item) => {
-      if (!isProveedor && item.key === "inventario") {
-        return { ...item, label: "Mi Inventario Propio" as string };
-      }
-      return item as { key: typeof item.key; label: string; icon: typeof item.icon; gradient: string; shadow: string };
-    });
-  /*
-    FIX: respetar `prefers-reduced-motion`.
-    Los efectos `whileHover: scale(1.02)` y `whileTap: scale(0.98)` se
-    aplican en cada ítem del menú. Usuarios con sensibilidad al movimiento
-    deben poder navegar sin animaciones de escala continuas.
-  */
-  const prefersReducedMotion = useReducedMotion();
+    }),
+  })).filter((section) => section.items.length > 0);
 
   return (
     <motion.aside
@@ -208,120 +197,100 @@ const ClienteSidebar = ({
       initial={{ x: -100 }}
       animate={{ x: 0 }}
       transition={{ duration: 0.3 }}
-      /*
-        FIX: `role="complementary"` ya está implícito en `<aside>`,
-        pero añadimos `aria-label` para distinguir este sidebar de otros
-        posibles elementos de navegación en la página.
-      */
       aria-label="Navegación principal"
     >
-      {/* Ítems de navegación */}
-      <nav className="flex-1 p-2 space-y-1 overflow-y-auto" aria-label="Secciones del panel">
-        {visibleNavItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeView === item.key;
-          const showBadge = item.key === "novedades" && novedadesCount > 0;
-
-          return (
-            <motion.button
-              key={item.key}
-              /*
-                FIX: `type="button"` explícito para evitar submit accidental
-                si el sidebar estuviera dentro de un form en algún wrapper.
-              */
-              type="button"
-              onClick={() => onViewChange(item.key)}
-              /*
-                FIX: `aria-current="page"` en el ítem activo.
-                Sin esto, los lectores de pantalla no tienen forma de saber
-                cuál es la sección actualmente seleccionada — solo escuchan
-                el nombre del botón. `aria-current="page"` es el estándar
-                para landmarks de navegación activos.
-              */
-              aria-current={isActive ? "page" : undefined}
-              /*
-                FIX: `aria-label` enriquecido para ítems con badge.
-                Cuando hay novedades pendientes, el lector de pantalla debe
-                anunciar el conteo, no solo "Novedades".
-              */
-              aria-label={
-                showBadge ? `${item.label} — ${novedadesCount} pendiente${novedadesCount !== 1 ? "s" : ""}` : item.label
-              }
-              className={cn(
-                "relative w-full flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition-all overflow-hidden group",
-                isActive ? "text-white" : "text-muted-foreground hover:bg-muted/50",
-              )}
-              /*
-                FIX: deshabilitar animaciones de escala cuando el usuario
-                prefiere movimiento reducido.
-              */
-              whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
-              whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-            >
-              {/* Fondo degradado del ítem activo */}
-              {isActive && (
-                <>
-                  <motion.div
-                    className={cn("absolute inset-0 bg-gradient-to-br rounded-xl", item.gradient)}
-                    layoutId="activeNav"
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-xl" />
-                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20 rounded-b-xl" />
-                </>
-              )}
-
-              {/* Ícono */}
-              <div
-                className={cn(
-                  "relative flex items-center justify-center rounded-lg p-1.5 flex-shrink-0 transition-colors",
-                  isActive ? "bg-white/20" : "bg-muted",
-                )}
+      <nav className="flex-1 p-2 space-y-4 overflow-y-auto" aria-label="Secciones del panel">
+        {visibleSections.map((section) => (
+          <div key={section.id} className="space-y-1">
+            {/* Encabezado de sección — oculto cuando colapsado */}
+            {!collapsed && (
+              <p
+                className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70"
+                aria-hidden="true"
               >
-                <Icon className="h-5 w-5" aria-hidden="true" />
-              </div>
+                {section.title}
+              </p>
+            )}
 
-              {/* Label — oculto cuando está colapsado */}
-              {!collapsed && <span className="relative flex-1 text-left">{item.label}</span>}
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                activeView === item.key ||
+                // "Mis Pedidos" se mantiene activo cuando el usuario está en
+                // las pestañas de Novedades/Devoluciones (consolidadas).
+                (item.key === "pedidos" &&
+                  (activeView === "novedades" || activeView === "devoluciones")) ||
+                // "Billetera" se mantiene activo en las sub-vistas de
+                // Retiros/Transferencias (consolidadas).
+                (item.key === "billetera" &&
+                  (activeView === "retiros" || activeView === "transferencias"));
 
-              {/* Badge de novedades */}
-              {showBadge && (
-                <span
+              const showBadge = item.key === "pedidos" && novedadesCount > 0;
+
+              return (
+                <motion.button
+                  key={item.key}
+                  type="button"
+                  onClick={() => onViewChange(item.key)}
+                  aria-current={isActive ? "page" : undefined}
+                  aria-label={
+                    showBadge
+                      ? `${item.label} — ${novedadesCount} novedad${novedadesCount !== 1 ? "es" : ""}`
+                      : item.label
+                  }
                   className={cn(
-                    "relative flex h-5 min-w-5 items-center justify-center rounded-full text-xs font-bold px-1",
-                    isActive ? "bg-white/20 text-white" : "bg-orange-500 text-white",
+                    "relative w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all overflow-hidden group",
+                    isActive ? "text-white" : "text-muted-foreground hover:bg-muted/50",
                   )}
-                  /*
-                    FIX: `aria-hidden` en el badge visual porque el conteo
-                    ya está incluido en el `aria-label` del botón padre.
-                    Sin esto el lector lo anunciaría dos veces.
-                  */
-                  aria-hidden="true"
+                  whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
+                  whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
                 >
-                  {/* FIX: capped a 99+ */}
-                  {formatBadge(novedadesCount)}
-                </span>
-              )}
-            </motion.button>
-          );
-        })}
+                  {isActive && (
+                    <>
+                      <motion.div
+                        className={cn("absolute inset-0 bg-gradient-to-br rounded-xl", item.gradient)}
+                        layoutId="activeNav"
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-xl" />
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20 rounded-b-xl" />
+                    </>
+                  )}
+
+                  <div
+                    className={cn(
+                      "relative flex items-center justify-center rounded-lg p-1.5 flex-shrink-0 transition-colors",
+                      isActive ? "bg-white/20" : "bg-muted",
+                    )}
+                  >
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                  </div>
+
+                  {!collapsed && <span className="relative flex-1 text-left">{item.label}</span>}
+
+                  {showBadge && (
+                    <span
+                      className={cn(
+                        "relative flex h-5 min-w-5 items-center justify-center rounded-full text-xs font-bold px-1",
+                        isActive ? "bg-white/20 text-white" : "bg-orange-500 text-white",
+                      )}
+                      aria-hidden="true"
+                    >
+                      {formatBadge(novedadesCount)}
+                    </span>
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
+        ))}
       </nav>
 
-      {/* Botón colapsar/expandir */}
       <button
         type="button"
         onClick={onToggleCollapse}
         className="m-2 flex items-center justify-center rounded-lg p-2 text-muted-foreground hover:bg-muted transition-colors"
-        /*
-          FIX: `aria-label` dinámico que describe la acción futura
-          (lo que va a pasar al hacer clic), no el estado actual.
-          Convenio estándar en toggles de sidebar.
-        */
         aria-label={collapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
-        /*
-          FIX: `aria-expanded` indica el estado actual del sidebar
-          al árbol de accesibilidad, complementando el aria-label.
-        */
         aria-expanded={!collapsed}
       >
         {collapsed ? (
