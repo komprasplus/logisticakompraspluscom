@@ -261,7 +261,7 @@ const PedidosView = ({
     itemsPerPage,
     goToPage,
     setItemsPerPage,
-  } = usePagination({ items: filteredPedidos, itemsPerPage: 10 });
+  } = usePagination({ items: filteredPedidos, itemsPerPage: 50 });
 
   // ── Conteos de estado para el carrusel ────────────────────────────────────
 
