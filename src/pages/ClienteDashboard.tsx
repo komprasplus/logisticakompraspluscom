@@ -249,6 +249,7 @@ const ClienteDashboard = () => {
   // Get store info from profile
   const storeName = profile?.store_name || profile?.full_name || "Mi Tienda";
   const logoUrl = (profile as { logo_url?: string })?.logo_url || null;
+  const isProveedor = profile?.tipo_cuenta === "proveedor";
 
   // Show loading state while auth initializes to prevent premature empty states
   if (authLoading) {
