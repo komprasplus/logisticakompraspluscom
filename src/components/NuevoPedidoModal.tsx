@@ -891,29 +891,36 @@ const NuevoPedidoModal = ({
 
         {/* Modal */}
         <motion.div
-          className="relative z-10 w-full max-w-lg max-h-[90vh] overflow-y-auto mx-4 rounded-2xl bg-card shadow-xl"
+          className="relative z-10 w-full max-w-5xl max-h-[92vh] flex flex-col mx-4 rounded-2xl bg-card shadow-2xl overflow-hidden"
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
         >
           {/* Header */}
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card p-4">
+          <div className="shrink-0 flex items-center justify-between border-b border-border bg-card px-6 py-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10">
                 <Package className="h-5 w-5 text-primary" />
               </div>
-              <h2 className="text-lg font-bold text-foreground">Nuevo Pedido</h2>
+              <div>
+                <h2 className="text-xl font-bold text-foreground">📦 Nuevo Pedido</h2>
+                <p className="text-xs text-muted-foreground">Completa los datos del cliente y del producto</p>
+              </div>
             </div>
             <button
               onClick={onClose}
-              className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-muted transition-colors"
+              className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-muted transition-colors"
             >
               <X className="h-5 w-5 text-muted-foreground" />
             </button>
           </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="p-4 space-y-5">
+          {/* Form — scrollable body + sticky footer */}
+          <form onSubmit={handleSubmit} className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+
+            {/* Top header row: Service type + Payment method (full width) */}
+            <div className="flex flex-col md:flex-row md:items-center md:justify-center gap-3 pb-3 border-b border-border">
 
             {/* ============ SECTION 0: Service Type ============ */}
             <div className="space-y-2">
