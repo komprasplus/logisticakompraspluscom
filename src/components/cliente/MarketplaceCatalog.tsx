@@ -880,10 +880,23 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                   variant="outline"
                   size="lg"
                   className="gap-2 max-sm:px-3"
-                  onClick={() => toast.success("Agregado a favoritos")}
+                  onClick={() => {
+                    if (!userId) {
+                      toast.error("Debes iniciar sesión");
+                      return;
+                    }
+                    toggleFavorite.mutate(detailProduct.id);
+                  }}
                 >
-                  <Heart className="h-4 w-4" />
-                  <span className="max-sm:hidden">Favoritos</span>
+                  <Heart
+                    className={cn(
+                      "h-4 w-4",
+                      favoritesSet.has(detailProduct.id) && "fill-red-500 text-red-500",
+                    )}
+                  />
+                  <span className="max-sm:hidden">
+                    {favoritesSet.has(detailProduct.id) ? "Guardado" : "Favoritos"}
+                  </span>
                 </Button>
                 <Button
                   size="lg"
