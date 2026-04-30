@@ -105,12 +105,35 @@ interface OrderItem {
   maxStock?: number;
 }
 
+export interface OrderToEdit {
+  id: number;
+  cliente_nombre?: string | null;
+  client_phone?: string | null;
+  direccion_entrega?: string | null;
+  barrio?: string | null;
+  zona?: string | null;
+  municipio?: string | null;
+  producto_nombre?: string | null;
+  valor_recaudar?: number | null;
+  valor_producto?: number | null;
+  metodo_pago?: string | null;
+  fecha_entrega?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  observaciones?: string | null;
+  quantity?: number | null;
+  motorizado_asignado?: string | null;
+  inventory_item_id?: string | null;
+  tipo_servicio?: string | null;
+}
+
 interface NuevoPedidoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
   isAdmin: boolean;
   inventoryPrefill?: InventoryPrefill;
+  orderToEdit?: OrderToEdit | null;
 }
 
 const NuevoPedidoModal = ({
