@@ -41,6 +41,8 @@ interface ClienteSidebarProps {
   novedadesCount: number;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  /** Tipo de cuenta del usuario logueado: 'dropshipper' | 'proveedor' | null (legacy) */
+  tipoCuenta?: string | null;
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
