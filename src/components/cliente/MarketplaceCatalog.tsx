@@ -35,6 +35,7 @@ interface MarketplaceProduct {
   category?: string | null;
   warranty?: string | null;
   created_by?: string | null;
+  unidades_vendidas?: number;
 }
 
 interface MarketplaceCatalogProps {
