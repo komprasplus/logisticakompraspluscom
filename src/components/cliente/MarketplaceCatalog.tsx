@@ -40,6 +40,8 @@ interface MarketplaceCatalogProps {
     suggestedPrice: number;
     marketplaceProductId: string;
     productType?: string;
+    costPrice: number;
+    supplierUserId: string | null;
   }) => void;
 }
 
