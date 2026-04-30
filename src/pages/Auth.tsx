@@ -172,67 +172,54 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
           </p>
         </motion.div>
 
-        {/* Emergency: session exists but role is not available */}
-        {user && !role && showRoleFallback ? (
+        {/* Post-login: session exists, syncing role/profile silently */}
+        {user && !role && !roleFetchFailed ? (
+          <motion.div
+            className="neu-flat p-10 flex flex-col items-center justify-center text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+          >
+            <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+            <p className="text-base font-semibold text-foreground">Sincronizando perfil…</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              Estamos preparando tu espacio de trabajo.
+            </p>
+          </motion.div>
+        ) : user && !role && roleFetchFailed ? (
+          /* Definitive failure after silent retries */
           <motion.div
             className="neu-flat p-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
           >
-            <div className="space-y-4">
-              <div className="neu-pressed p-4 rounded-2xl">
-                <p className="text-sm text-foreground font-semibold">Sesión iniciada, pero no pudimos cargar permisos.</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Esto suele pasar por fallas temporales de red ("Failed to fetch"). Puedes continuar manualmente.
+            <div className="flex flex-col items-center text-center space-y-4">
+              <div className="h-12 w-12 rounded-full neu-pressed flex items-center justify-center">
+                <AlertCircle className="h-6 w-6 text-destructive" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-foreground">
+                  Problemas de conexión
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Parece que tienes problemas de conexión a internet. No pudimos sincronizar tu perfil de forma segura.
                 </p>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate("/admin")}
-                  className="neu-button py-3 font-bold text-white"
-                >
-                  Entrar Admin
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/despachador")}
-                  className="neu-button py-3 font-bold text-white"
-                >
-                  Entrar Despachos
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/cliente")}
-                  className="neu-button py-3 font-bold text-white"
-                >
-                  Entrar Tienda
-                </button>
-                <button
-                  type="button"
-                  onClick={() => navigate("/motorizado")}
-                  className="neu-button py-3 font-bold text-white"
-                >
-                  Entrar Motorizado
-                </button>
-              </div>
-
-              <div className="flex gap-3">
+              <div className="flex gap-3 w-full pt-2">
                 <button
                   type="button"
                   onClick={() => void refreshProfile()}
-                  className="flex-1 neu-flat py-3 font-semibold text-primary"
+                  className="flex-1 neu-button py-3 font-bold text-white"
                 >
-                  Reintentar permisos
+                  Volver a intentar
                 </button>
                 <button
                   type="button"
-                  onClick={() => window.location.reload()}
+                  onClick={() => void signOut()}
                   className="flex-1 neu-flat py-3 font-semibold text-primary"
                 >
-                  Recargar
+                  Cerrar sesión
                 </button>
               </div>
             </div>
