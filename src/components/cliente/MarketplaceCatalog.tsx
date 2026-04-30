@@ -31,6 +31,7 @@ interface MarketplaceProduct {
   dimensions?: string | null;
   category?: string | null;
   warranty?: string | null;
+  created_by?: string | null;
 }
 
 interface MarketplaceCatalogProps {
