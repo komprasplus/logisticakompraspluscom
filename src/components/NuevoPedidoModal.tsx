@@ -2039,12 +2039,12 @@ const NuevoPedidoModal = ({
                 {loading ? (
                   <>
                     <Loader2 className="h-5 w-5 animate-spin" />
-                    Creando pedido...
+                    {isEditMode ? "Guardando cambios..." : "Creando pedido..."}
                   </>
                 ) : (
                   <>
                     <CheckCircle className="h-5 w-5" />
-                    Confirmar y Crear Pedido
+                    {isEditMode ? "Guardar Cambios" : "Confirmar y Crear Pedido"}
                   </>
                 )}
               </button>
