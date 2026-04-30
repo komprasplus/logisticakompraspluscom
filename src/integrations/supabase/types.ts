@@ -346,6 +346,7 @@ export type Database = {
           product_name: string
           sku: string
           stock_available: number
+          unidades_vendidas: number
           updated_at: string
         }
         Insert: {
@@ -362,6 +363,7 @@ export type Database = {
           product_name: string
           sku: string
           stock_available?: number
+          unidades_vendidas?: number
           updated_at?: string
         }
         Update: {
@@ -378,6 +380,7 @@ export type Database = {
           product_name?: string
           sku?: string
           stock_available?: number
+          unidades_vendidas?: number
           updated_at?: string
         }
         Relationships: [
@@ -495,6 +498,7 @@ export type Database = {
           sku: string
           stock_available: number
           suggested_price: number
+          unidades_vendidas: number
           updated_at: string
         }
         Insert: {
@@ -515,6 +519,7 @@ export type Database = {
           sku: string
           stock_available?: number
           suggested_price?: number
+          unidades_vendidas?: number
           updated_at?: string
         }
         Update: {
@@ -535,6 +540,7 @@ export type Database = {
           sku?: string
           stock_available?: number
           suggested_price?: number
+          unidades_vendidas?: number
           updated_at?: string
         }
         Relationships: [
@@ -845,6 +851,7 @@ export type Database = {
           proveedor_logistico_id: string | null
           quantity: number | null
           sla_cumplido: boolean | null
+          stock_reabastecido: boolean
           tipo_novedad: string | null
           tipo_servicio: string
           utilidad: number | null
@@ -906,6 +913,7 @@ export type Database = {
           proveedor_logistico_id?: string | null
           quantity?: number | null
           sla_cumplido?: boolean | null
+          stock_reabastecido?: boolean
           tipo_novedad?: string | null
           tipo_servicio?: string
           utilidad?: number | null
@@ -967,6 +975,7 @@ export type Database = {
           proveedor_logistico_id?: string | null
           quantity?: number | null
           sla_cumplido?: boolean | null
+          stock_reabastecido?: boolean
           tipo_novedad?: string | null
           tipo_servicio?: string
           utilidad?: number | null
@@ -1013,6 +1022,7 @@ export type Database = {
           product_id: string
           sku: string
           stock_available: number
+          unidades_vendidas: number
           updated_at: string
           variant_name: string
         }
@@ -1028,6 +1038,7 @@ export type Database = {
           product_id: string
           sku: string
           stock_available?: number
+          unidades_vendidas?: number
           updated_at?: string
           variant_name: string
         }
@@ -1043,6 +1054,7 @@ export type Database = {
           product_id?: string
           sku?: string
           stock_available?: number
+          unidades_vendidas?: number
           updated_at?: string
           variant_name?: string
         }
