@@ -756,7 +756,14 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
                         {detailProduct.product_name}
                       </h1>
-                      <p className="text-xs font-mono text-muted-foreground">SKU: {detailProduct.sku}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {detailProduct.short_id && (
+                          <span className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                            {detailProduct.short_id}
+                          </span>
+                        )}
+                        <p className="text-xs font-mono text-muted-foreground">SKU: {detailProduct.sku}</p>
+                      </div>
                     </div>
 
                     {/* Description */}
