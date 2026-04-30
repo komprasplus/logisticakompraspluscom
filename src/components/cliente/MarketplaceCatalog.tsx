@@ -66,6 +66,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const [detailProduct, setDetailProduct] = useState<MarketplaceProduct | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
   const [selectedProveedor, setSelectedProveedor] = useState<string | null>(null);
+  const [trendingOnly, setTrendingOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<"name" | "trending" | "price_asc" | "price_desc">("name");
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["marketplace-catalog", orgId],
