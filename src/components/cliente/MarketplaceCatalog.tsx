@@ -561,17 +561,56 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       </span>
                     </div>
                   )}
+
+                  {/* Badge Ref short_id (arriba izquierda) */}
+                  {product.short_id && (
+                    <span className="absolute top-2 left-2 bg-background/85 backdrop-blur-sm text-foreground text-[10px] font-mono font-bold px-2 py-0.5 rounded-full border border-border/60 shadow-sm">
+                      {product.short_id}
+                    </span>
+                  )}
+
+                  {/* Botón Favorito (arriba derecha, flotante) */}
+                  <button
+                    type="button"
+                    aria-label={favoritesSet.has(product.id) ? "Quitar de favoritos" : "Añadir a favoritos"}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!userId) {
+                        toast.error("Debes iniciar sesión");
+                        return;
+                      }
+                      toggleFavorite.mutate(product.id);
+                    }}
+                    className={cn(
+                      "absolute top-2 right-2 h-8 w-8 rounded-full flex items-center justify-center",
+                      "bg-background/85 backdrop-blur-sm border border-border/60 shadow-sm",
+                      "hover:scale-110 active:scale-95 transition-transform",
+                    )}
+                  >
+                    <Heart
+                      className={cn(
+                        "h-4 w-4 transition-colors",
+                        favoritesSet.has(product.id)
+                          ? "fill-red-500 text-red-500"
+                          : "text-muted-foreground",
+                      )}
+                    />
+                  </button>
+
+                  {/* Stock bajo (abajo derecha) */}
                   {!outOfStock && product.stock_available <= 5 && (
-                    <span className="absolute top-2 right-2 bg-amber-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                    <span className="absolute bottom-2 right-2 bg-amber-500/90 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                       Quedan {product.stock_available}
                     </span>
                   )}
+
+                  {/* Tendencia (abajo izquierda) */}
                   {isTrending && (
                     <span
-                      className="absolute top-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-lg animate-pulse"
+                      className="absolute bottom-2 left-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1 shadow-lg animate-pulse"
                       title={`${sold} unidades vendidas`}
                     >
-                      <Flame className="h-3 w-3" /> En Tendencia
+                      <Flame className="h-3 w-3" /> Tendencia
                     </span>
                   )}
                 </div>
@@ -582,9 +621,16 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                     <h3 className="font-semibold text-sm text-foreground line-clamp-2 leading-tight">
                       {product.product_name}
                     </h3>
-                    <p className="text-[11px] text-muted-foreground font-mono mt-1">
-                      SKU: {product.sku}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {product.short_id && (
+                        <span className="text-[10px] font-mono font-semibold text-primary bg-primary/10 px-1.5 py-0.5 rounded">
+                          {product.short_id}
+                        </span>
+                      )}
+                      <p className="text-[11px] text-muted-foreground font-mono">
+                        SKU: {product.sku}
+                      </p>
+                    </div>
                     <div className="mt-1.5">
                       {(product.product_type || "Simple") === "Variable" ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30">
