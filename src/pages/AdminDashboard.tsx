@@ -205,7 +205,12 @@ const AdminDashboard = () => {
   // UI state
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const isAliado = userRole === "aliado_logistico";
-  const [activeSection, setActiveSection] = useState<string>(isAliado ? "despacho" : "analytics");
+  const [activeSection, setActiveSection] = useState<string>(isAliado ? "despachos" : "analytics");
+  // Sub-tab state for consolidated sections
+  const [despachosTab, setDespachosTab] = useState<string>("todos");
+  const [tesoreriaTab, setTesoreriaTab] = useState<string>("liquidaciones");
+  const [monitoreoTab, setMonitoreoTab] = useState<string>("webhook");
+  const [configuracionTab, setConfiguracionTab] = useState<string>("usuarios");
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [municipioFilter, setMunicipioFilter] = useState<string>("todos");
