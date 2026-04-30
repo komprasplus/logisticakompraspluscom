@@ -97,8 +97,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     try {
       // Fetch profile (with retries)
-      const { data: profileData, error: profileError } = await withRetry(() =>
-        supabase
+      const { data: profileData, error: profileError } = await withRetry(async () =>
+        await supabase
           .from("profiles")
           .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut, organizacion_id, tipo_cuenta")
           .eq("user_id", userId)
