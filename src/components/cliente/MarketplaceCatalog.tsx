@@ -146,6 +146,14 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
 
   const favoritesSet = new Set(favoriteIds);
 
+  // Mapa user_id → nombre comercial del proveedor (reusa el fetch de `proveedores`).
+  const proveedorNameById = new Map<string, string>(
+    proveedores.map((p: ProveedorDestacado) => [
+      p.user_id,
+      p.store_name || p.full_name || "Proveedor",
+    ]),
+  );
+
   const toggleFavorite = useMutation({
     mutationFn: async (productId: string) => {
       if (!userId) throw new Error("No autenticado");
@@ -627,9 +635,12 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                           {product.short_id}
                         </span>
                       )}
-                      <p className="text-[11px] text-muted-foreground font-mono">
-                        SKU: {product.sku}
-                      </p>
+                      {product.created_by && proveedorNameById.has(product.created_by) && (
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-500 font-medium truncate max-w-[160px]">
+                          <Store className="h-3 w-3 text-primary/70" aria-hidden="true" />
+                          <span className="truncate">{proveedorNameById.get(product.created_by)}</span>
+                        </span>
+                      )}
                     </div>
                     <div className="mt-1.5">
                       {(product.product_type || "Simple") === "Variable" ? (
