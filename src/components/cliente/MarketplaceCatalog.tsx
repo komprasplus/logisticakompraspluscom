@@ -123,13 +123,35 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
     staleTime: 60_000,
   });
 
-  const filtered = products.filter((p) => {
-    const matchSearch =
-      p.product_name.toLowerCase().includes(search.toLowerCase()) ||
-      p.sku.toLowerCase().includes(search.toLowerCase());
-    const matchProveedor = !selectedProveedor || p.created_by === selectedProveedor;
-    return matchSearch && matchProveedor;
-  });
+  const filtered = products
+    .filter((p) => {
+      const matchSearch =
+        p.product_name.toLowerCase().includes(search.toLowerCase()) ||
+        p.sku.toLowerCase().includes(search.toLowerCase());
+      const matchProveedor = !selectedProveedor || p.created_by === selectedProveedor;
+      const matchTrending = !trendingOnly || (p.unidades_vendidas ?? 0) > TRENDING_THRESHOLD;
+      return matchSearch && matchProveedor && matchTrending;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "trending":
+          return (b.unidades_vendidas ?? 0) - (a.unidades_vendidas ?? 0);
+        case "price_asc":
+          return a.suggested_price - b.suggested_price;
+        case "price_desc":
+          return b.suggested_price - a.suggested_price;
+        default:
+          return a.product_name.localeCompare(b.product_name);
+      }
+    });
+
+  const trendingCount = products.filter(
+    (p) => (p.unidades_vendidas ?? 0) > TRENDING_THRESHOLD,
+  ).length;
+  const topTrending = [...products]
+    .filter((p) => (p.unidades_vendidas ?? 0) > 0)
+    .sort((a, b) => (b.unidades_vendidas ?? 0) - (a.unidades_vendidas ?? 0))
+    .slice(0, 8);
 
   const openDetails = (product: MarketplaceProduct) => {
     setDetailProduct(product);
