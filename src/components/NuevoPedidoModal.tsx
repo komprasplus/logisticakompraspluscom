@@ -363,6 +363,60 @@ const NuevoPedidoModal = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inventoryPrefill, isOpen]);
 
+  // ============ EDIT MODE PRE-FILL ============
+  useEffect(() => {
+    if (!orderToEdit || !isOpen) return;
+
+    setTipoServicio((orderToEdit.tipo_servicio as "ENVIO" | "RECOGIDA") || "ENVIO");
+    setClienteNombre(orderToEdit.cliente_nombre || "");
+    setClienteTelefono(orderToEdit.client_phone || "");
+
+    // Resolve departamento from municipio
+    const muni = orderToEdit.municipio || "";
+    if (muni) {
+      const allDepts = getDepartamentos();
+      const foundDept = allDepts.find((d) =>
+        getMunicipiosByDepartamento(d).includes(muni)
+      );
+      if (foundDept) setDepartamentoSeleccionado(foundDept);
+      setMunicipioSeleccionado(muni);
+    }
+
+    // Strip "..., municipio, departamento" tail if present so the user sees the
+    // exact street they typed originally.
+    const fullAddress = orderToEdit.direccion_entrega || "";
+    const cleanedAddress = muni
+      ? fullAddress.replace(new RegExp(`,\\s*${muni}.*$`, "i"), "").trim()
+      : fullAddress;
+    setDireccionManual(cleanedAddress);
+    setDireccionCompleta(fullAddress);
+    setBarrio(orderToEdit.barrio || "");
+    setAddressSelected(!!fullAddress);
+
+    setProductoNombre(orderToEdit.producto_nombre || "");
+    setValorProducto(
+      orderToEdit.valor_producto != null ? String(orderToEdit.valor_producto) : ""
+    );
+    setValorRecaudar(
+      orderToEdit.valor_recaudar != null ? String(orderToEdit.valor_recaudar) : ""
+    );
+    setMetodoPago(((orderToEdit.metodo_pago as "efectivo" | "anticipado") || "efectivo"));
+    setQuantity(orderToEdit.quantity || 1);
+    setInventoryItemId(orderToEdit.inventory_item_id || null);
+    setObservaciones(orderToEdit.observaciones || "");
+    setMotorizadoAsignado(orderToEdit.motorizado_asignado || "");
+
+    if (orderToEdit.fecha_entrega) {
+      // Parse YYYY-MM-DD locally to avoid timezone shift
+      const [y, m, d] = orderToEdit.fecha_entrega.split("-").map(Number);
+      if (y && m && d) setFechaEntrega(new Date(y, m - 1, d));
+    }
+
+    setConfirmedLat(orderToEdit.latitud ?? null);
+    setConfirmedLng(orderToEdit.longitud ?? null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderToEdit, isOpen]);
+
   // Update observaciones when quantity changes (for inventory orders)
   useEffect(() => {
     if (inventoryPrefill && inventoryItemId) {
