@@ -354,7 +354,7 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
         {/* Background image */}
         <img
           src={authHero}
-          alt="Logística Plus Envíos"
+          alt={`Logística ${branding.nombre}`}
           className="absolute inset-0 w-full h-full object-cover"
           width={1280}
           height={1600}
@@ -369,17 +369,27 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
 
         {/* Content */}
         <div className="relative z-10 flex flex-col justify-between w-full p-12 xl:p-16 text-white">
-          {/* Top badge */}
+          {/* Top badge — usa branding dinámico del tenant */}
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
             className="flex items-center gap-2"
           >
-            <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20">
-              <Truck className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-bold tracking-tight text-white/90">Plus Envíos</span>
+            {isWhiteLabel && branding.logo_url ? (
+              <img
+                src={branding.logo_url}
+                alt={branding.nombre}
+                className="h-10 w-auto object-contain drop-shadow-md"
+              />
+            ) : (
+              <>
+                <div className="w-9 h-9 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center border border-white/20">
+                  <Truck className="h-5 w-5 text-white" />
+                </div>
+                <span className="font-bold tracking-tight text-white/90">{branding.nombre}</span>
+              </>
+            )}
           </motion.div>
 
           {/* Center text */}

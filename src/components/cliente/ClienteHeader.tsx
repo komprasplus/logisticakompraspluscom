@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { LogOut, Phone, Store, Truck } from "lucide-react";
 import WeatherWidget from "@/components/WeatherWidget";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,33 @@ const getInitials = (name: string): string =>
 */
 const sanitizePhone = (phone: string): string => phone.replace(/[\s\-().+]/g, "");
 
+// ─── Subcomponente: branding dinámico de la plataforma ────────────────────────
+
+const PlatformBrand = () => {
+  const { branding } = useTheme();
+  if (branding.logo_url) {
+    return (
+      <div className="flex items-center gap-2">
+        <img
+          src={branding.logo_url}
+          alt={branding.nombre}
+          className="h-10 w-auto max-w-[160px] object-contain"
+        />
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-10 h-10 rounded-xl bg-gradient-button flex items-center justify-center shadow-md">
+        <Truck className="h-5 w-5 text-white" />
+      </div>
+      <span className="font-black text-lg tracking-tight hidden sm:block text-gradient-brand">
+        {branding.nombre}
+      </span>
+    </div>
+  );
+};
+
 // ─── Componente ───────────────────────────────────────────────────────────────
 
 const ClienteHeader = ({
@@ -71,16 +99,9 @@ const ClienteHeader = ({
       <div className="flex h-16 items-center justify-between px-4 py-3">
         {/* Logo y nombre de tienda */}
         <div className="flex items-center gap-3">
-          {/* Logo de la plataforma */}
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-button flex items-center justify-center shadow-md">
-              <Truck className="h-5 w-5 text-white" />
-            </div>
-            <span className="font-black text-lg tracking-tight hidden sm:block">
-              <span className="text-gradient-brand">Plus</span>
-              <span className="text-foreground"> Envíos</span>
-            </span>
-          </div>
+          {/* Logo de la plataforma — branding dinámico del tenant */}
+          <PlatformBrand />
+
 
           {/* Branding de la tienda — solo desktop */}
           <div className="hidden md:flex items-center gap-3 ml-3 pl-4 border-l border-white/20">

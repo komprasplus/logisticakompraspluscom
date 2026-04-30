@@ -80,8 +80,8 @@ const NAV_SECTIONS: NavSection[] = [
         key: "dashboard",
         label: "Dashboard",
         icon: LayoutDashboard,
-        gradient: "from-blue-500 to-blue-600",
-        shadow: "shadow-blue-500/30",
+        gradient: "from-primary to-primary/80",
+        shadow: "shadow-primary/30",
       },
       {
         key: "pedidos",
