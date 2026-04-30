@@ -784,6 +784,30 @@ const NuevoPedidoModal = ({
             }
           }
         } else if (inventoryItemId && quantity > 0) {
+          // Single-product from marketplace: persist a row in order_items so the
+          // split-payments trigger can credit the supplier on delivery.
+          if (newPedido?.id && inventoryPrefill?.source === "marketplace") {
+            try {
+              const { error: spErr } = await (supabase as any)
+                .from("order_items")
+                .insert({
+                  pedido_id: newPedido.id,
+                  product_name: inventoryPrefill.productName,
+                  sku: inventoryPrefill.sku || null,
+                  quantity: quantity,
+                  unit_price: inventoryPrefill.price,
+                  inventory_item_id: null,
+                  variant_id: null,
+                  organizacion_id: orgId || 'a0000000-0000-0000-0000-000000000001',
+                  marketplace_product_id: inventoryPrefill.marketplaceProductId ?? inventoryPrefill.inventoryItemId,
+                  supplier_user_id: inventoryPrefill.supplierUserId ?? null,
+                  supplier_cost_snapshot: inventoryPrefill.costPrice ?? null,
+                });
+              if (spErr) console.warn("Marketplace order_items insert failed (non-blocking):", spErr);
+            } catch (e) {
+              console.warn("Marketplace single order_items insert error:", e);
+            }
+          }
           try {
             const { data: currentItem, error: currentItemErr } = await (supabase as any)
               .from("inventory")
