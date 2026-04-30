@@ -183,7 +183,104 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
         />
       </div>
 
-      {/* Grid */}
+      {/* Carrusel de Proveedores Destacados */}
+      {proveedores.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-foreground">Proveedores destacados</h3>
+            {selectedProveedor && (
+              <button
+                type="button"
+                onClick={() => setSelectedProveedor(null)}
+                className="text-xs text-primary font-medium hover:underline"
+              >
+                Limpiar filtro
+              </button>
+            )}
+          </div>
+
+          <div
+            className="flex flex-row gap-3 overflow-x-auto py-2 -mx-1 px-1"
+            style={{ scrollbarWidth: "thin" }}
+          >
+            {/* Tarjeta "Todos" */}
+            <button
+              type="button"
+              onClick={() => setSelectedProveedor(null)}
+              className={cn(
+                "flex-shrink-0 rounded-xl border shadow-sm p-3 flex items-center gap-3 bg-card transition-all min-w-[200px]",
+                !selectedProveedor
+                  ? "border-primary ring-2 ring-primary/30"
+                  : "border-border hover:border-primary/40",
+              )}
+            >
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Boxes className="h-6 w-6 text-primary" />
+              </div>
+              <div className="flex flex-col items-start min-w-0">
+                <span className="font-semibold text-sm text-foreground">Todos</span>
+                <span className="text-xs text-primary font-medium">
+                  {products.length} Productos
+                </span>
+              </div>
+            </button>
+
+            {proveedores.map((prov) => {
+              const isSelected = selectedProveedor === prov.user_id;
+              const displayName = prov.store_name || prov.full_name;
+              const initials = displayName
+                .split(" ")
+                .map((s) => s[0])
+                .filter(Boolean)
+                .slice(0, 2)
+                .join("")
+                .toUpperCase();
+              const avatar = prov.logo_url || prov.avatar_url;
+
+              return (
+                <button
+                  key={prov.user_id}
+                  type="button"
+                  onClick={() =>
+                    setSelectedProveedor(isSelected ? null : prov.user_id)
+                  }
+                  className={cn(
+                    "flex-shrink-0 rounded-xl border shadow-sm p-3 flex items-center gap-3 bg-card transition-all min-w-[220px]",
+                    isSelected
+                      ? "border-primary ring-2 ring-primary/30"
+                      : "border-border hover:border-primary/40",
+                  )}
+                >
+                  <div className="h-12 w-12 rounded-full bg-muted overflow-hidden flex items-center justify-center flex-shrink-0">
+                    {avatar ? (
+                      <img
+                        src={avatar}
+                        alt={displayName}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="text-sm font-bold text-muted-foreground">
+                        {initials || "?"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-start min-w-0">
+                    <span className="font-semibold text-sm text-foreground truncate max-w-[140px]">
+                      {displayName}
+                    </span>
+                    <span className="text-xs font-medium text-primary">
+                      {prov.product_count}{" "}
+                      {prov.product_count === 1 ? "Producto" : "Productos"}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
