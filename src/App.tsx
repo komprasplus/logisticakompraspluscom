@@ -35,6 +35,7 @@ const PublicTracking = lazyRetry(() => import("./pages/PublicTracking"));
 const RecepcionFlex = lazyRetry(() => import("./pages/RecepcionFlex"));
 const SuperAdminMaster = lazyRetry(() => import("./pages/SuperAdminMaster"));
 const AdminControlTower = lazyRetry(() => import("./pages/AdminControlTower"));
+const PublicCatalog = lazyRetry(() => import("./pages/PublicCatalog"));
 
 // Shared loading fallback
 const PageLoader = () => (
@@ -165,6 +166,9 @@ const AppRoutes = () => {
       <Route path="/rastreo" element={<Suspense fallback={<PageLoader />}><CustomerTracking /></Suspense>} />
       <Route path="/rastreo/:id_guia" element={<Suspense fallback={<PageLoader />}><PublicTracking /></Suspense>} />
       <Route path="/tracking/:id_guia" element={<Suspense fallback={<PageLoader />}><PublicTracking /></Suspense>} />
+
+      {/* Public B2B catalog (no auth required) */}
+      <Route path="/catalogo/:proveedorId" element={<Suspense fallback={<PageLoader />}><PublicCatalog /></Suspense>} />
       
       {/* Protected Routes - wrapped in Suspense for lazy loading */}
       <Route

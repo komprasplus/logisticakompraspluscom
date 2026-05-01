@@ -11,6 +11,7 @@ import {
   Wallet,
   Book,
   ShoppingBag,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ export type ClienteView =
   | "retiros"
   | "transferencias"
   | "catalogo"
+  | "catalogo-publico"
   | "docs";
 
 interface ClienteSidebarProps {
@@ -110,6 +112,13 @@ const NAV_SECTIONS: NavSection[] = [
         gradient: "from-indigo-500 to-indigo-600",
         shadow: "shadow-indigo-500/30",
       },
+      {
+        key: "catalogo-publico",
+        label: "Mis Catálogos",
+        icon: Sparkles,
+        gradient: "from-fuchsia-500 to-purple-600",
+        shadow: "shadow-fuchsia-500/30",
+      },
     ],
   },
   {
@@ -176,10 +185,12 @@ const ClienteSidebar = ({
 
   // Filtrado por tipo de cuenta:
   // - Proveedores no ven "Catálogo Suministro" (ellos son la fuente).
+  // - Solo proveedores ven "Mis Catálogos" (catalogo público B2B).
   const visibleSections: NavSection[] = NAV_SECTIONS.map((section) => ({
     ...section,
     items: section.items.filter((item) => {
       if (isProveedor && item.key === "catalogo") return false;
+      if (!isProveedor && item.key === "catalogo-publico") return false;
       return true;
     }),
   })).filter((section) => section.items.length > 0);

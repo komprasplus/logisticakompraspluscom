@@ -1106,6 +1106,11 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          catalog_color_primary: string
+          catalog_color_secondary: string
+          catalog_description: string | null
+          catalog_public_enabled: boolean
+          catalog_template: string
           created_at: string
           direccion: string | null
           email: string | null
@@ -1131,6 +1136,11 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          catalog_color_primary?: string
+          catalog_color_secondary?: string
+          catalog_description?: string | null
+          catalog_public_enabled?: boolean
+          catalog_template?: string
           created_at?: string
           direccion?: string | null
           email?: string | null
@@ -1156,6 +1166,11 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          catalog_color_primary?: string
+          catalog_color_secondary?: string
+          catalog_description?: string | null
+          catalog_public_enabled?: boolean
+          catalog_template?: string
           created_at?: string
           direccion?: string | null
           email?: string | null
@@ -1597,6 +1612,10 @@ export type Database = {
         Returns: Json
       }
       generate_marketplace_short_id: { Args: never; Returns: string }
+      get_public_provider_catalog: {
+        Args: { provider_id: string }
+        Returns: Json
+      }
       get_public_tracking_info: {
         Args: { search_tracking_number: string }
         Returns: Json
