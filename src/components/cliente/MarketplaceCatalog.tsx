@@ -787,7 +787,27 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
           {detailProduct && (
             <>
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto pb-28">
+              <div className="flex-1 overflow-y-auto pb-20 sm:pb-6">
+                {/* Floating Favorite Button */}
+                <button
+                  type="button"
+                  aria-label={favoritesSet.has(detailProduct.id) ? "Quitar de favoritos" : "Añadir a favoritos"}
+                  className="absolute top-3 right-12 z-30 h-10 w-10 rounded-full bg-background/90 backdrop-blur border border-border/60 shadow-md flex items-center justify-center hover:bg-background transition"
+                  onClick={() => {
+                    if (!userId) {
+                      toast.error("Debes iniciar sesión");
+                      return;
+                    }
+                    toggleFavorite.mutate(detailProduct.id);
+                  }}
+                >
+                  <Heart
+                    className={cn(
+                      "h-5 w-5",
+                      favoritesSet.has(detailProduct.id) ? "fill-red-500 text-red-500" : "text-muted-foreground",
+                    )}
+                  />
+                </button>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
                   {/* Left – Gallery (40%) */}
                   <div className="md:col-span-2 bg-muted/30 p-4 sm:p-6 md:border-r border-border/50">
