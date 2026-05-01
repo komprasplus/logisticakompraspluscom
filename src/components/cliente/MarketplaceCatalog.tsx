@@ -3,8 +3,9 @@ import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
   Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket, Compass, Store,
-  Truck, HandCoins, BadgeCheck, Download, FileText, Copy, Check,
+  Truck, HandCoins, BadgeCheck, Download, FileText, Copy, Check, Sparkles,
 } from "lucide-react";
+import { LandingGeneratorModal, type LandingProduct } from "./LandingGeneratorModal";
 import { Progress } from "@/components/ui/progress";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -76,6 +77,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const [sortBy, setSortBy] = useState<"name" | "trending" | "price_asc" | "price_desc">("name");
   const [activeTab, setActiveTab] = useState<"explorar" | "favoritos">("explorar");
   const [copiedShortId, setCopiedShortId] = useState<string | null>(null);
+  const [landingOpen, setLandingOpen] = useState(false);
+  const [landingProduct, setLandingProduct] = useState<LandingProduct | null>(null);
 
   const handleCopyShortId = async (shortId: string) => {
     try {
@@ -1037,16 +1040,38 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       </AccordionItem>
                     </Accordion>
 
-                    {/* Botón secundario: Exportar a Shopify CSV */}
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="w-full gap-2 border-dashed text-muted-foreground hover:text-foreground"
-                      onClick={() => exportToShopifyCSV(detailProduct)}
-                    >
-                      <Download className="h-4 w-4" />
-                      ⬇️ Exportar producto a Shopify (CSV)
-                    </Button>
+                    {/* Botones secundarios: Generar Landing IA + Exportar CSV */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Button
+                        size="lg"
+                        className="w-full gap-2 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-pink-700 text-white font-bold shadow-lg"
+                        onClick={() => {
+                          setLandingProduct({
+                            id: detailProduct.id,
+                            product_name: detailProduct.product_name,
+                            description: detailProduct.description,
+                            suggested_price: detailProduct.suggested_price,
+                            cost_price: detailProduct.cost_price,
+                            category: detailProduct.category,
+                            image_url: detailProduct.image_url,
+                          });
+                          setLandingOpen(true);
+                        }}
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        ✨ Generar Landing con IA
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-full gap-2 border-dashed text-muted-foreground hover:text-foreground"
+                        onClick={() => exportToShopifyCSV(detailProduct)}
+                      >
+                        <Download className="h-4 w-4" />
+                        ⬇️ Exportar a Shopify (CSV)
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1055,6 +1080,13 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal Generador de Landing con IA */}
+      <LandingGeneratorModal
+        open={landingOpen}
+        onOpenChange={setLandingOpen}
+        product={landingProduct}
+      />
     </motion.div>
   );
 };
