@@ -185,10 +185,12 @@ const ClienteSidebar = ({
 
   // Filtrado por tipo de cuenta:
   // - Proveedores no ven "Catálogo Suministro" (ellos son la fuente).
+  // - Solo proveedores ven "Mis Catálogos" (catalogo público B2B).
   const visibleSections: NavSection[] = NAV_SECTIONS.map((section) => ({
     ...section,
     items: section.items.filter((item) => {
       if (isProveedor && item.key === "catalogo") return false;
+      if (!isProveedor && item.key === "catalogo-publico") return false;
       return true;
     }),
   })).filter((section) => section.items.length > 0);
