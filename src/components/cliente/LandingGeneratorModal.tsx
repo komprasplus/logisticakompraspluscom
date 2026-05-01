@@ -207,11 +207,25 @@ export const LandingGeneratorModal = ({ open, onOpenChange, product }: Props) =>
     }
     setDownloadingKey(key);
     try {
-      const dataUrl = await toPng(node, {
+      // The capture target is the inner full-resolution node (data-capture="true")
+      const captureNode =
+        (node.querySelector('[data-capture="true"]') as HTMLElement | null) ?? node;
+      const w = captureNode.offsetWidth;
+      const h = captureNode.offsetHeight;
+      const dataUrl = await toPng(captureNode, {
         cacheBust: true,
         pixelRatio: 2,
         backgroundColor: "#ffffff",
-        // Skip CORS-failing images by inlining nothing — fallback handled by template
+        width: w,
+        height: h,
+        // Neutralize any parent scale transform during capture
+        style: {
+          transform: "none",
+          transformOrigin: "top left",
+          margin: "0",
+          width: `${w}px`,
+          height: `${h}px`,
+        },
       });
       const link = document.createElement("a");
       const safeName = (product?.product_name ?? "producto")
