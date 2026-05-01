@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
   Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket, Compass, Store,
+  Truck, HandCoins, BadgeCheck, Download, FileText,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const TRENDING_THRESHOLD = 50;
 import { supabase } from "@/integrations/supabase/client";
