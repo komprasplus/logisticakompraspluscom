@@ -464,62 +464,197 @@ const HeroTemplate = ({
 }: {
   product: LandingProduct;
   hero: NonNullable<LandingContent["hero"]>;
-}) => (
-  <div
-    style={{ width: "1200px", maxWidth: "100%" }}
-    className="relative bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 p-10 sm:p-16 text-white overflow-hidden"
-  >
-    <div className="absolute -top-20 -right-20 w-80 h-80 bg-yellow-300/30 rounded-full blur-3xl" />
-    <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-pink-300/30 rounded-full blur-3xl" />
+}) => {
+  const price = product.suggested_price ?? 0;
+  const oldPrice = price ? Math.round(price * 1.4) : 0;
 
-    <div className="relative grid grid-cols-2 gap-8 items-center">
-      <div className="space-y-5">
-        <div className="inline-block px-4 py-1.5 rounded-full bg-yellow-400 text-black font-extrabold text-xs uppercase tracking-wider shadow-lg">
-          {hero.badge}
-        </div>
-        <h1 className="text-4xl sm:text-5xl font-extrabold leading-tight drop-shadow-md">
-          {hero.headline}
-        </h1>
-        <p className="text-lg opacity-95 leading-relaxed">{hero.subheadline}</p>
+  // Preview scale: 1080px → ~360px wide for in-modal viewing
+  const PREVIEW_SCALE = 0.34; // 1080 * 0.34 ≈ 367px
+  const previewW = Math.round(1080 * PREVIEW_SCALE);
+  const previewH = Math.round(1920 * PREVIEW_SCALE);
 
-        {product.suggested_price && (
-          <div className="flex items-end gap-3 pt-2">
-            <span className="text-5xl font-black drop-shadow-md">
-              {formatCOP(product.suggested_price)}
-            </span>
-            <span className="text-xl line-through opacity-70 pb-2">
-              {formatCOP(Math.round(product.suggested_price * 1.4))}
-            </span>
-          </div>
-        )}
-
-        <div className="inline-flex items-center gap-2 px-7 py-4 rounded-2xl bg-white text-orange-600 font-extrabold text-lg shadow-2xl">
-          {hero.cta} <ArrowRight className="h-5 w-5" />
-        </div>
-
-        <div className="flex items-center gap-4 pt-2 text-sm opacity-95">
-          <div className="flex items-center gap-1">
-            <Truck className="h-4 w-4" /> Envío contra entrega
-          </div>
-          <div className="flex items-center gap-1">
-            <ShieldCheck className="h-4 w-4" /> Garantía verificada
-          </div>
-        </div>
-      </div>
-
-      <div className="relative">
-        <div className="absolute inset-0 bg-white/20 rounded-3xl blur-2xl" />
-        {product.image_url ? (
+  return (
+    // Outer preview frame (constrains visual size in the modal)
+    <div
+      className="relative mx-auto bg-slate-100 rounded-xl overflow-hidden"
+      style={{ width: previewW, height: previewH }}
+    >
+      {/* Inner = real 1080x1920 canvas, scaled down for preview only.
+          html-to-image will neutralize transform via style override. */}
+      <div
+        data-capture="true"
+        style={{
+          width: "1080px",
+          height: "1920px",
+          transform: `scale(${PREVIEW_SCALE})`,
+          transformOrigin: "top left",
+        }}
+        className="relative overflow-hidden bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 text-white"
+      >
+        {/* Blurred product image as background */}
+        {product.image_url && (
           <img
             src={product.image_url}
-            alt={product.product_name}
+            alt=""
             crossOrigin="anonymous"
-            className="relative w-full aspect-square object-cover rounded-3xl shadow-2xl ring-4 ring-white/40"
+            aria-hidden
+            className="absolute inset-0 w-full h-full object-cover opacity-20 blur-2xl scale-110"
           />
-        ) : (
-          <div className="relative w-full aspect-square rounded-3xl bg-white/20 ring-4 ring-white/40" />
         )}
+        {/* Decorative blobs */}
+        <div className="absolute -top-40 -right-40 w-[600px] h-[600px] bg-yellow-300/40 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-pink-300/40 rounded-full blur-3xl" />
+
+        {/* Content stack */}
+        <div className="relative w-full h-full flex flex-col items-center justify-between py-[80px] px-[60px]">
+          {/* Top: social proof badge */}
+          <div className="flex flex-col items-center gap-[24px] w-full">
+            <div className="px-[40px] py-[18px] rounded-full bg-black/85 text-white text-[28px] font-black tracking-wide shadow-2xl">
+              ⭐⭐⭐⭐⭐ 4.9/5 · +5.000 CLIENTES
+            </div>
+
+            <div className="px-[32px] py-[12px] rounded-full bg-yellow-400 text-black text-[26px] font-black uppercase tracking-wider shadow-xl">
+              {hero.badge}
+            </div>
+
+            {/* Headline */}
+            <h1
+              className="text-center font-black text-white uppercase leading-[0.95] px-[20px]"
+              style={{
+                fontSize: "92px",
+                textShadow:
+                  "0 6px 24px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.3)",
+                letterSpacing: "-0.02em",
+              }}
+            >
+              {hero.headline}
+            </h1>
+
+            {/* Subheadline */}
+            <p
+              className="text-center text-white/95 font-semibold px-[40px] leading-snug"
+              style={{
+                fontSize: "38px",
+                textShadow: "0 2px 8px rgba(0,0,0,0.35)",
+              }}
+            >
+              {hero.subheadline}
+            </p>
+
+            {/* Price block */}
+            {price > 0 && (
+              <div className="mt-[20px] flex flex-col items-center gap-[6px] bg-white/10 backdrop-blur-sm border-2 border-white/30 rounded-[40px] px-[60px] py-[28px] shadow-2xl">
+                <span className="text-red-200 line-through font-bold text-[40px] leading-none">
+                  Antes {formatCOP(oldPrice)}
+                </span>
+                <span
+                  className="text-white font-black leading-none"
+                  style={{
+                    fontSize: "120px",
+                    textShadow: "0 6px 20px rgba(0,0,0,0.4)",
+                  }}
+                >
+                  {formatCOP(price)}
+                </span>
+                <span className="text-yellow-300 font-black text-[32px] uppercase tracking-wider">
+                  Pago contra entrega
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Middle: product image + floating feature badges */}
+          <div className="relative flex-1 w-full flex items-center justify-center my-[20px]">
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-[820px] h-[820px] rounded-full bg-white/20 blur-2xl" />
+            </div>
+
+            {product.image_url ? (
+              <img
+                src={product.image_url}
+                alt={product.product_name}
+                crossOrigin="anonymous"
+                className="relative w-[800px] h-[800px] object-contain drop-shadow-[0_30px_40px_rgba(0,0,0,0.4)]"
+              />
+            ) : (
+              <div className="relative w-[800px] h-[800px] rounded-3xl bg-white/30 ring-8 ring-white/40" />
+            )}
+
+            {/* Floating feature badges */}
+            <FloatingFeature
+              icon={Truck}
+              text="Envío GRATIS"
+              sub="A toda Colombia"
+              className="absolute top-[40px] left-[10px]"
+            />
+            <FloatingFeature
+              icon={ShieldCheck}
+              text="Garantía"
+              sub="100% verificada"
+              className="absolute top-[40px] right-[10px]"
+            />
+            <FloatingFeature
+              icon={Zap}
+              text="Entrega"
+              sub="24-48 horas"
+              className="absolute bottom-[40px] left-[10px]"
+            />
+            <FloatingFeature
+              icon={Heart}
+              text="+5.000"
+              sub="Clientes felices"
+              className="absolute bottom-[40px] right-[10px]"
+            />
+          </div>
+
+          {/* Footer: CTA + trust seals */}
+          <div className="flex flex-col items-center gap-[24px] w-full">
+            <div className="bg-white text-red-600 font-black rounded-full shadow-2xl flex items-center gap-[20px] py-[36px] px-[80px] uppercase tracking-wide animate-none"
+              style={{ fontSize: "56px", boxShadow: "0 20px 50px rgba(0,0,0,0.35)" }}
+            >
+              {hero.cta} <ArrowRight style={{ width: 56, height: 56 }} />
+            </div>
+
+            <div className="flex items-center justify-center gap-[40px] text-white font-bold text-[28px]">
+              <span className="flex items-center gap-[10px]">
+                <Truck style={{ width: 32, height: 32 }} /> Envío Gratis
+              </span>
+              <span className="opacity-60">•</span>
+              <span className="flex items-center gap-[10px]">
+                <Check style={{ width: 32, height: 32 }} /> Pago Contra Entrega
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
+    </div>
+  );
+};
+
+const FloatingFeature = ({
+  icon: Icon,
+  text,
+  sub,
+  className,
+}: {
+  icon: typeof Truck;
+  text: string;
+  sub: string;
+  className?: string;
+}) => (
+  <div className={cn("flex items-center gap-[16px]", className)}>
+    <div
+      className="flex items-center justify-center rounded-full bg-white shadow-2xl"
+      style={{ width: 110, height: 110 }}
+    >
+      <Icon style={{ width: 56, height: 56, color: "#dc2626" }} />
+    </div>
+    <div
+      className="bg-black/75 backdrop-blur-sm rounded-2xl px-[20px] py-[12px] shadow-xl"
+      style={{ minWidth: 200 }}
+    >
+      <p className="text-white font-black text-[28px] leading-tight">{text}</p>
+      <p className="text-white/85 font-semibold text-[20px] leading-tight">{sub}</p>
     </div>
   </div>
 );
