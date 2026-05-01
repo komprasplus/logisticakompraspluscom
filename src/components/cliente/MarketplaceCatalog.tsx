@@ -3,8 +3,10 @@ import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
   Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket, Compass, Store,
+  Truck, HandCoins, BadgeCheck, Download, FileText,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 const TRENDING_THRESHOLD = 50;
 import { supabase } from "@/integrations/supabase/client";
@@ -252,6 +254,86 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const galleryImages = detailProduct
     ? [detailProduct.image_url].filter(Boolean) as string[]
     : [];
+
+  /**
+   * Genera y descarga un CSV compatible con la importación de productos de Shopify.
+   * Columnas mínimas: Handle, Title, Body (HTML), Vendor, Variant Price, Image Src.
+   */
+  const exportToShopifyCSV = (product: MarketplaceProduct) => {
+    const escapeCsv = (val: string | number | null | undefined) => {
+      const s = val === null || val === undefined ? "" : String(val);
+      // Escape doble comilla y envolver siempre entre comillas para soportar comas/saltos de línea
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+
+    const handle =
+      (product.short_id ?? product.sku ?? product.id)
+        .toString()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    const vendor =
+      (product.created_by && proveedorNameById.get(product.created_by)) ||
+      "Plus Envíos";
+
+    const bodyHtml = product.description
+      ? `<p>${product.description.replace(/\n/g, "<br/>")}</p>`
+      : "";
+
+    const headers = [
+      "Handle",
+      "Title",
+      "Body (HTML)",
+      "Vendor",
+      "Type",
+      "Tags",
+      "Published",
+      "Variant SKU",
+      "Variant Price",
+      "Variant Inventory Qty",
+      "Variant Requires Shipping",
+      "Variant Taxable",
+      "Image Src",
+      "Image Alt Text",
+    ];
+
+    const row = [
+      handle,
+      product.product_name,
+      bodyHtml,
+      vendor,
+      product.category ?? product.product_type ?? "",
+      [product.category, product.product_type].filter(Boolean).join(", "),
+      "TRUE",
+      product.sku ?? "",
+      product.suggested_price,
+      product.stock_available,
+      "TRUE",
+      "TRUE",
+      product.image_url ?? "",
+      product.product_name,
+    ];
+
+    const csv =
+      headers.map(escapeCsv).join(",") +
+      "\n" +
+      row.map(escapeCsv).join(",") +
+      "\n";
+
+    // BOM UTF-8 para que Excel/Shopify abran caracteres latinos correctamente
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `shopify-${handle || "producto"}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast.success("CSV listo para importar en Shopify");
+  };
 
   return (
     <motion.div
@@ -705,7 +787,27 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
           {detailProduct && (
             <>
               {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto pb-28">
+              <div className="flex-1 overflow-y-auto pb-20 sm:pb-6">
+                {/* Floating Favorite Button */}
+                <button
+                  type="button"
+                  aria-label={favoritesSet.has(detailProduct.id) ? "Quitar de favoritos" : "Añadir a favoritos"}
+                  className="absolute top-3 right-12 z-30 h-10 w-10 rounded-full bg-background/90 backdrop-blur border border-border/60 shadow-md flex items-center justify-center hover:bg-background transition"
+                  onClick={() => {
+                    if (!userId) {
+                      toast.error("Debes iniciar sesión");
+                      return;
+                    }
+                    toggleFavorite.mutate(detailProduct.id);
+                  }}
+                >
+                  <Heart
+                    className={cn(
+                      "h-5 w-5",
+                      favoritesSet.has(detailProduct.id) ? "fill-red-500 text-red-500" : "text-muted-foreground",
+                    )}
+                  />
+                </button>
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-0">
                   {/* Left – Gallery (40%) */}
                   <div className="md:col-span-2 bg-muted/30 p-4 sm:p-6 md:border-r border-border/50">
@@ -741,191 +843,191 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
 
                   {/* Right – Info (60%) */}
                   <div className="md:col-span-3 p-5 sm:p-7 space-y-6">
-                    {/* Header */}
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-2">
-                        {detailProduct.category && (
-                          <Badge variant="secondary" className="gap-1">
-                            <Tag className="h-3 w-3" /> {detailProduct.category}
-                          </Badge>
-                        )}
-                        <Badge variant="outline" className="gap-1">
-                          {(detailProduct.product_type || "Simple") === "Variable" ? "Con Variantes" : "Simple"}
-                        </Badge>
-                        {detailProduct.stock_available <= 0 ? (
-                          <Badge variant="destructive">Agotado</Badge>
-                        ) : detailProduct.stock_available <= 5 ? (
-                          <Badge className="bg-amber-500 hover:bg-amber-500/90 text-white">
-                            Stock bajo
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-emerald-500 hover:bg-emerald-500/90 text-white">
-                            Disponible
-                          </Badge>
-                        )}
-                      </div>
-                      <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
-                        {detailProduct.product_name}
-                      </h1>
-                      <div className="flex items-center gap-2 flex-wrap">
+                    {/* Header — Categoría + Vendor */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2 min-w-0">
+                          {detailProduct.category && (
+                            <Badge variant="secondary" className="gap-1">
+                              <Tag className="h-3 w-3" /> {detailProduct.category}
+                            </Badge>
+                          )}
+                          {detailProduct.created_by && proveedorNameById.has(detailProduct.created_by) && (
+                            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground font-medium truncate">
+                              <Store className="h-3.5 w-3.5" />
+                              <span className="truncate">{proveedorNameById.get(detailProduct.created_by)}</span>
+                              <BadgeCheck className="h-3.5 w-3.5 text-primary" />
+                            </span>
+                          )}
+                        </div>
                         {detailProduct.short_id && (
-                          <span className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded">
+                          <span className="text-xs font-mono font-bold text-primary bg-primary/10 px-2 py-0.5 rounded shrink-0">
                             {detailProduct.short_id}
                           </span>
                         )}
-                        <p className="text-xs font-mono text-muted-foreground">SKU: {detailProduct.sku}</p>
                       </div>
+
+                      {/* Título grande estilo Shopify */}
+                      <h1 className="text-2xl sm:text-3xl font-bold text-foreground leading-tight">
+                        {detailProduct.product_name}
+                      </h1>
                     </div>
 
-                    {/* Description */}
-                    {detailProduct.description && (
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {detailProduct.description}
-                      </p>
-                    )}
-
-                    {/* Financial Block */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-xl border border-border/60 bg-muted/40 p-4">
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">
-                          Costo Proveedor
-                        </p>
-                        <p className="text-xl font-bold text-foreground mt-1">
-                          {formatCOP(detailProduct.cost_price)}
-                        </p>
-                      </div>
-                      <div className="rounded-xl border-2 border-primary/40 bg-primary/10 p-4">
-                        <p className="text-[11px] uppercase tracking-wide text-primary font-semibold">
-                          Precio Sugerido
-                        </p>
-                        <p className="text-xl font-bold text-primary mt-1">
+                    {/* Bloque de Precio destacado */}
+                    <div className="space-y-2">
+                      <div className="flex items-end gap-3 flex-wrap">
+                        <span className="text-3xl sm:text-4xl font-extrabold text-foreground leading-none">
                           {formatCOP(detailProduct.suggested_price)}
-                        </p>
+                        </span>
+                        {detailProduct.suggested_price > detailProduct.cost_price && (
+                          <span className="text-sm text-muted-foreground line-through pb-1">
+                            {formatCOP(Math.round(detailProduct.suggested_price * 1.25))}
+                          </span>
+                        )}
                         {detailProduct.suggested_price - detailProduct.cost_price > 0 && (
-                          <p className="text-[11px] text-emerald-600 font-medium mt-1 flex items-center gap-1">
-                            <TrendingUp className="h-3 w-3" />
-                            Margen: {formatCOP(detailProduct.suggested_price - detailProduct.cost_price)}
-                          </p>
+                          <Badge className="bg-emerald-500 hover:bg-emerald-500/90 text-white">
+                            +{formatCOP(detailProduct.suggested_price - detailProduct.cost_price)} margen
+                          </Badge>
                         )}
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Precio Venta Público (PVP) sugerido. Costo proveedor:{" "}
+                        <span className="font-semibold text-foreground">{formatCOP(detailProduct.cost_price)}</span>
+                      </p>
                     </div>
 
-                    {/* Inventory bar */}
-                    <div className="rounded-xl border border-border/60 bg-card p-4 flex items-center gap-4">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Boxes className="h-5 w-5 text-primary" />
+                    {/* Badges de confianza */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+                        <Truck className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span className="text-xs font-medium text-foreground">Envío a todo el país</span>
                       </div>
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground">Stock disponible en bodega</p>
-                        <p className="text-lg font-bold text-foreground">
-                          {detailProduct.stock_available} <span className="text-sm font-normal text-muted-foreground">unidades</span>
-                        </p>
+                      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+                        <HandCoins className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span className="text-xs font-medium text-foreground">Pago Contra Entrega</span>
                       </div>
+                      <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+                        <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                        <span className="text-xs font-medium text-foreground">Garantía verificada</span>
+                      </div>
+                    </div>
+
+                    {/* CTA Principal — Enviar al cliente */}
+                    <Button
+                      size="lg"
+                      className="w-full gap-2 font-bold text-base h-14 shadow-md"
+                      style={{ background: "linear-gradient(135deg, #16a34a, #15803d)", color: "white" }}
+                      disabled={detailProduct.stock_available <= 0}
+                      onClick={() => handleGenerateOrder(detailProduct)}
+                    >
+                      <Truck className="h-5 w-5" />
+                      {detailProduct.stock_available <= 0 ? "Agotado temporalmente" : "🚚 Enviar al cliente"}
+                    </Button>
+
+                    {/* Stock indicador compacto */}
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Boxes className="h-3.5 w-3.5" />
+                        Stock disponible
+                      </span>
+                      <span className="font-bold text-foreground">
+                        {detailProduct.stock_available} unidades
+                      </span>
                     </div>
 
                     {/* Prueba social — Tendencia / Top Ventas */}
                     {(detailProduct.unidades_vendidas ?? 0) > 0 && (
                       <div className={cn(
-                        "rounded-xl border p-4 space-y-2",
+                        "rounded-xl border p-3 flex items-center gap-2",
                         (detailProduct.unidades_vendidas ?? 0) > TRENDING_THRESHOLD
                           ? "border-orange-500/40 bg-gradient-to-r from-orange-500/10 to-red-500/10"
                           : "border-border/60 bg-muted/40"
                       )}>
-                        <div className="flex items-center gap-2">
+                        {(detailProduct.unidades_vendidas ?? 0) > TRENDING_THRESHOLD ? (
+                          <Flame className="h-4 w-4 text-orange-500 shrink-0" />
+                        ) : (
+                          <TrendingUp className="h-4 w-4 text-primary shrink-0" />
+                        )}
+                        <p className="text-xs font-medium text-foreground">
                           {(detailProduct.unidades_vendidas ?? 0) > TRENDING_THRESHOLD ? (
-                            <Flame className="h-5 w-5 text-orange-500" />
+                            <>¡Producto ganador! {detailProduct.unidades_vendidas} vendidos recientemente.</>
                           ) : (
-                            <TrendingUp className="h-5 w-5 text-primary" />
+                            <>{detailProduct.unidades_vendidas} unidades vendidas hasta ahora.</>
                           )}
-                          <p className="text-sm font-semibold text-foreground">
-                            {(detailProduct.unidades_vendidas ?? 0) > TRENDING_THRESHOLD ? (
-                              <>¡Producto ganador! <Rocket className="inline h-4 w-4" /> {detailProduct.unidades_vendidas} unidades vendidas recientemente.</>
-                            ) : (
-                              <>📈 {detailProduct.unidades_vendidas} unidades vendidas hasta ahora.</>
-                            )}
-                          </p>
-                        </div>
-                        <Progress
-                          value={Math.min(100, ((detailProduct.unidades_vendidas ?? 0) / (TRENDING_THRESHOLD * 2)) * 100)}
-                          className="h-2"
-                        />
+                        </p>
                       </div>
                     )}
 
-                    {/* Tabs */}
-                    <Tabs defaultValue="detalles" className="w-full">
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="detalles">Detalles Técnicos</TabsTrigger>
-                        <TabsTrigger value="garantias">Garantías / Políticas</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="detalles" className="mt-3 rounded-xl border border-border/60 p-4 space-y-2 text-sm">
-                        <div className="flex justify-between border-b border-border/40 pb-2">
-                          <span className="text-muted-foreground flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> SKU</span>
-                          <span className="font-mono font-medium">{detailProduct.sku}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-border/40 pb-2">
-                          <span className="text-muted-foreground flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5" /> Peso</span>
-                          <span className="font-medium">{detailProduct.weight_kg ? `${detailProduct.weight_kg} kg` : "N/D"}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-border/40 pb-2">
-                          <span className="text-muted-foreground flex items-center gap-1.5"><Ruler className="h-3.5 w-3.5" /> Dimensiones</span>
-                          <span className="font-medium">{detailProduct.dimensions || "N/D"}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Tipo de producto</span>
-                          <span className="font-medium">{detailProduct.product_type || "Simple"}</span>
-                        </div>
-                      </TabsContent>
-                      <TabsContent value="garantias" className="mt-3 rounded-xl border border-border/60 p-4 text-sm space-y-2">
-                        <div className="flex items-start gap-2">
-                          <ShieldCheck className="h-4 w-4 text-primary mt-0.5" />
-                          <p className="text-muted-foreground">
-                            {detailProduct.warranty || "Producto cubierto por garantía estándar de la plataforma. Contraentrega disponible. Devoluciones procesadas según política operativa de Plus Envíos."}
-                          </p>
-                        </div>
-                      </TabsContent>
-                    </Tabs>
+                    {/* Acordeones de información — estilo Shopify Premium */}
+                    <Accordion type="single" collapsible className="w-full border-t border-border/60 pt-2">
+                      <AccordionItem value="descripcion">
+                        <AccordionTrigger className="text-sm font-semibold">
+                          <span className="flex items-center gap-2">
+                            <FileText className="h-4 w-4" /> Descripción
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+                          {detailProduct.description?.trim()
+                            ? detailProduct.description
+                            : "Este producto no tiene una descripción detallada. Contacta al proveedor para más información."}
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="especificaciones">
+                        <AccordionTrigger className="text-sm font-semibold">
+                          <span className="flex items-center gap-2">
+                            <Ruler className="h-4 w-4" /> Especificaciones
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex justify-between border-b border-border/40 pb-1.5">
+                              <span className="text-muted-foreground flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> SKU</span>
+                              <span className="font-mono font-medium">{detailProduct.sku}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-border/40 pb-1.5">
+                              <span className="text-muted-foreground">Peso</span>
+                              <span className="font-medium">{detailProduct.weight_kg ? `${detailProduct.weight_kg} kg` : "N/D"}</span>
+                            </div>
+                            <div className="flex justify-between border-b border-border/40 pb-1.5">
+                              <span className="text-muted-foreground">Dimensiones</span>
+                              <span className="font-medium">{detailProduct.dimensions || "N/D"}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Tipo de producto</span>
+                              <span className="font-medium">{detailProduct.product_type || "Simple"}</span>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="garantia">
+                        <AccordionTrigger className="text-sm font-semibold">
+                          <span className="flex items-center gap-2">
+                            <ShieldCheck className="h-4 w-4" /> Garantía
+                          </span>
+                        </AccordionTrigger>
+                        <AccordionContent className="text-sm text-muted-foreground leading-relaxed">
+                          {detailProduct.warranty ||
+                            "Producto cubierto por garantía estándar de la plataforma. Contraentrega disponible. Devoluciones procesadas según política operativa de Plus Envíos."}
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
+
+                    {/* Botón secundario: Exportar a Shopify CSV */}
+                    <Button
+                      variant="outline"
+                      size="lg"
+                      className="w-full gap-2 border-dashed text-muted-foreground hover:text-foreground"
+                      onClick={() => exportToShopifyCSV(detailProduct)}
+                    >
+                      <Download className="h-4 w-4" />
+                      ⬇️ Exportar producto a Shopify (CSV)
+                    </Button>
                   </div>
                 </div>
               </div>
 
-              {/* Sticky Bottom Action Bar */}
-              <div
-                className="absolute bottom-0 inset-x-0 bg-background/95 backdrop-blur-md border-t border-border z-50 px-4 sm:px-6 py-3 flex items-center gap-3"
-                style={{ boxShadow: "0 -4px 12px -2px rgba(0,0,0,0.1)" }}
-              >
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="gap-2 max-sm:px-3"
-                  onClick={() => {
-                    if (!userId) {
-                      toast.error("Debes iniciar sesión");
-                      return;
-                    }
-                    toggleFavorite.mutate(detailProduct.id);
-                  }}
-                >
-                  <Heart
-                    className={cn(
-                      "h-4 w-4",
-                      favoritesSet.has(detailProduct.id) && "fill-red-500 text-red-500",
-                    )}
-                  />
-                  <span className="max-sm:hidden">
-                    {favoritesSet.has(detailProduct.id) ? "Guardado" : "Favoritos"}
-                  </span>
-                </Button>
-                <Button
-                  size="lg"
-                  className="flex-1 gap-2 font-semibold"
-                  disabled={detailProduct.stock_available <= 0}
-                  onClick={() => handleGenerateOrder(detailProduct)}
-                >
-                  <ShoppingBag className="h-5 w-5" />
-                  {detailProduct.stock_available <= 0 ? "Agotado temporalmente" : "Generar Orden"}
-                </Button>
-              </div>
             </>
           )}
         </DialogContent>
