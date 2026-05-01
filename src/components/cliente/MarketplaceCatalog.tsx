@@ -75,6 +75,18 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const [trendingOnly, setTrendingOnly] = useState(false);
   const [sortBy, setSortBy] = useState<"name" | "trending" | "price_asc" | "price_desc">("name");
   const [activeTab, setActiveTab] = useState<"explorar" | "favoritos">("explorar");
+  const [copiedShortId, setCopiedShortId] = useState<string | null>(null);
+
+  const handleCopyShortId = async (shortId: string) => {
+    try {
+      await navigator.clipboard.writeText(shortId);
+      setCopiedShortId(shortId);
+      toast.success("ID Copiado");
+      setTimeout(() => setCopiedShortId((curr) => (curr === shortId ? null : curr)), 2000);
+    } catch {
+      toast.error("No se pudo copiar el ID");
+    }
+  };
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["marketplace-catalog", orgId],
