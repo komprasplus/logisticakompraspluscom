@@ -255,6 +255,86 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
     ? [detailProduct.image_url].filter(Boolean) as string[]
     : [];
 
+  /**
+   * Genera y descarga un CSV compatible con la importación de productos de Shopify.
+   * Columnas mínimas: Handle, Title, Body (HTML), Vendor, Variant Price, Image Src.
+   */
+  const exportToShopifyCSV = (product: MarketplaceProduct) => {
+    const escapeCsv = (val: string | number | null | undefined) => {
+      const s = val === null || val === undefined ? "" : String(val);
+      // Escape doble comilla y envolver siempre entre comillas para soportar comas/saltos de línea
+      return `"${s.replace(/"/g, '""')}"`;
+    };
+
+    const handle =
+      (product.short_id ?? product.sku ?? product.id)
+        .toString()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+    const vendor =
+      (product.created_by && proveedorNameById.get(product.created_by)) ||
+      "Plus Envíos";
+
+    const bodyHtml = product.description
+      ? `<p>${product.description.replace(/\n/g, "<br/>")}</p>`
+      : "";
+
+    const headers = [
+      "Handle",
+      "Title",
+      "Body (HTML)",
+      "Vendor",
+      "Type",
+      "Tags",
+      "Published",
+      "Variant SKU",
+      "Variant Price",
+      "Variant Inventory Qty",
+      "Variant Requires Shipping",
+      "Variant Taxable",
+      "Image Src",
+      "Image Alt Text",
+    ];
+
+    const row = [
+      handle,
+      product.product_name,
+      bodyHtml,
+      vendor,
+      product.category ?? product.product_type ?? "",
+      [product.category, product.product_type].filter(Boolean).join(", "),
+      "TRUE",
+      product.sku ?? "",
+      product.suggested_price,
+      product.stock_available,
+      "TRUE",
+      "TRUE",
+      product.image_url ?? "",
+      product.product_name,
+    ];
+
+    const csv =
+      headers.map(escapeCsv).join(",") +
+      "\n" +
+      row.map(escapeCsv).join(",") +
+      "\n";
+
+    // BOM UTF-8 para que Excel/Shopify abran caracteres latinos correctamente
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `shopify-${handle || "producto"}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast.success("CSV listo para importar en Shopify");
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
