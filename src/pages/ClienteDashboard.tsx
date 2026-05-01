@@ -20,6 +20,7 @@ import MiTiendaView from "@/components/cliente/MiTiendaView";
 import IntegracionesView from "@/components/cliente/IntegracionesView";
 import ApiDocsView from "@/components/cliente/ApiDocsView";
 import InventarioView from "@/components/cliente/InventarioView";
+import CatalogoConfigView from "@/components/cliente/CatalogoConfigView";
 import MarketplaceCatalog from "@/components/cliente/MarketplaceCatalog";
 import BilleteraCombinedView from "@/components/cliente/BilleteraCombinedView";
 import LedgerDrawer from "@/components/cliente/LedgerDrawer";
@@ -417,6 +418,10 @@ const ClienteDashboard = () => {
                   setShowNuevoPedido(true);
                 }}
               />
+            )}
+
+            {activeView === "catalogo-publico" && (
+              <CatalogoConfigView key="catalogo-publico" />
             )}
 
             {/* Vista consolidada Billetera: agrupa Retiros + Transferir +
