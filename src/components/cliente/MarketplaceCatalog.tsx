@@ -1080,6 +1080,13 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal Generador de Landing con IA */}
+      <LandingGeneratorModal
+        open={landingOpen}
+        onOpenChange={setLandingOpen}
+        product={landingProduct}
+      />
     </motion.div>
   );
 };
