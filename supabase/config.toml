@@ -33,3 +33,6 @@ verify_jwt = false
 [functions.dropium-webhook]
 verify_jwt = false
 
+[functions.generate-landing-ai]
+verify_jwt = true
+
