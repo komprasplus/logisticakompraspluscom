@@ -1040,16 +1040,38 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       </AccordionItem>
                     </Accordion>
 
-                    {/* Botón secundario: Exportar a Shopify CSV */}
-                    <Button
-                      variant="outline"
-                      size="lg"
-                      className="w-full gap-2 border-dashed text-muted-foreground hover:text-foreground"
-                      onClick={() => exportToShopifyCSV(detailProduct)}
-                    >
-                      <Download className="h-4 w-4" />
-                      ⬇️ Exportar producto a Shopify (CSV)
-                    </Button>
+                    {/* Botones secundarios: Generar Landing IA + Exportar CSV */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Button
+                        size="lg"
+                        className="w-full gap-2 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 hover:from-purple-700 hover:via-fuchsia-700 hover:to-pink-700 text-white font-bold shadow-lg"
+                        onClick={() => {
+                          setLandingProduct({
+                            id: detailProduct.id,
+                            product_name: detailProduct.product_name,
+                            description: detailProduct.description,
+                            suggested_price: detailProduct.suggested_price,
+                            cost_price: detailProduct.cost_price,
+                            category: detailProduct.category,
+                            image_url: detailProduct.image_url,
+                          });
+                          setLandingOpen(true);
+                        }}
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        ✨ Generar Landing con IA
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        className="w-full gap-2 border-dashed text-muted-foreground hover:text-foreground"
+                        onClick={() => exportToShopifyCSV(detailProduct)}
+                      >
+                        <Download className="h-4 w-4" />
+                        ⬇️ Exportar a Shopify (CSV)
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
