@@ -11,6 +11,7 @@ import {
   Wallet,
   Book,
   ShoppingBag,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ export type ClienteView =
   | "retiros"
   | "transferencias"
   | "catalogo"
+  | "catalogo-publico"
   | "docs";
 
 interface ClienteSidebarProps {
@@ -109,6 +111,13 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Boxes,
         gradient: "from-indigo-500 to-indigo-600",
         shadow: "shadow-indigo-500/30",
+      },
+      {
+        key: "catalogo-publico",
+        label: "Mis Catálogos",
+        icon: Sparkles,
+        gradient: "from-fuchsia-500 to-purple-600",
+        shadow: "shadow-fuchsia-500/30",
       },
     ],
   },
