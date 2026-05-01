@@ -76,7 +76,7 @@ const PublicCatalog = () => {
         if (cancelled) return;
         if (error) throw error;
 
-        const payload = data as {
+        const payload = data as unknown as {
           found: boolean;
           provider?: Provider;
           products?: CatalogProduct[];
