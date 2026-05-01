@@ -77,6 +77,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const [sortBy, setSortBy] = useState<"name" | "trending" | "price_asc" | "price_desc">("name");
   const [activeTab, setActiveTab] = useState<"explorar" | "favoritos">("explorar");
   const [copiedShortId, setCopiedShortId] = useState<string | null>(null);
+  const [landingOpen, setLandingOpen] = useState(false);
+  const [landingProduct, setLandingProduct] = useState<LandingProduct | null>(null);
 
   const handleCopyShortId = async (shortId: string) => {
     try {
