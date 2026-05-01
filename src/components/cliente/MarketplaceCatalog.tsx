@@ -1028,43 +1028,6 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                 </div>
               </div>
 
-              {/* Sticky Bottom Action Bar */}
-              <div
-                className="absolute bottom-0 inset-x-0 bg-background/95 backdrop-blur-md border-t border-border z-50 px-4 sm:px-6 py-3 flex items-center gap-3"
-                style={{ boxShadow: "0 -4px 12px -2px rgba(0,0,0,0.1)" }}
-              >
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="gap-2 max-sm:px-3"
-                  onClick={() => {
-                    if (!userId) {
-                      toast.error("Debes iniciar sesión");
-                      return;
-                    }
-                    toggleFavorite.mutate(detailProduct.id);
-                  }}
-                >
-                  <Heart
-                    className={cn(
-                      "h-4 w-4",
-                      favoritesSet.has(detailProduct.id) && "fill-red-500 text-red-500",
-                    )}
-                  />
-                  <span className="max-sm:hidden">
-                    {favoritesSet.has(detailProduct.id) ? "Guardado" : "Favoritos"}
-                  </span>
-                </Button>
-                <Button
-                  size="lg"
-                  className="flex-1 gap-2 font-semibold"
-                  disabled={detailProduct.stock_available <= 0}
-                  onClick={() => handleGenerateOrder(detailProduct)}
-                >
-                  <ShoppingBag className="h-5 w-5" />
-                  {detailProduct.stock_available <= 0 ? "Agotado temporalmente" : "Generar Orden"}
-                </Button>
-              </div>
             </>
           )}
         </DialogContent>
