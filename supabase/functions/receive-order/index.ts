@@ -318,11 +318,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update last_used_at for the API credential
-    await supabase
-      .from("api_credentials")
-      .update({ last_used_at: new Date().toISOString() })
-      .eq("id", credential.id);
+    // Update last_used_at: API credential or connected store sync
+    if (credential.id) {
+      await supabase
+        .from("api_credentials")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("id", credential.id);
+    } else if (isShopifyWebhook && shopDomain) {
+      const normalized = shopDomain.toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+      await supabase
+        .from("connected_stores")
+        .update({ last_sync_at: new Date().toISOString() })
+        .eq("url_tienda", normalized);
+    }
 
     console.log("Order created successfully:", newOrder.id, numeroGuia);
 
