@@ -1727,6 +1727,10 @@ export type Database = {
       }
       is_admin: { Args: never; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
+      is_supplier_of_pedido: {
+        Args: { _pedido_id: number; _user_id: string }
+        Returns: boolean
+      }
       marketplace_reserve_stock: {
         Args: { p_product_id: string; p_quantity?: number }
         Returns: Json
