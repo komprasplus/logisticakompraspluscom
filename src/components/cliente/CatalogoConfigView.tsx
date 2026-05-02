@@ -98,7 +98,7 @@ const CatalogoConfigView = () => {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, phone, store_name, logo_url",
+          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, catalog_slug, phone, store_name, logo_url",
         )
         .eq("user_id", user.id)
         .single();
@@ -111,6 +111,7 @@ const CatalogoConfigView = () => {
           catalog_color_secondary: data.catalog_color_secondary ?? "#0099CC",
           catalog_description: data.catalog_description,
           catalog_public_enabled: data.catalog_public_enabled ?? false,
+          catalog_slug: (data as { catalog_slug?: string | null }).catalog_slug ?? null,
           phone: data.phone,
           store_name: data.store_name,
           logo_url: data.logo_url,
