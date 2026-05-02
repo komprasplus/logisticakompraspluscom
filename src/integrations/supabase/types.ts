@@ -335,7 +335,9 @@ export type Database = {
         Row: {
           category: string | null
           client_user_id: string
+          cost_price: number | null
           created_at: string
+          description: string | null
           fulfillment_value: number | null
           id: string
           image_url: string | null
@@ -356,7 +358,9 @@ export type Database = {
         Insert: {
           category?: string | null
           client_user_id: string
+          cost_price?: number | null
           created_at?: string
+          description?: string | null
           fulfillment_value?: number | null
           id?: string
           image_url?: string | null
@@ -377,7 +381,9 @@ export type Database = {
         Update: {
           category?: string | null
           client_user_id?: string
+          cost_price?: number | null
           created_at?: string
+          description?: string | null
           fulfillment_value?: number | null
           id?: string
           image_url?: string | null
@@ -1139,6 +1145,7 @@ export type Database = {
           last_location_lng: number | null
           last_location_updated_at: string | null
           logo_url: string | null
+          mostrar_precios_catalogo: boolean
           nit_rut: string | null
           organizacion_id: string | null
           phone: string | null
@@ -1170,6 +1177,7 @@ export type Database = {
           last_location_lng?: number | null
           last_location_updated_at?: string | null
           logo_url?: string | null
+          mostrar_precios_catalogo?: boolean
           nit_rut?: string | null
           organizacion_id?: string | null
           phone?: string | null
@@ -1201,6 +1209,7 @@ export type Database = {
           last_location_lng?: number | null
           last_location_updated_at?: string | null
           logo_url?: string | null
+          mostrar_precios_catalogo?: boolean
           nit_rut?: string | null
           organizacion_id?: string | null
           phone?: string | null

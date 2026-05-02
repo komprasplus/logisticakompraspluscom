@@ -35,6 +35,7 @@ interface Provider {
   template?: Template;
   color_primary: string;
   color_secondary: string;
+  mostrar_precios_catalogo?: boolean;
 }
 
 interface CatalogProduct {
