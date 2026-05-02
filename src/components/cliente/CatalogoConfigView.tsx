@@ -31,6 +31,7 @@ interface CatalogConfig {
   catalog_color_secondary: string;
   catalog_description: string | null;
   catalog_public_enabled: boolean;
+  catalog_slug: string | null;
   phone: string | null;
   store_name: string | null;
   logo_url: string | null;
@@ -77,13 +78,16 @@ const CatalogoConfigView = () => {
     catalog_color_secondary: "#0099CC",
     catalog_description: null,
     catalog_public_enabled: false,
+    catalog_slug: null,
     phone: null,
     store_name: null,
     logo_url: null,
   });
 
   const publicUrl =
-    typeof window !== "undefined" && user?.id
+    typeof window !== "undefined" && config.catalog_slug
+      ? `${window.location.origin}/${config.catalog_slug}/catalogo`
+      : typeof window !== "undefined" && user?.id
       ? `${window.location.origin}/catalogo/${user.id}`
       : "";
 
@@ -94,7 +98,7 @@ const CatalogoConfigView = () => {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, phone, store_name, logo_url",
+          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, catalog_slug, phone, store_name, logo_url",
         )
         .eq("user_id", user.id)
         .single();
@@ -107,6 +111,7 @@ const CatalogoConfigView = () => {
           catalog_color_secondary: data.catalog_color_secondary ?? "#0099CC",
           catalog_description: data.catalog_description,
           catalog_public_enabled: data.catalog_public_enabled ?? false,
+          catalog_slug: (data as { catalog_slug?: string | null }).catalog_slug ?? null,
           phone: data.phone,
           store_name: data.store_name,
           logo_url: data.logo_url,
@@ -232,6 +237,16 @@ const CatalogoConfigView = () => {
                 </a>
               </Button>
             </div>
+            {config.catalog_slug ? (
+              <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                ✨ URL amigable activa: <strong className="font-mono">{config.catalog_slug}</strong>.
+                Se actualiza automáticamente cuando cambies el nombre de tu tienda.
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Tu link amigable se generará la próxima vez que actualices tu tienda.
+              </p>
+            )}
             {!phoneOk && (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
                 ⚠️ Configura tu teléfono en "Mi Tienda" para que el botón de WhatsApp funcione.
