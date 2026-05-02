@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, x-queue-mode",
+   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, x-queue-mode, x-shopify-shop-domain, x-shopify-topic, x-shopify-hmac-sha256",
 };
 
 interface OrderPayload {
@@ -55,90 +55,123 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Validate API Key
-    const apiKey = req.headers.get("x-api-key");
-    if (!apiKey) {
-      console.error("Missing API key");
-      return new Response(
-        JSON.stringify({ error: "API key is required", code: "MISSING_API_KEY" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
     // Create Supabase client with service role for admin operations
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Hash the provided API key and look it up
-    const keyHash = await hashApiKey(apiKey);
-    console.log("Looking up API key with hash prefix:", keyHash.substring(0, 10) + "...");
+    // ── Auth path 1: Shopify webhook (resolved via connected_stores) ──
+    const shopDomain = req.headers.get("x-shopify-shop-domain");
+    let credential: { id: string | null; client_user_id: string; is_active: boolean; label: string } | null = null;
+    let isShopifyWebhook = false;
 
-    const { data: credential, error: credError } = await supabase
-      .from("api_credentials")
-      .select("id, client_user_id, is_active, label")
-      .eq("api_key_hash", keyHash)
-      .maybeSingle();
-
-    if (credError) {
-      console.error("Error looking up credential:", credError);
-      return new Response(
-        JSON.stringify({ error: "Database error", code: "DB_ERROR" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (shopDomain) {
+      const normalized = shopDomain.toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+      const { data: resolved, error: resolveError } = await supabase.rpc("resolve_store_owner", {
+        p_shop_domain: normalized,
+      });
+      if (resolveError) {
+        console.error("resolve_store_owner error:", resolveError);
+      }
+      if (resolved && (resolved as Record<string, unknown>).found) {
+        const r = resolved as Record<string, unknown>;
+        credential = {
+          id: null,
+          client_user_id: r.user_id as string,
+          is_active: true,
+          label: (r.nombre_tienda as string) || "Shopify Store",
+        };
+        isShopifyWebhook = true;
+        console.log("Shopify webhook resolved to user:", credential.client_user_id, "store:", r.nombre_tienda);
+      } else {
+        return new Response(
+          JSON.stringify({ error: `Shopify store not connected: ${normalized}`, code: "STORE_NOT_LINKED" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
+    // ── Auth path 2: API Key (unchanged) ──
     if (!credential) {
-      console.error("Invalid API key - no matching credential found");
-      return new Response(
-        JSON.stringify({ error: "Invalid API key", code: "INVALID_API_KEY" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      const apiKey = req.headers.get("x-api-key");
+      if (!apiKey) {
+        console.error("Missing API key");
+        return new Response(
+          JSON.stringify({ error: "API key is required", code: "MISSING_API_KEY" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const keyHash = await hashApiKey(apiKey);
+      console.log("Looking up API key with hash prefix:", keyHash.substring(0, 10) + "...");
+
+      const { data: credData, error: credError } = await supabase
+        .from("api_credentials")
+        .select("id, client_user_id, is_active, label")
+        .eq("api_key_hash", keyHash)
+        .maybeSingle();
+
+      if (credError) {
+        console.error("Error looking up credential:", credError);
+        return new Response(
+          JSON.stringify({ error: "Database error", code: "DB_ERROR" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!credData) {
+        return new Response(
+          JSON.stringify({ error: "Invalid API key", code: "INVALID_API_KEY" }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (!credData.is_active) {
+        return new Response(
+          JSON.stringify({ error: "API key is inactive", code: "INACTIVE_API_KEY" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      credential = credData;
     }
 
-    if (!credential.is_active) {
-      console.error("API key is inactive:", credential.id);
-      return new Response(
-        JSON.stringify({ error: "API key is inactive", code: "INACTIVE_API_KEY" }),
-        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    // --- Rate Limiting: 60 requests per minute per credential (skip for Shopify webhooks) ---
+    if (credential.id) {
+      const now = new Date();
+      const windowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes()).toISOString();
 
-    // --- Rate Limiting: 60 requests per minute per credential ---
-    const now = new Date();
-    const windowStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours(), now.getMinutes()).toISOString();
-    
-    const { data: rateData } = await supabase
-      .from("api_rate_limits")
-      .select("request_count")
-      .eq("credential_id", credential.id)
-      .eq("window_start", windowStart)
-      .maybeSingle();
-
-    const currentCount = rateData?.request_count || 0;
-    if (currentCount >= 60) {
-      console.warn("Rate limit exceeded for credential:", credential.id);
-      return new Response(
-        JSON.stringify({ 
-          error: "Rate limit exceeded. Max 60 requests per minute.", 
-          code: "RATE_LIMIT",
-          retry_after_seconds: 60 - now.getSeconds()
-        }),
-        { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Increment counter (upsert)
-    if (rateData) {
-      await supabase
+      const { data: rateData } = await supabase
         .from("api_rate_limits")
-        .update({ request_count: currentCount + 1 })
+        .select("request_count")
         .eq("credential_id", credential.id)
-        .eq("window_start", windowStart);
-    } else {
-      await supabase
-        .from("api_rate_limits")
-        .insert({ credential_id: credential.id, window_start: windowStart, request_count: 1 });
+        .eq("window_start", windowStart)
+        .maybeSingle();
+
+      const currentCount = rateData?.request_count || 0;
+      if (currentCount >= 60) {
+        console.warn("Rate limit exceeded for credential:", credential.id);
+        return new Response(
+          JSON.stringify({
+            error: "Rate limit exceeded. Max 60 requests per minute.",
+            code: "RATE_LIMIT",
+            retry_after_seconds: 60 - now.getSeconds()
+          }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (rateData) {
+        await supabase
+          .from("api_rate_limits")
+          .update({ request_count: currentCount + 1 })
+          .eq("credential_id", credential.id)
+          .eq("window_start", windowStart);
+      } else {
+        await supabase
+          .from("api_rate_limits")
+          .insert({ credential_id: credential.id, window_start: windowStart, request_count: 1 });
+      }
     }
 
     // Parse and validate order payload
@@ -285,11 +318,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Update last_used_at for the API credential
-    await supabase
-      .from("api_credentials")
-      .update({ last_used_at: new Date().toISOString() })
-      .eq("id", credential.id);
+    // Update last_used_at: API credential or connected store sync
+    if (credential.id) {
+      await supabase
+        .from("api_credentials")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("id", credential.id);
+    } else if (isShopifyWebhook && shopDomain) {
+      const normalized = shopDomain.toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+      await supabase
+        .from("connected_stores")
+        .update({ last_sync_at: new Date().toISOString() })
+        .eq("url_tienda", normalized);
+    }
 
     console.log("Order created successfully:", newOrder.id, numeroGuia);
 

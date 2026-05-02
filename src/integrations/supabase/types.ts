@@ -280,6 +280,56 @@ export type Database = {
           },
         ]
       }
+      connected_stores: {
+        Row: {
+          api_access_token: string
+          created_at: string
+          estado: string
+          id: string
+          last_sync_at: string | null
+          nombre_tienda: string
+          organizacion_id: string | null
+          plataforma: string
+          updated_at: string
+          url_tienda: string
+          user_id: string
+        }
+        Insert: {
+          api_access_token: string
+          created_at?: string
+          estado?: string
+          id?: string
+          last_sync_at?: string | null
+          nombre_tienda: string
+          organizacion_id?: string | null
+          plataforma?: string
+          updated_at?: string
+          url_tienda: string
+          user_id: string
+        }
+        Update: {
+          api_access_token?: string
+          created_at?: string
+          estado?: string
+          id?: string
+          last_sync_at?: string | null
+          nombre_tienda?: string
+          organizacion_id?: string | null
+          plataforma?: string
+          updated_at?: string
+          url_tienda?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connected_stores_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       dropium_sync_logs: {
         Row: {
           action: string
@@ -1689,6 +1739,7 @@ export type Database = {
         Args: { p_desde_fecha?: string; p_dry_run?: boolean }
         Returns: Json
       }
+      resolve_store_owner: { Args: { p_shop_domain: string }; Returns: Json }
       slugify: { Args: { input: string }; Returns: string }
       transfer_store_balance: {
         Args: {
