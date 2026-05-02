@@ -241,6 +241,10 @@ const NuevoProductoMarketplace = ({
       toast.error("Nombre y SKU son obligatorios");
       return;
     }
+    if (isProveedor && (!category || !subcategory)) {
+      toast.error("Selecciona Categoría y Subcategoría");
+      return;
+    }
     if (productType === "Variable" && variants.length === 0) {
       toast.error("Genera las variantes antes de guardar");
       return;
