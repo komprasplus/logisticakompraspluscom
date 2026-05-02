@@ -375,7 +375,7 @@ Deno.serve(async (req) => {
         valor_flete: valorFlete,
         valor_recaudar: valorRecaudar,
         utilidad: utilidad,
-        metodo_pago: orderPayload.metodo_pago || "contra_entrega",
+        metodo_pago: orderPayload.metodo_pago || "efectivo",
         observaciones: orderPayload.observaciones || `Pedido vía API: ${credential.label}`,
         latitud: orderPayload.latitud || null,
         longitud: orderPayload.longitud || null,
