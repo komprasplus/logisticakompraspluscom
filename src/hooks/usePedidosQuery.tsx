@@ -83,7 +83,7 @@ const fetchPedidosForClient = async (userId: string): Promise<Pedido[]> => {
     clearTimeout(timeoutId);
 
     if (error) {
-      console.error("[usePedidosQuery] Supabase error:", error.message);
+      console.error("❌ Error real de Supabase:", error.message, (error as any).details, (error as any).hint, (error as any).code);
       throw error;
     }
 

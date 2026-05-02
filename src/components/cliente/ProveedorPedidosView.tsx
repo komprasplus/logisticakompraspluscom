@@ -30,51 +30,59 @@ const ProveedorPedidosView = () => {
     if (!user?.id) return;
     setLoading(true);
 
-    // 1. Fetch order_items where I'm the supplier, joined with pedidos in 'en_preparacion'
-    const { data, error } = await supabase
-      .from("order_items")
-      .select(
-        `pedido_id, product_name, quantity, sku,
-         pedidos!inner(id, numero_guia, cliente_nombre, client_phone, direccion_entrega, municipio, estado, fecha_creacion)`,
-      )
-      .eq("supplier_user_id", user.id)
-      .eq("pedidos.estado", "en_preparacion");
+    // Safe base query: RLS already restricts to pedidos containing items
+    // where supplier_user_id = auth.uid(). No JOIN needed.
+    const { data: pedidosData, error } = await supabase
+      .from("pedidos")
+      .select("*")
+      .eq("estado", "en_preparacion")
+      .order("fecha_creacion", { ascending: false });
 
     if (error) {
-      console.error("[ProveedorPedidos] error:", error);
-      toast({ title: "Error", description: "No se pudieron cargar los pedidos.", variant: "destructive" });
+      console.error("❌ Error real de Supabase:", error.message, error.details, error.hint);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
       setLoading(false);
       return;
     }
 
-    // Group by pedido_id
-    const grouped = new Map<number, ProveedorPedido>();
-    (data ?? []).forEach((row: any) => {
-      const p = row.pedidos;
-      if (!p) return;
-      if (!grouped.has(p.id)) {
-        grouped.set(p.id, {
-          id: p.id,
-          numero_guia: p.numero_guia,
-          cliente_nombre: p.cliente_nombre,
-          client_phone: p.client_phone,
-          direccion_entrega: p.direccion_entrega,
-          municipio: p.municipio,
-          estado: p.estado,
-          fecha_creacion: p.fecha_creacion,
-          items: [],
+    // Fetch items for these pedidos in a separate query
+    const ids = (pedidosData ?? []).map((p) => p.id);
+    let itemsByPedido = new Map<number, Array<{ product_name: string; quantity: number; sku: string | null }>>();
+
+    if (ids.length > 0) {
+      const { data: items, error: itemsError } = await supabase
+        .from("order_items")
+        .select("pedido_id, product_name, quantity, sku")
+        .in("pedido_id", ids)
+        .eq("supplier_user_id", user.id);
+
+      if (itemsError) {
+        console.error("❌ Error real de Supabase (order_items):", itemsError.message, itemsError.details);
+      } else {
+        (items ?? []).forEach((it: any) => {
+          if (!itemsByPedido.has(it.pedido_id)) itemsByPedido.set(it.pedido_id, []);
+          itemsByPedido.get(it.pedido_id)!.push({
+            product_name: it.product_name,
+            quantity: it.quantity,
+            sku: it.sku,
+          });
         });
       }
-      grouped.get(p.id)!.items.push({
-        product_name: row.product_name,
-        quantity: row.quantity,
-        sku: row.sku,
-      });
-    });
+    }
 
-    setPedidos(Array.from(grouped.values()).sort((a, b) =>
-      (b.fecha_creacion ?? "").localeCompare(a.fecha_creacion ?? ""),
-    ));
+    const merged: ProveedorPedido[] = (pedidosData ?? []).map((p: any) => ({
+      id: p.id,
+      numero_guia: p.numero_guia,
+      cliente_nombre: p.cliente_nombre,
+      client_phone: p.client_phone,
+      direccion_entrega: p.direccion_entrega,
+      municipio: p.municipio,
+      estado: p.estado,
+      fecha_creacion: p.fecha_creacion,
+      items: itemsByPedido.get(p.id) ?? [],
+    }));
+
+    setPedidos(merged);
     setLoading(false);
   }, [user?.id, toast]);
 
