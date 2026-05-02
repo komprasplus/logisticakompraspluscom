@@ -369,7 +369,7 @@ Deno.serve(async (req) => {
         direccion_entrega: orderPayload.direccion_entrega,
         municipio: orderPayload.municipio,
         barrio: orderPayload.barrio || null,
-        zona: orderPayload.municipio,
+        zona: "CEN",
         producto_nombre: orderPayload.producto_nombre,
         valor_producto: valorProducto,
         valor_flete: valorFlete,
