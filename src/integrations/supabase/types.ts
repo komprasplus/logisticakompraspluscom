@@ -1726,6 +1726,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_proveedor_account: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_supplier_of_pedido: {
         Args: { _pedido_id: number; _user_id: string }
