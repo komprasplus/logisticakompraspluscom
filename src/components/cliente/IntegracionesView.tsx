@@ -47,6 +47,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { isProveedor } from "@/lib/accountType";
 import WebhookConfigPanel from "./WebhookConfigPanel";
 import ShopifyStoresManager from "./ShopifyStoresManager";
 
