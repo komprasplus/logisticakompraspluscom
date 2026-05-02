@@ -53,12 +53,13 @@ import ShopifyStoresManager from "./ShopifyStoresManager";
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 /*
-  FIX: URL del endpoint extraída de variable de entorno.
-  El project ID `hhjygradtikonvfzarrn` estaba hardcodeado igual que en
-  ApiDocsView e IntegrationsPanel (detectado en sesiones anteriores).
-  Se centraliza en VITE_API_BASE_URL.
+  Endpoint URL built dynamically from Vite env vars so the user never sees
+  raw placeholders like [SUPABASE_URL]. Falls back to VITE_API_BASE_URL for
+  legacy overrides, otherwise derives from VITE_SUPABASE_URL.
 */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://[SUPABASE_URL]/functions/v1";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? `${SUPABASE_URL}/functions/v1`;
 const RECEIVE_ORDER_URL = `${API_BASE_URL}/receive-order`;
 
 const CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
