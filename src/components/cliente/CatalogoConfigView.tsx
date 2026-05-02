@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  DollarSign,
+  Info,
   Loader2,
   Save,
   ExternalLink,
