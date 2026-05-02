@@ -12,7 +12,16 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  List,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +59,8 @@ interface CatalogProduct {
   category?: string | null;
   short_id: string;
   description?: string | null;
+  especificaciones?: string | null;
+  garantia?: string | null;
 }
 
 const ALL_CATEGORIES = "__all__";
@@ -695,16 +706,64 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
             </span>
           </div>
 
-          {product.description && product.description.trim() && (
-            <div className="border-t border-gray-100 mt-4 pt-4">
-              <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold mb-2">
-                Descripción
-              </p>
-              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
-                {product.description}
-              </p>
-            </div>
-          )}
+          {(() => {
+            const items: { key: string; title: string; icon: JSX.Element; content: string }[] = [];
+            if (product.description && product.description.trim()) {
+              items.push({
+                key: "desc",
+                title: "Descripción",
+                icon: <FileText className="h-4 w-4" />,
+                content: product.description,
+              });
+            }
+            if (product.especificaciones && product.especificaciones.trim()) {
+              items.push({
+                key: "specs",
+                title: "Especificaciones",
+                icon: <List className="h-4 w-4" />,
+                content: product.especificaciones,
+              });
+            }
+            if (product.garantia && product.garantia.trim()) {
+              items.push({
+                key: "warranty",
+                title: "Garantía",
+                icon: <ShieldCheck className="h-4 w-4" />,
+                content: product.garantia,
+              });
+            }
+            if (items.length === 0) return null;
+            return (
+              <div className="mt-4">
+                <Accordion
+                  type="single"
+                  collapsible
+                  defaultValue={items[0].key}
+                  className="w-full"
+                >
+                  {items.map((it) => (
+                    <AccordionItem
+                      key={it.key}
+                      value={it.key}
+                      className="border-b border-gray-200"
+                    >
+                      <AccordionTrigger className="text-slate-800 font-medium text-sm hover:no-underline">
+                        <span className="flex items-center gap-2">
+                          {it.icon}
+                          {it.title}
+                        </span>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="whitespace-pre-line text-sm text-gray-600 p-4 pt-2">
+                          {it.content}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </div>
+            );
+          })()}
         </section>
 
         {/* ── Related products ───────────────────────────── */}

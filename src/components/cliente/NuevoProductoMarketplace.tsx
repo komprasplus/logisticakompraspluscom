@@ -67,6 +67,8 @@ const NuevoProductoMarketplace = ({
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [especificaciones, setEspecificaciones] = useState("");
+  const [garantia, setGarantia] = useState("");
   const [sku, setSku] = useState("");
   const [costPrice, setCostPrice] = useState("");
   const [suggestedPrice, setSuggestedPrice] = useState("");
@@ -96,6 +98,8 @@ const NuevoProductoMarketplace = ({
   const resetAndClose = () => {
     setName("");
     setDescription("");
+    setEspecificaciones("");
+    setGarantia("");
     setSku("");
     setCostPrice("");
     setSuggestedPrice("");
@@ -269,6 +273,8 @@ const NuevoProductoMarketplace = ({
           .insert({
             product_name: name.trim(),
             description: description.trim() || null,
+            especificaciones: especificaciones.trim() || null,
+            garantia: garantia.trim() || null,
             sku: sku.trim(),
             cost_price: Number(costPrice) || 0,
             suggested_price: Number(suggestedPrice) || 0,
@@ -311,8 +317,12 @@ const NuevoProductoMarketplace = ({
           client_user_id: userId,
           sku: sku.trim().toUpperCase(),
           product_name: name.trim(),
+          description: description.trim() || null,
+          especificaciones: especificaciones.trim() || null,
+          garantia: garantia.trim() || null,
           stock_available: totalStock,
           price: Number(suggestedPrice) || 0,
+          cost_price: Number(costPrice) || 0,
           low_stock_threshold: 5,
           image_url: imgUrls[0] || null,
           is_public: true,
@@ -521,6 +531,33 @@ const NuevoProductoMarketplace = ({
             >
               Caracteres: {description.length}/{MAX_DESCRIPTION}
             </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Especificaciones
+              </label>
+              <Textarea
+                value={especificaciones}
+                onChange={(e) => setEspecificaciones(e.target.value)}
+                placeholder="Ej: Medidas 30x20 cm, peso 500g, material acero inoxidable..."
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Garantía
+              </label>
+              <Textarea
+                value={garantia}
+                onChange={(e) => setGarantia(e.target.value)}
+                placeholder="Ej: 30 días por defectos de fábrica."
+                rows={4}
+                className="resize-none"
+              />
+            </div>
           </div>
 
           {isProveedor && productType === "Variable" && (
