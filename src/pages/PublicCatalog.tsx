@@ -12,7 +12,16 @@ import {
   Download,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  List,
+  ShieldCheck,
 } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +59,8 @@ interface CatalogProduct {
   category?: string | null;
   short_id: string;
   description?: string | null;
+  especificaciones?: string | null;
+  garantia?: string | null;
 }
 
 const ALL_CATEGORIES = "__all__";
