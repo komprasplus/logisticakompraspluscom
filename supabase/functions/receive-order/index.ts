@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
           producto_nombre: productNames,
           valor_producto: totalPrice,
           valor_recaudar: totalPrice,
-          metodo_pago: "contra_entrega",
+          metodo_pago: "efectivo",
           observaciones: `Pedido Shopify #${rawBody.order_number ?? rawBody.name ?? rawBody.id ?? ""} | Meta: ${JSON.stringify(shopifyMeta).slice(0, 500)}`,
         };
       } catch (mapErr) {
@@ -375,7 +375,7 @@ Deno.serve(async (req) => {
         valor_flete: valorFlete,
         valor_recaudar: valorRecaudar,
         utilidad: utilidad,
-        metodo_pago: orderPayload.metodo_pago || "contra_entrega",
+        metodo_pago: orderPayload.metodo_pago || "efectivo",
         observaciones: orderPayload.observaciones || `Pedido vía API: ${credential.label}`,
         latitud: orderPayload.latitud || null,
         longitud: orderPayload.longitud || null,
