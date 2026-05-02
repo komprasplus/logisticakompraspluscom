@@ -35,6 +35,7 @@ interface Provider {
   template?: Template;
   color_primary: string;
   color_secondary: string;
+  mostrar_precios_catalogo?: boolean;
 }
 
 interface CatalogProduct {
@@ -57,16 +58,21 @@ const ALL_CATEGORIES = "__all__";
 const buildWhatsAppLink = (
   phone: string | null,
   product: CatalogProduct,
+  showPrices = true,
 ): string | null => {
   if (!phone) return null;
   const clean = phone.replace(/\D/g, "");
   if (clean.length < 7) return null;
   const intl = clean.length === 10 ? `57${clean}` : clean;
+  const priceTxt = showPrices && product.price
+    ? `Precio mayorista: ${formatCOP(product.price)}. `
+    : "";
+  const greeting = showPrices
+    ? "Hola, vengo del catálogo y quiero hacer un pedido mayorista."
+    : "Hola, vengo del catálogo y quisiera cotizar este producto.";
   const text = encodeURIComponent(
-    `Hola, vengo del catálogo. Me interesa el producto ${product.product_name} ` +
-      `(Ref: ${product.short_id}). Precio: ${
-        product.price ? formatCOP(product.price) : "a confirmar"
-      }. ¿Cuántas unidades te quedan de las ${product.stock_available} que vi disponibles?`,
+    `${greeting} Producto: ${product.product_name} (Ref: ${product.short_id}). ${priceTxt}` +
+      `Stock visto: ${product.stock_available}.`,
   );
   return `https://wa.me/${intl}?text=${text}`;
 };
@@ -519,7 +525,8 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
   const currentImg = images[imgIdx] ?? null;
   const colorPrimary = provider.color_primary;
   const colorSecondary = provider.color_secondary;
-  const waLink = buildWhatsAppLink(provider.phone, product);
+  const showPrices = provider.mostrar_precios_catalogo !== false;
+  const waLink = buildWhatsAppLink(provider.phone, product, showPrices);
   const lowStock = product.stock_available > 0 && product.stock_available < 5;
 
   const downloadImage = async () => {
@@ -542,10 +549,9 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
 
   return (
     <div
-      className="min-h-screen pb-28 catalog-root"
+      className="min-h-screen pb-28 catalog-root bg-gray-50"
       style={
         {
-          backgroundColor: "#f8fafc",
           ["--catalog-primary" as string]: colorPrimary,
           ["--catalog-secondary" as string]: colorSecondary,
         } as React.CSSProperties
@@ -574,8 +580,8 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
       </header>
 
       <main className="max-w-3xl mx-auto">
-        {/* ── Image carousel ──────────────────────────────── */}
-        <div className="relative w-full aspect-square bg-slate-100">
+        {/* ── Full-bleed Image ───────────────────────────── */}
+        <div className="relative w-full aspect-square bg-gray-100">
           {currentImg ? (
             <img
               src={currentImg}
@@ -583,7 +589,7 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-slate-300">
+            <div className="w-full h-full flex items-center justify-center text-gray-300">
               <Package className="h-20 w-20" />
             </div>
           )}
@@ -620,6 +626,17 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
             </>
           )}
 
+          {/* Floating download icon */}
+          {currentImg && (
+            <button
+              onClick={downloadImage}
+              aria-label="Descargar imagen"
+              className="no-print absolute top-3 right-3 h-10 w-10 rounded-full bg-white/85 hover:bg-white backdrop-blur-sm flex items-center justify-center shadow-lg text-gray-800 transition"
+            >
+              <Download className="h-4 w-4" />
+            </button>
+          )}
+
           <Badge
             className="absolute top-3 left-3 font-mono gap-1 shadow"
             style={{ backgroundColor: colorPrimary, color: "white" }}
@@ -628,42 +645,46 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
             {product.short_id}
           </Badge>
           {lowStock && (
-            <Badge variant="destructive" className="absolute top-3 right-3">
+            <Badge variant="destructive" className="absolute bottom-3 right-3">
               ¡Últimas {product.stock_available}!
             </Badge>
           )}
         </div>
 
-        {/* Download button */}
-        {currentImg && (
-          <div className="px-4 pt-3">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={downloadImage}
-              className="gap-2 rounded-full text-xs"
+        {/* ── White content card overlapping image ───────── */}
+        <section className="bg-white rounded-t-3xl shadow-lg mt-[-20px] relative z-10 p-6">
+          {product.category && (
+            <span
+              className="inline-block text-[10px] font-bold uppercase tracking-wider rounded-full px-3 py-1"
+              style={{
+                backgroundColor: `${colorPrimary}1A`,
+                color: colorSecondary,
+              }}
             >
-              <Download className="h-3.5 w-3.5" />
-              Descargar imagen
-            </Button>
-          </div>
-        )}
-
-        {/* ── Info ───────────────────────────────────────── */}
-        <section className="px-4 py-4 space-y-3">
-          {product.price !== null && (
-            <p
-              className="text-3xl sm:text-4xl font-black leading-none"
-              style={{ color: colorPrimary }}
-            >
-              {formatCOP(product.price)}
-            </p>
+              {product.category}
+            </span>
           )}
-          <h2 className="text-xl font-bold text-slate-900 leading-tight">
+
+          <h2 className="text-2xl font-black text-gray-900 leading-tight mt-2">
             {product.product_name}
           </h2>
-          <div className="flex items-center gap-3 text-xs">
-            <span className="font-mono text-slate-400">SKU: {product.sku}</span>
+
+          {showPrices && product.price !== null && (
+            <div className="mt-2">
+              <p
+                className="text-3xl font-bold leading-none"
+                style={{ color: colorPrimary }}
+              >
+                {formatCOP(product.price)}
+              </p>
+              <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold mt-1">
+                Precio Mayorista
+              </p>
+            </div>
+          )}
+
+          <div className="text-sm text-gray-500 mt-3 flex justify-between items-center">
+            <span className="font-mono">SKU: {product.sku}</span>
             <span
               className={cn(
                 "font-semibold",
@@ -672,21 +693,24 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
             >
               Stock: {product.stock_available}
             </span>
-            {product.category && (
-              <span className="text-slate-500">· {product.category}</span>
-            )}
           </div>
-          {product.description && (
-            <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-line pt-2 border-t border-slate-200">
-              {product.description}
-            </p>
+
+          {product.description && product.description.trim() && (
+            <div className="border-t border-gray-100 mt-4 pt-4">
+              <p className="text-[11px] uppercase tracking-wider text-gray-400 font-semibold mb-2">
+                Descripción
+              </p>
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-line">
+                {product.description}
+              </p>
+            </div>
           )}
         </section>
 
         {/* ── Related products ───────────────────────────── */}
         {related.length > 0 && (
-          <section className="px-3 pt-2 pb-6">
-            <h3 className="text-sm font-bold text-slate-700 px-1 mb-3">Más productos</h3>
+          <section className="px-3 pt-6 pb-6">
+            <h3 className="text-sm font-bold text-gray-700 px-1 mb-3">Más productos</h3>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {related.map((p) => (
                 <ProductCard
@@ -707,20 +731,20 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
           href={waLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="no-print fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 px-4 py-3 shadow-2xl"
+          className="no-print fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-4 py-3 shadow-2xl"
         >
           <div className="max-w-3xl mx-auto">
             <div
-              className="flex items-center justify-center gap-2 py-3.5 rounded-2xl font-bold text-white shadow-lg text-base"
+              className="flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-white shadow-lg text-lg"
               style={{ backgroundColor: "#25D366" }}
             >
               <MessageCircle className="h-5 w-5" />
-              Contactar por WhatsApp
+              {showPrices ? "Hacer pedido mayorista" : "Cotizar este producto"}
             </div>
           </div>
         </a>
       ) : (
-        <div className="no-print fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200 px-4 py-3">
+        <div className="no-print fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-4 py-3">
           <p className="text-[11px] text-amber-600 text-center bg-amber-50 rounded-lg py-2">
             ⚠️ Proveedor sin teléfono configurado
           </p>

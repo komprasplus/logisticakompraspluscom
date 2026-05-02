@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+  DollarSign,
+  Info,
   Loader2,
   Save,
   ExternalLink,
@@ -18,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,6 +35,7 @@ interface CatalogConfig {
   catalog_description: string | null;
   catalog_public_enabled: boolean;
   catalog_slug: string | null;
+  mostrar_precios_catalogo: boolean;
   phone: string | null;
   store_name: string | null;
   logo_url: string | null;
@@ -79,6 +83,7 @@ const CatalogoConfigView = () => {
     catalog_description: null,
     catalog_public_enabled: false,
     catalog_slug: null,
+    mostrar_precios_catalogo: true,
     phone: null,
     store_name: null,
     logo_url: null,
@@ -98,20 +103,25 @@ const CatalogoConfigView = () => {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, catalog_slug, phone, store_name, logo_url",
+          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, catalog_slug, mostrar_precios_catalogo, phone, store_name, logo_url",
         )
         .eq("user_id", user.id)
         .single();
 
       if (error) throw error;
       if (data) {
+        const d = data as typeof data & {
+          catalog_slug?: string | null;
+          mostrar_precios_catalogo?: boolean | null;
+        };
         setConfig({
           catalog_template: (data.catalog_template as Template) ?? "minimal",
           catalog_color_primary: data.catalog_color_primary ?? "#00D1FF",
           catalog_color_secondary: data.catalog_color_secondary ?? "#0099CC",
           catalog_description: data.catalog_description,
           catalog_public_enabled: data.catalog_public_enabled ?? false,
-          catalog_slug: (data as { catalog_slug?: string | null }).catalog_slug ?? null,
+          catalog_slug: d.catalog_slug ?? null,
+          mostrar_precios_catalogo: d.mostrar_precios_catalogo ?? true,
           phone: data.phone,
           store_name: data.store_name,
           logo_url: data.logo_url,
@@ -141,7 +151,8 @@ const CatalogoConfigView = () => {
           catalog_color_secondary: config.catalog_color_secondary,
           catalog_description: config.catalog_description?.trim() || null,
           catalog_public_enabled: config.catalog_public_enabled,
-        })
+          mostrar_precios_catalogo: config.mostrar_precios_catalogo,
+        } as never)
         .eq("user_id", user.id);
 
       if (error) throw error;
@@ -254,6 +265,41 @@ const CatalogoConfigView = () => {
             )}
           </div>
         )}
+      </Card>
+
+      {/* ── Toggle: Visibilidad de precios B2B / B2C ──────── */}
+      <Card className="p-6 rounded-[20px] border border-border/60 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <Label className="text-base font-bold text-foreground flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-emerald-600" />
+              Mostrar precios en mi catálogo público
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground">
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    Apágalo si quieres enviar este catálogo a clientes finales sin revelar tus costos.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              {config.mostrar_precios_catalogo
+                ? "Modo B2B: tus dropshippers verán los precios mayoristas."
+                : "Modo B2C: el catálogo se compartirá sin precios; los clientes deberán cotizar por WhatsApp."}
+            </p>
+          </div>
+          <Switch
+            checked={config.mostrar_precios_catalogo}
+            onCheckedChange={(v) =>
+              setConfig((c) => ({ ...c, mostrar_precios_catalogo: v }))
+            }
+          />
+        </div>
       </Card>
 
       {/* ── Branding ────────────────────────────────────────── */}
