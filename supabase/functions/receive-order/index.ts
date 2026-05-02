@@ -84,9 +84,10 @@ Deno.serve(async (req) => {
         isShopifyWebhook = true;
         console.log("Shopify webhook resolved to user:", credential.client_user_id, "store:", r.nombre_tienda);
       } else {
+        console.error("Shopify store not connected:", normalized);
         return new Response(
           JSON.stringify({ error: `Shopify store not connected: ${normalized}`, code: "STORE_NOT_LINKED" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     }
