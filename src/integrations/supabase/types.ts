@@ -349,6 +349,7 @@ export type Database = {
           product_name: string
           sku: string
           stock_available: number
+          subcategory: string | null
           unidades_vendidas: number
           updated_at: string
         }
@@ -369,6 +370,7 @@ export type Database = {
           product_name: string
           sku: string
           stock_available?: number
+          subcategory?: string | null
           unidades_vendidas?: number
           updated_at?: string
         }
@@ -389,6 +391,7 @@ export type Database = {
           product_name?: string
           sku?: string
           stock_available?: number
+          subcategory?: string | null
           unidades_vendidas?: number
           updated_at?: string
         }
@@ -539,6 +542,7 @@ export type Database = {
           short_id: string | null
           sku: string
           stock_available: number
+          subcategory: string | null
           suggested_price: number
           unidades_vendidas: number
           updated_at: string
@@ -561,6 +565,7 @@ export type Database = {
           short_id?: string | null
           sku: string
           stock_available?: number
+          subcategory?: string | null
           suggested_price?: number
           unidades_vendidas?: number
           updated_at?: string
@@ -583,6 +588,7 @@ export type Database = {
           short_id?: string | null
           sku?: string
           stock_available?: number
+          subcategory?: string | null
           suggested_price?: number
           unidades_vendidas?: number
           updated_at?: string
