@@ -49,15 +49,28 @@ function generateGuiaNumber(): string {
 }
 
 Deno.serve(async (req) => {
+  // 🔔 Critical entry log — captured by Supabase function logs
+  console.log("🔔 Webhook recibido. Método:", req.method, "| URL:", req.url);
+  console.log("🔑 Shopify shop domain header:", req.headers.get("x-shopify-shop-domain") || "(none)");
+  console.log("🔑 Shopify topic header:", req.headers.get("x-shopify-topic") || "(none)");
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Create Supabase client with service role for admin operations
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Validate critical env vars are present (Service Role required to bypass RLS)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error", code: "MISSING_ENV" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // Service Role client → bypasses RLS, mandatory for unauthenticated webhooks
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // ── Auth path 1: Shopify webhook (resolved via connected_stores) ──
@@ -180,8 +193,11 @@ Deno.serve(async (req) => {
     let rawBody: Record<string, unknown>;
     try {
       rawBody = await req.json();
+      // 📦 Full payload log for diagnosing Shopify field structure
+      console.log("📦 Payload recibido:", JSON.stringify(rawBody).slice(0, 4000));
       orderPayload = rawBody as unknown as OrderPayload;
-    } catch {
+    } catch (parseErr) {
+      console.error("❌ Error al parsear body JSON:", parseErr);
       return new Response(
         JSON.stringify({ error: "Invalid JSON body", code: "INVALID_JSON" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -422,10 +438,12 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("Unexpected error:", error);
+    const msg = (error as Error)?.message || String(error);
+    console.error("❌ Error crítico en receive-order:", msg, error);
+    // Return 400 so Shopify registers the failure in its webhook delivery panel
     return new Response(
-      JSON.stringify({ error: "Internal server error", code: "INTERNAL_ERROR" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: msg, code: "INTERNAL_ERROR" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
