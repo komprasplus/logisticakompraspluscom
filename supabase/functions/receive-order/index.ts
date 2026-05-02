@@ -49,15 +49,28 @@ function generateGuiaNumber(): string {
 }
 
 Deno.serve(async (req) => {
+  // 🔔 Critical entry log — captured by Supabase function logs
+  console.log("🔔 Webhook recibido. Método:", req.method, "| URL:", req.url);
+  console.log("🔑 Shopify shop domain header:", req.headers.get("x-shopify-shop-domain") || "(none)");
+  console.log("🔑 Shopify topic header:", req.headers.get("x-shopify-topic") || "(none)");
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Create Supabase client with service role for admin operations
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Validate critical env vars are present (Service Role required to bypass RLS)
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!supabaseUrl || !supabaseServiceKey) {
+      console.error("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars");
+      return new Response(
+        JSON.stringify({ error: "Server configuration error", code: "MISSING_ENV" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    // Service Role client → bypasses RLS, mandatory for unauthenticated webhooks
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // ── Auth path 1: Shopify webhook (resolved via connected_stores) ──
