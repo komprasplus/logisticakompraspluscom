@@ -24,6 +24,7 @@ import {
 
 import PedidosSkeleton from "./PedidosSkeleton";
 import ManifiestoModal from "./ManifiestoModal";
+import PendienteConfirmacionPanel from "./PendienteConfirmacionPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,6 +120,8 @@ interface Pedido {
   fecha_creacion: string | null;
   foto_evidencia: string | null;
   tipo_novedad: string | null;
+  observaciones?: string | null;
+  integration_partner?: string | null;
 }
 
 interface PedidosViewProps {
@@ -128,6 +131,7 @@ interface PedidosViewProps {
   onPrint: (pedido: Pedido) => void;
   onRespond: (pedido: Pedido) => void;
   onViewEvidence: (url: string) => void;
+  onRefresh?: () => void;
   error?: Error | null;
   hasCache?: boolean;
 }
@@ -141,6 +145,7 @@ const PedidosView = ({
   onPrint,
   onRespond,
   onViewEvidence,
+  onRefresh,
   error,
   hasCache,
 }: PedidosViewProps) => {
