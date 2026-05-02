@@ -32,6 +32,7 @@ interface CatalogConfig {
   catalog_description: string | null;
   catalog_public_enabled: boolean;
   catalog_slug: string | null;
+  mostrar_precios_catalogo: boolean;
   phone: string | null;
   store_name: string | null;
   logo_url: string | null;
