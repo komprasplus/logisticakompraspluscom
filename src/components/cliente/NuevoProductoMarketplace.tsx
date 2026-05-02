@@ -278,6 +278,7 @@ const NuevoProductoMarketplace = ({
             image_url_3: imgUrls[2] || null,
             product_type: productType,
             category: category || null,
+            subcategory: subcategory || null,
             organizacion_id: organizacionId,
             created_by: userId,
             is_active: true,
