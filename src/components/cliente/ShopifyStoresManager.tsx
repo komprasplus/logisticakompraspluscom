@@ -103,8 +103,14 @@ const ShopifyStoresManager = ({ open, onOpenChange, clientUserId }: ShopifyStore
     }
 
     setSaving(true);
+    const { data: userData, error: userErr } = await supabase.auth.getUser();
+    if (userErr || !userData.user) {
+      setSaving(false);
+      toast({ title: "Sesión expirada", description: "Inicia sesión de nuevo.", variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("connected_stores").insert({
-      user_id: clientUserId,
+      user_id: userData.user.id,
       plataforma: "shopify",
       nombre_tienda: nombre.trim(),
       url_tienda: normalized,
@@ -116,7 +122,7 @@ const ShopifyStoresManager = ({ open, onOpenChange, clientUserId }: ShopifyStore
     if (error) {
       const msg = error.message?.includes("connected_stores_url_unique")
         ? "Esta tienda ya está vinculada a una cuenta."
-        : "No se pudo vincular la tienda.";
+        : error.message || "No se pudo vincular la tienda.";
       toast({ title: "Error", description: msg, variant: "destructive" });
       return;
     }
