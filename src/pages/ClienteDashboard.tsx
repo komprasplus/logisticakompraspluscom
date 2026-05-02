@@ -15,6 +15,7 @@ import ClienteSidebar, { ClienteView } from "@/components/cliente/ClienteSidebar
 import ClienteHeader from "@/components/cliente/ClienteHeader";
 import DashboardView from "@/components/cliente/DashboardView";
 import EnviosView from "@/components/cliente/EnviosView";
+import ProveedorPedidosView from "@/components/cliente/ProveedorPedidosView";
 import ReportesView from "@/components/cliente/ReportesView";
 import MiTiendaView from "@/components/cliente/MiTiendaView";
 import IntegracionesView from "@/components/cliente/IntegracionesView";
