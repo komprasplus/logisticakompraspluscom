@@ -109,6 +109,7 @@ const EnviosView = ({
             onPrint={onPrint}
             onRespond={onRespond}
             onViewEvidence={onViewEvidence}
+            onRefresh={onRefresh}
             error={error}
             hasCache={hasCache}
           />
