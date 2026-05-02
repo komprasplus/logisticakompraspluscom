@@ -58,16 +58,21 @@ const ALL_CATEGORIES = "__all__";
 const buildWhatsAppLink = (
   phone: string | null,
   product: CatalogProduct,
+  showPrices = true,
 ): string | null => {
   if (!phone) return null;
   const clean = phone.replace(/\D/g, "");
   if (clean.length < 7) return null;
   const intl = clean.length === 10 ? `57${clean}` : clean;
+  const priceTxt = showPrices && product.price
+    ? `Precio mayorista: ${formatCOP(product.price)}. `
+    : "";
+  const greeting = showPrices
+    ? "Hola, vengo del catálogo y quiero hacer un pedido mayorista."
+    : "Hola, vengo del catálogo y quisiera cotizar este producto.";
   const text = encodeURIComponent(
-    `Hola, vengo del catálogo. Me interesa el producto ${product.product_name} ` +
-      `(Ref: ${product.short_id}). Precio: ${
-        product.price ? formatCOP(product.price) : "a confirmar"
-      }. ¿Cuántas unidades te quedan de las ${product.stock_available} que vi disponibles?`,
+    `${greeting} Producto: ${product.product_name} (Ref: ${product.short_id}). ${priceTxt}` +
+      `Stock visto: ${product.stock_available}.`,
   );
   return `https://wa.me/${intl}?text=${text}`;
 };
