@@ -338,7 +338,9 @@ export type Database = {
           cost_price: number | null
           created_at: string
           description: string | null
+          especificaciones: string | null
           fulfillment_value: number | null
+          garantia: string | null
           id: string
           image_url: string | null
           image_url_2: string | null
@@ -361,7 +363,9 @@ export type Database = {
           cost_price?: number | null
           created_at?: string
           description?: string | null
+          especificaciones?: string | null
           fulfillment_value?: number | null
+          garantia?: string | null
           id?: string
           image_url?: string | null
           image_url_2?: string | null
@@ -384,7 +388,9 @@ export type Database = {
           cost_price?: number | null
           created_at?: string
           description?: string | null
+          especificaciones?: string | null
           fulfillment_value?: number | null
+          garantia?: string | null
           id?: string
           image_url?: string | null
           image_url_2?: string | null
@@ -536,6 +542,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          especificaciones: string | null
+          garantia: string | null
           id: string
           image_url: string | null
           image_url_2: string | null
@@ -559,6 +567,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          especificaciones?: string | null
+          garantia?: string | null
           id?: string
           image_url?: string | null
           image_url_2?: string | null
@@ -582,6 +592,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          especificaciones?: string | null
+          garantia?: string | null
           id?: string
           image_url?: string | null
           image_url_2?: string | null

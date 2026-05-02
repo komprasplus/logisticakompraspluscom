@@ -67,6 +67,8 @@ const NuevoProductoMarketplace = ({
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [especificaciones, setEspecificaciones] = useState("");
+  const [garantia, setGarantia] = useState("");
   const [sku, setSku] = useState("");
   const [costPrice, setCostPrice] = useState("");
   const [suggestedPrice, setSuggestedPrice] = useState("");
@@ -96,6 +98,8 @@ const NuevoProductoMarketplace = ({
   const resetAndClose = () => {
     setName("");
     setDescription("");
+    setEspecificaciones("");
+    setGarantia("");
     setSku("");
     setCostPrice("");
     setSuggestedPrice("");
