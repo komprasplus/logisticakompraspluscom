@@ -279,6 +279,12 @@ const PedidosView = ({
     return Object.entries(counts).map(([status, count]) => ({ status, count }));
   }, [pedidos]);
 
+  // ── Pedidos en buffer "pendiente_confirmacion" (Shopify/API) ──────────────
+  const pendientesConfirmacion = useMemo(
+    () => pedidos.filter((p) => p.estado?.toLowerCase() === "pendiente_confirmacion"),
+    [pedidos],
+  );
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -287,6 +293,11 @@ const PedidosView = ({
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
     >
+      <PendienteConfirmacionPanel
+        pedidos={pendientesConfirmacion}
+        onConfirmed={() => onRefresh?.()}
+      />
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/30 flex-shrink-0">
