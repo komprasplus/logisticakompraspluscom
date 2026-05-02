@@ -122,6 +122,8 @@ const PublicCatalog = () => {
 };
 
 // ── List View ─────────────────────────────────────────────────────────
+type SortKey = "recent" | "price_asc" | "price_desc" | "stock_desc" | "best_sellers";
+
 const CatalogListView = ({
   slug,
   legacyId,
@@ -133,10 +135,20 @@ const CatalogListView = ({
   const [loading, setLoading] = useState(true);
   const [provider, setProvider] = useState<Provider | null>(null);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [activeCategory, setActiveCategory] = useState<string>(ALL_CATEGORIES);
   const [error, setError] = useState<string | null>(null);
-  const [search, setSearch] = useState("");
+
+  // ── Filter & Sort state ─────────────────────────────────────────────
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [priceMinInput, setPriceMinInput] = useState("");
+  const [priceMaxInput, setPriceMaxInput] = useState("");
+  const [priceRange, setPriceRange] = useState<{ min: number | null; max: number | null }>({
+    min: null,
+    max: null,
+  });
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [sortBy, setSortBy] = useState<SortKey>("recent");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,7 +179,6 @@ const CatalogListView = ({
         }
         setProvider(payload.provider ?? null);
         setProducts(payload.products ?? []);
-        setCategories(payload.categories ?? []);
       } catch (e) {
         if (cancelled) return;
         console.error(e);
@@ -182,7 +193,6 @@ const CatalogListView = ({
     };
   }, [slug, legacyId]);
 
-  // SEO title
   useEffect(() => {
     if (provider?.store_name) {
       document.title = `Catálogo | ${provider.store_name}`;
@@ -192,20 +202,63 @@ const CatalogListView = ({
     };
   }, [provider?.store_name]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return products.filter((p) => {
-      if (activeCategory !== ALL_CATEGORIES && (p.category ?? "") !== activeCategory) {
-        return false;
-      }
-      if (!q) return true;
-      return (
-        p.product_name.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q) ||
-        p.short_id.toLowerCase().includes(q)
-      );
+  // ── Derived: dynamic categories from loaded products ─────────────────
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    products.forEach((p) => {
+      if (p.category && p.category.trim()) set.add(p.category.trim());
     });
-  }, [products, search, activeCategory]);
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [products]);
+
+  // ── Derived: filtered + sorted products ──────────────────────────────
+  const filteredAndSortedProducts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let list = products.filter((p) => {
+      // 1. Text search
+      if (q) {
+        const hay =
+          p.product_name.toLowerCase().includes(q) ||
+          p.sku.toLowerCase().includes(q) ||
+          p.short_id.toLowerCase().includes(q);
+        if (!hay) return false;
+      }
+      // 2. Categories (multi)
+      if (selectedCategories.length > 0) {
+        if (!p.category || !selectedCategories.includes(p.category)) return false;
+      }
+      // 3. Price range
+      const price = p.price ?? 0;
+      if (priceRange.min !== null && price < priceRange.min) return false;
+      if (priceRange.max !== null && price > priceRange.max) return false;
+      // 4. Stock
+      if (inStockOnly && p.stock_available <= 0) return false;
+      return true;
+    });
+
+    // 5. Sort
+    list = [...list];
+    switch (sortBy) {
+      case "price_asc":
+        list.sort((a, b) => (a.price ?? 0) - (b.price ?? 0));
+        break;
+      case "price_desc":
+        list.sort((a, b) => (b.price ?? 0) - (a.price ?? 0));
+        break;
+      case "stock_desc":
+        list.sort((a, b) => b.stock_available - a.stock_available);
+        break;
+      case "best_sellers":
+        // Mock: until we have a sales column, fallback to lowest stock (most rotated)
+        list.sort((a, b) => a.stock_available - b.stock_available);
+        break;
+      case "recent":
+      default:
+        // Preserve API order (assumed recent-first)
+        break;
+    }
+    return list;
+  }, [products, searchQuery, selectedCategories, priceRange, inStockOnly, sortBy]);
 
   const goToProduct = useCallback(
     (productId: string) => {
@@ -217,6 +270,36 @@ const CatalogListView = ({
     },
     [navigate, provider, slug],
   );
+
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories((prev) =>
+      prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat],
+    );
+  };
+
+  const applyPriceRange = () => {
+    const min = priceMinInput.trim() ? Number(priceMinInput.replace(/\D/g, "")) : null;
+    const max = priceMaxInput.trim() ? Number(priceMaxInput.replace(/\D/g, "")) : null;
+    setPriceRange({
+      min: min !== null && !isNaN(min) ? min : null,
+      max: max !== null && !isNaN(max) ? max : null,
+    });
+  };
+
+  const clearAllFilters = () => {
+    setSearchQuery("");
+    setSelectedCategories([]);
+    setPriceMinInput("");
+    setPriceMaxInput("");
+    setPriceRange({ min: null, max: null });
+    setInStockOnly(false);
+  };
+
+  const activeFilterCount =
+    (searchQuery ? 1 : 0) +
+    selectedCategories.length +
+    (priceRange.min !== null || priceRange.max !== null ? 1 : 0) +
+    (inStockOnly ? 1 : 0);
 
   if (loading) {
     return (
@@ -240,6 +323,110 @@ const CatalogListView = ({
   const colorSecondary = provider.color_secondary;
   const logo = provider.logo_url || provider.avatar_url;
 
+  // ── Filters Panel (shared between desktop sidebar & mobile sheet) ────
+  const FiltersPanel = (
+    <div className="space-y-6">
+      {/* Search */}
+      <div>
+        <Label className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 block">
+          Buscar
+        </Label>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Nombre, SKU, REF..."
+            className="pl-10 rounded-xl bg-white"
+          />
+        </div>
+      </div>
+
+      {/* Categories */}
+      {availableCategories.length > 0 && (
+        <div>
+          <Label className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 block">
+            Categorías
+          </Label>
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {availableCategories.map((cat) => {
+              const checked = selectedCategories.includes(cat);
+              return (
+                <label
+                  key={cat}
+                  className="flex items-center gap-2 cursor-pointer text-sm text-slate-700 hover:text-slate-900"
+                >
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={() => toggleCategory(cat)}
+                  />
+                  <span className="flex-1">{cat}</span>
+                </label>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Price */}
+      <div>
+        <Label className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2 block">
+          Precio (COP)
+        </Label>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            inputMode="numeric"
+            placeholder="Mín"
+            value={priceMinInput}
+            onChange={(e) => setPriceMinInput(e.target.value)}
+            className="rounded-xl bg-white text-sm"
+          />
+          <span className="text-slate-400">-</span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            placeholder="Máx"
+            value={priceMaxInput}
+            onChange={(e) => setPriceMaxInput(e.target.value)}
+            className="rounded-xl bg-white text-sm"
+          />
+        </div>
+        <Button
+          onClick={applyPriceRange}
+          size="sm"
+          variant="outline"
+          className="w-full mt-2 rounded-xl"
+        >
+          Aplicar precio
+        </Button>
+      </div>
+
+      {/* Stock */}
+      <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+        <Label htmlFor="instock-toggle" className="text-sm font-medium text-slate-700 cursor-pointer">
+          Ocultar agotados
+        </Label>
+        <Switch
+          id="instock-toggle"
+          checked={inStockOnly}
+          onCheckedChange={setInStockOnly}
+        />
+      </div>
+
+      {activeFilterCount > 0 && (
+        <Button
+          onClick={clearAllFilters}
+          variant="ghost"
+          size="sm"
+          className="w-full text-slate-600"
+        >
+          <X className="h-3.5 w-3.5 mr-1" /> Limpiar filtros ({activeFilterCount})
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <div
       className="min-h-screen catalog-root"
@@ -260,7 +447,7 @@ const CatalogListView = ({
           background: `linear-gradient(135deg, ${colorPrimary}, ${colorSecondary})`,
         }}
       >
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+        <div className="max-w-screen-2xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
             {logo ? (
               <img
@@ -299,65 +486,119 @@ const CatalogListView = ({
             <span className="hidden sm:inline">PDF</span>
           </Button>
         </div>
-
-        {/* Category chips */}
-        {categories.length > 0 && (
-          <div className="no-print bg-black/10 backdrop-blur-sm">
-            <div className="max-w-6xl mx-auto px-2 py-2 flex overflow-x-auto gap-2 scrollbar-hide">
-              <CategoryChip
-                label="Todos"
-                active={activeCategory === ALL_CATEGORIES}
-                onClick={() => setActiveCategory(ALL_CATEGORIES)}
-              />
-              {categories.map((cat) => (
-                <CategoryChip
-                  key={cat}
-                  label={cat}
-                  active={activeCategory === cat}
-                  onClick={() => setActiveCategory(cat)}
-                />
-              ))}
-            </div>
-          </div>
-        )}
       </header>
 
-      {/* ── Search ───────────────────────────────────────────── */}
-      <div className="no-print max-w-6xl mx-auto px-4 py-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar producto..."
-            className="pl-10 rounded-2xl bg-white shadow-sm"
-          />
-        </div>
-        <p className="text-[11px] text-slate-500 mt-2 px-1">
-          {filtered.length} de {products.length} productos
-        </p>
-      </div>
+      {/* ── Main Layout: Sidebar + Grid ───────────────────── */}
+      <div className="max-w-screen-2xl mx-auto px-3 md:px-6 py-6">
+        <div className="flex gap-6">
+          {/* Desktop Sidebar */}
+          <aside className="no-print hidden md:block w-64 flex-shrink-0">
+            <div className="sticky top-28 bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <h2 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
+                <SlidersHorizontal className="h-4 w-4" />
+                Filtros
+              </h2>
+              {FiltersPanel}
+            </div>
+          </aside>
 
-      {/* ── Mobile-first 2-col grid ──────────────────────────── */}
-      <main className="max-w-6xl mx-auto px-3 pb-12">
-        {filtered.length === 0 ? (
-          <div className="text-center py-16">
-            <Package className="h-12 w-12 text-slate-300 mx-auto mb-3" />
-            <p className="text-slate-500">No se encontraron productos.</p>
-          </div>
-        ) : (
-          <div className="catalog-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filtered.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                provider={provider}
-                onClick={() => goToProduct(product.id)}
-              />
-            ))}
-          </div>
-        )}
-      </main>
+          {/* Right column: toolbar + grid */}
+          <main className="flex-1 min-w-0">
+            {/* Toolbar */}
+            <div className="no-print flex items-center justify-between gap-3 mb-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                {/* Mobile filters trigger */}
+                <Sheet open={filtersOpen} onOpenChange={setFiltersOpen}>
+                  <SheetTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="md:hidden rounded-xl gap-2 bg-white"
+                    >
+                      <SlidersHorizontal className="h-4 w-4" />
+                      Filtros
+                      {activeFilterCount > 0 && (
+                        <Badge
+                          className="ml-1 h-5 min-w-5 px-1.5 text-[10px]"
+                          style={{ backgroundColor: colorPrimary, color: "white" }}
+                        >
+                          {activeFilterCount}
+                        </Badge>
+                      )}
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="w-[85vw] sm:w-96 overflow-y-auto">
+                    <SheetHeader className="mb-4">
+                      <SheetTitle className="flex items-center gap-2">
+                        <SlidersHorizontal className="h-4 w-4" />
+                        Filtros y Ordenar
+                      </SheetTitle>
+                    </SheetHeader>
+                    {FiltersPanel}
+                    <div className="mt-6">
+                      <Button
+                        onClick={() => setFiltersOpen(false)}
+                        className="w-full rounded-xl"
+                        style={{ backgroundColor: colorPrimary, color: "white" }}
+                      >
+                        Ver {filteredAndSortedProducts.length} productos
+                      </Button>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+
+                <p className="text-sm text-slate-600">
+                  Mostrando <strong className="text-slate-900">{filteredAndSortedProducts.length}</strong>{" "}
+                  <span className="hidden sm:inline">de {products.length} </span>productos
+                </p>
+              </div>
+
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+                <SelectTrigger className="w-[200px] rounded-xl bg-white text-sm">
+                  <SelectValue placeholder="Ordenar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="recent">Más Recientes</SelectItem>
+                  <SelectItem value="price_asc">Precio: Menor a Mayor</SelectItem>
+                  <SelectItem value="price_desc">Precio: Mayor a Menor</SelectItem>
+                  <SelectItem value="stock_desc">Mayor Stock</SelectItem>
+                  <SelectItem value="best_sellers">Más Vendidos</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Grid */}
+            {filteredAndSortedProducts.length === 0 ? (
+              <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
+                <Package className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-600 font-medium">No se encontraron productos</p>
+                <p className="text-xs text-slate-400 mt-1">Ajusta los filtros para ver más resultados.</p>
+                {activeFilterCount > 0 && (
+                  <Button
+                    onClick={clearAllFilters}
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 rounded-xl"
+                  >
+                    Limpiar filtros
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="catalog-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 content-start">
+                {filteredAndSortedProducts.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    provider={provider}
+                    onClick={() => goToProduct(product.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </main>
+        </div>
+      </div>
 
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-[11px] text-slate-500">
         Catálogo generado con <strong>Plus Envíos</strong>
@@ -366,29 +607,6 @@ const CatalogListView = ({
   );
 };
 
-// ── Category Chip ─────────────────────────────────────────────────────
-const CategoryChip = ({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) => (
-  <button
-    type="button"
-    onClick={onClick}
-    className={cn(
-      "px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all flex-shrink-0",
-      active
-        ? "bg-white text-slate-900 shadow-md"
-        : "bg-white/30 text-white hover:bg-white/50 backdrop-blur-sm",
-    )}
-  >
-    {label}
-  </button>
-);
 
 // ── Product Card (mobile-first) ───────────────────────────────────────
 const ProductCard = ({
