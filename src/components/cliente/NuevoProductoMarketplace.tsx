@@ -527,6 +527,32 @@ const NuevoProductoMarketplace = ({
             </p>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Especificaciones
+              </label>
+              <Textarea
+                value={especificaciones}
+                onChange={(e) => setEspecificaciones(e.target.value)}
+                placeholder="Ej: Medidas 30x20 cm, peso 500g, material acero inoxidable..."
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Garantía
+              </label>
+              <Textarea
+                value={garantia}
+                onChange={(e) => setGarantia(e.target.value)}
+                placeholder="Ej: 30 días por defectos de fábrica."
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+
           {isProveedor && productType === "Variable" && (
             <div className="space-y-4 border border-primary/20 rounded-xl p-4 bg-primary/5">
               <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
