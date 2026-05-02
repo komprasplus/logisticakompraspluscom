@@ -463,8 +463,11 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
 
       {/* Tarjetas de integraciones */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {integrations.map((integration, index) => {
+        {integrations
+          .filter((i) => !(i.id === "shopify" && isProveedorUser))
+          .map((integration, index) => {
           const Icon = integration.icon;
+          const isShopify = integration.id === "shopify";
           return (
             <motion.div
               key={integration.id}
