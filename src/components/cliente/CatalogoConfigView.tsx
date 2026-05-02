@@ -100,20 +100,25 @@ const CatalogoConfigView = () => {
       const { data, error } = await supabase
         .from("profiles")
         .select(
-          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, catalog_slug, phone, store_name, logo_url",
+          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, catalog_slug, mostrar_precios_catalogo, phone, store_name, logo_url",
         )
         .eq("user_id", user.id)
         .single();
 
       if (error) throw error;
       if (data) {
+        const d = data as typeof data & {
+          catalog_slug?: string | null;
+          mostrar_precios_catalogo?: boolean | null;
+        };
         setConfig({
           catalog_template: (data.catalog_template as Template) ?? "minimal",
           catalog_color_primary: data.catalog_color_primary ?? "#00D1FF",
           catalog_color_secondary: data.catalog_color_secondary ?? "#0099CC",
           catalog_description: data.catalog_description,
           catalog_public_enabled: data.catalog_public_enabled ?? false,
-          catalog_slug: (data as { catalog_slug?: string | null }).catalog_slug ?? null,
+          catalog_slug: d.catalog_slug ?? null,
+          mostrar_precios_catalogo: d.mostrar_precios_catalogo ?? true,
           phone: data.phone,
           store_name: data.store_name,
           logo_url: data.logo_url,
@@ -143,7 +148,8 @@ const CatalogoConfigView = () => {
           catalog_color_secondary: config.catalog_color_secondary,
           catalog_description: config.catalog_description?.trim() || null,
           catalog_public_enabled: config.catalog_public_enabled,
-        })
+          mostrar_precios_catalogo: config.mostrar_precios_catalogo,
+        } as never)
         .eq("user_id", user.id);
 
       if (error) throw error;
