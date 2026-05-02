@@ -418,7 +418,7 @@ Deno.serve(async (req) => {
         },
         message: "Pedido creado exitosamente"
       }),
-      { status: 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: isShopifyWebhook ? 200 : 201, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error) {
