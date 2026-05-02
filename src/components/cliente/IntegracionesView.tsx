@@ -231,6 +231,10 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showShopifyManager, setShowShopifyManager] = useState(false);
+  const { role, profile } = useAuth();
+  const isAdminUser = role === "admin" || role === "super_admin";
+  const isProveedorUser = isProveedor(profile?.tipo_cuenta);
+  const managerRole: "admin" | "dropshipper" = isAdminUser ? "admin" : "dropshipper";
 
   const cancelRef = useRef(false);
   const prefersReducedMotion = useReducedMotion();
