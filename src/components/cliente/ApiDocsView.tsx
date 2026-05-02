@@ -18,7 +18,9 @@ import { Copy, Book, Zap, Shield, Webhook, Package, AlertCircle } from "lucide-r
 
   FIX: tracking URL del dominio también extraída a env var.
 */
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "https://[SUPABASE_URL]/functions/v1";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL ?? "";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? `${SUPABASE_URL}/functions/v1`;
 
 const TRACKING_DOMAIN = import.meta.env.VITE_TRACKING_DOMAIN ?? "https://tu-dominio.lovable.app";
 
