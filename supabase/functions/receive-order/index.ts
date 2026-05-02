@@ -256,7 +256,7 @@ Deno.serve(async (req) => {
           producto_nombre: productNames,
           valor_producto: totalPrice,
           valor_recaudar: totalPrice,
-          metodo_pago: "contra_entrega",
+          metodo_pago: "efectivo",
           observaciones: `Pedido Shopify #${rawBody.order_number ?? rawBody.name ?? rawBody.id ?? ""} | Meta: ${JSON.stringify(shopifyMeta).slice(0, 500)}`,
         };
       } catch (mapErr) {
