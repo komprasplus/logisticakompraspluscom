@@ -438,10 +438,12 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error("Unexpected error:", error);
+    const msg = (error as Error)?.message || String(error);
+    console.error("❌ Error crítico en receive-order:", msg, error);
+    // Return 400 so Shopify registers the failure in its webhook delivery panel
     return new Response(
-      JSON.stringify({ error: "Internal server error", code: "INTERNAL_ERROR" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ error: msg, code: "INTERNAL_ERROR" }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
