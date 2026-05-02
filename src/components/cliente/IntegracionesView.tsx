@@ -476,7 +476,7 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
               transition={{ delay: prefersReducedMotion ? 0 : index * 0.1 }}
             >
               <Card className="relative overflow-hidden hover:shadow-lg transition-shadow">
-                <div className={`absolute inset-0 bg-gradient-to-br ${integration.color} opacity-5`} />
+                <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${integration.color} opacity-5`} />
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${integration.color} shadow-lg`}>
