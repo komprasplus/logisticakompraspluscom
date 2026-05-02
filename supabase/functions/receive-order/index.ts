@@ -177,13 +177,79 @@ Deno.serve(async (req) => {
 
     // Parse and validate order payload
     let orderPayload: OrderPayload;
+    let rawBody: Record<string, unknown>;
     try {
-      orderPayload = await req.json();
+      rawBody = await req.json();
+      orderPayload = rawBody as unknown as OrderPayload;
     } catch {
       return new Response(
         JSON.stringify({ error: "Invalid JSON body", code: "INVALID_JSON" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // ── Shopify payload translator ──
+    // If this is a Shopify webhook, the body uses Shopify's native schema
+    // (shipping_address, line_items, total_price). Map it to our internal shape.
+    if (isShopifyWebhook) {
+      try {
+        const ship = (rawBody.shipping_address || rawBody.billing_address || {}) as Record<string, unknown>;
+        const customer = (rawBody.customer || {}) as Record<string, unknown>;
+        const lineItems = Array.isArray(rawBody.line_items) ? (rawBody.line_items as Array<Record<string, unknown>>) : [];
+
+        const firstName = (ship.first_name as string) || (customer.first_name as string) || "";
+        const lastName = (ship.last_name as string) || (customer.last_name as string) || "";
+        const fullName = `${firstName} ${lastName}`.trim() || (rawBody.email as string) || "Cliente Shopify";
+
+        const phone = (ship.phone as string) || (customer.phone as string) || (rawBody.phone as string) || "";
+
+        const address1 = (ship.address1 as string) || "";
+        const address2 = (ship.address2 as string) || "";
+        const direccion = [address1, address2].filter(Boolean).join(", ");
+
+        const city = (ship.city as string) || "";
+        const province = (ship.province as string) || "";
+
+        const productNames = lineItems.map((li) => {
+          const qty = Number(li.quantity) || 1;
+          return `${li.title || li.name || "Producto"}${qty > 1 ? ` x${qty}` : ""}`;
+        }).join(" + ") || "Pedido Shopify";
+
+        const totalPrice = Number(rawBody.total_price ?? rawBody.subtotal_price ?? 0) || 0;
+
+        // Preserve original Shopify payload for traceability
+        const shopifyMeta = {
+          shopify_order_id: rawBody.id,
+          shopify_order_number: rawBody.order_number ?? rawBody.name,
+          shopify_email: rawBody.email,
+          line_items: lineItems.map((li) => ({
+            sku: li.sku,
+            title: li.title,
+            quantity: li.quantity,
+            price: li.price,
+          })),
+          shipping_address: ship,
+        };
+
+        orderPayload = {
+          cliente_nombre: fullName,
+          client_phone: phone,
+          direccion_entrega: direccion || "Dirección pendiente",
+          municipio: city || province || "Bogotá",
+          barrio: undefined,
+          producto_nombre: productNames,
+          valor_producto: totalPrice,
+          valor_recaudar: totalPrice,
+          metodo_pago: "contra_entrega",
+          observaciones: `Pedido Shopify #${rawBody.order_number ?? rawBody.name ?? rawBody.id ?? ""} | Meta: ${JSON.stringify(shopifyMeta).slice(0, 500)}`,
+        };
+      } catch (mapErr) {
+        console.error("Shopify payload mapping error:", mapErr);
+        return new Response(
+          JSON.stringify({ error: "Invalid Shopify payload structure", code: "SHOPIFY_MAPPING_ERROR" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Validate required fields
