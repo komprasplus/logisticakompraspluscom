@@ -333,11 +333,14 @@ export type Database = {
       }
       inventory: {
         Row: {
+          category: string | null
           client_user_id: string
           created_at: string
           fulfillment_value: number | null
           id: string
           image_url: string | null
+          image_url_2: string | null
+          image_url_3: string | null
           is_deleted: boolean
           is_public: boolean
           low_stock_threshold: number
@@ -350,11 +353,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          category?: string | null
           client_user_id: string
           created_at?: string
           fulfillment_value?: number | null
           id?: string
           image_url?: string | null
+          image_url_2?: string | null
+          image_url_3?: string | null
           is_deleted?: boolean
           is_public?: boolean
           low_stock_threshold?: number
@@ -367,11 +373,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          category?: string | null
           client_user_id?: string
           created_at?: string
           fulfillment_value?: number | null
           id?: string
           image_url?: string | null
+          image_url_2?: string | null
+          image_url_3?: string | null
           is_deleted?: boolean
           is_public?: boolean
           low_stock_threshold?: number
@@ -1110,6 +1119,7 @@ export type Database = {
           catalog_color_secondary: string
           catalog_description: string | null
           catalog_public_enabled: boolean
+          catalog_slug: string | null
           catalog_template: string
           created_at: string
           direccion: string | null
@@ -1140,6 +1150,7 @@ export type Database = {
           catalog_color_secondary?: string
           catalog_description?: string | null
           catalog_public_enabled?: boolean
+          catalog_slug?: string | null
           catalog_template?: string
           created_at?: string
           direccion?: string | null
@@ -1170,6 +1181,7 @@ export type Database = {
           catalog_color_secondary?: string
           catalog_description?: string | null
           catalog_public_enabled?: boolean
+          catalog_slug?: string | null
           catalog_template?: string
           created_at?: string
           direccion?: string | null
@@ -1612,8 +1624,16 @@ export type Database = {
         Returns: Json
       }
       generate_marketplace_short_id: { Args: never; Returns: string }
+      get_public_product_detail: {
+        Args: { product_id: string; slug: string }
+        Returns: Json
+      }
       get_public_provider_catalog: {
         Args: { provider_id: string }
+        Returns: Json
+      }
+      get_public_provider_catalog_by_slug: {
+        Args: { slug: string }
         Returns: Json
       }
       get_public_tracking_info: {
@@ -1642,6 +1662,7 @@ export type Database = {
         Args: { p_desde_fecha?: string; p_dry_run?: boolean }
         Returns: Json
       }
+      slugify: { Args: { input: string }; Returns: string }
       transfer_store_balance: {
         Args: {
           p_provided_pin: string
