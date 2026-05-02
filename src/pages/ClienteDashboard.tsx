@@ -370,25 +370,29 @@ const ClienteDashboard = () => {
             {(activeView === "pedidos" ||
               activeView === "novedades" ||
               activeView === "devoluciones") && (
-              <EnviosView
-                key="envios"
-                pedidos={pedidos}
-                loading={isLoading}
-                onEdit={setEditingPedido}
-                onPrint={setPrintingPedido}
-                onRespond={setInstructionsPedido}
-                onViewEvidence={setEvidencePhoto}
-                onRefresh={refetch}
-                error={error}
-                hasCache={hasCache}
-                initialTab={
-                  activeView === "novedades"
-                    ? "novedades"
-                    : activeView === "devoluciones"
-                      ? "devoluciones"
-                      : "todos"
-                }
-              />
+              isProveedor ? (
+                <ProveedorPedidosView key="proveedor-pedidos" />
+              ) : (
+                <EnviosView
+                  key="envios"
+                  pedidos={pedidos}
+                  loading={isLoading}
+                  onEdit={setEditingPedido}
+                  onPrint={setPrintingPedido}
+                  onRespond={setInstructionsPedido}
+                  onViewEvidence={setEvidencePhoto}
+                  onRefresh={refetch}
+                  error={error}
+                  hasCache={hasCache}
+                  initialTab={
+                    activeView === "novedades"
+                      ? "novedades"
+                      : activeView === "devoluciones"
+                        ? "devoluciones"
+                        : "todos"
+                  }
+                />
+              )
             )}
 
             {activeView === "reportes" && (
