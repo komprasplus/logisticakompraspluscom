@@ -73,6 +73,7 @@ const NuevoProductoMarketplace = ({
   const [stock, setStock] = useState("");
   const [productType, setProductType] = useState("Simple");
   const [category, setCategory] = useState("");
+  const [subcategory, setSubcategory] = useState("");
 
   const [attributeNames, setAttributeNames] = useState<string[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string[]>>({});
