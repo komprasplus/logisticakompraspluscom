@@ -38,17 +38,7 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/imageCompression";
-
-const CATEGORIES = [
-  "Salud y Belleza",
-  "Hogar y Cocina",
-  "Tecnología y Gadgets",
-  "Moda y Accesorios",
-  "Juguetes y Bebés",
-  "Deportes y Aire Libre",
-  "Autopartes y Accesorios",
-  "Otros",
-];
+import { CATEGORY_TREE, CATEGORY_KEYS } from "@/lib/categoryTree";
 
 const MAX_DESCRIPTION = 5000;
 const MAX_IMAGE_BYTES = 1024 * 1024;
