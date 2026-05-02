@@ -269,12 +269,21 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   const fetchSyncedOrders = useCallback(async () => {
     setLoadingOrders(true);
     try {
-      const { data, error } = await supabase
+      // Admin: ver todos los pedidos sincronizados de la organización.
+      // Dropshipper: ver solo los suyos.
+      let query = supabase
         .from("pedidos")
         .select("id, numero_guia, cliente_nombre, municipio, estado, fecha_creacion")
-        .eq("client_user_id", clientUserId)
         .order("fecha_creacion", { ascending: false })
         .limit(10);
+
+      if (isAdminUser && profile?.organizacion_id) {
+        query = query.eq("organizacion_id", profile.organizacion_id);
+      } else {
+        query = query.eq("client_user_id", clientUserId);
+      }
+
+      const { data, error } = await query;
 
       if (cancelRef.current) return;
       if (error) throw error;
@@ -284,7 +293,7 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
     } finally {
       if (!cancelRef.current) setLoadingOrders(false);
     }
-  }, [clientUserId]);
+  }, [clientUserId, isAdminUser, profile?.organizacion_id]);
 
   useEffect(() => {
     cancelRef.current = false;
@@ -476,7 +485,7 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
               transition={{ delay: prefersReducedMotion ? 0 : index * 0.1 }}
             >
               <Card className="relative overflow-hidden hover:shadow-lg transition-shadow">
-                <div className={`absolute inset-0 bg-gradient-to-br ${integration.color} opacity-5`} />
+                <div className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${integration.color} opacity-5`} />
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className={`p-3 rounded-xl bg-gradient-to-br ${integration.color} shadow-lg`}>
