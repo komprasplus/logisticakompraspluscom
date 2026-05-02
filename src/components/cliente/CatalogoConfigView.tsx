@@ -31,6 +31,7 @@ interface CatalogConfig {
   catalog_color_secondary: string;
   catalog_description: string | null;
   catalog_public_enabled: boolean;
+  catalog_slug: string | null;
   phone: string | null;
   store_name: string | null;
   logo_url: string | null;
