@@ -105,7 +105,7 @@ const PendienteConfirmacionPanel = ({ pedidos, onConfirmed }: PendienteConfirmac
         municipio: form.municipio.trim(),
         barrio: form.barrio.trim() || null,
         observaciones: form.observaciones.trim() || null,
-        estado: "Recibido en Bodega",
+        estado: "en_preparacion",
         fecha_actualizacion: new Date().toISOString(),
       })
       .eq("id", editing.id);

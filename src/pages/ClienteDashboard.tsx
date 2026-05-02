@@ -15,6 +15,7 @@ import ClienteSidebar, { ClienteView } from "@/components/cliente/ClienteSidebar
 import ClienteHeader from "@/components/cliente/ClienteHeader";
 import DashboardView from "@/components/cliente/DashboardView";
 import EnviosView from "@/components/cliente/EnviosView";
+import ProveedorPedidosView from "@/components/cliente/ProveedorPedidosView";
 import ReportesView from "@/components/cliente/ReportesView";
 import MiTiendaView from "@/components/cliente/MiTiendaView";
 import IntegracionesView from "@/components/cliente/IntegracionesView";
@@ -369,25 +370,29 @@ const ClienteDashboard = () => {
             {(activeView === "pedidos" ||
               activeView === "novedades" ||
               activeView === "devoluciones") && (
-              <EnviosView
-                key="envios"
-                pedidos={pedidos}
-                loading={isLoading}
-                onEdit={setEditingPedido}
-                onPrint={setPrintingPedido}
-                onRespond={setInstructionsPedido}
-                onViewEvidence={setEvidencePhoto}
-                onRefresh={refetch}
-                error={error}
-                hasCache={hasCache}
-                initialTab={
-                  activeView === "novedades"
-                    ? "novedades"
-                    : activeView === "devoluciones"
-                      ? "devoluciones"
-                      : "todos"
-                }
-              />
+              isProveedor ? (
+                <ProveedorPedidosView key="proveedor-pedidos" />
+              ) : (
+                <EnviosView
+                  key="envios"
+                  pedidos={pedidos}
+                  loading={isLoading}
+                  onEdit={setEditingPedido}
+                  onPrint={setPrintingPedido}
+                  onRespond={setInstructionsPedido}
+                  onViewEvidence={setEvidencePhoto}
+                  onRefresh={refetch}
+                  error={error}
+                  hasCache={hasCache}
+                  initialTab={
+                    activeView === "novedades"
+                      ? "novedades"
+                      : activeView === "devoluciones"
+                        ? "devoluciones"
+                        : "todos"
+                  }
+                />
+              )
             )}
 
             {activeView === "reportes" && (
