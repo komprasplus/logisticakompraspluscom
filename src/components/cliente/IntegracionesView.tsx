@@ -47,6 +47,8 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { isProveedor } from "@/lib/accountType";
 import WebhookConfigPanel from "./WebhookConfigPanel";
 import ShopifyStoresManager from "./ShopifyStoresManager";
 
@@ -229,6 +231,10 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showShopifyManager, setShowShopifyManager] = useState(false);
+  const { role, profile } = useAuth();
+  const isAdminUser = role === "admin" || role === "super_admin";
+  const isProveedorUser = isProveedor(profile?.tipo_cuenta);
+  const managerRole: "admin" | "dropshipper" = isAdminUser ? "admin" : "dropshipper";
 
   const cancelRef = useRef(false);
   const prefersReducedMotion = useReducedMotion();
@@ -457,8 +463,11 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
 
       {/* Tarjetas de integraciones */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {integrations.map((integration, index) => {
+        {integrations
+          .filter((i) => !(i.id === "shopify" && isProveedorUser))
+          .map((integration, index) => {
           const Icon = integration.icon;
+          const isShopify = integration.id === "shopify";
           return (
             <motion.div
               key={integration.id}
@@ -509,7 +518,9 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                     >
                       <Key className="h-4 w-4 mr-2" aria-hidden="true" />
                       {integration.id === "shopify"
-                        ? "Administrar Tiendas"
+                        ? isAdminUser
+                          ? "Ver Todas las Tiendas"
+                          : "Administrar Tiendas"
                         : hasActiveKey
                           ? "Gestionar"
                           : "Configurar"}
@@ -884,6 +895,7 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
         open={showShopifyManager}
         onOpenChange={setShowShopifyManager}
         clientUserId={clientUserId}
+        role={managerRole}
       />
     </div>
   );
