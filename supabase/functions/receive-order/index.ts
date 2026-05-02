@@ -297,7 +297,9 @@ Deno.serve(async (req) => {
         latitud: orderPayload.latitud || null,
         longitud: orderPayload.longitud || null,
         fecha_entrega: orderPayload.fecha_entrega || new Date().toISOString().split("T")[0],
-        estado: "pendiente",
+        // Shopify webhook orders enter buffer state for dropshipper review;
+        // API-key orders keep the legacy "pendiente" flow.
+        estado: isShopifyWebhook ? "pendiente_confirmacion" : "pendiente",
         numero_guia: numeroGuia,
         intentos_entrega: 0,
         costo_devolucion: 0,
@@ -306,6 +308,7 @@ Deno.serve(async (req) => {
         fulfillment_cost: fulfillmentCost, // Admin-controlled rate from store profile
          indicador_trayecto: orderPayload.indicador_trayecto || "Local",
          dropi_sync_status: "synced",
+         integration_partner: isShopifyWebhook ? "shopify" : null,
       })
       .select()
       .single();

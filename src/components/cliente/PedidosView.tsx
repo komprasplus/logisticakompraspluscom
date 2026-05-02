@@ -24,6 +24,7 @@ import {
 
 import PedidosSkeleton from "./PedidosSkeleton";
 import ManifiestoModal from "./ManifiestoModal";
+import PendienteConfirmacionPanel from "./PendienteConfirmacionPanel";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,6 +120,8 @@ interface Pedido {
   fecha_creacion: string | null;
   foto_evidencia: string | null;
   tipo_novedad: string | null;
+  observaciones?: string | null;
+  integration_partner?: string | null;
 }
 
 interface PedidosViewProps {
@@ -128,6 +131,7 @@ interface PedidosViewProps {
   onPrint: (pedido: Pedido) => void;
   onRespond: (pedido: Pedido) => void;
   onViewEvidence: (url: string) => void;
+  onRefresh?: () => void;
   error?: Error | null;
   hasCache?: boolean;
 }
@@ -141,6 +145,7 @@ const PedidosView = ({
   onPrint,
   onRespond,
   onViewEvidence,
+  onRefresh,
   error,
   hasCache,
 }: PedidosViewProps) => {
@@ -274,6 +279,12 @@ const PedidosView = ({
     return Object.entries(counts).map(([status, count]) => ({ status, count }));
   }, [pedidos]);
 
+  // ── Pedidos en buffer "pendiente_confirmacion" (Shopify/API) ──────────────
+  const pendientesConfirmacion = useMemo(
+    () => pedidos.filter((p) => p.estado?.toLowerCase() === "pendiente_confirmacion"),
+    [pedidos],
+  );
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -282,6 +293,11 @@ const PedidosView = ({
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
     >
+      <PendienteConfirmacionPanel
+        pedidos={pendientesConfirmacion}
+        onConfirmed={() => onRefresh?.()}
+      />
+
       {/* Header */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/30 flex-shrink-0">

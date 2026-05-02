@@ -39,6 +39,14 @@ export const ORDER_STATUS_CONFIG: Record<string, {
   icon: string;
   label: string;
 }> = {
+  "pendiente_confirmacion": {
+    color: "#f59e0b",
+    bgColor: "bg-amber-500",
+    textColor: "text-white",
+    mapColor: "#f59e0b",
+    icon: "⏳",
+    label: "Pendiente Confirmación",
+  },
   "recibido en bodega": {
     color: "#6366f1",
     bgColor: "bg-indigo-500",
