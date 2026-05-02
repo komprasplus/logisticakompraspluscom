@@ -445,17 +445,23 @@ const NuevoProductoMarketplace = ({
           </div>
 
           {isProveedor && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Categoría
+                  Categoría *
                 </label>
-                <Select value={category} onValueChange={setCategory}>
+                <Select
+                  value={category}
+                  onValueChange={(v) => {
+                    setCategory(v);
+                    setSubcategory(""); // reset subcategoría al cambiar la principal
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar categoría..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((c) => (
+                    {CATEGORY_KEYS.map((c) => (
                       <SelectItem key={c} value={c}>
                         {c}
                       </SelectItem>
@@ -463,8 +469,34 @@ const NuevoProductoMarketplace = ({
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Subcategoría *
+                </label>
+                <Select
+                  value={subcategory}
+                  onValueChange={setSubcategory}
+                  disabled={!category}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={
+                        category ? "Seleccionar subcategoría..." : "Elige una categoría primero"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(CATEGORY_TREE[category] || []).map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           )}
+
 
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">
