@@ -78,13 +78,16 @@ const CatalogoConfigView = () => {
     catalog_color_secondary: "#0099CC",
     catalog_description: null,
     catalog_public_enabled: false,
+    catalog_slug: null,
     phone: null,
     store_name: null,
     logo_url: null,
   });
 
   const publicUrl =
-    typeof window !== "undefined" && user?.id
+    typeof window !== "undefined" && config.catalog_slug
+      ? `${window.location.origin}/${config.catalog_slug}/catalogo`
+      : typeof window !== "undefined" && user?.id
       ? `${window.location.origin}/catalogo/${user.id}`
       : "";
 
