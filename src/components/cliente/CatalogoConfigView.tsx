@@ -237,6 +237,16 @@ const CatalogoConfigView = () => {
                 </a>
               </Button>
             </div>
+            {config.catalog_slug ? (
+              <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+                ✨ URL amigable activa: <strong className="font-mono">{config.catalog_slug}</strong>.
+                Se actualiza automáticamente cuando cambies el nombre de tu tienda.
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Tu link amigable se generará la próxima vez que actualices tu tienda.
+              </p>
+            )}
             {!phoneOk && (
               <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg p-2">
                 ⚠️ Configura tu teléfono en "Mi Tienda" para que el botón de WhatsApp funcione.
