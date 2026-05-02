@@ -48,6 +48,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import WebhookConfigPanel from "./WebhookConfigPanel";
+import ShopifyStoresManager from "./ShopifyStoresManager";
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -226,6 +227,7 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
     el usuario podía borrarla accidentalmente con un solo clic.
   */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showShopifyManager, setShowShopifyManager] = useState(false);
 
   const cancelRef = useRef(false);
   const prefersReducedMotion = useReducedMotion();
@@ -496,10 +498,20 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                       variant="outline"
                       className="flex-1"
                       disabled={integration.status === "coming_soon"}
-                      onClick={() => setShowNewKeyModal(true)}
+                      onClick={() => {
+                        if (integration.id === "shopify") {
+                          setShowShopifyManager(true);
+                        } else {
+                          setShowNewKeyModal(true);
+                        }
+                      }}
                     >
                       <Key className="h-4 w-4 mr-2" aria-hidden="true" />
-                      {hasActiveKey ? "Gestionar" : "Configurar"}
+                      {integration.id === "shopify"
+                        ? "Administrar Tiendas"
+                        : hasActiveKey
+                          ? "Gestionar"
+                          : "Configurar"}
                     </Button>
                     {integration.docUrl && (
                       <Button
@@ -866,6 +878,12 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ShopifyStoresManager
+        open={showShopifyManager}
+        onOpenChange={setShowShopifyManager}
+        clientUserId={clientUserId}
+      />
     </div>
   );
 };
