@@ -895,6 +895,7 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
         open={showShopifyManager}
         onOpenChange={setShowShopifyManager}
         clientUserId={clientUserId}
+        role={managerRole}
       />
     </div>
   );
