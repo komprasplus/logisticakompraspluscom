@@ -518,7 +518,9 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                     >
                       <Key className="h-4 w-4 mr-2" aria-hidden="true" />
                       {integration.id === "shopify"
-                        ? "Administrar Tiendas"
+                        ? isAdminUser
+                          ? "Ver Todas las Tiendas"
+                          : "Administrar Tiendas"
                         : hasActiveKey
                           ? "Gestionar"
                           : "Configurar"}
