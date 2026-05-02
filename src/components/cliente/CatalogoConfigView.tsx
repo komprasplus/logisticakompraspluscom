@@ -80,6 +80,7 @@ const CatalogoConfigView = () => {
     catalog_description: null,
     catalog_public_enabled: false,
     catalog_slug: null,
+    mostrar_precios_catalogo: true,
     phone: null,
     store_name: null,
     logo_url: null,
