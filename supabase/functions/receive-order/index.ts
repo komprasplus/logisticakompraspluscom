@@ -193,8 +193,11 @@ Deno.serve(async (req) => {
     let rawBody: Record<string, unknown>;
     try {
       rawBody = await req.json();
+      // 📦 Full payload log for diagnosing Shopify field structure
+      console.log("📦 Payload recibido:", JSON.stringify(rawBody).slice(0, 4000));
       orderPayload = rawBody as unknown as OrderPayload;
-    } catch {
+    } catch (parseErr) {
+      console.error("❌ Error al parsear body JSON:", parseErr);
       return new Response(
         JSON.stringify({ error: "Invalid JSON body", code: "INVALID_JSON" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
