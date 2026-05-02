@@ -269,12 +269,21 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   const fetchSyncedOrders = useCallback(async () => {
     setLoadingOrders(true);
     try {
-      const { data, error } = await supabase
+      // Admin: ver todos los pedidos sincronizados de la organización.
+      // Dropshipper: ver solo los suyos.
+      let query = supabase
         .from("pedidos")
         .select("id, numero_guia, cliente_nombre, municipio, estado, fecha_creacion")
-        .eq("client_user_id", clientUserId)
         .order("fecha_creacion", { ascending: false })
         .limit(10);
+
+      if (isAdminUser && profile?.organizacion_id) {
+        query = query.eq("organizacion_id", profile.organizacion_id);
+      } else {
+        query = query.eq("client_user_id", clientUserId);
+      }
+
+      const { data, error } = await query;
 
       if (cancelRef.current) return;
       if (error) throw error;
@@ -284,7 +293,7 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
     } finally {
       if (!cancelRef.current) setLoadingOrders(false);
     }
-  }, [clientUserId]);
+  }, [clientUserId, isAdminUser, profile?.organizacion_id]);
 
   useEffect(() => {
     cancelRef.current = false;
