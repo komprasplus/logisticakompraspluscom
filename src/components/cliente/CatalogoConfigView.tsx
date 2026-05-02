@@ -267,6 +267,41 @@ const CatalogoConfigView = () => {
         )}
       </Card>
 
+      {/* ── Toggle: Visibilidad de precios B2B / B2C ──────── */}
+      <Card className="p-6 rounded-[20px] border border-border/60 shadow-sm">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <Label className="text-base font-bold text-foreground flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-emerald-600" />
+              Mostrar precios en mi catálogo público
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground">
+                      <Info className="h-4 w-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    Apágalo si quieres enviar este catálogo a clientes finales sin revelar tus costos.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              {config.mostrar_precios_catalogo
+                ? "Modo B2B: tus dropshippers verán los precios mayoristas."
+                : "Modo B2C: el catálogo se compartirá sin precios; los clientes deberán cotizar por WhatsApp."}
+            </p>
+          </div>
+          <Switch
+            checked={config.mostrar_precios_catalogo}
+            onCheckedChange={(v) =>
+              setConfig((c) => ({ ...c, mostrar_precios_catalogo: v }))
+            }
+          />
+        </div>
+      </Card>
+
       {/* ── Branding ────────────────────────────────────────── */}
       <Card className="p-6 space-y-4 rounded-[20px] border border-border/60 shadow-sm">
         <h3 className="font-bold text-foreground">Branding del catálogo</h3>
