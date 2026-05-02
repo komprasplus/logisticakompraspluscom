@@ -552,6 +552,7 @@ const NuevoProductoMarketplace = ({
                 className="resize-none"
               />
             </div>
+          </div>
 
           {isProveedor && productType === "Variable" && (
             <div className="space-y-4 border border-primary/20 rounded-xl p-4 bg-primary/5">
