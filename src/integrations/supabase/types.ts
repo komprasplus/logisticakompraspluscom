@@ -1740,6 +1740,7 @@ export type Database = {
         Args: { p_filename: string; p_records: Json }
         Returns: Json
       }
+      proveedor_generar_guia: { Args: { p_pedido_id: number }; Returns: Json }
       recalcular_billeteras_faltantes: {
         Args: { p_desde_fecha?: string; p_dry_run?: boolean }
         Returns: Json
