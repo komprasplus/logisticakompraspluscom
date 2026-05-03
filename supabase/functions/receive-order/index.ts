@@ -43,9 +43,8 @@ async function hashApiKey(key: string): Promise<string> {
 }
 
 function generateGuiaNumber(): string {
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-  return `KP${timestamp}${random}`;
+  // Standard format: 'KP' + exactly 9 numeric digits
+  return 'KP' + Math.floor(Math.random() * 1000000000).toString().padStart(9, '0');
 }
 
 Deno.serve(async (req) => {
