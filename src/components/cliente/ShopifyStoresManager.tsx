@@ -387,6 +387,70 @@ const ShopifyStoresManager = ({
                   Volver
                 </Button>
 
+                {/* OAuth 1-click — recommended */}
+                <div className="p-4 rounded-xl border-2 border-primary/30 bg-primary/5 space-y-3">
+                  <div>
+                    <Label htmlFor="oauth-name">Nombre identificador *</Label>
+                    <Input
+                      id="oauth-name"
+                      value={nombre}
+                      onChange={(e) => setNombre(e.target.value)}
+                      placeholder="Ej: Mi Tienda Belleza"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="oauth-url">URL de tu tienda Shopify *</Label>
+                    <Input
+                      id="oauth-url"
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      placeholder="mitienda.myshopify.com"
+                      className="mt-1 font-mono"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={async () => {
+                      const shop = normalizeShopUrl(url);
+                      if (!nombre.trim() || !shop) {
+                        toast({ title: "Completa los campos", variant: "destructive" });
+                        return;
+                      }
+                      if (!shop.endsWith(".myshopify.com")) {
+                        toast({ title: "URL inválida", description: "Debe terminar en .myshopify.com", variant: "destructive" });
+                        return;
+                      }
+                      setSaving(true);
+                      const { data, error } = await supabase.functions.invoke("shopify-auth-start", {
+                        body: { shop_domain: shop, nombre_tienda: nombre.trim() },
+                      });
+                      setSaving(false);
+                      if (error || !data?.url) {
+                        toast({ title: "Error", description: error?.message || "No se pudo iniciar OAuth", variant: "destructive" });
+                        return;
+                      }
+                      window.location.href = data.url as string;
+                    }}
+                    disabled={saving}
+                    className="w-full bg-gradient-to-r from-primary to-primary/80"
+                  >
+                    {saving ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Redirigiendo a Shopify…</>
+                    ) : (
+                      <>⚡ Conectar con Shopify (1-Clic OAuth)</>
+                    )}
+                  </Button>
+                  <p className="text-[11px] text-muted-foreground text-center">
+                    Recomendado · Te llevamos a Shopify para autorizar la app
+                  </p>
+                </div>
+
+                <div className="relative my-2">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
+                  <div className="relative flex justify-center"><span className="bg-background px-2 text-xs text-muted-foreground">o token manual (avanzado)</span></div>
+                </div>
+
                 <div className="space-y-3">
                   <div>
                     <Label htmlFor="store-name">Nombre identificador *</Label>
