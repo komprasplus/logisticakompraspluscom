@@ -71,8 +71,7 @@ const ProveedorPedidosView = () => {
         const { data: items, error: itemsError } = await supabase
           .from("order_items")
           .select("pedido_id, product_name, quantity, sku")
-          .in("pedido_id", ids)
-          .eq("supplier_user_id", user.id);
+          .in("pedido_id", ids);
 
         if (itemsError) {
           console.error("❌ order_items:", itemsError.message);
