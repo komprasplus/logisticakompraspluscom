@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
   Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket, Compass, Store,
-  Truck, HandCoins, BadgeCheck, Download, FileText, Copy, Check, Sparkles,
+  Truck, HandCoins, BadgeCheck, Download, FileText, Copy, Check, Sparkles, Zap,
 } from "lucide-react";
 import { LandingGeneratorModal, type LandingProduct } from "./LandingGeneratorModal";
 import { Progress } from "@/components/ui/progress";
@@ -349,6 +349,35 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
 
     toast.success("CSV listo para importar en Shopify");
   };
+
+  // Importación 1-clic a Shopify vía Edge Function
+  const importToShopify = useMutation({
+    mutationFn: async (productId: string) => {
+      const { data, error } = await supabase.functions.invoke("export-to-shopify", {
+        body: { product_id: productId },
+      });
+      if (error) {
+        // Intentar extraer mensaje del body de error
+        const ctx: any = (error as any).context;
+        let detail = error.message;
+        try {
+          const body = ctx?.body ? await new Response(ctx.body).json() : null;
+          if (body?.error) detail = body.error;
+        } catch { /* ignore */ }
+        throw new Error(detail);
+      }
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      toast.success("✅ Producto importado a Shopify", {
+        description: `Creado en ${data?.store_name ?? "tu tienda"}`,
+      });
+    },
+    onError: (err: Error) => {
+      toast.error("No se pudo importar a Shopify", { description: err.message });
+    },
+  });
 
   return (
     <motion.div
@@ -1060,6 +1089,20 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       >
                         <Sparkles className="h-4 w-4" />
                         ✨ Generar Landing con IA
+                      </Button>
+
+                      <Button
+                        size="lg"
+                        className="w-full gap-2 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-bold shadow-lg"
+                        disabled={importToShopify.isPending}
+                        onClick={() => importToShopify.mutate(detailProduct.id)}
+                      >
+                        {importToShopify.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Zap className="h-4 w-4" />
+                        )}
+                        ⚡ Importar a mi Tienda Shopify
                       </Button>
 
                       <Button
