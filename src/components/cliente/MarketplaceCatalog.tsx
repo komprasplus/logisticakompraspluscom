@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   ShoppingBag, Search, Package, Loader2, ImageIcon, TrendingUp, AlertTriangle,
   Eye, Heart, Tag, Boxes, ShieldCheck, Ruler, Flame, Rocket, Compass, Store,
-  Truck, HandCoins, BadgeCheck, Download, FileText, Copy, Check, Sparkles,
+  Truck, HandCoins, BadgeCheck, Download, FileText, Copy, Check, Sparkles, Zap,
 } from "lucide-react";
 import { LandingGeneratorModal, type LandingProduct } from "./LandingGeneratorModal";
 import { Progress } from "@/components/ui/progress";
