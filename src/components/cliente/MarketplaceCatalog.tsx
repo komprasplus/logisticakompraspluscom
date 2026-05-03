@@ -353,11 +353,28 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   // Importación 1-clic a Shopify vía Edge Function
   const importToShopify = useMutation({
     mutationFn: async (productId: string) => {
+      if (!productId) throw new Error("ID de producto inválido");
+      if (!userId) throw new Error("Sesión expirada. Inicia sesión de nuevo.");
+
+      // Pre-flight: verificar credenciales de Shopify activas
+      const { data: stores, error: storeErr } = await supabase
+        .from("connected_stores")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("plataforma", "shopify")
+        .eq("estado", "Activo")
+        .limit(1);
+      if (storeErr) throw new Error("No se pudo verificar tus tiendas: " + storeErr.message);
+      if (!stores || stores.length === 0) {
+        throw new Error(
+          "⚠️ Debes conectar tu tienda Shopify en la sección de Integraciones antes de importar productos.",
+        );
+      }
+
       const { data, error } = await supabase.functions.invoke("export-to-shopify", {
         body: { product_id: productId },
       });
       if (error) {
-        // Intentar extraer mensaje del body de error
         const ctx: any = (error as any).context;
         let detail = error.message;
         try {
@@ -370,8 +387,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       return data;
     },
     onSuccess: (data) => {
-      toast.success("✅ Producto importado a Shopify", {
-        description: `Creado en ${data?.store_name ?? "tu tienda"}`,
+      toast.success("✅ Producto importado con éxito a tu tienda.", {
+        description: `Creado en ${data?.store_name ?? "Shopify"}`,
       });
     },
     onError: (err: Error) => {
