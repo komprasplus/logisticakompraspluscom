@@ -36,3 +36,7 @@ verify_jwt = false
 [functions.generate-landing-ai]
 verify_jwt = true
 
+[functions.shopify-auth-callback]
+verify_jwt = false
+
+
