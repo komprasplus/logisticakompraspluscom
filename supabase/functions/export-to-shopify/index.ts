@@ -8,6 +8,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const json = (body: unknown, status = 200) =>
@@ -17,7 +18,7 @@ const json = (body: unknown, status = 200) =>
   });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -37,18 +38,28 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const productId: string | undefined = body?.product_id;
-    const storeId: string | undefined = body?.store_id; // opcional
+    const storeId: string | undefined = body?.store_id;
     if (!productId) return json({ error: "product_id requerido" }, 400);
 
+    // Service role client → bypass RLS para lectura del producto maestro
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
-    // 1. Producto
+    // 1. Producto (sólo columnas existentes en marketplace_products)
     const { data: product, error: prodErr } = await admin
       .from("marketplace_products")
-      .select("id, product_name, description, sku, suggested_price, stock_available, image_url, category, weight_kg")
+      .select(
+        "id, product_name, description, sku, suggested_price, stock_available, image_url, image_url_2, image_url_3, category, product_type",
+      )
       .eq("id", productId)
       .maybeSingle();
-    if (prodErr || !product) return json({ error: "Producto no encontrado" }, 404);
+
+    if (prodErr) {
+      console.error("DB error producto:", prodErr);
+      return json({ error: "Error consultando producto: " + prodErr.message }, 500);
+    }
+    if (!product) {
+      return json({ error: "El producto ya no existe en la Mega Bodega." }, 404);
+    }
 
     // 2. Tienda Shopify activa del usuario
     let storeQuery = admin
@@ -60,32 +71,36 @@ Deno.serve(async (req) => {
     if (storeId) storeQuery = storeQuery.eq("id", storeId);
 
     const { data: stores, error: storeErr } = await storeQuery.limit(1);
-    if (storeErr) return json({ error: "Error consultando tiendas" }, 500);
+    if (storeErr) return json({ error: "Error consultando tiendas: " + storeErr.message }, 500);
     const store = stores?.[0];
     if (!store) {
       return json(
-        { error: "No tienes una tienda Shopify activa vinculada. Ve a Integraciones para conectar una." },
+        { error: "Credenciales de Shopify no encontradas. Conecta tu tienda en Integraciones." },
         400,
       );
     }
 
     // 3. Construir payload Shopify
+    const images = [product.image_url, product.image_url_2, product.image_url_3]
+      .filter((u): u is string => typeof u === "string" && u.length > 0)
+      .map((src) => ({ src }));
+
     const shopifyPayload = {
       product: {
         title: product.product_name,
-        body_html: product.description ? `<p>${product.description.replace(/\n/g, "<br/>")}</p>` : "",
+        body_html: product.description
+          ? `<p>${String(product.description).replace(/\n/g, "<br/>")}</p>`
+          : "",
         vendor: "Plus Envíos",
-        product_type: product.category ?? "",
+        product_type: product.category ?? product.product_type ?? "",
         status: "active",
-        images: product.image_url ? [{ src: product.image_url }] : [],
+        images,
         variants: [
           {
             price: String(product.suggested_price ?? 0),
             sku: product.sku ?? "",
             inventory_quantity: product.stock_available ?? 0,
             inventory_management: "shopify",
-            weight: product.weight_kg ?? 0,
-            weight_unit: "kg",
             requires_shipping: true,
           },
         ],
@@ -103,19 +118,16 @@ Deno.serve(async (req) => {
       body: JSON.stringify(shopifyPayload),
     });
 
-    const shopifyJson = await shopifyRes.json().catch(() => ({}));
-    if (!shopifyRes.ok) {
-      console.error("Shopify error", shopifyRes.status, shopifyJson);
+    if (shopifyRes.status !== 201) {
+      const errText = await shopifyRes.text();
+      console.error("Shopify error", shopifyRes.status, errText);
       return json(
-        {
-          error: "Shopify rechazó el producto",
-          details: shopifyJson?.errors ?? shopifyJson,
-          status: shopifyRes.status,
-        },
+        { error: `Shopify rechazó el producto (${shopifyRes.status}): ${errText.slice(0, 500)}` },
         502,
       );
     }
 
+    const shopifyJson = await shopifyRes.json().catch(() => ({}));
     return json({
       success: true,
       shopify_product_id: shopifyJson?.product?.id,
