@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
+import { useQueryClient } from "@tanstack/react-query";
 import { Loader2, Package, RefreshCw, MapPin, User, Phone, ShoppingBag, CheckCircle2, Eye, Store, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,7 @@ const formatCOP = (n: number | null | undefined) =>
 
 const ProveedorPedidosView = () => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [pedidos, setPedidos] = useState<ProveedorPedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [packingId, setPackingId] = useState<number | null>(null);
@@ -133,17 +135,16 @@ const ProveedorPedidosView = () => {
         .update({ estado: "despachado", fecha_actualizacion: new Date().toISOString() })
         .eq("id", pedidoId);
 
-      if (error) {
-        console.error("❌ pack error:", error);
-        toast.error(error.message || "No se pudo despachar el pedido.");
-        return;
-      }
-      toast.success("✅ Pedido despachado a logística.");
-      setPedidos((prev) => prev.filter((p) => p.id !== pedidoId));
+      if (error) throw error;
+
       setSelected(null);
-    } catch (err: any) {
-      console.error("❌ pack crash:", err);
-      toast.error(err?.message ?? "Error inesperado al empacar");
+      toast.success("Guía generada");
+      await queryClient.invalidateQueries({ queryKey: ["pedidos"] });
+      await queryClient.invalidateQueries({ queryKey: ["proveedor-pedidos"] });
+      setPedidos((prev) => prev.filter((p) => p.id !== pedidoId));
+    } catch (error: any) {
+      console.error("Error en Supabase:", error);
+      toast.error(`Error: ${error?.message || "No se pudo actualizar"}`);
     } finally {
       setPackingId(null);
     }
