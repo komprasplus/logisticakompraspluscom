@@ -48,9 +48,51 @@ const ProveedorPedidosView = () => {
     if (!user?.id) return;
     setLoading(true);
     try {
+      // 🔒 STRICT FILTER: Find inventory items owned by THIS provider
+      const { data: myInventory, error: invError } = await supabase
+        .from("inventory")
+        .select("id")
+        .eq("client_user_id", user.id)
+        .eq("is_deleted", false);
+
+      if (invError) {
+        console.error("❌ inventory:", invError.message);
+        toast.error(invError.message);
+        setLoading(false);
+        return;
+      }
+
+      const myInventoryIds = (myInventory ?? []).map((i: any) => i.id);
+      if (myInventoryIds.length === 0) {
+        setPedidos([]);
+        setLoading(false);
+        return;
+      }
+
+      // 🔒 STRICT JOIN: order_items where inventory_item_id belongs to this provider
+      const { data: myItems, error: itemsErr } = await supabase
+        .from("order_items")
+        .select("pedido_id, product_name, quantity, sku, inventory_item_id")
+        .in("inventory_item_id", myInventoryIds);
+
+      if (itemsErr) {
+        console.error("❌ order_items:", itemsErr.message);
+        toast.error(itemsErr.message);
+        setLoading(false);
+        return;
+      }
+
+      const pedidoIds = Array.from(new Set((myItems ?? []).map((it: any) => it.pedido_id)));
+      if (pedidoIds.length === 0) {
+        setPedidos([]);
+        setLoading(false);
+        return;
+      }
+
       const { data: pedidosData, error } = await supabase
         .from("pedidos")
         .select("*")
+        .in("id", pedidoIds)
         .eq("estado", "en_preparacion")
         .order("fecha_creacion", { ascending: false });
 
@@ -61,7 +103,6 @@ const ProveedorPedidosView = () => {
         return;
       }
 
-      const ids = (pedidosData ?? []).map((p) => p.id);
       const dropshipperIds = Array.from(
         new Set((pedidosData ?? []).map((p: any) => p.client_user_id).filter(Boolean))
       );
@@ -69,25 +110,15 @@ const ProveedorPedidosView = () => {
       const itemsByPedido = new Map<number, Array<{ product_name: string; quantity: number; sku: string | null }>>();
       const namesByUser = new Map<string, string>();
 
-      if (ids.length > 0) {
-        const { data: items, error: itemsError } = await supabase
-          .from("order_items")
-          .select("pedido_id, product_name, quantity, sku")
-          .in("pedido_id", ids);
-
-        if (itemsError) {
-          console.error("❌ order_items:", itemsError.message);
-        } else {
-          (items ?? []).forEach((it: any) => {
-            if (!itemsByPedido.has(it.pedido_id)) itemsByPedido.set(it.pedido_id, []);
-            itemsByPedido.get(it.pedido_id)!.push({
-              product_name: it.product_name,
-              quantity: it.quantity,
-              sku: it.sku,
-            });
-          });
-        }
-      }
+      // Only show this provider's items in the card (not other suppliers' items in same order)
+      (myItems ?? []).forEach((it: any) => {
+        if (!itemsByPedido.has(it.pedido_id)) itemsByPedido.set(it.pedido_id, []);
+        itemsByPedido.get(it.pedido_id)!.push({
+          product_name: it.product_name,
+          quantity: it.quantity,
+          sku: it.sku,
+        });
+      });
 
       if (dropshipperIds.length > 0) {
         const { data: profs } = await supabase
