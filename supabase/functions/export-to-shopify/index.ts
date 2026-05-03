@@ -107,13 +107,33 @@ Deno.serve(async (req) => {
       },
     };
 
-    // 4. POST a Shopify
-    const shopUrl = `https://${store.url_tienda}/admin/api/2024-01/products.json`;
+    // 4. Sanitizar dominio (quitar protocolo, slashes, paths, espacios)
+    const cleanDomain = String(store.url_tienda || "")
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, "")
+      .replace(/\/.*$/, "")
+      .replace(/\s+/g, "");
+
+    if (!cleanDomain || !cleanDomain.includes(".")) {
+      return json({ error: `Dominio Shopify inválido: "${store.url_tienda}". Debe ser tu-tienda.myshopify.com` }, 400);
+    }
+
+    const token = String(store.api_access_token || "").trim();
+    if (!token) {
+      return json({ error: "Access Token de Shopify vacío. Reconecta tu tienda en Integraciones." }, 400);
+    }
+
+    const shopUrl = `https://${cleanDomain}/admin/api/2024-01/products.json`;
+    const maskedToken = token.length > 8 ? `${token.slice(0, 4)}...${token.slice(-4)}` : "***";
+    console.log("Shopify request →", { endpoint: shopUrl, token: maskedToken, title: shopifyPayload.product.title });
+
     const shopifyRes = await fetch(shopUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Shopify-Access-Token": store.api_access_token,
+        "Accept": "application/json",
+        "X-Shopify-Access-Token": token,
       },
       body: JSON.stringify(shopifyPayload),
     });
