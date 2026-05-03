@@ -130,12 +130,14 @@ const ProveedorPedidosView = () => {
     e.stopPropagation();
     setPackingId(pedidoId);
     try {
-      const { error } = await supabase
-        .from("pedidos")
-        .update({ estado: "despachado", fecha_actualizacion: new Date().toISOString() })
-        .eq("id", pedidoId);
+      const { data, error } = await supabase.rpc("proveedor_generar_guia" as any, {
+        p_pedido_id: pedidoId,
+      });
 
       if (error) throw error;
+      if (data && (data as any).success === false) {
+        throw new Error((data as any).error || "No se pudo generar la guía");
+      }
 
       setSelected(null);
       toast.success("Guía generada");
