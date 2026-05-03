@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react";
 
 // Eager-load lightweight pages
 import Index from "./pages/Index";
+import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Registro from "./pages/Registro";
 import ResetPassword from "./pages/ResetPassword";
@@ -153,7 +154,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<Index />} />
+      <Route path="/" element={<Landing />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/registro" element={<Registro />} />
       <Route path="/signup" element={<Navigate to="/registro" replace />} />
