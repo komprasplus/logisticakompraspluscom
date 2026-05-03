@@ -1,11 +1,19 @@
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Loader2, Package, RefreshCw, MapPin, User, Phone, ShoppingBag, CheckCircle2 } from "lucide-react";
+import { Loader2, Package, RefreshCw, MapPin, User, Phone, ShoppingBag, CheckCircle2, Eye, Store, DollarSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 
 interface ProveedorPedido {
   id: number;
@@ -16,92 +24,130 @@ interface ProveedorPedido {
   municipio: string | null;
   estado: string | null;
   fecha_creacion: string | null;
+  valor_producto: number | null;
+  valor_recaudar: number | null;
+  dropshipper_nombre: string | null;
   items: Array<{ product_name: string; quantity: number; sku: string | null }>;
 }
 
+const formatCOP = (n: number | null | undefined) =>
+  typeof n === "number"
+    ? n.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })
+    : "—";
+
 const ProveedorPedidosView = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const [pedidos, setPedidos] = useState<ProveedorPedido[]>([]);
   const [loading, setLoading] = useState(true);
   const [packingId, setPackingId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<ProveedorPedido | null>(null);
 
   const fetchPedidos = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
+    try {
+      const { data: pedidosData, error } = await supabase
+        .from("pedidos")
+        .select("*")
+        .eq("estado", "en_preparacion")
+        .order("fecha_creacion", { ascending: false });
 
-    // Safe base query: RLS already restricts to pedidos containing items
-    // where supplier_user_id = auth.uid(). No JOIN needed.
-    const { data: pedidosData, error } = await supabase
-      .from("pedidos")
-      .select("*")
-      .eq("estado", "en_preparacion")
-      .order("fecha_creacion", { ascending: false });
+      if (error) {
+        console.error("❌ Error real de Supabase:", error.message, error.details, error.hint);
+        toast.error(error.message);
+        setLoading(false);
+        return;
+      }
 
-    if (error) {
-      console.error("❌ Error real de Supabase:", error.message, error.details, error.hint);
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      setLoading(false);
-      return;
-    }
+      const ids = (pedidosData ?? []).map((p) => p.id);
+      const dropshipperIds = Array.from(
+        new Set((pedidosData ?? []).map((p: any) => p.client_user_id).filter(Boolean))
+      );
 
-    // Fetch items for these pedidos in a separate query
-    const ids = (pedidosData ?? []).map((p) => p.id);
-    let itemsByPedido = new Map<number, Array<{ product_name: string; quantity: number; sku: string | null }>>();
+      const itemsByPedido = new Map<number, Array<{ product_name: string; quantity: number; sku: string | null }>>();
+      const namesByUser = new Map<string, string>();
 
-    if (ids.length > 0) {
-      const { data: items, error: itemsError } = await supabase
-        .from("order_items")
-        .select("pedido_id, product_name, quantity, sku")
-        .in("pedido_id", ids)
-        .eq("supplier_user_id", user.id);
+      if (ids.length > 0) {
+        const { data: items, error: itemsError } = await supabase
+          .from("order_items")
+          .select("pedido_id, product_name, quantity, sku")
+          .in("pedido_id", ids)
+          .eq("supplier_user_id", user.id);
 
-      if (itemsError) {
-        console.error("❌ Error real de Supabase (order_items):", itemsError.message, itemsError.details);
-      } else {
-        (items ?? []).forEach((it: any) => {
-          if (!itemsByPedido.has(it.pedido_id)) itemsByPedido.set(it.pedido_id, []);
-          itemsByPedido.get(it.pedido_id)!.push({
-            product_name: it.product_name,
-            quantity: it.quantity,
-            sku: it.sku,
+        if (itemsError) {
+          console.error("❌ order_items:", itemsError.message);
+        } else {
+          (items ?? []).forEach((it: any) => {
+            if (!itemsByPedido.has(it.pedido_id)) itemsByPedido.set(it.pedido_id, []);
+            itemsByPedido.get(it.pedido_id)!.push({
+              product_name: it.product_name,
+              quantity: it.quantity,
+              sku: it.sku,
+            });
           });
+        }
+      }
+
+      if (dropshipperIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id, nombre_completo, nombre_tienda")
+          .in("user_id", dropshipperIds as string[]);
+        (profs ?? []).forEach((pr: any) => {
+          namesByUser.set(pr.user_id, pr.nombre_tienda || pr.nombre_completo || "Dropshipper");
         });
       }
+
+      const merged: ProveedorPedido[] = (pedidosData ?? []).map((p: any) => ({
+        id: p.id,
+        numero_guia: p.numero_guia,
+        cliente_nombre: p.cliente_nombre,
+        client_phone: p.client_phone,
+        direccion_entrega: p.direccion_entrega,
+        municipio: p.municipio,
+        estado: p.estado,
+        fecha_creacion: p.fecha_creacion,
+        valor_producto: p.valor_producto,
+        valor_recaudar: p.valor_recaudar,
+        dropshipper_nombre: namesByUser.get(p.client_user_id) ?? null,
+        items: itemsByPedido.get(p.id) ?? [],
+      }));
+
+      setPedidos(merged);
+    } catch (e: any) {
+      console.error("❌ fetchPedidos crash:", e);
+      toast.error(e?.message ?? "Error inesperado al cargar pedidos");
+    } finally {
+      setLoading(false);
     }
-
-    const merged: ProveedorPedido[] = (pedidosData ?? []).map((p: any) => ({
-      id: p.id,
-      numero_guia: p.numero_guia,
-      cliente_nombre: p.cliente_nombre,
-      client_phone: p.client_phone,
-      direccion_entrega: p.direccion_entrega,
-      municipio: p.municipio,
-      estado: p.estado,
-      fecha_creacion: p.fecha_creacion,
-      items: itemsByPedido.get(p.id) ?? [],
-    }));
-
-    setPedidos(merged);
-    setLoading(false);
-  }, [user?.id, toast]);
+  }, [user?.id]);
 
   useEffect(() => { fetchPedidos(); }, [fetchPedidos]);
 
-  const handlePack = async (pedidoId: number) => {
+  const handlePack = async (e: React.MouseEvent<HTMLButtonElement>, pedidoId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
     setPackingId(pedidoId);
-    const { error } = await supabase
-      .from("pedidos")
-      .update({ estado: "despachado", fecha_actualizacion: new Date().toISOString() })
-      .eq("id", pedidoId);
-    setPackingId(null);
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ estado: "despachado", fecha_actualizacion: new Date().toISOString() })
+        .eq("id", pedidoId);
 
-    if (error) {
-      toast({ title: "Error", description: "No se pudo despachar el pedido.", variant: "destructive" });
-      return;
+      if (error) {
+        console.error("❌ pack error:", error);
+        toast.error(error.message || "No se pudo despachar el pedido.");
+        return;
+      }
+      toast.success("✅ Pedido despachado a logística.");
+      setPedidos((prev) => prev.filter((p) => p.id !== pedidoId));
+      setSelected(null);
+    } catch (err: any) {
+      console.error("❌ pack crash:", err);
+      toast.error(err?.message ?? "Error inesperado al empacar");
+    } finally {
+      setPackingId(null);
     }
-    toast({ title: "✅ Pedido despachado", description: "El pedido pasó a logística." });
-    setPedidos((prev) => prev.filter((p) => p.id !== pedidoId));
   };
 
   return (
@@ -114,7 +160,7 @@ const ProveedorPedidosView = () => {
           </h1>
           <p className="text-sm text-muted-foreground">Pedidos en preparación que contienen tus productos.</p>
         </div>
-        <Button variant="outline" onClick={fetchPedidos} disabled={loading}>
+        <Button variant="outline" onClick={() => fetchPedidos()} disabled={loading}>
           <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           Actualizar
         </Button>
@@ -140,8 +186,7 @@ const ProveedorPedidosView = () => {
               </div>
               <div className="space-y-1 text-sm">
                 <p className="flex items-center gap-2"><User className="h-3.5 w-3.5 text-muted-foreground" />{p.cliente_nombre ?? "Sin nombre"}</p>
-                <p className="flex items-center gap-2 text-muted-foreground"><Phone className="h-3.5 w-3.5" />{p.client_phone ?? "—"}</p>
-                <p className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-3.5 w-3.5" />{[p.direccion_entrega, p.municipio].filter(Boolean).join(" · ") || "—"}</p>
+                <p className="flex items-center gap-2 text-muted-foreground"><MapPin className="h-3.5 w-3.5" />{[p.municipio].filter(Boolean).join(" · ") || "—"}</p>
               </div>
               <div className="rounded-lg bg-muted/40 p-2 space-y-1">
                 {p.items.map((it, i) => (
@@ -152,20 +197,112 @@ const ProveedorPedidosView = () => {
                 ))}
               </div>
               <Button
-                className="w-full bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
-                onClick={() => handlePack(p.id)}
-                disabled={packingId === p.id}
+                type="button"
+                className="w-full"
+                onClick={(e) => { e.preventDefault(); setSelected(p); }}
               >
-                {packingId === p.id ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Despachando...</>
-                ) : (
-                  <><CheckCircle2 className="h-4 w-4 mr-2" /> Generar Guía / Empacar</>
-                )}
+                <Eye className="h-4 w-4 mr-2" /> Ver Detalle y Gestionar
               </Button>
             </div>
           ))}
         </div>
       )}
+
+      {/* Modal de detalles 2 columnas */}
+      <Dialog open={!!selected} onOpenChange={(o) => { if (!o) setSelected(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-primary" />
+              Detalle del Pedido {selected?.numero_guia ?? `#${selected?.id}`}
+            </DialogTitle>
+            <DialogDescription>
+              Revisa los productos a empacar y los datos de envío antes de generar la guía.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selected && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Columna Izquierda: producto y dropshipper */}
+              <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4 text-primary" /> Productos a empacar
+                </h3>
+                <div className="space-y-2">
+                  {selected.items.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Sin items asignados a tu inventario.</p>
+                  ) : selected.items.map((it, i) => (
+                    <div key={i} className="text-sm rounded-lg bg-background p-2 border">
+                      <div className="flex justify-between font-medium">
+                        <span className="truncate">{it.product_name}</span>
+                        <span>x{it.quantity}</span>
+                      </div>
+                      {it.sku && <p className="text-xs text-muted-foreground font-mono">SKU: {it.sku}</p>}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-2 border-t space-y-1 text-sm">
+                  <p className="flex items-center gap-2">
+                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                    Valor producto: <span className="font-semibold">{formatCOP(selected.valor_producto)}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                    A recaudar (COD): <span className="font-semibold">{formatCOP(selected.valor_recaudar)}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Store className="h-3.5 w-3.5 text-muted-foreground" />
+                    Dropshipper: <span className="font-semibold">{selected.dropshipper_nombre ?? "—"}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Columna Derecha: cliente final */}
+              <div className="space-y-3 rounded-xl border bg-muted/30 p-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <User className="h-4 w-4 text-primary" /> Cliente final
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <p className="flex items-center gap-2">
+                    <User className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="font-semibold">{selected.cliente_nombre ?? "—"}</span>
+                  </p>
+                  <p className="flex items-center gap-2">
+                    <Phone className="h-3.5 w-3.5 text-muted-foreground" />
+                    {selected.client_phone ?? "—"}
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <MapPin className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
+                    <span>{selected.direccion_entrega ?? "—"}</span>
+                  </p>
+                  <p className="flex items-center gap-2 text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5" /> {selected.municipio ?? "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button type="button" variant="outline" onClick={() => setSelected(null)} disabled={packingId !== null}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={(e) => selected && handlePack(e, selected.id)}
+              disabled={!selected || packingId !== null}
+              className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground"
+            >
+              {packingId !== null ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Despachando...</>
+              ) : (
+                <><CheckCircle2 className="h-4 w-4 mr-2" /> Generar Guía / Empacar</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 };
