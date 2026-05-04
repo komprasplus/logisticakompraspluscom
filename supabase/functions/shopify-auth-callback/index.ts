@@ -130,8 +130,8 @@ Deno.serve(async (req) => {
         {
           user_id: payload.u,
           plataforma: "shopify",
-          nombre_tienda: payload.n || shopParam,
-          url_tienda: shopParam.toLowerCase(),
+          nombre_tienda: payload.n || receivedShop,
+          url_tienda: receivedShop,
           api_access_token: access_token,
           estado: "Activo",
           last_sync_at: new Date().toISOString(),
@@ -147,9 +147,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Shopify OAuth success for user=${payload.u} shop=${shopParam} scope=${scope}`);
+    console.log(`Shopify OAuth success for user=${payload.u} shop=${receivedShop} scope=${scope}`);
     return htmlRedirect(
-      `${APP_RETURN_URL}&shopify=success&shop=${encodeURIComponent(shopParam)}`,
+      `${APP_RETURN_URL}&shopify=success&shop=${encodeURIComponent(receivedShop)}`,
       "✅ Tienda conectada con éxito",
     );
   } catch (e) {
