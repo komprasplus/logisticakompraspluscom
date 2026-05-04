@@ -701,6 +701,27 @@ const NuevoPedidoModal = ({
       }
     }
     
+    // Financial floor: PVP >= (Costo Producto Total + Flete) for cash-on-delivery
+    if (
+      tipoServicio === "ENVIO" &&
+      metodoPago === "efectivo" &&
+      valorRecaudar &&
+      !isMultiProductMode
+    ) {
+      const recaudo = Number(valorRecaudar) || 0;
+      const costoUnit = Number(valorProducto) || 0;
+      const cantidadEf = isVariableProduct
+        ? Math.max(variantsTotalQuantity, 1)
+        : (Number(quantity) || 1);
+      const minimo = costoUnit * cantidadEf + (Number(tarifaInfo.valor) || 0);
+      if (recaudo < minimo) {
+        toast.error(
+          `El Valor a Recaudar debe ser ≥ ${minimo.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })} (Costo + Flete).`
+        );
+        return;
+      }
+    }
+
     if (missingFields.length > 0) {
       toast.error(`Falta: ${missingFields.join(", ")}`);
       return;
@@ -728,13 +749,30 @@ const NuevoPedidoModal = ({
 
       // Build product name summary for multi-product
       const validItems = isMultiProductMode ? orderItems.filter(i => i.productName.trim()) : [];
+      // For variable products, concatenate selected variant labels so the order
+      // detail card renders e.g. "CAMISETA 1.1 - Talla M x2, Talla L x1"
+      const variantSummary = isVariableProduct
+        ? selectedVariants
+            .filter(r => r.variantId)
+            .map(r => {
+              const v = variants.find((vv: any) => vv.id === r.variantId);
+              const label = v?.attributes
+                ? Object.values(v.attributes).join(" - ")
+                : (v?.variant_name ?? "");
+              return r.quantity > 1 ? `${label} x${r.quantity}` : label;
+            })
+            .filter(Boolean)
+            .join(", ")
+        : "";
       const productNameSummary = tipoServicio === "RECOGIDA"
         ? `RECOGIDA: ${descripcionPaqueteRecogida.trim()}`
         : isMultiProductMode
           ? (validItems.length === 1 
               ? validItems[0].productName 
               : `${validItems.length} artículos`)
-          : productoNombre.trim();
+          : (isVariableProduct && variantSummary
+              ? `${productoNombre.trim()} - ${variantSummary}`
+              : productoNombre.trim());
 
       const totalQuantity = isMultiProductMode
         ? validItems.reduce((sum, i) => sum + i.quantity, 0)
@@ -1145,9 +1183,21 @@ const NuevoPedidoModal = ({
                     )}
                   />
                 </div>
-                {isMultiProductMode && orderItems.length > 0 && (
+                {isMultiProductMode && orderItems.length > 0 ? (
                   <p className="text-xs text-muted-foreground">💡 Calculado automáticamente desde los productos añadidos.</p>
-                )}
+                ) : inventoryPrefill ? (
+                  <p className="text-xs text-muted-foreground">
+                    ✏️ Editable. Define tu PVP final al cliente. Mínimo permitido:{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatCOP(
+                        (Number(valorProducto) || 0) *
+                          (isVariableProduct ? Math.max(variantsTotalQuantity, 1) : (Number(quantity) || 1)) +
+                          (Number(tarifaInfo.valor) || 0)
+                      )}
+                    </span>{" "}
+                    (Costo + Flete)
+                  </p>
+                ) : null}
               </div>
             )}
 
