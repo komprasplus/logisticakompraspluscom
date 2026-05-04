@@ -1247,6 +1247,7 @@ export type Database = {
           created_at: string
           direccion: string | null
           email: string | null
+          estado_aprobacion: string
           fulfillment_rate: number | null
           full_name: string
           id: string
@@ -1279,6 +1280,7 @@ export type Database = {
           created_at?: string
           direccion?: string | null
           email?: string | null
+          estado_aprobacion?: string
           fulfillment_rate?: number | null
           full_name: string
           id?: string
@@ -1311,6 +1313,7 @@ export type Database = {
           created_at?: string
           direccion?: string | null
           email?: string | null
+          estado_aprobacion?: string
           fulfillment_rate?: number | null
           full_name?: string
           id?: string

@@ -16,6 +16,7 @@ import {
   Wallet,
   ScanLine,
   ClipboardList,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -188,6 +189,14 @@ const MENU_GROUPS: MenuGroup[] = [
   {
     label: "⚙️ Ajustes",
     items: [
+      {
+        id: "solicitudes-registro",
+        label: "Solicitudes de Registro",
+        icon: UserPlus,
+        description: "Aprueba nuevos usuarios",
+        colorClass: "from-emerald-500 to-teal-500",
+        accentColor: "bg-emerald-500/10",
+      },
       {
         id: "configuracion",
         label: "Configuración General",

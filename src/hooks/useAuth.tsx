@@ -16,6 +16,7 @@ interface ProfileData {
   nit_rut?: string | null;
   organizacion_id?: string | null;
   tipo_cuenta?: string | null;
+  estado_aprobacion?: "pendiente" | "aprobado" | "rechazado" | null;
 }
 
 interface AuthContextType {
@@ -100,14 +101,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data: profileData, error: profileError } = await withRetry(async () =>
         await supabase
           .from("profiles")
-          .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut, organizacion_id, tipo_cuenta")
+          .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut, organizacion_id, tipo_cuenta, estado_aprobacion")
           .eq("user_id", userId)
           .maybeSingle()
       );
       if (profileError) throw profileError;
 
       if (profileData) {
-        setProfile(profileData);
+        setProfile(profileData as ProfileData);
 
         // Check if the user's organization is active (suspended tenant guard)
         if (profileData.organizacion_id) {
