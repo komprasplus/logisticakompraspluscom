@@ -1183,9 +1183,21 @@ const NuevoPedidoModal = ({
                     )}
                   />
                 </div>
-                {isMultiProductMode && orderItems.length > 0 && (
+                {isMultiProductMode && orderItems.length > 0 ? (
                   <p className="text-xs text-muted-foreground">💡 Calculado automáticamente desde los productos añadidos.</p>
-                )}
+                ) : inventoryPrefill ? (
+                  <p className="text-xs text-muted-foreground">
+                    ✏️ Editable. Define tu PVP final al cliente. Mínimo permitido:{" "}
+                    <span className="font-semibold text-foreground">
+                      {formatCOP(
+                        (Number(valorProducto) || 0) *
+                          (isVariableProduct ? Math.max(variantsTotalQuantity, 1) : (Number(quantity) || 1)) +
+                          (Number(tarifaInfo.valor) || 0)
+                      )}
+                    </span>{" "}
+                    (Costo + Flete)
+                  </p>
+                ) : null}
               </div>
             )}
 
