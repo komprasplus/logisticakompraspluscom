@@ -77,20 +77,46 @@ Deno.serve(async (req) => {
     const code = url.searchParams.get("code");
     const state = url.searchParams.get("state");
     const shopParam = url.searchParams.get("shop");
+    const hmacParam = url.searchParams.get("hmac");
 
-    if (!code || !state || !shopParam) {
+    if (!code || !state || !shopParam || !hmacParam) {
       return htmlRedirect(`${APP_RETURN_URL}&shopify=error&reason=missing_params`, "❌ Parámetros incompletos");
     }
 
+    // Validate Shopify HMAC (source of truth for callback authenticity)
+    const params = new URLSearchParams(url.search);
+    params.delete("hmac");
+    params.delete("signature");
+    const sortedKeys = [...params.keys()].sort();
+    const message = sortedKeys.map((k) => `${k}=${params.get(k)}`).join("&");
+    const hmacKey = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(CLIENT_SECRET),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const sigBuf = await crypto.subtle.sign("HMAC", hmacKey, new TextEncoder().encode(message));
+    const computed = Array.from(new Uint8Array(sigBuf))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    if (computed !== hmacParam.toLowerCase()) {
+      console.error("invalid_hmac", { computed, hmacParam });
+      return htmlRedirect(`${APP_RETURN_URL}&shopify=error&reason=invalid_hmac`, "❌ Firma de Shopify inválida");
+    }
+
+    // Verify our signed state (CSRF + carries user_id). Trust shop from Shopify (it may differ from typed name in dev stores).
     const payload = await verifyState(state, CLIENT_SECRET);
     if (!payload) {
       return htmlRedirect(`${APP_RETURN_URL}&shopify=error&reason=invalid_state`, "❌ Estado inválido o expirado");
     }
-    const expectedShop = normalizeShopDomain(payload.s);
     const receivedShop = normalizeShopDomain(shopParam);
+    if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(receivedShop)) {
+      return htmlRedirect(`${APP_RETURN_URL}&shopify=error&reason=invalid_shop`, "❌ Dominio inválido");
+    }
+    const expectedShop = normalizeShopDomain(payload.s);
     if (expectedShop !== receivedShop) {
-      console.error("shop_mismatch", { expectedShop, receivedShop, raw_payload_s: payload.s, raw_shop: shopParam });
-      return htmlRedirect(`${APP_RETURN_URL}&shopify=error&reason=shop_mismatch`, "❌ Dominio no coincide");
+      console.warn("shop differs from typed input (accepting Shopify-authenticated value)", { expectedShop, receivedShop });
     }
 
     // Exchange code → access token
