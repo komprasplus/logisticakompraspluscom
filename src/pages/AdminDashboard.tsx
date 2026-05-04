@@ -73,6 +73,8 @@ const AdminWalletDashboard = lazy(() => import("@/components/admin/AdminWalletDa
 import MonitorFlexPanel from "@/components/admin/MonitorFlexPanel";
 const WebhookMonitorDashboard = lazy(() => import("@/components/admin/WebhookMonitorDashboard"));
 const LiquidacionAliadosPanel = lazy(() => import("@/components/admin/LiquidacionAliadosPanel"));
+const ManifiestoScannerView = lazy(() => import("@/components/admin/ManifiestoScannerView"));
+const ManifiestosListView = lazy(() => import("@/components/admin/ManifiestosListView"));
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
