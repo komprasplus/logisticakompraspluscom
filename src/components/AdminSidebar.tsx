@@ -14,6 +14,8 @@ import {
   FileText,
   Activity,
   Wallet,
+  ScanLine,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
