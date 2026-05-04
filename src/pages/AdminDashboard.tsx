@@ -75,6 +75,7 @@ const WebhookMonitorDashboard = lazy(() => import("@/components/admin/WebhookMon
 const LiquidacionAliadosPanel = lazy(() => import("@/components/admin/LiquidacionAliadosPanel"));
 const ManifiestoScannerView = lazy(() => import("@/components/admin/ManifiestoScannerView"));
 const ManifiestosListView = lazy(() => import("@/components/admin/ManifiestosListView"));
+const SolicitudesRegistroPanel = lazy(() => import("@/components/admin/SolicitudesRegistroPanel"));
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
@@ -1772,6 +1773,13 @@ const AdminDashboard = () => {
               <ManifiestosListView />
             </Suspense>
           </motion.div>
+        );
+
+      case "solicitudes-registro":
+        return (
+          <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+            <SolicitudesRegistroPanel />
+          </Suspense>
         );
 
       default:
