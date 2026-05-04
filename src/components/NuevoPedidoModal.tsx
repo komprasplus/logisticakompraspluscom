@@ -728,13 +728,30 @@ const NuevoPedidoModal = ({
 
       // Build product name summary for multi-product
       const validItems = isMultiProductMode ? orderItems.filter(i => i.productName.trim()) : [];
+      // For variable products, concatenate selected variant labels so the order
+      // detail card renders e.g. "CAMISETA 1.1 - Talla M x2, Talla L x1"
+      const variantSummary = isVariableProduct
+        ? selectedVariants
+            .filter(r => r.variantId)
+            .map(r => {
+              const v = variants.find((vv: any) => vv.id === r.variantId);
+              const label = v?.attributes
+                ? Object.values(v.attributes).join(" - ")
+                : (v?.variant_name ?? "");
+              return r.quantity > 1 ? `${label} x${r.quantity}` : label;
+            })
+            .filter(Boolean)
+            .join(", ")
+        : "";
       const productNameSummary = tipoServicio === "RECOGIDA"
         ? `RECOGIDA: ${descripcionPaqueteRecogida.trim()}`
         : isMultiProductMode
           ? (validItems.length === 1 
               ? validItems[0].productName 
               : `${validItems.length} artículos`)
-          : productoNombre.trim();
+          : (isVariableProduct && variantSummary
+              ? `${productoNombre.trim()} - ${variantSummary}`
+              : productoNombre.trim());
 
       const totalQuantity = isMultiProductMode
         ? validItems.reduce((sum, i) => sum + i.quantity, 0)
