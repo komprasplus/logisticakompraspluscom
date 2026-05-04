@@ -41,6 +41,17 @@ async function verifyState(token: string, secret: string): Promise<any | null> {
   }
 }
 
+function normalizeShopDomain(raw: string): string {
+  let d = String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/+$/, "")
+    .replace(/\/.*$/, "");
+  if (d && !d.includes(".myshopify.com")) d = `${d}.myshopify.com`;
+  return d;
+}
+
 function htmlRedirect(url: string, message: string): Response {
   return new Response(
     `<!doctype html><meta charset="utf-8"><title>Conectando con Shopify…</title>
@@ -75,12 +86,15 @@ Deno.serve(async (req) => {
     if (!payload) {
       return htmlRedirect(`${APP_RETURN_URL}&shopify=error&reason=invalid_state`, "❌ Estado inválido o expirado");
     }
-    if (payload.s !== shopParam.toLowerCase()) {
+    const expectedShop = normalizeShopDomain(payload.s);
+    const receivedShop = normalizeShopDomain(shopParam);
+    if (expectedShop !== receivedShop) {
+      console.error("shop_mismatch", { expectedShop, receivedShop, raw_payload_s: payload.s, raw_shop: shopParam });
       return htmlRedirect(`${APP_RETURN_URL}&shopify=error&reason=shop_mismatch`, "❌ Dominio no coincide");
     }
 
     // Exchange code → access token
-    const tokenRes = await fetch(`https://${shopParam}/admin/oauth/access_token`, {
+    const tokenRes = await fetch(`https://${receivedShop}/admin/oauth/access_token`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({
@@ -116,8 +130,8 @@ Deno.serve(async (req) => {
         {
           user_id: payload.u,
           plataforma: "shopify",
-          nombre_tienda: payload.n || shopParam,
-          url_tienda: shopParam.toLowerCase(),
+          nombre_tienda: payload.n || receivedShop,
+          url_tienda: receivedShop,
           api_access_token: access_token,
           estado: "Activo",
           last_sync_at: new Date().toISOString(),
@@ -133,9 +147,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`Shopify OAuth success for user=${payload.u} shop=${shopParam} scope=${scope}`);
+    console.log(`Shopify OAuth success for user=${payload.u} shop=${receivedShop} scope=${scope}`);
     return htmlRedirect(
-      `${APP_RETURN_URL}&shopify=success&shop=${encodeURIComponent(shopParam)}`,
+      `${APP_RETURN_URL}&shopify=success&shop=${encodeURIComponent(receivedShop)}`,
       "✅ Tienda conectada con éxito",
     );
   } catch (e) {
