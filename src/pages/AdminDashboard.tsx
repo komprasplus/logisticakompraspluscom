@@ -1968,7 +1968,7 @@ const AdminDashboard = () => {
           };
           const resolved = legacyMap[section];
           const target = resolved ? resolved.parent : section;
-          if (isAliado && !["despachos", "mapa"].includes(target)) return;
+          if (isAliado && !["despachos", "mapa", "manifiesto-scanner", "manifiestos"].includes(target)) return;
           if (resolved?.tab) {
             if (resolved.parent === "despachos") setDespachosTab(resolved.tab);
             if (resolved.parent === "tesoreria") setTesoreriaTab(resolved.tab);
