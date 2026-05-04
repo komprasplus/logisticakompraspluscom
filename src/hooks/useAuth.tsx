@@ -16,6 +16,7 @@ interface ProfileData {
   nit_rut?: string | null;
   organizacion_id?: string | null;
   tipo_cuenta?: string | null;
+  estado_aprobacion?: "pendiente" | "aprobado" | "rechazado" | null;
 }
 
 interface AuthContextType {
