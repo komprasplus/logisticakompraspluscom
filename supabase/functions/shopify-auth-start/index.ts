@@ -111,6 +111,14 @@ Deno.serve(async (req) => {
 
     const url = `https://${shop}/admin/oauth/authorize?${params.toString()}`;
 
+    console.log("[shopify-auth-start] Redirecting to install screen:", {
+      shop,
+      redirect_uri: REDIRECT_URI,
+      client_id_preview: `${CLIENT_ID.slice(0, 6)}...${CLIENT_ID.slice(-4)}`,
+      scopes: SCOPES,
+      authorize_url: url,
+    });
+
     return new Response(JSON.stringify({ url }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
