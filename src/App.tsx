@@ -37,6 +37,7 @@ const RecepcionFlex = lazyRetry(() => import("./pages/RecepcionFlex"));
 const SuperAdminMaster = lazyRetry(() => import("./pages/SuperAdminMaster"));
 const AdminControlTower = lazyRetry(() => import("./pages/AdminControlTower"));
 const PublicCatalog = lazyRetry(() => import("./pages/PublicCatalog"));
+const AILandingStudio = lazyRetry(() => import("./pages/AILandingStudio"));
 
 // Shared loading fallback
 const PageLoader = () => (
@@ -174,6 +175,16 @@ const AppRoutes = () => {
       <Route path="/:slug/catalogo/:productId" element={<Suspense fallback={<PageLoader />}><PublicCatalog /></Suspense>} />
       
       {/* Protected Routes - wrapped in Suspense for lazy loading */}
+      <Route
+        path="/ai-landing-studio/:productId"
+        element={
+          <ProtectedRoute allowedRoles={["cliente", "admin", "super_admin"]}>
+            <Suspense fallback={<PageLoader />}>
+              <AILandingStudio />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
       <Route
         path="/admin"
         element={
