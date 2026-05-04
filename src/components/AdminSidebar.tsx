@@ -26,7 +26,7 @@ interface AdminSidebarProps {
   userRole?: string | null;
 }
 
-const ALIADO_ALLOWED_SECTIONS = ["despachos", "mapa"];
+const ALIADO_ALLOWED_SECTIONS = ["despachos", "mapa", "manifiesto-scanner", "manifiestos"];
 
 // Maps legacy section IDs to the new consolidated section
 const LEGACY_TO_NEW: Record<string, string> = {
