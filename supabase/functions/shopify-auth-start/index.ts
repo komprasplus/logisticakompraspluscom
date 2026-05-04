@@ -12,11 +12,18 @@ const corsHeaders = {
 const SCOPES = "write_products,read_products,read_orders,write_orders";
 
 function normalizeShopDomain(raw: string): string {
-  return String(raw || "")
+  let cleanDomain = String(raw || "")
     .trim()
     .toLowerCase()
     .replace(/^https?:\/\//, "")
-    .replace(/\/.*$/, "");
+    .replace(/\/.*$/, "")
+    .replace(/\.myshopify\.com.*$/, ".myshopify.com");
+
+  // Auto-append .myshopify.com if missing
+  if (cleanDomain && !cleanDomain.includes(".myshopify.com")) {
+    cleanDomain = `${cleanDomain}.myshopify.com`;
+  }
+  return cleanDomain;
 }
 
 function isValidShopDomain(domain: string): boolean {
@@ -103,6 +110,14 @@ Deno.serve(async (req) => {
     });
 
     const url = `https://${shop}/admin/oauth/authorize?${params.toString()}`;
+
+    console.log("[shopify-auth-start] Redirecting to install screen:", {
+      shop,
+      redirect_uri: REDIRECT_URI,
+      client_id_preview: `${CLIENT_ID.slice(0, 6)}...${CLIENT_ID.slice(-4)}`,
+      scopes: SCOPES,
+      authorize_url: url,
+    });
 
     return new Response(JSON.stringify({ url }), {
       status: 200,
