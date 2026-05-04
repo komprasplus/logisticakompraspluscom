@@ -41,6 +41,17 @@ async function verifyState(token: string, secret: string): Promise<any | null> {
   }
 }
 
+function normalizeShopDomain(raw: string): string {
+  let d = String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/+$/, "")
+    .replace(/\/.*$/, "");
+  if (d && !d.includes(".myshopify.com")) d = `${d}.myshopify.com`;
+  return d;
+}
+
 function htmlRedirect(url: string, message: string): Response {
   return new Response(
     `<!doctype html><meta charset="utf-8"><title>Conectando con Shopify…</title>
