@@ -14,6 +14,8 @@ import {
   FileText,
   Activity,
   Wallet,
+  ScanLine,
+  ClipboardList,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +26,7 @@ interface AdminSidebarProps {
   userRole?: string | null;
 }
 
-const ALIADO_ALLOWED_SECTIONS = ["despachos", "mapa"];
+const ALIADO_ALLOWED_SECTIONS = ["despachos", "mapa", "manifiesto-scanner", "manifiestos"];
 
 // Maps legacy section IDs to the new consolidated section
 const LEGACY_TO_NEW: Record<string, string> = {
@@ -84,6 +86,7 @@ interface MenuItem {
   colorClass: string;
   accentColor: string;
   badge?: boolean;
+  aliadoOnly?: boolean;
 }
 
 interface MenuGroup {
@@ -119,6 +122,24 @@ const MENU_GROUPS: MenuGroup[] = [
         badge: true,
         colorClass: "from-emerald-500 to-teal-500",
         accentColor: "bg-emerald-500/10",
+      },
+      {
+        id: "manifiesto-scanner",
+        label: "Escáner & Asignación",
+        icon: ScanLine,
+        description: "Modo metralleta para 4PL",
+        colorClass: "from-cyan-500 to-blue-500",
+        accentColor: "bg-cyan-500/10",
+        aliadoOnly: true,
+      },
+      {
+        id: "manifiestos",
+        label: "Planificador Rutas",
+        icon: ClipboardList,
+        description: "Manifiestos generados",
+        colorClass: "from-fuchsia-500 to-purple-500",
+        accentColor: "bg-fuchsia-500/10",
+        aliadoOnly: true,
       },
       {
         id: "inventario",
@@ -197,7 +218,10 @@ const AdminSidebar = ({
         ...g,
         items: g.items.filter((it) => ALIADO_ALLOWED_SECTIONS.includes(it.id)),
       })).filter((g) => g.items.length > 0)
-    : MENU_GROUPS;
+    : MENU_GROUPS.map((g) => ({
+        ...g,
+        items: g.items.filter((it) => !it.aliadoOnly),
+      })).filter((g) => g.items.length > 0);
 
   return (
     <aside

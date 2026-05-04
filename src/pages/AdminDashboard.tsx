@@ -73,6 +73,8 @@ const AdminWalletDashboard = lazy(() => import("@/components/admin/AdminWalletDa
 import MonitorFlexPanel from "@/components/admin/MonitorFlexPanel";
 const WebhookMonitorDashboard = lazy(() => import("@/components/admin/WebhookMonitorDashboard"));
 const LiquidacionAliadosPanel = lazy(() => import("@/components/admin/LiquidacionAliadosPanel"));
+const ManifiestoScannerView = lazy(() => import("@/components/admin/ManifiestoScannerView"));
+const ManifiestosListView = lazy(() => import("@/components/admin/ManifiestosListView"));
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
@@ -1748,6 +1750,30 @@ const AdminDashboard = () => {
           </motion.div>
         );
 
+      case "manifiesto-scanner":
+        if (!isAliado) return null;
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            <div className="mb-4 flex items-center gap-2">
+              <ScanLine className="h-6 w-6 text-cyan-500" />
+              <h2 className="text-xl font-bold text-foreground">Escáner & Asignación de Ruta</h2>
+            </div>
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              <ManifiestoScannerView />
+            </Suspense>
+          </motion.div>
+        );
+
+      case "manifiestos":
+        if (!isAliado) return null;
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              <ManifiestosListView />
+            </Suspense>
+          </motion.div>
+        );
+
       default:
         return null;
     }
@@ -1942,7 +1968,7 @@ const AdminDashboard = () => {
           };
           const resolved = legacyMap[section];
           const target = resolved ? resolved.parent : section;
-          if (isAliado && !["despachos", "mapa"].includes(target)) return;
+          if (isAliado && !["despachos", "mapa", "manifiesto-scanner", "manifiestos"].includes(target)) return;
           if (resolved?.tab) {
             if (resolved.parent === "despachos") setDespachosTab(resolved.tab);
             if (resolved.parent === "tesoreria") setTesoreriaTab(resolved.tab);
