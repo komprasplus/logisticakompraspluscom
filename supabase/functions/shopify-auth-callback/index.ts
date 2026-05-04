@@ -86,12 +86,15 @@ Deno.serve(async (req) => {
     if (!payload) {
       return htmlRedirect(`${APP_RETURN_URL}&shopify=error&reason=invalid_state`, "❌ Estado inválido o expirado");
     }
-    if (payload.s !== shopParam.toLowerCase()) {
+    const expectedShop = normalizeShopDomain(payload.s);
+    const receivedShop = normalizeShopDomain(shopParam);
+    if (expectedShop !== receivedShop) {
+      console.error("shop_mismatch", { expectedShop, receivedShop, raw_payload_s: payload.s, raw_shop: shopParam });
       return htmlRedirect(`${APP_RETURN_URL}&shopify=error&reason=shop_mismatch`, "❌ Dominio no coincide");
     }
 
     // Exchange code → access token
-    const tokenRes = await fetch(`https://${shopParam}/admin/oauth/access_token`, {
+    const tokenRes = await fetch(`https://${receivedShop}/admin/oauth/access_token`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({
