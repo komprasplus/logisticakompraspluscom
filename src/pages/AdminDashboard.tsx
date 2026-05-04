@@ -1750,6 +1750,30 @@ const AdminDashboard = () => {
           </motion.div>
         );
 
+      case "manifiesto-scanner":
+        if (!isAliado) return null;
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            <div className="mb-4 flex items-center gap-2">
+              <ScanLine className="h-6 w-6 text-cyan-500" />
+              <h2 className="text-xl font-bold text-foreground">Escáner & Asignación de Ruta</h2>
+            </div>
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              <ManifiestoScannerView />
+            </Suspense>
+          </motion.div>
+        );
+
+      case "manifiestos":
+        if (!isAliado) return null;
+        return (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4">
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>}>
+              <ManifiestosListView />
+            </Suspense>
+          </motion.div>
+        );
+
       default:
         return null;
     }
