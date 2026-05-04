@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (profileError) throw profileError;
 
       if (profileData) {
-        setProfile(profileData);
+        setProfile(profileData as ProfileData);
 
         // Check if the user's organization is active (suspended tenant guard)
         if (profileData.organizacion_id) {
