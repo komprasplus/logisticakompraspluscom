@@ -101,7 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const { data: profileData, error: profileError } = await withRetry(async () =>
         await supabase
           .from("profiles")
-          .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut, organizacion_id, tipo_cuenta")
+          .select("full_name, phone, email, avatar_url, vehicle_plate, is_online, store_name, logo_url, nit_rut, organizacion_id, tipo_cuenta, estado_aprobacion")
           .eq("user_id", userId)
           .maybeSingle()
       );
