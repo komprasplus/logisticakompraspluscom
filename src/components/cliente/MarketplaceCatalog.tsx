@@ -115,10 +115,12 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   const { data: proveedores = [] } = useQuery({
     queryKey: ["marketplace-proveedores", orgId, products.length],
     queryFn: async () => {
+      if (!orgId) return [];
       const { data: profilesData, error } = await (supabase as any)
         .from("profiles")
-        .select("user_id, store_name, full_name, logo_url, avatar_url, tipo_cuenta")
-        .eq("tipo_cuenta", "proveedor");
+        .select("user_id, store_name, full_name, logo_url, avatar_url, tipo_cuenta, organizacion_id")
+        .eq("tipo_cuenta", "proveedor")
+        .eq("organizacion_id", orgId);
       if (error) throw error;
 
       // Contar productos activos por proveedor (puede ser 0)
