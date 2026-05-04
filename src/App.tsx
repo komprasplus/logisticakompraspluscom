@@ -38,6 +38,7 @@ const SuperAdminMaster = lazyRetry(() => import("./pages/SuperAdminMaster"));
 const AdminControlTower = lazyRetry(() => import("./pages/AdminControlTower"));
 const PublicCatalog = lazyRetry(() => import("./pages/PublicCatalog"));
 const AILandingStudio = lazyRetry(() => import("./pages/AILandingStudio"));
+const AccountReview = lazyRetry(() => import("./pages/AccountReview"));
 
 // Shared loading fallback
 const PageLoader = () => (
@@ -125,7 +126,7 @@ const ConnectionErrorGuard = () => {
 
 // Protected route component
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: string[] }) => {
-  const { user, role, loading } = useAuth();
+  const { user, role, profile, loading } = useAuth();
 
   if (loading) {
     return <PageLoader />;
@@ -140,6 +141,17 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
     return <PageLoader />;
   }
 
+  // Approval gate: block access if profile awaiting review or rejected
+  // Super admins bypass the gate so platform owners aren't locked out
+  if (
+    role !== "super_admin" &&
+    profile &&
+    profile.estado_aprobacion &&
+    profile.estado_aprobacion !== "aprobado"
+  ) {
+    return <Navigate to="/cuenta-en-revision" replace />;
+  }
+
   if (!allowedRoles.includes(role)) {
     if (role === "admin") return <Navigate to="/admin" replace />;
     if (role === "motorizado") return <Navigate to="/motorizado" replace />;
@@ -150,6 +162,31 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode;
   }
 
   return <>{children}</>;
+};
+
+// Gate page: only renders for authenticated users; redirects approved users to their dashboard
+const AccountReviewGate = () => {
+  const { user, role, profile, loading } = useAuth();
+  if (loading) return <PageLoader />;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (
+    role === "super_admin" ||
+    !profile?.estado_aprobacion ||
+    profile.estado_aprobacion === "aprobado"
+  ) {
+    if (role === "admin") return <Navigate to="/admin" replace />;
+    if (role === "motorizado") return <Navigate to="/motorizado" replace />;
+    if (role === "cliente") return <Navigate to="/cliente" replace />;
+    if (role === "despachador") return <Navigate to="/despachador" replace />;
+    if (role === "super_admin") return <Navigate to="/super-admin-master" replace />;
+    if (role === "aliado_logistico") return <Navigate to="/admin" replace />;
+    return <Navigate to="/" replace />;
+  }
+  return (
+    <Suspense fallback={<PageLoader />}>
+      <AccountReview />
+    </Suspense>
+  );
 };
 
 const AppRoutes = () => {
@@ -185,6 +222,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route path="/cuenta-en-revision" element={<AccountReviewGate />} />
       <Route
         path="/admin"
         element={
