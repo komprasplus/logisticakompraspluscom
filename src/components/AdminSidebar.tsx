@@ -86,6 +86,7 @@ interface MenuItem {
   colorClass: string;
   accentColor: string;
   badge?: boolean;
+  aliadoOnly?: boolean;
 }
 
 interface MenuGroup {
