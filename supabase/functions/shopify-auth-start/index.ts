@@ -12,11 +12,18 @@ const corsHeaders = {
 const SCOPES = "write_products,read_products,read_orders,write_orders";
 
 function normalizeShopDomain(raw: string): string {
-  return String(raw || "")
+  let cleanDomain = String(raw || "")
     .trim()
     .toLowerCase()
     .replace(/^https?:\/\//, "")
-    .replace(/\/.*$/, "");
+    .replace(/\/.*$/, "")
+    .replace(/\.myshopify\.com.*$/, ".myshopify.com");
+
+  // Auto-append .myshopify.com if missing
+  if (cleanDomain && !cleanDomain.includes(".myshopify.com")) {
+    cleanDomain = `${cleanDomain}.myshopify.com`;
+  }
+  return cleanDomain;
 }
 
 function isValidShopDomain(domain: string): boolean {
