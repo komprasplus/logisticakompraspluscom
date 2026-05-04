@@ -701,6 +701,27 @@ const NuevoPedidoModal = ({
       }
     }
     
+    // Financial floor: PVP >= (Costo Producto Total + Flete) for cash-on-delivery
+    if (
+      tipoServicio === "ENVIO" &&
+      metodoPago === "efectivo" &&
+      valorRecaudar &&
+      !isMultiProductMode
+    ) {
+      const recaudo = Number(valorRecaudar) || 0;
+      const costoUnit = Number(valorProducto) || 0;
+      const cantidadEf = isVariableProduct
+        ? Math.max(variantsTotalQuantity, 1)
+        : (Number(quantity) || 1);
+      const minimo = costoUnit * cantidadEf + (Number(tarifaInfo.valor) || 0);
+      if (recaudo < minimo) {
+        toast.error(
+          `El Valor a Recaudar debe ser ≥ ${minimo.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })} (Costo + Flete).`
+        );
+        return;
+      }
+    }
+
     if (missingFields.length > 0) {
       toast.error(`Falta: ${missingFields.join(", ")}`);
       return;
