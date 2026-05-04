@@ -553,6 +553,45 @@ export type Database = {
         }
         Relationships: []
       }
+      manifiestos_ruta: {
+        Row: {
+          aliado_logistico_id: string
+          cantidad_paquetes: number
+          created_at: string
+          estado: string
+          id: string
+          motorizado_id: string | null
+          notas: string | null
+          numero_manifiesto: number
+          organizacion_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          aliado_logistico_id: string
+          cantidad_paquetes?: number
+          created_at?: string
+          estado?: string
+          id?: string
+          motorizado_id?: string | null
+          notas?: string | null
+          numero_manifiesto?: number
+          organizacion_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          aliado_logistico_id?: string
+          cantidad_paquetes?: number
+          created_at?: string
+          estado?: string
+          id?: string
+          motorizado_id?: string | null
+          notas?: string | null
+          numero_manifiesto?: number
+          organizacion_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       marketplace_favorites: {
         Row: {
           created_at: string
@@ -953,6 +992,7 @@ export type Database = {
           inventory_item_id: string | null
           latitud: number | null
           longitud: number | null
+          manifiesto_id: string | null
           metodo_pago: string | null
           motorizado_asignado: string | null
           motorizado_id: string | null
@@ -1015,6 +1055,7 @@ export type Database = {
           inventory_item_id?: string | null
           latitud?: number | null
           longitud?: number | null
+          manifiesto_id?: string | null
           metodo_pago?: string | null
           motorizado_asignado?: string | null
           motorizado_id?: string | null
@@ -1077,6 +1118,7 @@ export type Database = {
           inventory_item_id?: string | null
           latitud?: number | null
           longitud?: number | null
+          manifiesto_id?: string | null
           metodo_pago?: string | null
           motorizado_asignado?: string | null
           motorizado_id?: string | null
@@ -1109,6 +1151,13 @@ export type Database = {
             columns: ["inventory_item_id"]
             isOneToOne: false
             referencedRelation: "inventory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_manifiesto_id_fkey"
+            columns: ["manifiesto_id"]
+            isOneToOne: false
+            referencedRelation: "manifiestos_ruta"
             referencedColumns: ["id"]
           },
           {
@@ -1726,6 +1775,7 @@ export type Database = {
         Returns: boolean
       }
       is_admin: { Args: never; Returns: boolean }
+      is_aliado_logistico: { Args: { _user_id: string }; Returns: boolean }
       is_proveedor_account: { Args: { _user_id: string }; Returns: boolean }
       is_super_admin: { Args: never; Returns: boolean }
       is_supplier_of_pedido: {
