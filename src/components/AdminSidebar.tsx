@@ -218,7 +218,10 @@ const AdminSidebar = ({
         ...g,
         items: g.items.filter((it) => ALIADO_ALLOWED_SECTIONS.includes(it.id)),
       })).filter((g) => g.items.length > 0)
-    : MENU_GROUPS;
+    : MENU_GROUPS.map((g) => ({
+        ...g,
+        items: g.items.filter((it) => !it.aliadoOnly),
+      })).filter((g) => g.items.length > 0);
 
   return (
     <aside
