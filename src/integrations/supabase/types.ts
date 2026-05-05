@@ -987,6 +987,7 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          aliado_logistico_id: string | null
           barrio: string | null
           canal: string | null
           client_phone: string | null
@@ -1050,6 +1051,7 @@ export type Database = {
           zona: string | null
         }
         Insert: {
+          aliado_logistico_id?: string | null
           barrio?: string | null
           canal?: string | null
           client_phone?: string | null
@@ -1113,6 +1115,7 @@ export type Database = {
           zona?: string | null
         }
         Update: {
+          aliado_logistico_id?: string | null
           barrio?: string | null
           canal?: string | null
           client_phone?: string | null
