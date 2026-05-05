@@ -117,6 +117,17 @@ const PendienteConfirmacionPanel = ({ pedidos, onConfirmed }: PendienteConfirmac
       return;
     }
 
+    // Reconcilia propiedad de proveedor (matchea por SKU o por ID de inventario)
+    try {
+      const { data: rec, error: recErr } = await supabase.rpc("reconcile_order_supplier_ownership", {
+        p_pedido_id: editing.id,
+      });
+      if (recErr) console.warn("reconcile error:", recErr.message);
+      else console.log("✅ Reconciliación proveedor:", rec);
+    } catch (e) {
+      console.warn("reconcile exception:", e);
+    }
+
     toast({
       title: "✅ Pedido confirmado",
       description: "Enviado a bodega. El proveedor ya puede empacarlo.",
