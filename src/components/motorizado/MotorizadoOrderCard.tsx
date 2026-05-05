@@ -21,8 +21,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType } from "@/lib/orderStatuses";
+import { NOVEDAD_OPTIONS, type NovedadType } from "@/lib/orderStatuses";
 import { cn } from "@/lib/utils";
+import SignatureCanvas from "@/components/SignatureCanvas";
+import { Eraser } from "lucide-react";
 
 const COUNTRY_CODE = "57";
 const BODEGA_ADDRESS = "Calle 14 # 19-64 Bodega 403, Bogotá, Colombia";
