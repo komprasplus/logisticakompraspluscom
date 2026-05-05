@@ -389,8 +389,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
       return data;
     },
     onSuccess: (data) => {
-      toast.success("✅ Producto importado con éxito a tu tienda.", {
-        description: `Creado en ${data?.store_name ?? "Shopify"}`,
+      toast.success("✅ Producto importado como Borrador en tu Shopify", {
+        description: `Revísalo en ${data?.store_name ?? "Shopify"} antes de publicarlo`,
       });
     },
     onError: (err: Error) => {
