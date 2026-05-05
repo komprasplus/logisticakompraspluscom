@@ -1001,6 +1001,9 @@ export type Database = {
           dropi_guia_id: string | null
           dropi_sync_status: string | null
           estado: string | null
+          evidencia_firma_url: string | null
+          evidencia_foto_url: string | null
+          evidencia_llamada_url: string | null
           fecha_actualizacion: string | null
           fecha_cierre_logistico: string | null
           fecha_creacion: string | null
@@ -1065,6 +1068,9 @@ export type Database = {
           dropi_guia_id?: string | null
           dropi_sync_status?: string | null
           estado?: string | null
+          evidencia_firma_url?: string | null
+          evidencia_foto_url?: string | null
+          evidencia_llamada_url?: string | null
           fecha_actualizacion?: string | null
           fecha_cierre_logistico?: string | null
           fecha_creacion?: string | null
@@ -1129,6 +1135,9 @@ export type Database = {
           dropi_guia_id?: string | null
           dropi_sync_status?: string | null
           estado?: string | null
+          evidencia_firma_url?: string | null
+          evidencia_foto_url?: string | null
+          evidencia_llamada_url?: string | null
           fecha_actualizacion?: string | null
           fecha_cierre_logistico?: string | null
           fecha_creacion?: string | null
