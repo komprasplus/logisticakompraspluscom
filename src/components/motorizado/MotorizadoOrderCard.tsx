@@ -486,15 +486,63 @@ const MotorizadoOrderCard = ({
                   )}
                 </div>
 
+                {/* Signature Pad - Required */}
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    ✍️ Firma del cliente (obligatoria)
+                  </label>
+                  {signature ? (
+                    <div className="relative rounded-xl border border-border bg-white p-2">
+                      <img
+                        src={signature}
+                        alt="Firma"
+                        className="w-full h-28 object-contain"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSignature(null);
+                          setShowSigPad(true);
+                        }}
+                        className="absolute bottom-2 right-2 bg-background/90 px-3 py-1 rounded-lg text-xs font-medium border border-border flex items-center gap-1"
+                      >
+                        <Eraser className="h-3 w-3" /> Volver a firmar
+                      </button>
+                    </div>
+                  ) : showSigPad ? (
+                    <div className="rounded-xl border border-border bg-card p-2">
+                      <SignatureCanvas
+                        onSave={(sig) => {
+                          setSignature(sig);
+                          setShowSigPad(false);
+                        }}
+                        onCancel={() => setShowSigPad(false)}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowSigPad(true)}
+                      className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-8 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                    >
+                      <Eraser className="h-8 w-8" />
+                      <span className="font-medium text-sm">Capturar firma</span>
+                    </button>
+                  )}
+                </div>
+
                 <Button
                   type="button"
                   onClick={handleConfirmDelivery}
-                  disabled={!photo || submitting}
+                  disabled={!photo || !signature || submitting}
                   className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
                   size="lg"
                 >
                   {submitting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                      Subiendo evidencias...
+                    </>
                   ) : (
                     <>
                       <CheckCircle2 className="h-5 w-5" />
