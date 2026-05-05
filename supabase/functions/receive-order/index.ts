@@ -443,7 +443,9 @@ Deno.serve(async (req) => {
         const skus = shopifyLineItems.map((li) => li.sku).filter((s): s is string => !!s);
         let invBySku = new Map<string, { id: string; client_user_id: string; cost_price: number | null }>();
 
+        const invByKey = new Map<string, { id: string; client_user_id: string; cost_price: number | null }>();
         if (skus.length > 0) {
+          // 1) Match by SKU
           const { data: invRows } = await supabase
             .from("inventory")
             .select("id, sku, client_user_id, cost_price, organizacion_id, is_deleted")
@@ -451,11 +453,27 @@ Deno.serve(async (req) => {
             .eq("organizacion_id", orgId)
             .eq("is_deleted", false);
           (invRows ?? []).forEach((r: any) => {
-            if (!invBySku.has(r.sku)) {
-              invBySku.set(r.sku, { id: r.id, client_user_id: r.client_user_id, cost_price: r.cost_price });
+            if (!invByKey.has(r.sku)) {
+              invByKey.set(r.sku, { id: r.id, client_user_id: r.client_user_id, cost_price: r.cost_price });
             }
           });
+
+          // 2) Fallback: SKU contains the Plus Envíos inventory UUID (common integrator pattern)
+          const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          const uuidSkus = skus.filter((s) => uuidRe.test(s) && !invByKey.has(s));
+          if (uuidSkus.length > 0) {
+            const { data: invByIdRows } = await supabase
+              .from("inventory")
+              .select("id, client_user_id, cost_price")
+              .in("id", uuidSkus)
+              .eq("organizacion_id", orgId)
+              .eq("is_deleted", false);
+            (invByIdRows ?? []).forEach((r: any) => {
+              invByKey.set(r.id, { id: r.id, client_user_id: r.client_user_id, cost_price: r.cost_price });
+            });
+          }
         }
+        invBySku = invByKey;
 
         const itemsToInsert = shopifyLineItems.map((li) => {
           const inv = li.sku ? invBySku.get(li.sku) : undefined;
