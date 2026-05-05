@@ -1223,8 +1223,8 @@ const MotorizadoDashboard = () => {
                             distanceText={getDistanceText(pedido)}
                             borderColor={zonaConfig?.color}
                             onSelect={() => setSelectedPedido(pedido)}
-                            onDeliver={(p, photo) =>
-                              handleCardDeliver(p as Pedido, photo)
+                            onDeliver={(p, photo, signature) =>
+                              handleCardDeliver(p as Pedido, photo, signature)
                             }
                             onNovedad={(p, type, note, photo) =>
                               handleCardNovedad(p as Pedido, type, note, photo)
