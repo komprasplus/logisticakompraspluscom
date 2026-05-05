@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
           : "",
         vendor: "Plus Envíos",
         product_type: product.category ?? product.product_type ?? "",
-        status: "active",
+        status: "draft",
         images,
         variants: [
           {
