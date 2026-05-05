@@ -61,12 +61,13 @@ interface Props {
   onDeliver: (
     pedido: MotorizadoOrderCardPedido,
     photoBase64: string,
+    signatureBase64: string,
   ) => Promise<void> | void;
   onNovedad: (
     pedido: MotorizadoOrderCardPedido,
     novedadType: NovedadType,
     note: string,
-    photoBase64: string | null,
+    photoBase64: string,
   ) => Promise<void> | void;
 }
 
