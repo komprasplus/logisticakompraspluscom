@@ -1828,6 +1828,13 @@ export type Database = {
         Args: { p_desde_fecha?: string; p_dry_run?: boolean }
         Returns: Json
       }
+      reconcile_order_supplier_ownership: {
+        Args: { p_pedido_id: number }
+        Returns: {
+          matched: number
+          total: number
+        }[]
+      }
       resolve_store_owner: { Args: { p_shop_domain: string }; Returns: Json }
       slugify: { Args: { input: string }; Returns: string }
       transfer_store_balance: {
