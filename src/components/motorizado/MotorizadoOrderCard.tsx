@@ -195,12 +195,13 @@ const MotorizadoOrderCard = ({
   };
 
   const handleConfirmDelivery = async () => {
-    if (!photo) return;
+    if (!photo || !signature) return;
     setSubmitting(true);
     try {
-      await onDeliver(pedido, photo);
+      await onDeliver(pedido, photo, signature);
       setShowDrawer(false);
       setPhoto(null);
+      setSignature(null);
     } finally {
       setSubmitting(false);
     }
@@ -208,12 +209,11 @@ const MotorizadoOrderCard = ({
 
   const handleConfirmNovedad = async () => {
     if (!novedadType) return;
-    if (NOVEDADES_REQUIRE_PHOTO.includes(novedadType as NovedadType) && !novedadPhoto) {
-      return;
-    }
+    if (!novedadPhoto) return;
+    if (!novedadNote.trim()) return;
     setSubmitting(true);
     try {
-      await onNovedad(pedido, novedadType as NovedadType, novedadNote, novedadPhoto);
+      await onNovedad(pedido, novedadType as NovedadType, novedadNote.trim(), novedadPhoto);
       setShowDrawer(false);
       setNovedadType("");
       setNovedadNote("");
