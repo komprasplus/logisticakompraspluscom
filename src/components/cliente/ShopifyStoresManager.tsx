@@ -382,7 +382,18 @@ const ShopifyStoresManager = ({
                         toast({ title: "Error", description: error?.message || "No se pudo iniciar OAuth", variant: "destructive" });
                         return;
                       }
-                      window.location.href = data.url as string;
+                      const shopifyUrl = data.url as string;
+                      // Top-level navigation: romper iframe (Lovable preview) para evitar X-Frame-Options DENY de Shopify
+                      try {
+                        if (window.top && window.top !== window.self) {
+                          window.top.location.href = shopifyUrl;
+                        } else {
+                          window.location.assign(shopifyUrl);
+                        }
+                      } catch {
+                        // Cross-origin iframe: forzar apertura en nueva pestaña top-level
+                        window.open(shopifyUrl, "_top");
+                      }
                     }}
                     disabled={saving}
                     className="w-full bg-gradient-to-r from-primary to-primary/80"
