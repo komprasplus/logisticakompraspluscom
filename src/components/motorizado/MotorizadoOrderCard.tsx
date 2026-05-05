@@ -87,6 +87,8 @@ const MotorizadoOrderCard = ({
   const [novedadType, setNovedadType] = useState<NovedadType | "">("");
   const [novedadNote, setNovedadNote] = useState("");
   const [novedadPhoto, setNovedadPhoto] = useState<string | null>(null);
+  const [signature, setSignature] = useState<string | null>(null);
+  const [showSigPad, setShowSigPad] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
