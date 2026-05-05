@@ -581,62 +581,58 @@ const MotorizadoOrderCard = ({
                     htmlFor={`${uid}-note`}
                     className="text-sm font-medium text-foreground mb-2 block"
                   >
-                    Nota adicional (opcional)
+                    Detalle de lo sucedido (obligatorio)
                   </label>
                   <Textarea
                     id={`${uid}-note`}
-                    placeholder="Detalles que ayuden a la tienda a resolver..."
+                    placeholder="Detalla qué pasó: la persona no respondió, dirección incorrecta, etc."
                     value={novedadNote}
                     onChange={(e) => setNovedadNote(e.target.value)}
                     rows={3}
+                    required
                   />
                 </div>
 
-                {novedadType &&
-                  NOVEDADES_REQUIRE_PHOTO.includes(novedadType as NovedadType) && (
-                    <div>
-                      <label className="text-sm font-medium text-foreground mb-2 block">
-                        📷 Foto de evidencia (obligatoria)
-                      </label>
-                      <input
-                        ref={novedadPhotoInputRef}
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        onChange={(e) =>
-                          handlePhotoChange(e, setNovedadPhoto)
-                        }
-                        className="hidden"
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">
+                    📷 Pantallazo de la llamada o foto del lugar (obligatoria)
+                  </label>
+                  <input
+                    ref={novedadPhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={(e) => handlePhotoChange(e, setNovedadPhoto)}
+                    className="hidden"
+                  />
+                  {novedadPhoto ? (
+                    <div className="relative">
+                      <img
+                        src={novedadPhoto}
+                        alt="Evidencia"
+                        className="w-full h-36 object-cover rounded-xl"
                       />
-                      {novedadPhoto ? (
-                        <div className="relative">
-                          <img
-                            src={novedadPhoto}
-                            alt="Evidencia"
-                            className="w-full h-36 object-cover rounded-xl"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => novedadPhotoInputRef.current?.click()}
-                            className="absolute bottom-2 right-2 bg-background/90 px-3 py-1 rounded-lg text-xs font-medium border border-border"
-                          >
-                            Cambiar
-                          </button>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => novedadPhotoInputRef.current?.click()}
-                          className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-orange-400 py-8 text-orange-600"
-                        >
-                          <Camera className="h-8 w-8" />
-                          <span className="font-medium text-sm">
-                            Tomar foto de evidencia
-                          </span>
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => novedadPhotoInputRef.current?.click()}
+                        className="absolute bottom-2 right-2 bg-background/90 px-3 py-1 rounded-lg text-xs font-medium border border-border"
+                      >
+                        Cambiar
+                      </button>
                     </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => novedadPhotoInputRef.current?.click()}
+                      className="w-full flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-orange-400 py-8 text-orange-600"
+                    >
+                      <Camera className="h-8 w-8" />
+                      <span className="font-medium text-sm">
+                        Subir / tomar foto
+                      </span>
+                    </button>
                   )}
+                </div>
 
                 <Button
                   type="button"
@@ -644,8 +640,8 @@ const MotorizadoOrderCard = ({
                   disabled={
                     !novedadType ||
                     submitting ||
-                    (NOVEDADES_REQUIRE_PHOTO.includes(novedadType as NovedadType) &&
-                      !novedadPhoto)
+                    !novedadPhoto ||
+                    !novedadNote.trim()
                   }
                   className={cn(
                     "w-full text-white",
@@ -654,11 +650,14 @@ const MotorizadoOrderCard = ({
                   size="lg"
                 >
                   {submitting ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                      Subiendo evidencias...
+                    </>
                   ) : (
                     <>
                       <AlertTriangle className="h-5 w-5" />
-                      Marcar Novedad
+                      Reportar Novedad
                     </>
                   )}
                 </Button>
