@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { ShoppingBag, Plus, Trash2, Loader2, ArrowLeft, ExternalLink, AlertCircle, Shield } from "lucide-react";
+import { ShoppingBag, Plus, Trash2, Loader2, ArrowLeft, ExternalLink, Shield } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import {
   Table,
   TableBody,
@@ -75,7 +75,6 @@ const ShopifyStoresManager = ({
 
   const [nombre, setNombre] = useState("");
   const [url, setUrl] = useState("");
-  const [token, setToken] = useState("");
 
   const fetchStores = useCallback(async () => {
     setLoading(true);
