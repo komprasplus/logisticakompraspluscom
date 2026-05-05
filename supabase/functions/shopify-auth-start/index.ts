@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SCOPES = "write_products,read_products,read_orders,write_orders";
+const SCOPES = "read_products,write_products,read_orders,write_orders";
 
 function normalizeShopDomain(raw: string): string {
   let d = String(raw || "")
