@@ -17,15 +17,11 @@ function normalizeShopDomain(raw: string): string {
   return d;
 }
 
-function htmlRedirect(url: string, message: string): Response {
-  return new Response(
-    `<!doctype html><meta charset="utf-8"><title>Conectando con Shopify…</title>
-<meta http-equiv="refresh" content="1;url=${url}">
-<body style="font-family:system-ui;background:#0F172A;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;text-align:center">
-<div><h2>${message}</h2><p>Redirigiendo… <a style="color:#00D1FF" href="${url}">Continuar</a></p></div>
-</body>`,
-    { status: 200, headers: { "Content-Type": "text/html; charset=utf-8" } },
-  );
+function htmlRedirect(url: string, _message: string): Response {
+  return new Response(null, {
+    status: 302,
+    headers: { Location: url },
+  });
 }
 
 Deno.serve(async (req) => {
