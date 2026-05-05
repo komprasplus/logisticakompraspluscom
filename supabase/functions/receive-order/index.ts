@@ -203,6 +203,9 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Captured Shopify line items (used later to create order_items linked to provider inventory)
+    let shopifyLineItems: Array<{ sku: string | null; title: string; quantity: number; price: number }> = [];
+
     // ── Shopify payload translator ──
     // If this is a Shopify webhook, the body uses Shopify's native schema
     // (shipping_address, line_items, total_price). Map it to our internal shape.
