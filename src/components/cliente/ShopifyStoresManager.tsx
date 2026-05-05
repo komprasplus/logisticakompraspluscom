@@ -133,53 +133,6 @@ const ShopifyStoresManager = ({
   const resetForm = () => {
     setNombre("");
     setUrl("");
-    setToken("");
-  };
-
-  const handleSave = async () => {
-    if (!nombre.trim() || !url.trim() || !token.trim()) {
-      toast({ title: "Campos requeridos", description: "Completa los 3 campos.", variant: "destructive" });
-      return;
-    }
-    const normalized = normalizeShopUrl(url);
-    if (!normalized.includes(".myshopify.com")) {
-      toast({
-        title: "URL inválida",
-        description: "Debe terminar en .myshopify.com (ej: mitienda.myshopify.com)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSaving(true);
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData.user) {
-      setSaving(false);
-      toast({ title: "Sesión expirada", description: "Inicia sesión de nuevo.", variant: "destructive" });
-      return;
-    }
-    const { error } = await supabase.from("connected_stores").insert({
-      user_id: userData.user.id,
-      plataforma: "shopify",
-      nombre_tienda: nombre.trim(),
-      url_tienda: normalized,
-      api_access_token: token.trim(),
-      estado: "Activo",
-    });
-    setSaving(false);
-
-    if (error) {
-      const msg = error.message?.includes("connected_stores_url_unique")
-        ? "Esta tienda ya está vinculada a una cuenta."
-        : error.message || "No se pudo vincular la tienda.";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-      return;
-    }
-
-    toast({ title: "¡Tienda vinculada!", description: `${nombre} está lista para recibir pedidos.` });
-    resetForm();
-    setView("list");
-    fetchStores();
   };
 
   const handleToggle = async (id: string, currentEstado: "Activo" | "Inactivo") => {
