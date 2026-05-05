@@ -1,0 +1,2 @@
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS aliado_logistico_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_pedidos_aliado_logistico ON public.pedidos(aliado_logistico_id);
