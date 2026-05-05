@@ -249,6 +249,13 @@ Deno.serve(async (req) => {
           shipping_address: ship,
         };
 
+        shopifyLineItems = lineItems.map((li) => ({
+          sku: (li.sku as string) || null,
+          title: (li.title as string) || (li.name as string) || "Producto",
+          quantity: Number(li.quantity) || 1,
+          price: Number(li.price) || 0,
+        }));
+
         orderPayload = {
           cliente_nombre: fullName,
           client_phone: phone,
