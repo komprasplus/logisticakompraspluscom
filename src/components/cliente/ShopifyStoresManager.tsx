@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
-import { ShoppingBag, Plus, Trash2, Loader2, ArrowLeft, ExternalLink, AlertCircle, Shield } from "lucide-react";
+import { ShoppingBag, Plus, Trash2, Loader2, ArrowLeft, ExternalLink, Shield } from "lucide-react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import {
   Table,
   TableBody,
@@ -75,7 +75,6 @@ const ShopifyStoresManager = ({
 
   const [nombre, setNombre] = useState("");
   const [url, setUrl] = useState("");
-  const [token, setToken] = useState("");
 
   const fetchStores = useCallback(async () => {
     setLoading(true);
@@ -133,53 +132,6 @@ const ShopifyStoresManager = ({
   const resetForm = () => {
     setNombre("");
     setUrl("");
-    setToken("");
-  };
-
-  const handleSave = async () => {
-    if (!nombre.trim() || !url.trim() || !token.trim()) {
-      toast({ title: "Campos requeridos", description: "Completa los 3 campos.", variant: "destructive" });
-      return;
-    }
-    const normalized = normalizeShopUrl(url);
-    if (!normalized.includes(".myshopify.com")) {
-      toast({
-        title: "URL inválida",
-        description: "Debe terminar en .myshopify.com (ej: mitienda.myshopify.com)",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setSaving(true);
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData.user) {
-      setSaving(false);
-      toast({ title: "Sesión expirada", description: "Inicia sesión de nuevo.", variant: "destructive" });
-      return;
-    }
-    const { error } = await supabase.from("connected_stores").insert({
-      user_id: userData.user.id,
-      plataforma: "shopify",
-      nombre_tienda: nombre.trim(),
-      url_tienda: normalized,
-      api_access_token: token.trim(),
-      estado: "Activo",
-    });
-    setSaving(false);
-
-    if (error) {
-      const msg = error.message?.includes("connected_stores_url_unique")
-        ? "Esta tienda ya está vinculada a una cuenta."
-        : error.message || "No se pudo vincular la tienda.";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-      return;
-    }
-
-    toast({ title: "¡Tienda vinculada!", description: `${nombre} está lista para recibir pedidos.` });
-    resetForm();
-    setView("list");
-    fetchStores();
   };
 
   const handleToggle = async (id: string, currentEstado: "Activo" | "Inactivo") => {
@@ -445,74 +397,6 @@ const ShopifyStoresManager = ({
                     Recomendado · Te llevamos a Shopify para autorizar la app
                   </p>
                 </div>
-
-                <div className="relative my-2">
-                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t" /></div>
-                  <div className="relative flex justify-center"><span className="bg-background px-2 text-xs text-muted-foreground">o token manual (avanzado)</span></div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="store-name">Nombre identificador *</Label>
-                    <Input
-                      id="store-name"
-                      value={nombre}
-                      onChange={(e) => setNombre(e.target.value)}
-                      placeholder="Ej: Mi Tienda Belleza"
-                      className="mt-1"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Para que reconozcas esta tienda en tu panel.
-                    </p>
-                  </div>
-                  <div>
-                    <Label htmlFor="store-url">URL de la tienda Shopify *</Label>
-                    <Input
-                      id="store-url"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      placeholder="mitienda.myshopify.com"
-                      className="mt-1 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="store-token">Admin API Access Token *</Label>
-                    <Input
-                      id="store-token"
-                      type="password"
-                      value={token}
-                      onChange={(e) => setToken(e.target.value)}
-                      placeholder="shpat_xxxxxxxxxxxxxxxxxxxx"
-                      className="mt-1 font-mono"
-                      autoComplete="off"
-                    />
-                  </div>
-                </div>
-
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription className="text-xs">
-                    Genera un token desde tu Shopify Admin → Apps → Develop apps → Crear app privada → Admin API
-                    access token.
-                  </AlertDescription>
-                </Alert>
-
-                <Button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="w-full bg-gradient-to-r from-green-500 to-green-600"
-                >
-                  {saving ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Vinculando...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4 mr-2" /> Vincular Tienda
-                    </>
-                  )}
-                </Button>
               </div>
             )}
           </div>
