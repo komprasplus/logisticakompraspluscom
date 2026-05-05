@@ -64,7 +64,7 @@ import PedidoDetailModal from "@/components/PedidoDetailModal";
 import PrintGuiaModal from "@/components/PrintGuiaModal";
 import BulkPrintGuiasModal from "@/components/BulkPrintGuiasModal";
 import ManifiestoModal from "@/components/cliente/ManifiestoModal";
-import LiquidacionesPanel from "@/components/LiquidacionesPanel";
+
 import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
  import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
 import IntegrationsPanel from "@/components/admin/IntegrationsPanel";
@@ -1577,13 +1577,8 @@ const AdminDashboard = () => {
               </h2>
             </div>
             
-            <Tabs defaultValue="motorizados" className="w-full">
-               <TabsList className="grid w-full grid-cols-3 mb-4">
-                <TabsTrigger value="motorizados" className="gap-2">
-                  <Truck className="h-4 w-4" />
-                  <span className="hidden sm:inline">Motorizados</span>
-                  <span className="sm:hidden">Motoriz.</span>
-                </TabsTrigger>
+            <Tabs defaultValue="tiendas" className="w-full">
+               <TabsList className="grid w-full grid-cols-2 mb-4">
                 <TabsTrigger value="tiendas" className="gap-2">
                   <Store className="h-4 w-4" />
                   <span>Tiendas</span>
@@ -1593,25 +1588,7 @@ const AdminDashboard = () => {
                    <span>Dropi</span>
                  </TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="motorizados" className="mt-0">
-                <div className="rounded-xl border border-border bg-card p-4 space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-foreground flex items-center gap-2">
-                      <Truck className="h-5 w-5 text-teal-600" />
-                      Cierre de Caja - Motorizados
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Pedidos entregados en efectivo pendientes de recibir en bodega.
-                    </p>
-                    <div className="mt-2 p-2 bg-muted/50 rounded-lg text-xs font-mono">
-                      <span className="text-teal-600 font-semibold">Saldo a Bodega</span> = Recaudo Total − Fletes Ganados
-                    </div>
-                  </div>
-                  <LiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
-                </div>
-              </TabsContent>
-              
+
               <TabsContent value="tiendas" className="mt-0">
                 <div className="rounded-xl border border-border bg-card p-4 space-y-4">
                   <div>
@@ -1629,7 +1606,7 @@ const AdminDashboard = () => {
                   <StoreLiquidacionesPanel onLiquidacionComplete={fetchPedidos} />
                 </div>
               </TabsContent>
-               
+
                <TabsContent value="dropi" className="mt-0">
                  <DropiLiquidacionPanel />
                </TabsContent>
