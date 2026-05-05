@@ -713,21 +713,36 @@ const MotorizadoDashboard = () => {
 
   // Inline handlers for the new MotorizadoOrderCard P.O.D drawer
   const handleCardDeliver = useCallback(
-    async (pedido: Pedido, photoBase64: string) => {
-      const updateData: Record<string, unknown> = {
-        estado: "Entregado",
-        foto_evidencia: photoBase64,
-        fecha_actualizacion: new Date().toISOString(),
-      };
-
+    async (pedido: Pedido, photoBase64: string, signatureBase64: string) => {
       try {
+        let photoUrl: string = photoBase64;
+        let signatureUrl: string = signatureBase64;
+
+        if (navigator.onLine) {
+          const { uploadEvidence } = await import("@/lib/evidenceUpload");
+          [photoUrl, signatureUrl] = await Promise.all([
+            uploadEvidence(pedido.id, "foto", photoBase64),
+            uploadEvidence(pedido.id, "firma", signatureBase64),
+          ]);
+        }
+
+        const updateData: Record<string, unknown> = {
+          estado: "Entregado",
+          foto_evidencia: photoUrl,
+          foto_paquete: photoUrl,
+          firma_cliente: signatureUrl,
+          evidencia_foto_url: photoUrl,
+          evidencia_firma_url: signatureUrl,
+          fecha_actualizacion: new Date().toISOString(),
+        };
+
         if (!navigator.onLine) {
           await savePendingDeliveryOffline({
             pedidoId: pedido.id,
             estado: "Entregado",
             foto_evidencia: photoBase64,
-            foto_paquete: null,
-            firma_cliente: null,
+            foto_paquete: photoBase64,
+            firma_cliente: signatureBase64,
             latitude: userLocation?.lat || null,
             longitude: userLocation?.lng || null,
             isDeviation: false,
@@ -754,7 +769,7 @@ const MotorizadoDashboard = () => {
             }
           }
 
-          toast.success("✅ Pedido entregado exitosamente");
+          toast.success("✅ Pedido entregado con evidencias guardadas");
         }
 
         if (pedido.client_user_id) {
@@ -773,11 +788,12 @@ const MotorizadoDashboard = () => {
 
         updatePedidoLocally(pedido.id, {
           estado: "Entregado",
-          foto_evidencia: photoBase64,
+          foto_evidencia: photoUrl,
+          firma_cliente: signatureUrl,
         });
       } catch (error) {
         console.error("Error updating estado:", error);
-        toast.error("Error al actualizar el estado");
+        toast.error("Error al subir evidencias");
         throw error;
       }
     },
