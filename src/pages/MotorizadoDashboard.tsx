@@ -805,10 +805,13 @@ const MotorizadoDashboard = () => {
       pedido: Pedido,
       novedadType: NovedadType,
       note: string,
-      photoBase64: string | null,
+      photoBase64: string,
     ) => {
       try {
         const { handleDeliveryAttempt } = await import("@/lib/notificationService");
+        const { uploadEvidence } = await import("@/lib/evidenceUpload");
+
+        const llamadaUrl = await uploadEvidence(pedido.id, "llamada", photoBase64);
 
         const { data: currentOrder, error: fetchError } = await supabase
           .from("pedidos")
@@ -827,32 +830,38 @@ const MotorizadoDashboard = () => {
         );
 
         if (attemptResult.shouldMarkAsReturn) {
+          await supabase
+            .from("pedidos")
+            .update({
+              evidencia_llamada_url: llamadaUrl,
+              foto_evidencia: llamadaUrl,
+              tipo_novedad: novedadType,
+            })
+            .eq("id", pedido.id);
+
           updatePedidoLocally(pedido.id, {
             estado: "Devolución",
             tipo_novedad: novedadType,
-            foto_evidencia: photoBase64 || undefined,
+            foto_evidencia: llamadaUrl,
           });
           toast.warning(attemptResult.message, { duration: 6000 });
         } else {
           const updateData: Record<string, unknown> = {
             estado: "Novedad",
             tipo_novedad: novedadType,
+            foto_evidencia: llamadaUrl,
+            evidencia_llamada_url: llamadaUrl,
             fecha_actualizacion: new Date().toISOString(),
           };
           if (userLocation) {
             updateData.novedad_latitud = userLocation.lat;
             updateData.novedad_longitud = userLocation.lng;
           }
-          if (photoBase64) {
-            updateData.foto_evidencia = photoBase64;
-          }
-          if (note?.trim()) {
-            const noteEntry = `[NOVEDAD] ${new Date().toLocaleString()} - ${note.trim()}`;
-            const existing = currentOrder?.observaciones || "";
-            updateData.observaciones = existing
-              ? `${existing}\n\n${noteEntry}`
-              : noteEntry;
-          }
+          const noteEntry = `[NOVEDAD] ${new Date().toLocaleString()} - ${note.trim()}`;
+          const existing = currentOrder?.observaciones || "";
+          updateData.observaciones = existing
+            ? `${existing}\n\n${noteEntry}`
+            : noteEntry;
 
           const { error } = await supabase
             .from("pedidos")
@@ -863,7 +872,7 @@ const MotorizadoDashboard = () => {
           updatePedidoLocally(pedido.id, {
             estado: "Novedad",
             tipo_novedad: novedadType,
-            foto_evidencia: photoBase64 || undefined,
+            foto_evidencia: llamadaUrl,
           });
 
           toast.success(`⚠️ ${attemptResult.message}`);
