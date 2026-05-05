@@ -203,6 +203,9 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Captured Shopify line items (used later to create order_items linked to provider inventory)
+    let shopifyLineItems: Array<{ sku: string | null; title: string; quantity: number; price: number }> = [];
+
     // ── Shopify payload translator ──
     // If this is a Shopify webhook, the body uses Shopify's native schema
     // (shipping_address, line_items, total_price). Map it to our internal shape.
@@ -245,6 +248,13 @@ Deno.serve(async (req) => {
           })),
           shipping_address: ship,
         };
+
+        shopifyLineItems = lineItems.map((li) => ({
+          sku: (li.sku as string) || null,
+          title: (li.title as string) || (li.name as string) || "Producto",
+          quantity: Number(li.quantity) || 1,
+          price: Number(li.price) || 0,
+        }));
 
         orderPayload = {
           cliente_nombre: fullName,
@@ -415,6 +425,64 @@ Deno.serve(async (req) => {
         .from("connected_stores")
         .update({ last_sync_at: new Date().toISOString() })
         .eq("url_tienda", normalized);
+    }
+
+    // ── Resolve provider ownership for Shopify line items (B2B routing) ──
+    // Match each Shopify SKU against inventory in the dropshipper's organization
+    // to find the supplier (proveedor) that owns the stock. This creates the
+    // "pase de testigo" so the proveedor sees the order in "Por empacar".
+    if (isShopifyWebhook && shopifyLineItems.length > 0) {
+      try {
+        const { data: dropProfile } = await supabase
+          .from("profiles")
+          .select("organizacion_id")
+          .eq("user_id", credential.client_user_id)
+          .maybeSingle();
+        const orgId = dropProfile?.organizacion_id ?? "a0000000-0000-0000-0000-000000000001";
+
+        const skus = shopifyLineItems.map((li) => li.sku).filter((s): s is string => !!s);
+        let invBySku = new Map<string, { id: string; client_user_id: string; cost_price: number | null }>();
+
+        if (skus.length > 0) {
+          const { data: invRows } = await supabase
+            .from("inventory")
+            .select("id, sku, client_user_id, cost_price, organizacion_id, is_deleted")
+            .in("sku", skus)
+            .eq("organizacion_id", orgId)
+            .eq("is_deleted", false);
+          (invRows ?? []).forEach((r: any) => {
+            if (!invBySku.has(r.sku)) {
+              invBySku.set(r.sku, { id: r.id, client_user_id: r.client_user_id, cost_price: r.cost_price });
+            }
+          });
+        }
+
+        const itemsToInsert = shopifyLineItems.map((li) => {
+          const inv = li.sku ? invBySku.get(li.sku) : undefined;
+          return {
+            pedido_id: newOrder.id,
+            organizacion_id: orgId,
+            product_name: li.title,
+            sku: li.sku,
+            quantity: li.quantity,
+            unit_price: li.price,
+            line_total: li.price * li.quantity,
+            inventory_item_id: inv?.id ?? null,
+            supplier_user_id: inv?.client_user_id ?? null,
+            supplier_cost_snapshot: inv?.cost_price ?? null,
+          };
+        });
+
+        const { error: itemsErr } = await supabase.from("order_items").insert(itemsToInsert);
+        if (itemsErr) {
+          console.error("⚠️ order_items insert failed:", itemsErr.message);
+        } else {
+          const matched = itemsToInsert.filter((i) => i.supplier_user_id).length;
+          console.log(`📦 order_items created: ${itemsToInsert.length} (matched suppliers: ${matched})`);
+        }
+      } catch (e) {
+        console.error("⚠️ Provider routing error:", (e as Error).message);
+      }
     }
 
     console.log("Order created successfully:", newOrder.id, numeroGuia);
