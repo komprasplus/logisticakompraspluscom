@@ -48,4 +48,8 @@ verify_jwt = false
 [functions.meli-webhook]
 verify_jwt = false
 
+[functions.meli-scan-shipment]
+verify_jwt = true
+
+
 
