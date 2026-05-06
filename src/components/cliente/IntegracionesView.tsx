@@ -191,6 +191,15 @@ const integrations = [
     docUrl: "https://docs.komprasplus.com/woocommerce",
   },
   {
+    id: "mercado_libre",
+    name: "Mercado Libre (Envíos Flex)",
+    description: "Conecta tu cuenta de Mercado Libre para sincronizar Envíos Flex",
+    icon: Package,
+    color: "from-yellow-400 to-yellow-500",
+    status: "available" as const,
+    docUrl: "https://developers.mercadolibre.com.co",
+  },
+  {
     id: "prestashop",
     name: "PrestaShop",
     description: "Integración con tiendas PrestaShop",
