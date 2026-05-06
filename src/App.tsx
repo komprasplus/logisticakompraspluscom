@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { lazy, Suspense, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
+import MeliOAuthHandler from "@/components/MeliOAuthHandler";
 
 // Eager-load lightweight pages
 import Index from "./pages/Index";
@@ -313,6 +314,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <MeliOAuthHandler />
             <AppRoutes />
           </BrowserRouter>
         </ThemeProvider>

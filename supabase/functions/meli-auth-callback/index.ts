@@ -1,15 +1,20 @@
-// Mercado Libre OAuth — Step 2: callback. Exchanges code → access_token,
-// persists tokens in BOTH `integraciones_tiendas` (canonical token store) and
-// `connected_stores` (legacy). Uses SERVICE_ROLE_KEY to bypass RLS.
+// Mercado Libre OAuth — callback as JSON API.
+// Frontend captures ?code from ML redirect and POSTs { code, state } here.
+// We exchange for tokens and upsert into integraciones_tiendas + connected_stores
+// using SERVICE_ROLE_KEY to bypass RLS. Returns plain JSON.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-function redirect(url: string): Response {
-  return new Response(null, { status: 302, headers: { Location: url } });
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
 }
 
 Deno.serve(async (req) => {
@@ -18,26 +23,15 @@ Deno.serve(async (req) => {
   const CLIENT_ID = Deno.env.get("MELI_APP_ID")!;
   const CLIENT_SECRET = Deno.env.get("MELI_SECRET_KEY")!;
   const REDIRECT_URI = Deno.env.get("MELI_REDIRECT_URI")!;
-  const APP_RETURN_URL =
-    Deno.env.get("MELI_APP_RETURN_URL") ??
-    "https://logistica.komprasplus.com/cliente?view=integraciones";
 
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-    const errorParam = url.searchParams.get("error");
+    const body = await req.json().catch(() => ({}));
+    const code = body?.code;
+    const state = body?.state;
 
-    console.log("[meli-callback] incoming", { hasCode: !!code, hasState: !!state, errorParam });
+    console.log("[meli-callback] incoming", { hasCode: !!code, hasState: !!state });
+    if (!code || !state) return json({ success: false, error: "missing_params" }, 400);
 
-    if (errorParam) {
-      return redirect(`${APP_RETURN_URL}&meli=error&reason=${encodeURIComponent(errorParam)}`);
-    }
-    if (!code || !state) {
-      return redirect(`${APP_RETURN_URL}&meli=error&reason=missing_params`);
-    }
-
-    // ✅ SERVICE ROLE client — bypasses RLS for token persistence
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -51,11 +45,11 @@ Deno.serve(async (req) => {
 
     if (stateErr || !stateRow || stateRow.provider !== "mercado_libre") {
       console.error("[meli-callback] invalid_state", { stateErr, stateRow });
-      return redirect(`${APP_RETURN_URL}&meli=error&reason=invalid_state`);
+      return json({ success: false, error: "invalid_state" }, 400);
     }
     if (new Date(stateRow.expires_at).getTime() < Date.now()) {
       await supabaseAdmin.from("oauth_states").delete().eq("state", state);
-      return redirect(`${APP_RETURN_URL}&meli=error&reason=state_expired`);
+      return json({ success: false, error: "state_expired" }, 400);
     }
     await supabaseAdmin.from("oauth_states").delete().eq("state", state);
 
@@ -75,11 +69,11 @@ Deno.serve(async (req) => {
     if (!tokenRes.ok) {
       const errTxt = await tokenRes.text();
       console.error("[meli-callback] token_exchange_failed", tokenRes.status, errTxt);
-      return redirect(`${APP_RETURN_URL}&meli=error&reason=token_exchange`);
+      return json({ success: false, error: "token_exchange", detail: errTxt }, 400);
     }
 
     const tokenJson = await tokenRes.json();
-    console.log("[meli-callback] Tokens recibidos de ML:", {
+    console.log("Tokens recibidos de ML:", {
       has_access: !!tokenJson.access_token,
       has_refresh: !!tokenJson.refresh_token,
       meli_user_id: tokenJson.user_id,
@@ -87,14 +81,12 @@ Deno.serve(async (req) => {
     });
 
     const { access_token, refresh_token, expires_in, user_id: meli_user_id } = tokenJson;
-    if (!access_token) {
-      return redirect(`${APP_RETURN_URL}&meli=error&reason=no_token`);
-    }
+    if (!access_token) return json({ success: false, error: "no_token" }, 400);
 
     const expiresAt = new Date(Date.now() + (Number(expires_in) || 21600) * 1000).toISOString();
     const meliUserIdStr = meli_user_id ? String(meli_user_id) : null;
 
-    // ── 1. UPSERT canonical: integraciones_tiendas ─────────────────────────
+    // 1) UPSERT canonical: integraciones_tiendas
     const { error: integErr } = await supabaseAdmin
       .from("integraciones_tiendas")
       .upsert(
@@ -110,12 +102,11 @@ Deno.serve(async (req) => {
       );
 
     if (integErr) {
-      console.error("[meli-callback] Error guardando en BD (integraciones_tiendas):", integErr);
-      return redirect(`${APP_RETURN_URL}&meli=error&reason=db_save_integ`);
+      console.error("Error guardando en BD:", integErr);
+      return json({ success: false, error: "db_save_integ", detail: integErr.message }, 500);
     }
-    console.log("[meli-callback] integraciones_tiendas OK", { user_id: stateRow.user_id });
 
-    // ── 2. UPSERT legacy mirror: connected_stores ──────────────────────────
+    // 2) Mirror to legacy connected_stores (non-fatal)
     const urlTienda = `meli:${meliUserIdStr ?? stateRow.user_id}`;
     const { error: csErr } = await supabaseAdmin
       .from("connected_stores")
@@ -136,13 +127,13 @@ Deno.serve(async (req) => {
       );
 
     if (csErr) {
-      console.error("[meli-callback] Warning guardando connected_stores (no fatal):", csErr);
+      console.error("[meli-callback] connected_stores warn (non-fatal):", csErr);
     }
 
-    console.log("[meli-callback] meli_oauth_success", { user: stateRow.user_id, meli_user_id: meliUserIdStr });
-    return redirect(`${APP_RETURN_URL}&meli=success`);
+    console.log("[meli-callback] success", { user: stateRow.user_id, meli_user_id: meliUserIdStr });
+    return json({ success: true, meli_user_id: meliUserIdStr });
   } catch (e) {
     console.error("[meli-callback] exception:", e);
-    return redirect(`${APP_RETURN_URL}&meli=error&reason=exception`);
+    return json({ success: false, error: (e as Error).message }, 500);
   }
 });
