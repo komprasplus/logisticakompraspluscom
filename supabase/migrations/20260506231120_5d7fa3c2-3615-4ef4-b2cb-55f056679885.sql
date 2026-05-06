@@ -1,0 +1,1 @@
+ALTER TABLE public.integraciones_tiendas ADD CONSTRAINT integraciones_tiendas_user_plataforma_uniq UNIQUE (user_id, plataforma);
