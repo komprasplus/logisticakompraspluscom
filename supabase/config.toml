@@ -42,4 +42,10 @@ verify_jwt = false
 [functions.meli-auth-callback]
 verify_jwt = false
 
+[functions.meli-auth-start]
+verify_jwt = false
+
+[functions.meli-webhook]
+verify_jwt = false
+
 

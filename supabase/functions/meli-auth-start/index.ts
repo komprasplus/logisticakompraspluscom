@@ -1,11 +1,21 @@
-// Mercado Libre OAuth — Step 1: build authorization URL with DB-backed state
+// Mercado Libre OAuth — Step 1: build authorization URL with DB-backed state.
+// Supports two modes:
+//  - GET ?token=<jwt>  → returns HTTP 302 directly to Mercado Libre (top-level redirect)
+//  - POST { nombre_tienda } with Authorization header → returns { url } JSON (legacy modal flow)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
+
+function jsonError(msg: string, status = 400) {
+  return new Response(JSON.stringify({ error: msg }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -14,13 +24,19 @@ Deno.serve(async (req) => {
     const CLIENT_ID = Deno.env.get("MELI_APP_ID");
     const REDIRECT_URI = Deno.env.get("MELI_REDIRECT_URI");
     if (!CLIENT_ID || !REDIRECT_URI) {
-      return new Response(
-        JSON.stringify({ error: "Faltan MELI_APP_ID / MELI_REDIRECT_URI en secrets" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return jsonError("Faltan MELI_APP_ID / MELI_REDIRECT_URI en secrets", 500);
     }
 
-    const authHeader = req.headers.get("Authorization") ?? "";
+    const url = new URL(req.url);
+    const isGet = req.method === "GET";
+
+    // Resolve user from Authorization header (POST) or ?token= (GET top-level redirect)
+    let authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader && isGet) {
+      const tok = url.searchParams.get("token");
+      if (tok) authHeader = `Bearer ${tok}`;
+    }
+
     const supabaseUser = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -28,13 +44,20 @@ Deno.serve(async (req) => {
     );
     const { data: { user }, error: userErr } = await supabaseUser.auth.getUser();
     if (userErr || !user) {
-      return new Response(JSON.stringify({ error: "No autenticado" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (isGet) {
+        return new Response(null, {
+          status: 302,
+          headers: { Location: "https://logistica.komprasplus.com/auth?meli=error&reason=unauth" },
+        });
+      }
+      return jsonError("No autenticado", 401);
     }
 
-    const body = await req.json().catch(() => ({}));
-    const nombre = String(body?.nombre_tienda || "").trim().slice(0, 120) || "Mercado Libre";
+    let nombre = "Mercado Libre";
+    if (!isGet) {
+      const body = await req.json().catch(() => ({}));
+      nombre = String(body?.nombre_tienda || "").trim().slice(0, 120) || "Mercado Libre";
+    }
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -53,9 +76,7 @@ Deno.serve(async (req) => {
     });
     if (insErr) {
       console.error("[meli-auth-start] insert oauth_states failed:", insErr);
-      return new Response(JSON.stringify({ error: "No se pudo iniciar OAuth (state)" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonError("No se pudo iniciar OAuth (state)", 500);
     }
 
     const params = new URLSearchParams({
@@ -64,17 +85,20 @@ Deno.serve(async (req) => {
       redirect_uri: REDIRECT_URI,
       state,
     });
-    const url = `https://auth.mercadolibre.com.co/authorization?${params.toString()}`;
+    const meliUrl = `https://auth.mercadolibre.com.co/authorization?${params.toString()}`;
 
-    console.log("[meli-auth-start] OK", { state, redirect_uri: REDIRECT_URI });
+    console.log("[meli-auth-start] OK", { mode: req.method, state, redirect_uri: REDIRECT_URI });
 
-    return new Response(JSON.stringify({ url }), {
-      status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    if (isGet) {
+      return new Response(null, { status: 302, headers: { Location: meliUrl } });
+    }
+
+    return new Response(JSON.stringify({ url: meliUrl }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("meli-auth-start error:", e);
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonError((e as Error).message, 500);
   }
 });
