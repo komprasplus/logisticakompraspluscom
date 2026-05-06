@@ -578,12 +578,12 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                       type="button"
                       variant="outline"
                       className="flex-1"
-                      disabled={integration.status === "coming_soon"}
+                      disabled={integration.status === "coming_soon" || (integration.id === "mercado_libre" && meliConnecting)}
                       onClick={() => {
                         if (integration.id === "shopify") {
                           setShowShopifyManager(true);
                         } else if (integration.id === "mercado_libre") {
-                          setShowMeliModal(true);
+                          void handleConnectMeli();
                         } else {
                           setShowNewKeyModal(true);
                         }
@@ -595,7 +595,9 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                           ? "Ver Todas las Tiendas"
                           : "Administrar Tiendas"
                         : integration.id === "mercado_libre"
-                          ? "Conectar Mercado Libre"
+                          ? meliConnecting
+                            ? "Redirigiendo…"
+                            : "Conectar con Mercado Libre"
                           : hasActiveKey
                             ? "Gestionar"
                             : "Configurar"}
