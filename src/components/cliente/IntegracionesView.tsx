@@ -251,6 +251,35 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   const prefersReducedMotion = useReducedMotion();
   const { toast } = useToast();
 
+  const handleConnectMeli = useCallback(async () => {
+    setMeliConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meli-auth-start", {
+        body: { nombre_tienda: "Mercado Libre" },
+      });
+      if (error) throw error;
+      const meliUrl = (data as { url?: string })?.url;
+      if (!meliUrl) throw new Error("No se recibió URL de autorización");
+      try {
+        if (window.top && window.top !== window.self) {
+          window.top.location.href = meliUrl;
+        } else {
+          window.location.assign(meliUrl);
+        }
+      } catch {
+        window.open(meliUrl, "_top");
+      }
+    } catch (e) {
+      console.error("[meli-auth-start] error:", e);
+      toast({
+        title: "No se pudo iniciar la conexión",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+      setMeliConnecting(false);
+    }
+  }, [toast]);
+
   const hasActiveKey = credentials.some((c) => c.is_active);
 
   // ── Fetch credenciales ────────────────────────────────────────────────────
