@@ -238,6 +238,7 @@ const AdminDashboard = () => {
   }, [isAliado]);
   const [showBulkUpload, setShowBulkUpload] = useState(false);
   const [showFlexScanner, setShowFlexScanner] = useState(false);
+  const [showMeliFlexScanner, setShowMeliFlexScanner] = useState(false);
   const [mapDateFilter, setMapDateFilter] = useState<Date | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isServerSearchActive, setIsServerSearchActive] = useState(false);
