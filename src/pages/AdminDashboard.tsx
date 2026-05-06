@@ -2044,6 +2044,17 @@ const AdminDashboard = () => {
       <NuevoPedidoModal isOpen={showNuevoPedido} onClose={() => setShowNuevoPedido(false)} onSuccess={fetchPedidos} isAdmin={true} />
       <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} onSuccess={fetchPedidos} />
       <FlexReceptionScanner isOpen={showFlexScanner} onClose={() => setShowFlexScanner(false)} onSuccess={fetchPedidos} />
+      <MeliFlexScannerModal isOpen={showMeliFlexScanner} onClose={() => setShowMeliFlexScanner(false)} onSuccess={fetchPedidos} />
+      {isAliado && (
+        <button
+          onClick={() => setShowMeliFlexScanner(true)}
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-semibold px-5 py-4 shadow-2xl shadow-amber-500/40 transition-transform hover:scale-105"
+          title="Escanear Recolección Mercado Libre Flex"
+        >
+          <ScanLine className="h-5 w-5" />
+          <span className="hidden sm:inline">Escanear Recolección (ML Flex)</span>
+        </button>
+      )}
       <CancelOrderModal 
         isOpen={showCancelOrder} 
         onClose={() => {
