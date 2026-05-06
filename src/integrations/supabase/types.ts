@@ -390,6 +390,39 @@ export type Database = {
         }
         Relationships: []
       }
+      integraciones_tiendas: {
+        Row: {
+          access_token: string | null
+          created_at: string | null
+          id: string
+          plataforma: string
+          refresh_token: string | null
+          updated_at: string | null
+          user_id: string | null
+          user_id_externo: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string | null
+          id?: string
+          plataforma: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_id_externo?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string | null
+          id?: string
+          plataforma?: string
+          refresh_token?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          user_id_externo?: string | null
+        }
+        Relationships: []
+      }
       inventory: {
         Row: {
           category: string | null
