@@ -83,12 +83,13 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 280, height: 140 } },
         (decoded) => {
+          // Sanitize: ML only accepts numeric IDs
+          const cleanShipmentId = (decoded || "").replace(/\D/g, "");
+          if (!cleanShipmentId) return;
           const now = Date.now();
-          if (lastDetectionRef.current.code === decoded && now - lastDetectionRef.current.ts < 2000) return;
-          lastDetectionRef.current = { code: decoded, ts: now };
-          // Beep + stop + submit
-          playSuccessSound();
-          stopScanner().then(() => submitShipment(decoded));
+          if (lastDetectionRef.current.code === cleanShipmentId && now - lastDetectionRef.current.ts < 3000) return;
+          lastDetectionRef.current = { code: cleanShipmentId, ts: now };
+          stopScanner().then(() => submitShipment(cleanShipmentId));
         },
         () => { /* ignore scan-frame errors */ }
       );
@@ -173,7 +174,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
           {phase === "processing" && (
             <div className="py-12 flex flex-col items-center justify-center gap-3">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="font-medium">Procesando paquete...</p>
+              <p className="font-medium">Sincronizando recolección con Mercado Libre...</p>
               <p className="text-xs text-muted-foreground">Shipment {shipmentId}</p>
             </div>
           )}
