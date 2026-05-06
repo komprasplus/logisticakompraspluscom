@@ -44,10 +44,23 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         body: { shipment_id: id },
       });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
+      const d: any = data ?? {};
+      if (d.error || d.success === false) {
+        const msg = d.message || d.error || "No se pudo registrar la recolección";
+        playErrorSound();
+        setErrorMsg(msg);
+        setPhase("error");
+        // Errores de ML (400/403) → toast amarillo (warning)
+        if (d.error === "meli_api_error") {
+          toast.warning(`Mercado Libre: ${msg}`);
+        } else {
+          toast.error(msg);
+        }
+        return;
+      }
       playSuccessSound();
       setPhase("success");
-      toast.success("¡Paquete recolectado con éxito!");
+      toast.success(d.duplicate ? "Paquete ya estaba registrado" : "¡Paquete recolectado con éxito!");
       onSuccess?.();
     } catch (e: any) {
       console.error("meli-scan-shipment failed", e);

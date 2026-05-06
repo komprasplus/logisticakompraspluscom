@@ -1,5 +1,7 @@
 // Mercado Libre Flex — Confirma recolección de un shipment escaneado
-// Recibe shipment_id, llama a la API oficial de ML, e inserta el pedido en Supabase.
+// Permite al motorizado/aliado escanear cualquier etiqueta Flex.
+// Busca un token activo de ML en integraciones_tiendas, llama a la API oficial,
+// y registra el pedido en Supabase. Propaga el error de ML al frontend.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -27,11 +29,10 @@ Deno.serve(async (req) => {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Auth: who is calling?
-    const supaUser = createClient(SUPABASE_URL, SERVICE_KEY, {
-      global: { headers: { Authorization: `Bearer ${jwt}` } },
-    });
-    const { data: userData, error: userErr } = await supaUser.auth.getUser(jwt);
+    const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY);
+
+    // Identify caller (motorizado/aliado)
+    const { data: userData, error: userErr } = await supabaseAdmin.auth.getUser(jwt);
     if (userErr || !userData?.user) return json({ error: "invalid_user" }, 401);
     const callerId = userData.user.id;
 
@@ -39,64 +40,33 @@ Deno.serve(async (req) => {
     const shipmentId = String(body?.shipment_id ?? "").trim();
     if (!shipmentId) return json({ error: "missing_shipment_id" }, 400);
 
-    // Service-role client (bypass RLS)
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
+    console.log("[meli-scan] incoming", { caller: callerId, shipmentId });
 
-    // Find the most recent active ML store. Prefer caller's, fallback to any.
-    const { data: ownStore } = await supabase
-      .from("connected_stores")
-      .select("id, user_id, organizacion_id, api_access_token, meli_user_id, meli_token_expires_at, meli_refresh_token")
+    // 1) Buscar cualquier token activo de ML en la plataforma (MVP)
+    const { data: tokenData, error: tokenErr } = await supabaseAdmin
+      .from("integraciones_tiendas")
+      .select("user_id, access_token, refresh_token, user_id_externo, organizacion_id")
       .eq("plataforma", "mercado_libre")
-      .eq("estado", "Activo")
-      .eq("user_id", callerId)
+      .not("access_token", "is", null)
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    let store = ownStore;
-    if (!store) {
-      const { data: anyStore } = await supabase
-        .from("connected_stores")
-        .select("id, user_id, organizacion_id, api_access_token, meli_user_id, meli_token_expires_at, meli_refresh_token")
-        .eq("plataforma", "mercado_libre")
-        .eq("estado", "Activo")
-        .order("updated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      store = anyStore;
+    if (tokenErr) {
+      console.error("[meli-scan] token query failed", tokenErr);
+      return json({ error: "token_query_failed", detail: tokenErr.message }, 500);
+    }
+    if (!tokenData?.access_token || !tokenData?.user_id_externo) {
+      return json({
+        error: "no_meli_store_connected",
+        message: "No hay ninguna tienda de Mercado Libre conectada en la plataforma.",
+      }, 400);
     }
 
-    if (!store?.api_access_token || !store?.meli_user_id) {
-      return json({ error: "no_meli_store_connected" }, 400);
-    }
+    const accessToken = tokenData.access_token as string;
+    const courierUserId = String(tokenData.user_id_externo);
 
-    // Refresh token if expired
-    let accessToken = store.api_access_token as string;
-    const expiresAt = store.meli_token_expires_at ? new Date(store.meli_token_expires_at).getTime() : 0;
-    if (expiresAt && expiresAt - Date.now() < 60_000 && store.meli_refresh_token) {
-      const refreshRes = await fetch("https://api.mercadolibre.com/oauth/token", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({
-          grant_type: "refresh_token",
-          client_id: Deno.env.get("MELI_APP_ID")!,
-          client_secret: Deno.env.get("MELI_SECRET_KEY")!,
-          refresh_token: store.meli_refresh_token as string,
-        }).toString(),
-      });
-      if (refreshRes.ok) {
-        const t = await refreshRes.json();
-        accessToken = t.access_token;
-        await supabase.from("connected_stores").update({
-          api_access_token: t.access_token,
-          meli_refresh_token: t.refresh_token ?? store.meli_refresh_token,
-          meli_token_expires_at: new Date(Date.now() + (Number(t.expires_in) || 21600) * 1000).toISOString(),
-        }).eq("id", store.id);
-      }
-    }
-
-    // Call Mercado Libre Flex API
-    const courierUserId = String(store.meli_user_id);
+    // 2) POST a Mercado Libre Flex
     const meliUrl = `https://api.mercadolibre.com/flex/sites/MCO/users/${courierUserId}/courier-shipment/v1`;
     const meliRes = await fetch(meliUrl, {
       method: "POST",
@@ -112,23 +82,35 @@ Deno.serve(async (req) => {
     try { meliData = meliText ? JSON.parse(meliText) : null; } catch { /* ignore */ }
 
     if (!meliRes.ok) {
-      console.error("meli_api_error", meliRes.status, meliText);
-      return json({ error: "meli_api_error", status: meliRes.status, detail: meliData ?? meliText }, 502);
+      const meliMsg =
+        meliData?.error?.message ||
+        meliData?.message ||
+        meliData?.cause?.[0]?.message ||
+        meliText ||
+        "Error desconocido de Mercado Libre";
+      console.warn("[meli-scan] ML error", meliRes.status, meliMsg);
+      return json({
+        error: "meli_api_error",
+        status: meliRes.status,
+        message: meliMsg,
+        detail: meliData ?? meliText,
+      }, meliRes.status === 400 || meliRes.status === 403 ? 200 : 502);
+      // NB: returning 200 con error para que el frontend lo muestre como warning
     }
 
-    // Insert pedido (avoid duplicates by id_externo)
+    // 3) Insertar pedido (idempotente por id_externo)
     const idExterno = `MELI-${shipmentId}`;
-    const { data: existing } = await supabase
+    const { data: existing } = await supabaseAdmin
       .from("pedidos")
       .select("id")
       .eq("id_externo", idExterno)
       .maybeSingle();
 
     if (existing) {
-      return json({ ok: true, duplicate: true, pedido_id: existing.id, meli: meliData });
+      return json({ ok: true, success: true, duplicate: true, pedido_id: existing.id, meli: meliData });
     }
 
-    const { data: nextIdRow } = await supabase
+    const { data: nextIdRow } = await supabaseAdmin
       .from("pedidos")
       .select("id")
       .order("id", { ascending: false })
@@ -136,7 +118,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
     const nextId = (nextIdRow?.id ?? 0) + 1;
 
-    const { data: pedido, error: insErr } = await supabase
+    const { data: pedido, error: insErr } = await supabaseAdmin
       .from("pedidos")
       .insert({
         id: nextId,
@@ -145,10 +127,10 @@ Deno.serve(async (req) => {
         canal: "MELI_FLEX",
         integration_partner: "mercado_libre",
         estado: "recolectado",
-        client_user_id: store.user_id,
+        client_user_id: tokenData.user_id,
         proveedor_logistico_id: callerId,
         aliado_logistico_id: callerId,
-        organizacion_id: store.organizacion_id,
+        organizacion_id: tokenData.organizacion_id,
         cliente_nombre: meliData?.receiver?.name ?? null,
         client_phone: meliData?.receiver?.phone ?? null,
         direccion_entrega: meliData?.receiver_address?.address_line ?? null,
@@ -161,13 +143,13 @@ Deno.serve(async (req) => {
       .single();
 
     if (insErr) {
-      console.error("insert_pedido_failed", insErr);
-      return json({ error: "insert_failed", detail: insErr.message }, 500);
+      console.error("[meli-scan] insert failed", insErr);
+      return json({ error: "insert_failed", message: insErr.message }, 500);
     }
 
-    return json({ ok: true, pedido_id: pedido.id, meli: meliData });
+    return json({ ok: true, success: true, pedido_id: pedido.id, meli: meliData });
   } catch (e) {
-    console.error("meli-scan-shipment exception:", e);
-    return json({ error: "exception", detail: String(e) }, 500);
+    console.error("[meli-scan] exception", e);
+    return json({ error: "exception", message: String(e) }, 500);
   }
 });
