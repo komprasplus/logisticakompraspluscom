@@ -1,7 +1,7 @@
 // Mercado Libre OAuth — Step 1: build authorization URL with DB-backed state.
-// Supports two modes:
-//  - GET ?token=<jwt>  → returns HTTP 302 directly to Mercado Libre (top-level redirect)
-//  - POST { nombre_tienda } with Authorization header → returns { url } JSON (legacy modal flow)
+// Modes:
+//  - GET ?token=<jwt>  → HTTP 302 redirect directly to Mercado Libre (top-level)
+//  - POST { nombre_tienda } with Authorization header → JSON { url } (legacy)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -21,16 +21,25 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const CLIENT_ID = Deno.env.get("MELI_APP_ID");
-    const REDIRECT_URI = Deno.env.get("MELI_REDIRECT_URI");
-    if (!CLIENT_ID || !REDIRECT_URI) {
-      return jsonError("Faltan MELI_APP_ID / MELI_REDIRECT_URI en secrets", 500);
+    // 1) Strict env read + validation
+    const clientId = Deno.env.get("MELI_APP_ID");
+    const redirectUri = Deno.env.get("MELI_REDIRECT_URI");
+
+    if (!clientId || !redirectUri) {
+      console.error("[meli-auth-start] MISSING ENV", {
+        hasClientId: !!clientId,
+        hasRedirectUri: !!redirectUri,
+      });
+      return jsonError(
+        "Server configuration error: Missing MELI_APP_ID or MELI_REDIRECT_URI",
+        500,
+      );
     }
 
     const url = new URL(req.url);
     const isGet = req.method === "GET";
 
-    // Resolve user from Authorization header (POST) or ?token= (GET top-level redirect)
+    // Resolve user from Authorization header (POST) or ?token= (GET top-level)
     let authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader && isGet) {
       const tok = url.searchParams.get("token");
@@ -79,21 +88,27 @@ Deno.serve(async (req) => {
       return jsonError("No se pudo iniciar OAuth (state)", 500);
     }
 
-    const params = new URLSearchParams({
-      response_type: "code",
-      client_id: CLIENT_ID,
-      redirect_uri: REDIRECT_URI,
-      state,
-    });
-    const meliUrl = `https://auth.mercadolibre.com.co/authorization?${params.toString()}`;
+    // 2) Strict URL construction with URLSearchParams (proper encoding)
+    const authUrl = new URL("https://auth.mercadolibre.com.co/authorization");
+    authUrl.searchParams.append("response_type", "code");
+    authUrl.searchParams.append("client_id", clientId);
+    authUrl.searchParams.append("redirect_uri", redirectUri);
+    authUrl.searchParams.append("state", state);
 
-    console.log("[meli-auth-start] OK", { mode: req.method, state, redirect_uri: REDIRECT_URI });
+    const finalUrl = authUrl.toString();
+    console.log("[meli-auth-start] OK", {
+      mode: req.method,
+      state,
+      redirect_uri: redirectUri,
+      client_id_len: clientId.length,
+      authUrl: finalUrl,
+    });
 
     if (isGet) {
-      return new Response(null, { status: 302, headers: { Location: meliUrl } });
+      return new Response(null, { status: 302, headers: { Location: finalUrl } });
     }
 
-    return new Response(JSON.stringify({ url: meliUrl }), {
+    return new Response(JSON.stringify({ url: finalUrl }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
