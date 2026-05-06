@@ -346,6 +346,27 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
     };
   }, [clientUserId, fetchCredentials, fetchSyncedOrders]);
 
+  // Detectar retorno desde OAuth de Mercado Libre y limpiar la URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const meli = params.get("meli");
+    if (!meli) return;
+    if (meli === "success") {
+      toast({ title: "✅ Mercado Libre conectado", description: "Tu cuenta quedó vinculada con éxito." });
+    } else {
+      const reason = params.get("reason") ?? "desconocido";
+      toast({
+        title: "❌ No se pudo conectar Mercado Libre",
+        description: `Motivo: ${reason}`,
+        variant: "destructive",
+      });
+    }
+    params.delete("meli");
+    params.delete("reason");
+    const qs = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+  }, [toast]);
+
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleGenerateKey = useCallback(async () => {
