@@ -77,6 +77,7 @@ const ManifiestoScannerView = lazy(() => import("@/components/admin/ManifiestoSc
 const ManifiestosListView = lazy(() => import("@/components/admin/ManifiestosListView"));
 const SolicitudesRegistroPanel = lazy(() => import("@/components/admin/SolicitudesRegistroPanel"));
 import FlexReceptionScanner from "@/components/admin/FlexReceptionScanner";
+import MeliFlexScannerModal from "@/components/admin/MeliFlexScannerModal";
 import AdminReportesPanel from "@/components/AdminReportesPanel";
 import UserCardsGrid from "@/components/UserCardsGrid";
 import UserManagementTabs from "@/components/UserManagementTabs";
