@@ -1,4 +1,6 @@
-// Mercado Libre OAuth — Step 2: callback. Exchanges code → access_token, persists in connected_stores
+// Mercado Libre OAuth — Step 2: callback. Exchanges code → access_token,
+// persists tokens in BOTH `integraciones_tiendas` (canonical token store) and
+// `connected_stores` (legacy). Uses SERVICE_ROLE_KEY to bypass RLS.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
@@ -26,6 +28,8 @@ Deno.serve(async (req) => {
     const state = url.searchParams.get("state");
     const errorParam = url.searchParams.get("error");
 
+    console.log("[meli-callback] incoming", { hasCode: !!code, hasState: !!state, errorParam });
+
     if (errorParam) {
       return redirect(`${APP_RETURN_URL}&meli=error&reason=${encodeURIComponent(errorParam)}`);
     }
@@ -33,26 +37,27 @@ Deno.serve(async (req) => {
       return redirect(`${APP_RETURN_URL}&meli=error&reason=missing_params`);
     }
 
-    const supabase = createClient(
+    // ✅ SERVICE ROLE client — bypasses RLS for token persistence
+    const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    const { data: stateRow, error: stateErr } = await supabase
+    const { data: stateRow, error: stateErr } = await supabaseAdmin
       .from("oauth_states")
       .select("state, user_id, nombre_tienda, expires_at, provider")
       .eq("state", state)
       .maybeSingle();
 
     if (stateErr || !stateRow || stateRow.provider !== "mercado_libre") {
-      console.error("invalid_state", { stateErr, stateRow });
+      console.error("[meli-callback] invalid_state", { stateErr, stateRow });
       return redirect(`${APP_RETURN_URL}&meli=error&reason=invalid_state`);
     }
     if (new Date(stateRow.expires_at).getTime() < Date.now()) {
-      await supabase.from("oauth_states").delete().eq("state", state);
+      await supabaseAdmin.from("oauth_states").delete().eq("state", state);
       return redirect(`${APP_RETURN_URL}&meli=error&reason=state_expired`);
     }
-    await supabase.from("oauth_states").delete().eq("state", state);
+    await supabaseAdmin.from("oauth_states").delete().eq("state", state);
 
     // Exchange code → token
     const tokenRes = await fetch("https://api.mercadolibre.com/oauth/token", {
@@ -69,11 +74,18 @@ Deno.serve(async (req) => {
 
     if (!tokenRes.ok) {
       const errTxt = await tokenRes.text();
-      console.error("token_exchange_failed", tokenRes.status, errTxt);
+      console.error("[meli-callback] token_exchange_failed", tokenRes.status, errTxt);
       return redirect(`${APP_RETURN_URL}&meli=error&reason=token_exchange`);
     }
 
     const tokenJson = await tokenRes.json();
+    console.log("[meli-callback] Tokens recibidos de ML:", {
+      has_access: !!tokenJson.access_token,
+      has_refresh: !!tokenJson.refresh_token,
+      meli_user_id: tokenJson.user_id,
+      expires_in: tokenJson.expires_in,
+    });
+
     const { access_token, refresh_token, expires_in, user_id: meli_user_id } = tokenJson;
     if (!access_token) {
       return redirect(`${APP_RETURN_URL}&meli=error&reason=no_token`);
@@ -81,9 +93,31 @@ Deno.serve(async (req) => {
 
     const expiresAt = new Date(Date.now() + (Number(expires_in) || 21600) * 1000).toISOString();
     const meliUserIdStr = meli_user_id ? String(meli_user_id) : null;
-    const urlTienda = `meli:${meliUserIdStr ?? stateRow.user_id}`;
 
-    const { error: upsertErr } = await supabase
+    // ── 1. UPSERT canonical: integraciones_tiendas ─────────────────────────
+    const { error: integErr } = await supabaseAdmin
+      .from("integraciones_tiendas")
+      .upsert(
+        {
+          user_id: stateRow.user_id,
+          plataforma: "mercado_libre",
+          access_token,
+          refresh_token: refresh_token ?? null,
+          user_id_externo: meliUserIdStr,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id,plataforma" },
+      );
+
+    if (integErr) {
+      console.error("[meli-callback] Error guardando en BD (integraciones_tiendas):", integErr);
+      return redirect(`${APP_RETURN_URL}&meli=error&reason=db_save_integ`);
+    }
+    console.log("[meli-callback] integraciones_tiendas OK", { user_id: stateRow.user_id });
+
+    // ── 2. UPSERT legacy mirror: connected_stores ──────────────────────────
+    const urlTienda = `meli:${meliUserIdStr ?? stateRow.user_id}`;
+    const { error: csErr } = await supabaseAdmin
       .from("connected_stores")
       .upsert(
         {
@@ -101,15 +135,14 @@ Deno.serve(async (req) => {
         { onConflict: "url_tienda" },
       );
 
-    if (upsertErr) {
-      console.error("upsert_failed", upsertErr);
-      return redirect(`${APP_RETURN_URL}&meli=error&reason=db_save`);
+    if (csErr) {
+      console.error("[meli-callback] Warning guardando connected_stores (no fatal):", csErr);
     }
 
-    console.log("meli_oauth_success", { user: stateRow.user_id, meli_user_id: meliUserIdStr });
+    console.log("[meli-callback] meli_oauth_success", { user: stateRow.user_id, meli_user_id: meliUserIdStr });
     return redirect(`${APP_RETURN_URL}&meli=success`);
   } catch (e) {
-    console.error("meli-auth-callback error:", e);
+    console.error("[meli-callback] exception:", e);
     return redirect(`${APP_RETURN_URL}&meli=error&reason=exception`);
   }
 });
