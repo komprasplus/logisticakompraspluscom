@@ -560,6 +560,8 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                       onClick={() => {
                         if (integration.id === "shopify") {
                           setShowShopifyManager(true);
+                        } else if (integration.id === "mercado_libre") {
+                          setShowMeliModal(true);
                         } else {
                           setShowNewKeyModal(true);
                         }
@@ -570,9 +572,11 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                         ? isAdminUser
                           ? "Ver Todas las Tiendas"
                           : "Administrar Tiendas"
-                        : hasActiveKey
-                          ? "Gestionar"
-                          : "Configurar"}
+                        : integration.id === "mercado_libre"
+                          ? "Conectar Mercado Libre"
+                          : hasActiveKey
+                            ? "Gestionar"
+                            : "Configurar"}
                     </Button>
                     {integration.docUrl && (
                       <Button
