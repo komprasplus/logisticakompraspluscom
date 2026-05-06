@@ -191,6 +191,15 @@ const integrations = [
     docUrl: "https://docs.komprasplus.com/woocommerce",
   },
   {
+    id: "mercado_libre",
+    name: "Mercado Libre (Envíos Flex)",
+    description: "Conecta tu cuenta de Mercado Libre para sincronizar Envíos Flex",
+    icon: Package,
+    color: "from-yellow-400 to-yellow-500",
+    status: "available" as const,
+    docUrl: "https://developers.mercadolibre.com.co",
+  },
+  {
     id: "prestashop",
     name: "PrestaShop",
     description: "Integración con tiendas PrestaShop",
@@ -231,6 +240,8 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   */
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [showShopifyManager, setShowShopifyManager] = useState(false);
+  const [showMeliModal, setShowMeliModal] = useState(false);
+  const [meliConnecting, setMeliConnecting] = useState(false);
   const { role, profile } = useAuth();
   const isAdminUser = role === "admin" || role === "super_admin";
   const isProveedorUser = isProveedor(profile?.tipo_cuenta);
@@ -239,6 +250,35 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   const cancelRef = useRef(false);
   const prefersReducedMotion = useReducedMotion();
   const { toast } = useToast();
+
+  const handleConnectMeli = useCallback(async () => {
+    setMeliConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("meli-auth-start", {
+        body: { nombre_tienda: "Mercado Libre" },
+      });
+      if (error) throw error;
+      const meliUrl = (data as { url?: string })?.url;
+      if (!meliUrl) throw new Error("No se recibió URL de autorización");
+      try {
+        if (window.top && window.top !== window.self) {
+          window.top.location.href = meliUrl;
+        } else {
+          window.location.assign(meliUrl);
+        }
+      } catch {
+        window.open(meliUrl, "_top");
+      }
+    } catch (e) {
+      console.error("[meli-auth-start] error:", e);
+      toast({
+        title: "No se pudo iniciar la conexión",
+        description: (e as Error).message,
+        variant: "destructive",
+      });
+      setMeliConnecting(false);
+    }
+  }, [toast]);
 
   const hasActiveKey = credentials.some((c) => c.is_active);
 
@@ -305,6 +345,27 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
       cancelRef.current = true;
     };
   }, [clientUserId, fetchCredentials, fetchSyncedOrders]);
+
+  // Detectar retorno desde OAuth de Mercado Libre y limpiar la URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const meli = params.get("meli");
+    if (!meli) return;
+    if (meli === "success") {
+      toast({ title: "✅ Mercado Libre conectado", description: "Tu cuenta quedó vinculada con éxito." });
+    } else {
+      const reason = params.get("reason") ?? "desconocido";
+      toast({
+        title: "❌ No se pudo conectar Mercado Libre",
+        description: `Motivo: ${reason}`,
+        variant: "destructive",
+      });
+    }
+    params.delete("meli");
+    params.delete("reason");
+    const qs = params.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+  }, [toast]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -520,6 +581,8 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                       onClick={() => {
                         if (integration.id === "shopify") {
                           setShowShopifyManager(true);
+                        } else if (integration.id === "mercado_libre") {
+                          setShowMeliModal(true);
                         } else {
                           setShowNewKeyModal(true);
                         }
@@ -530,9 +593,11 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
                         ? isAdminUser
                           ? "Ver Todas las Tiendas"
                           : "Administrar Tiendas"
-                        : hasActiveKey
-                          ? "Gestionar"
-                          : "Configurar"}
+                        : integration.id === "mercado_libre"
+                          ? "Conectar Mercado Libre"
+                          : hasActiveKey
+                            ? "Gestionar"
+                            : "Configurar"}
                     </Button>
                     {integration.docUrl && (
                       <Button
@@ -906,6 +971,51 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
         clientUserId={clientUserId}
         role={managerRole}
       />
+
+      {/* Modal de conexión a Mercado Libre */}
+      <Dialog open={showMeliModal} onOpenChange={setShowMeliModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-400 to-yellow-500 shadow-lg">
+              <Package className="h-7 w-7 text-white" aria-hidden="true" />
+            </div>
+            <DialogTitle className="text-center">Conectar con Mercado Libre</DialogTitle>
+            <DialogDescription className="text-center">
+              Sincroniza tus envíos de Mercado Libre Flex en un solo clic. Te llevaremos al sitio oficial de Mercado
+              Libre para autorizar la conexión.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Alert className="border-yellow-400/40 bg-yellow-50 dark:bg-yellow-950/20">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-xs">
+              Necesitarás iniciar sesión en tu cuenta de Mercado Libre Colombia y aceptar los permisos solicitados por
+              Plus Envíos (lectura de envíos y órdenes).
+            </AlertDescription>
+          </Alert>
+
+          <DialogFooter className="sm:justify-center">
+            <Button
+              type="button"
+              onClick={handleConnectMeli}
+              disabled={meliConnecting}
+              className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 hover:from-yellow-500 hover:to-yellow-600"
+            >
+              {meliConnecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+                  Redirigiendo a Mercado Libre…
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Conectar con Mercado Libre (OAuth)
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

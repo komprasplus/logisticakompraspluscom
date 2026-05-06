@@ -287,6 +287,9 @@ export type Database = {
           estado: string
           id: string
           last_sync_at: string | null
+          meli_refresh_token: string | null
+          meli_token_expires_at: string | null
+          meli_user_id: string | null
           nombre_tienda: string
           organizacion_id: string | null
           plataforma: string
@@ -300,6 +303,9 @@ export type Database = {
           estado?: string
           id?: string
           last_sync_at?: string | null
+          meli_refresh_token?: string | null
+          meli_token_expires_at?: string | null
+          meli_user_id?: string | null
           nombre_tienda: string
           organizacion_id?: string | null
           plataforma?: string
@@ -313,6 +319,9 @@ export type Database = {
           estado?: string
           id?: string
           last_sync_at?: string | null
+          meli_refresh_token?: string | null
+          meli_token_expires_at?: string | null
+          meli_user_id?: string | null
           nombre_tienda?: string
           organizacion_id?: string | null
           plataforma?: string
