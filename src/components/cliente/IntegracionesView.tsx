@@ -950,6 +950,51 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
         clientUserId={clientUserId}
         role={managerRole}
       />
+
+      {/* Modal de conexión a Mercado Libre */}
+      <Dialog open={showMeliModal} onOpenChange={setShowMeliModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-yellow-400 to-yellow-500 shadow-lg">
+              <Package className="h-7 w-7 text-white" aria-hidden="true" />
+            </div>
+            <DialogTitle className="text-center">Conectar con Mercado Libre</DialogTitle>
+            <DialogDescription className="text-center">
+              Sincroniza tus envíos de Mercado Libre Flex en un solo clic. Te llevaremos al sitio oficial de Mercado
+              Libre para autorizar la conexión.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Alert className="border-yellow-400/40 bg-yellow-50 dark:bg-yellow-950/20">
+            <AlertCircle className="h-4 w-4 text-yellow-600" />
+            <AlertDescription className="text-xs">
+              Necesitarás iniciar sesión en tu cuenta de Mercado Libre Colombia y aceptar los permisos solicitados por
+              Plus Envíos (lectura de envíos y órdenes).
+            </AlertDescription>
+          </Alert>
+
+          <DialogFooter className="sm:justify-center">
+            <Button
+              type="button"
+              onClick={handleConnectMeli}
+              disabled={meliConnecting}
+              className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 text-yellow-950 hover:from-yellow-500 hover:to-yellow-600"
+            >
+              {meliConnecting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+                  Redirigiendo a Mercado Libre…
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" aria-hidden="true" />
+                  Conectar con Mercado Libre (OAuth)
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
