@@ -254,20 +254,21 @@ const IntegracionesView = ({ clientUserId }: IntegracionesViewProps) => {
   const handleConnectMeli = useCallback(async () => {
     setMeliConnecting(true);
     try {
-      const { data, error } = await supabase.functions.invoke("meli-auth-start", {
-        body: { nombre_tienda: "Mercado Libre" },
-      });
-      if (error) throw error;
-      const meliUrl = (data as { url?: string })?.url;
-      if (!meliUrl) throw new Error("No se recibió URL de autorización");
+      // Top-level redirect to Edge Function (GET → 302 → Mercado Libre).
+      // Sin modales ni iframes para evitar X-Frame-Options.
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) throw new Error("Sesión no disponible. Inicia sesión nuevamente.");
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const startUrl = `https://${projectId}.supabase.co/functions/v1/meli-auth-start?token=${encodeURIComponent(token)}`;
       try {
         if (window.top && window.top !== window.self) {
-          window.top.location.href = meliUrl;
+          window.top.location.href = startUrl;
         } else {
-          window.location.assign(meliUrl);
+          window.location.href = startUrl;
         }
       } catch {
-        window.open(meliUrl, "_top");
+        window.location.assign(startUrl);
       }
     } catch (e) {
       console.error("[meli-auth-start] error:", e);
