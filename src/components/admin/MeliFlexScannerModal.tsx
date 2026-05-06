@@ -174,7 +174,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
           {phase === "processing" && (
             <div className="py-12 flex flex-col items-center justify-center gap-3">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="font-medium">Procesando paquete...</p>
+              <p className="font-medium">Sincronizando recolección con Mercado Libre...</p>
               <p className="text-xs text-muted-foreground">Shipment {shipmentId}</p>
             </div>
           )}
