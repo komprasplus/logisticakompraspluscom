@@ -31,8 +31,8 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
   const stopScanner = useCallback(async () => {
     try {
       if (scannerRef.current) {
-        await scannerRef.current.stop().catch(() => {});
-        await scannerRef.current.clear().catch(() => {});
+        await Promise.resolve(scannerRef.current.stop()).catch(() => {});
+        await Promise.resolve(scannerRef.current.clear()).catch(() => {});
         scannerRef.current = null;
       }
     } catch {/* ignore */}
