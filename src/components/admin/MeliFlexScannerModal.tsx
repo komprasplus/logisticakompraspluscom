@@ -13,6 +13,8 @@ interface MeliFlexScannerModalProps {
 }
 
 type Phase = "scanning" | "processing" | "success" | "error";
+type ScannerInstance = { stop: () => Promise<void>; clear: () => Promise<void> };
+type ScanResponse = { error?: string; success?: boolean; message?: string };
 
 const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerModalProps) => {
   const [phase, setPhase] = useState<Phase>("scanning");
@@ -21,7 +23,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
   const [isInitializing, setIsInitializing] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const scannerRef = useRef<any>(null);
+  const scannerRef = useRef<ScannerInstance | null>(null);
   const containerId = "meli-flex-reader";
   const isProcessingRef = useRef(false);
   const { playSuccessSound, playErrorSound } = useScannerAudio();
@@ -63,7 +65,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
       toast.dismiss(loadingToast);
       if (error) throw error;
 
-      const d: any = data ?? {};
+      const d = (data ?? {}) as ScanResponse;
       if (d.error || d.success === false) {
         const msg = d.message || d.error || "No se pudo registrar la recolección";
         playErrorSound();
@@ -87,13 +89,14 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
       setPhase("scanning");
       setErrorMsg("");
       onClose();
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Error al sincronizar con Mercado Libre";
       toast.dismiss(loadingToast);
       console.error("meli-scan-shipment failed", e);
       playErrorSound();
-      setErrorMsg(e?.message ?? "No se pudo registrar la recolección");
+      setErrorMsg(message || "No se pudo registrar la recolección");
       setPhase("error");
-      toast.error(e?.message || "Error al sincronizar con Mercado Libre");
+      toast.error(message || "Error al sincronizar con Mercado Libre");
     } finally {
       if (!success) {
         isProcessingRef.current = false;
@@ -119,12 +122,13 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         () => { /* ignore scan-frame errors */ }
       );
       setIsInitializing(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "No se pudo acceder a la cámara";
       console.error("Scanner init failed", err);
       setIsInitializing(false);
-      setCameraError(err?.message ?? "No se pudo acceder a la cámara");
+      setCameraError(message);
     }
-  }, [stopScanner, handleScan]);
+  }, [handleScan]);
 
   useEffect(() => {
     if (isOpen && phase === "scanning") {
