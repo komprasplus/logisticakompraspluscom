@@ -13,44 +13,64 @@ interface MeliFlexScannerModalProps {
 }
 
 type Phase = "scanning" | "processing" | "success" | "error";
+type ScannerInstance = { stop: () => Promise<void> | void; clear: () => Promise<void> | void };
+type ScanResponse = { error?: string; success?: boolean; message?: string };
 
 const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerModalProps) => {
   const [phase, setPhase] = useState<Phase>("scanning");
-  const [shipmentId, setShipmentId] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const scannerRef = useRef<any>(null);
+  const scannerRef = useRef<ScannerInstance | null>(null);
   const containerId = "meli-flex-reader";
-  const lastDetectionRef = useRef<{ code: string; ts: number }>({ code: "", ts: 0 });
+  const isProcessingRef = useRef(false);
   const { playSuccessSound, playErrorSound } = useScannerAudio();
 
   const stopScanner = useCallback(async () => {
     try {
       if (scannerRef.current) {
-        await scannerRef.current.stop().catch(() => {});
-        await scannerRef.current.clear().catch(() => {});
+        await Promise.resolve(scannerRef.current.stop()).catch(() => {});
+        await Promise.resolve(scannerRef.current.clear()).catch(() => {});
         scannerRef.current = null;
       }
     } catch {/* ignore */}
   }, []);
 
-  const submitShipment = useCallback(async (id: string) => {
+  const handleScan = useCallback(async (scannedData: unknown) => {
+    if (!scannedData || isProcessingRef.current) return;
+    isProcessingRef.current = true;
+    setIsProcessing(true);
+
+    const rawText = typeof scannedData === "string" ? scannedData : (scannedData as { text?: string })?.text || "";
+    const cleanShipmentId = rawText.replace(/\D/g, "");
+
+    if (!cleanShipmentId) {
+      isProcessingRef.current = false;
+      setIsProcessing(false);
+      return;
+    }
+
+    await stopScanner();
     setPhase("processing");
-    setShipmentId(id);
+    let success = false;
+    const loadingToast = toast.loading("Sincronizando recolección con ML...");
+
     try {
       const { data, error } = await supabase.functions.invoke("meli-scan-shipment", {
-        body: { shipment_id: id },
+        body: { shipment_id: cleanShipmentId },
       });
+
+      toast.dismiss(loadingToast);
       if (error) throw error;
-      const d: any = data ?? {};
+
+      const d = (data ?? {}) as ScanResponse;
       if (d.error || d.success === false) {
         const msg = d.message || d.error || "No se pudo registrar la recolección";
         playErrorSound();
         setErrorMsg(msg);
         setPhase("error");
-        // Errores de ML (400/403) → toast amarillo (warning)
         if (d.error === "meli_api_error") {
           toast.warning(`Mercado Libre: ${msg}`);
         } else {
@@ -58,18 +78,32 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         }
         return;
       }
+
+      success = true;
       playSuccessSound();
       setPhase("success");
-      toast.success(d.duplicate ? "Paquete ya estaba registrado" : "¡Paquete recolectado con éxito!");
+      toast.success("¡Recolección Exitosa en Flex!");
       onSuccess?.();
-    } catch (e: any) {
+      isProcessingRef.current = false;
+      setIsProcessing(false);
+      setPhase("scanning");
+      setErrorMsg("");
+      onClose();
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Error al sincronizar con Mercado Libre";
+      toast.dismiss(loadingToast);
       console.error("meli-scan-shipment failed", e);
       playErrorSound();
-      setErrorMsg(e?.message ?? "No se pudo registrar la recolección");
+      setErrorMsg(message || "No se pudo registrar la recolección");
       setPhase("error");
-      toast.error("Error al confirmar recolección con Mercado Libre");
+      toast.error(message || "Error al sincronizar con Mercado Libre");
+    } finally {
+      if (!success) {
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+      }
     }
-  }, [onSuccess, playSuccessSound, playErrorSound]);
+  }, [onSuccess, onClose, playSuccessSound, playErrorSound, stopScanner]);
 
   const startScanner = useCallback(async () => {
     setCameraError(null);
@@ -83,23 +117,18 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 280, height: 140 } },
         (decoded) => {
-          // Sanitize: ML only accepts numeric IDs
-          const cleanShipmentId = (decoded || "").replace(/\D/g, "");
-          if (!cleanShipmentId) return;
-          const now = Date.now();
-          if (lastDetectionRef.current.code === cleanShipmentId && now - lastDetectionRef.current.ts < 3000) return;
-          lastDetectionRef.current = { code: cleanShipmentId, ts: now };
-          stopScanner().then(() => submitShipment(cleanShipmentId));
+          handleScan(decoded);
         },
         () => { /* ignore scan-frame errors */ }
       );
       setIsInitializing(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "No se pudo acceder a la cámara";
       console.error("Scanner init failed", err);
       setIsInitializing(false);
-      setCameraError(err?.message ?? "No se pudo acceder a la cámara");
+      setCameraError(message);
     }
-  }, [playSuccessSound, stopScanner, submitShipment]);
+  }, [handleScan]);
 
   useEffect(() => {
     if (isOpen && phase === "scanning") {
@@ -114,15 +143,17 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
 
   const handleClose = async () => {
     await stopScanner();
+    isProcessingRef.current = false;
+    setIsProcessing(false);
     setPhase("scanning");
-    setShipmentId("");
     setErrorMsg("");
     onClose();
   };
 
   const handleScanAnother = async () => {
     await stopScanner();
-    setShipmentId("");
+    isProcessingRef.current = false;
+    setIsProcessing(false);
     setErrorMsg("");
     setPhase("scanning");
   };
@@ -171,11 +202,10 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
             </>
           )}
 
-          {phase === "processing" && (
+          {phase === "processing" && isProcessing && (
             <div className="py-12 flex flex-col items-center justify-center gap-3">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
               <p className="font-medium">Sincronizando recolección con Mercado Libre...</p>
-              <p className="text-xs text-muted-foreground">Shipment {shipmentId}</p>
             </div>
           )}
 
@@ -185,9 +215,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
                 <CheckCircle2 className="h-16 w-16 text-green-600" />
               </div>
               <h3 className="text-2xl font-bold text-green-700">¡Paquete Recolectado con Éxito!</h3>
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <Package className="h-4 w-4" /> Shipment {shipmentId}
-              </p>
+              <Package className="h-5 w-5 text-muted-foreground" />
               <div className="flex gap-2 w-full pt-3">
                 <Button variant="outline" className="flex-1" onClick={handleClose}>Cerrar</Button>
                 <Button className="flex-1" onClick={handleScanAnother}>Escanear otro</Button>
@@ -200,7 +228,6 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
               <XCircle className="h-14 w-14 text-destructive" />
               <h3 className="text-xl font-bold text-destructive">No se pudo registrar</h3>
               <p className="text-sm text-muted-foreground break-all">{errorMsg}</p>
-              {shipmentId && <p className="text-xs text-muted-foreground">Shipment {shipmentId}</p>}
               <div className="flex gap-2 w-full pt-2">
                 <Button variant="outline" className="flex-1" onClick={handleClose}>Cerrar</Button>
                 <Button className="flex-1" onClick={handleScanAnother}>Reintentar</Button>
