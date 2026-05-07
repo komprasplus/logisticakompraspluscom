@@ -13,7 +13,7 @@ interface MeliFlexScannerModalProps {
 }
 
 type Phase = "scanning" | "processing" | "success" | "error";
-type ScannerInstance = { stop: () => Promise<void>; clear: () => Promise<void> };
+type ScannerInstance = { stop: () => Promise<void> | void; clear: () => Promise<void> | void };
 type ScanResponse = { error?: string; success?: boolean; message?: string };
 
 const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerModalProps) => {
