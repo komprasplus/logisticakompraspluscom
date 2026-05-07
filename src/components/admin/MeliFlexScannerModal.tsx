@@ -82,6 +82,11 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
       setPhase("success");
       toast.success("¡Recolección Exitosa en Flex!");
       onSuccess?.();
+      isProcessingRef.current = false;
+      setIsProcessing(false);
+      setPhase("scanning");
+      setErrorMsg("");
+      onClose();
     } catch (e: any) {
       toast.dismiss(loadingToast);
       console.error("meli-scan-shipment failed", e);
@@ -95,7 +100,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         setIsProcessing(false);
       }
     }
-  }, [onSuccess, playSuccessSound, playErrorSound, stopScanner]);
+  }, [onSuccess, onClose, playSuccessSound, playErrorSound, stopScanner]);
 
   const startScanner = useCallback(async () => {
     setCameraError(null);
