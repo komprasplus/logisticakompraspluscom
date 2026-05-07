@@ -135,6 +135,8 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
 
   const handleClose = async () => {
     await stopScanner();
+    isProcessingRef.current = false;
+    setIsProcessing(false);
     setPhase("scanning");
     setShipmentId("");
     setErrorMsg("");
@@ -143,6 +145,8 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
 
   const handleScanAnother = async () => {
     await stopScanner();
+    isProcessingRef.current = false;
+    setIsProcessing(false);
     setShipmentId("");
     setErrorMsg("");
     setPhase("scanning");
@@ -192,11 +196,10 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
             </>
           )}
 
-          {phase === "processing" && (
+          {phase === "processing" && isProcessing && (
             <div className="py-12 flex flex-col items-center justify-center gap-3">
               <Loader2 className="h-12 w-12 animate-spin text-primary" />
               <p className="font-medium">Sincronizando recolección con Mercado Libre...</p>
-              <p className="text-xs text-muted-foreground">Shipment {shipmentId}</p>
             </div>
           )}
 
@@ -206,9 +209,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
                 <CheckCircle2 className="h-16 w-16 text-green-600" />
               </div>
               <h3 className="text-2xl font-bold text-green-700">¡Paquete Recolectado con Éxito!</h3>
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <Package className="h-4 w-4" /> Shipment {shipmentId}
-              </p>
+              <Package className="h-5 w-5 text-muted-foreground" />
               <div className="flex gap-2 w-full pt-3">
                 <Button variant="outline" className="flex-1" onClick={handleClose}>Cerrar</Button>
                 <Button className="flex-1" onClick={handleScanAnother}>Escanear otro</Button>
@@ -221,7 +222,6 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
               <XCircle className="h-14 w-14 text-destructive" />
               <h3 className="text-xl font-bold text-destructive">No se pudo registrar</h3>
               <p className="text-sm text-muted-foreground break-all">{errorMsg}</p>
-              {shipmentId && <p className="text-xs text-muted-foreground">Shipment {shipmentId}</p>}
               <div className="flex gap-2 w-full pt-2">
                 <Button variant="outline" className="flex-1" onClick={handleClose}>Cerrar</Button>
                 <Button className="flex-1" onClick={handleScanAnother}>Reintentar</Button>
