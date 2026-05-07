@@ -16,7 +16,6 @@ type Phase = "scanning" | "processing" | "success" | "error";
 
 const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerModalProps) => {
   const [phase, setPhase] = useState<Phase>("scanning");
-  const [shipmentId, setShipmentId] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -51,8 +50,8 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
       return;
     }
 
+    await stopScanner();
     setPhase("processing");
-    setShipmentId("");
     let success = false;
     const loadingToast = toast.loading("Sincronizando recolección con ML...");
 
@@ -96,7 +95,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         setIsProcessing(false);
       }
     }
-  }, [onSuccess, playSuccessSound, playErrorSound]);
+  }, [onSuccess, playSuccessSound, playErrorSound, stopScanner]);
 
   const startScanner = useCallback(async () => {
     setCameraError(null);
@@ -110,7 +109,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 280, height: 140 } },
         (decoded) => {
-          stopScanner().then(() => handleScan(decoded));
+          handleScan(decoded);
         },
         () => { /* ignore scan-frame errors */ }
       );
