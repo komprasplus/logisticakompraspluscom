@@ -20,10 +20,11 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
   const [errorMsg, setErrorMsg] = useState<string>("");
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const scannerRef = useRef<any>(null);
   const containerId = "meli-flex-reader";
-  const lastDetectionRef = useRef<{ code: string; ts: number }>({ code: "", ts: 0 });
+  const isProcessingRef = useRef(false);
   const { playSuccessSound, playErrorSound } = useScannerAudio();
 
   const stopScanner = useCallback(async () => {
@@ -36,21 +37,39 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
     } catch {/* ignore */}
   }, []);
 
-  const submitShipment = useCallback(async (id: string) => {
+  const handleScan = useCallback(async (scannedData: unknown) => {
+    if (!scannedData || isProcessingRef.current) return;
+    isProcessingRef.current = true;
+    setIsProcessing(true);
+
+    const rawText = typeof scannedData === "string" ? scannedData : (scannedData as { text?: string })?.text || "";
+    const cleanShipmentId = rawText.replace(/\D/g, "");
+
+    if (!cleanShipmentId) {
+      isProcessingRef.current = false;
+      setIsProcessing(false);
+      return;
+    }
+
     setPhase("processing");
-    setShipmentId(id);
+    setShipmentId("");
+    let success = false;
+    const loadingToast = toast.loading("Sincronizando recolección con ML...");
+
     try {
       const { data, error } = await supabase.functions.invoke("meli-scan-shipment", {
-        body: { shipment_id: id },
+        body: { shipment_id: cleanShipmentId },
       });
+
+      toast.dismiss(loadingToast);
       if (error) throw error;
+
       const d: any = data ?? {};
       if (d.error || d.success === false) {
         const msg = d.message || d.error || "No se pudo registrar la recolección";
         playErrorSound();
         setErrorMsg(msg);
         setPhase("error");
-        // Errores de ML (400/403) → toast amarillo (warning)
         if (d.error === "meli_api_error") {
           toast.warning(`Mercado Libre: ${msg}`);
         } else {
@@ -58,16 +77,24 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         }
         return;
       }
+
+      success = true;
       playSuccessSound();
       setPhase("success");
-      toast.success(d.duplicate ? "Paquete ya estaba registrado" : "¡Paquete recolectado con éxito!");
+      toast.success("¡Recolección Exitosa en Flex!");
       onSuccess?.();
     } catch (e: any) {
+      toast.dismiss(loadingToast);
       console.error("meli-scan-shipment failed", e);
       playErrorSound();
       setErrorMsg(e?.message ?? "No se pudo registrar la recolección");
       setPhase("error");
-      toast.error("Error al confirmar recolección con Mercado Libre");
+      toast.error(e?.message || "Error al sincronizar con Mercado Libre");
+    } finally {
+      if (!success) {
+        isProcessingRef.current = false;
+        setIsProcessing(false);
+      }
     }
   }, [onSuccess, playSuccessSound, playErrorSound]);
 
@@ -83,13 +110,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 280, height: 140 } },
         (decoded) => {
-          // Sanitize: ML only accepts numeric IDs
-          const cleanShipmentId = (decoded || "").replace(/\D/g, "");
-          if (!cleanShipmentId) return;
-          const now = Date.now();
-          if (lastDetectionRef.current.code === cleanShipmentId && now - lastDetectionRef.current.ts < 3000) return;
-          lastDetectionRef.current = { code: cleanShipmentId, ts: now };
-          stopScanner().then(() => submitShipment(cleanShipmentId));
+          stopScanner().then(() => handleScan(decoded));
         },
         () => { /* ignore scan-frame errors */ }
       );
@@ -99,7 +120,7 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
       setIsInitializing(false);
       setCameraError(err?.message ?? "No se pudo acceder a la cámara");
     }
-  }, [playSuccessSound, stopScanner, submitShipment]);
+  }, [stopScanner, handleScan]);
 
   useEffect(() => {
     if (isOpen && phase === "scanning") {
