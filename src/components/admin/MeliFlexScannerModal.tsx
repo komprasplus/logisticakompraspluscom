@@ -137,7 +137,6 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
     isProcessingRef.current = false;
     setIsProcessing(false);
     setPhase("scanning");
-    setShipmentId("");
     setErrorMsg("");
     onClose();
   };
@@ -146,7 +145,6 @@ const MeliFlexScannerModal = ({ isOpen, onClose, onSuccess }: MeliFlexScannerMod
     await stopScanner();
     isProcessingRef.current = false;
     setIsProcessing(false);
-    setShipmentId("");
     setErrorMsg("");
     setPhase("scanning");
   };
