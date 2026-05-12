@@ -395,22 +395,20 @@ const NuevoProductoMarketplace = ({
               <label className="text-xs font-medium text-muted-foreground mb-1 block">SKU *</label>
               <Input value={sku} onChange={(e) => setSku(e.target.value)} placeholder="SKU-001" />
             </div>
-            {isProveedor && (
-              <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">
-                  Tipo de Producto
-                </label>
-                <Select value={productType} onValueChange={setProductType}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Simple">Simple</SelectItem>
-                    <SelectItem value="Variable">Variable</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                Tipo de Producto
+              </label>
+              <Select value={productType} onValueChange={setProductType}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Simple">Simple</SelectItem>
+                  <SelectItem value="Variable">Variable</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
