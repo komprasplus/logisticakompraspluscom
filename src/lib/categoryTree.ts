@@ -4,41 +4,56 @@
  * arreglo de subcategorías.
  */
 export const CATEGORY_TREE: Record<string, string[]> = {
-  "Salud y Belleza": [
-    "Cuidado Facial",
-    "Cuidado Capilar",
-    "Suplementos y Vitaminas",
-    "Equipos de Belleza",
+  "Herramientas y Ferretería": [
+    "Manuales",
+    "Eléctricas",
+    "Jardinería",
+    "Accesorios de Taller",
+    "Iluminación de Trabajo",
+  ],
+  "Hogar y Decoración": [
+    "Organización",
+    "Cocina",
+    "Dormitorio",
+    "Decoración de Interiores",
+    "Baño",
   ],
   "Tecnología y Gadgets": [
+    "Audio y Parlantes",
+    "Accesorios para Celular",
     "Smartwatches",
-    "Audio",
-    "Accesorios Celular",
-    "Smart Home",
+    "Periféricos de PC",
+    "Iluminación LED",
   ],
-  "Hogar y Cocina": [
-    "Organización",
-    "Electrodomésticos",
-    "Utensilios de Cocina",
-    "Decoración",
+  "Belleza y Cuidado Personal": [
+    "Cuidado Facial (Skincare)",
+    "Cuidado Capilar",
+    "Maquillaje",
+    "Barbería y Afeitado",
+  ],
+  "Salud y Bienestar": [
+    "Masajeadores",
+    "Cuidado Postural",
+    "Suplementos (Wellness)",
+    "Termómetros/Salud Digital",
   ],
   "Deportes y Fitness": [
+    "Accesorios de Gimnasio",
     "Ropa Deportiva",
-    "Equipos de Entrenamiento",
-    "Suplementación",
-    "Accesorios Outdoor",
+    "Ciclismo",
+    "Outdoor/Camping",
   ],
   "Mascotas": [
-    "Alimentos",
     "Juguetes",
-    "Accesorios",
-    "Higiene y Cuidado",
+    "Higiene",
+    "Accesorios de Paseo",
+    "Camas/Descanso",
   ],
-  "Moda y Accesorios": [
-    "Ropa Mujer",
-    "Ropa Hombre",
-    "Calzado",
-    "Bolsos y Carteras",
+  "Juguetería y Bebés": [
+    "Educativos",
+    "Ropa para Bebé",
+    "Accesorios de Maternidad",
+    "Juegos de Mesa",
   ],
 };
 
