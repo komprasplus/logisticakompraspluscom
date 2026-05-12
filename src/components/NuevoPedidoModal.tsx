@@ -222,8 +222,12 @@ const NuevoPedidoModal = ({
 
   // ====== MULTI-PRODUCT STATE ======
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  // Multi-product when NOT coming from inventory AND NOT editing
-  const isMultiProductMode = !inventoryPrefill && !isEditMode;
+  // User-triggered upgrade: when entering from a simple inventory prefill, allow
+  // the dropshipper to convert the order into a multi-product cart.
+  const [upgradedToMultiProduct, setUpgradedToMultiProduct] = useState(false);
+  // Multi-product when NOT coming from inventory AND NOT editing,
+  // OR when the user explicitly upgraded a simple inventory prefill.
+  const isMultiProductMode = (!inventoryPrefill && !isEditMode) || upgradedToMultiProduct;
   
   // Schedule — Cut-off 14:00 + skip Sundays & Colombian holidays
   const computeDefaultDeliveryDate = () => getMinDeliveryDate();
