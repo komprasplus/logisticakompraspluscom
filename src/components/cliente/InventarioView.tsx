@@ -127,7 +127,7 @@ const InventarioView = () => {
       const { data, error } = await supabase
         .from("inventory")
         .select(
-          "id, client_user_id, sku, product_name, stock_available, price, low_stock_threshold, fulfillment_value, image_url, created_at, updated_at",
+          "id, client_user_id, sku, product_name, stock_available, price, low_stock_threshold, fulfillment_value, image_url, category, subcategory, description, cost_price, es_privado, created_at, updated_at",
         )
         .eq("client_user_id", user.id)
         .neq("is_deleted", true)
