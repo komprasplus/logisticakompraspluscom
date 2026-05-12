@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/imageCompression";
 import { CATEGORY_TREE, CATEGORY_KEYS } from "@/lib/categoryTree";
