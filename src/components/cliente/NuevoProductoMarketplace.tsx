@@ -514,6 +514,24 @@ const NuevoProductoMarketplace = ({
             </div>
           </div>
 
+          {isProveedor && (
+            <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/30 p-4">
+              <div className="flex-1">
+                <label htmlFor="es-privado-switch" className="text-sm font-semibold text-foreground cursor-pointer">
+                  ¿Hacer este producto exclusivo? (Solo visible para mí)
+                </label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Si lo activas, el producto no aparecerá en el catálogo general de la Mega Bodega.
+                </p>
+              </div>
+              <Switch
+                id="es-privado-switch"
+                checked={esPrivado}
+                onCheckedChange={setEsPrivado}
+              />
+            </div>
+          )}
+
 
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">
