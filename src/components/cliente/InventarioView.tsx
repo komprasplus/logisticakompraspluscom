@@ -62,6 +62,9 @@ const InventarioView = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const editImageInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [orderPrefill, setOrderPrefill] = useState<{
