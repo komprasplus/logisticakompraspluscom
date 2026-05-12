@@ -40,6 +40,11 @@ interface InventoryItem {
   low_stock_threshold: number;
   fulfillment_value?: number;
   image_url?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
+  description?: string | null;
+  cost_price?: number | null;
+  es_privado?: boolean;
   created_at: string;
   updated_at: string;
 }
