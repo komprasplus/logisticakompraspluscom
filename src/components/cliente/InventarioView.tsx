@@ -198,15 +198,28 @@ const InventarioView = () => {
 
     setSaving(true);
     try {
-      /*
-        FIX: eliminado `(supabase as any)`.
-        FIX: `fulfillment_value` eliminado del UPDATE inline del modal de edición.
-        El comentario en el código original decía "NOTE: fulfillment_value is no
-        longer editable by clients" — sin embargo el modal de edición tenía un
-        selector de $1.900 / $2.000 / $2.200 que SÍ modificaba `editingItem.fulfillment_value`
-        y ese cambio se perdía silenciosamente. Inconsistencia: la UI mostraba controles
-        que no tenían efecto. Los botones de valor fulfillment han sido eliminados del modal.
-      */
+      // Subir nueva imagen si se seleccionó una
+      let newImageUrl = editingItem.image_url ?? null;
+      if (editImageFile && user?.id) {
+        try {
+          const compressed = await compressImage(editImageFile, 1024 * 1024);
+          const fileToUpload = new File([compressed.blob], editImageFile.name, { type: "image/jpeg" });
+          const folder = profile?.organizacion_id || user.id;
+          const path = `${folder}/${Date.now()}_${editImageFile.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+          const { error: upErr } = await supabase.storage
+            .from("marketplace-images")
+            .upload(path, fileToUpload, { upsert: true });
+          if (upErr) throw upErr;
+          const { data: pub } = supabase.storage.from("marketplace-images").getPublicUrl(path);
+          newImageUrl = pub.publicUrl;
+        } catch (uploadErr) {
+          console.error("Error subiendo imagen:", uploadErr);
+          toast.error("No se pudo subir la nueva imagen");
+          setSaving(false);
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from("inventory")
         .update({
@@ -214,7 +227,13 @@ const InventarioView = () => {
           product_name: editingItem.product_name.trim(),
           stock_available: Math.max(0, editingItem.stock_available),
           price: Math.max(0, editingItem.price),
+          cost_price: editingItem.cost_price != null ? Math.max(0, editingItem.cost_price) : null,
           low_stock_threshold: Math.max(0, editingItem.low_stock_threshold),
+          category: editingItem.category || null,
+          subcategory: editingItem.subcategory || null,
+          description: editingItem.description?.trim() || null,
+          image_url: newImageUrl,
+          es_privado: !!editingItem.es_privado,
         })
         .eq("id", editingItem.id);
 
@@ -229,6 +248,8 @@ const InventarioView = () => {
 
       toast.success("Producto actualizado");
       setEditingItem(null);
+      setEditImageFile(null);
+      setEditImagePreview(null);
       fetchInventory();
     } catch (error) {
       console.error("Error updating item:", error);
@@ -236,7 +257,7 @@ const InventarioView = () => {
     } finally {
       if (!cancelRef.current) setSaving(false);
     }
-  }, [editingItem, fetchInventory]);
+  }, [editingItem, editImageFile, fetchInventory, user?.id, profile?.organizacion_id]);
 
   const handleDeleteItem = useCallback(async (itemId: string, itemName: string) => {
     /*
