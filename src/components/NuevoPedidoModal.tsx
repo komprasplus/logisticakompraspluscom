@@ -1045,6 +1045,35 @@ const NuevoPedidoModal = ({
     setSelectedVariants([]);
     setVariants([]);
     setOrderItems([]);
+    setUpgradedToMultiProduct(false);
+  };
+
+  // Convert a single inventory-prefill order into a multi-product cart.
+  // Seeds the prefilled product as item #1, then adds an empty slot for the next.
+  const upgradeToMultiProduct = () => {
+    if (!inventoryPrefill || isVariableProduct || inventoryPrefill.source === "marketplace") return;
+    const seeded: OrderItem = {
+      id: crypto.randomUUID(),
+      productName: inventoryPrefill.productName,
+      sku: inventoryPrefill.sku,
+      quantity: quantity || 1,
+      unitPrice: inventoryPrefill.price ?? 0,
+      inventoryItemId: inventoryPrefill.inventoryItemId,
+      variantId: null,
+      maxStock: inventoryPrefill.maxStock,
+    };
+    const empty: OrderItem = {
+      id: crypto.randomUUID(),
+      productName: "",
+      sku: "",
+      quantity: 1,
+      unitPrice: 0,
+      inventoryItemId: null,
+      variantId: null,
+    };
+    setOrderItems([seeded, empty]);
+    setInventoryItemId(null); // release single-product binding
+    setUpgradedToMultiProduct(true);
   };
 
   if (!isOpen) return null;
