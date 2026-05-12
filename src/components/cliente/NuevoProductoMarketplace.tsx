@@ -113,6 +113,7 @@ const NuevoProductoMarketplace = ({
     setVariants([]);
     setImageFiles([null, null, null]);
     setImagePreviews([null, null, null]);
+    setEsPrivado(false);
     onClose();
   };
 
