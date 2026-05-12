@@ -1,0 +1,2 @@
+ALTER TABLE public.marketplace_products ADD COLUMN IF NOT EXISTS es_privado BOOLEAN NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_marketplace_products_es_privado ON public.marketplace_products(es_privado);

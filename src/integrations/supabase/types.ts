@@ -673,6 +673,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          es_privado: boolean
           especificaciones: string | null
           garantia: string | null
           id: string
@@ -698,6 +699,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          es_privado?: boolean
           especificaciones?: string | null
           garantia?: string | null
           id?: string
@@ -723,6 +725,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          es_privado?: boolean
           especificaciones?: string | null
           garantia?: string | null
           id?: string

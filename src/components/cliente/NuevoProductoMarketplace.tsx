@@ -36,6 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/imageCompression";
 import { CATEGORY_TREE, CATEGORY_KEYS } from "@/lib/categoryTree";
@@ -76,7 +77,7 @@ const NuevoProductoMarketplace = ({
   const [productType, setProductType] = useState("Simple");
   const [category, setCategory] = useState("");
   const [subcategory, setSubcategory] = useState("");
-
+  const [esPrivado, setEsPrivado] = useState(false);
   const [attributeNames, setAttributeNames] = useState<string[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string[]>>({});
   const [newAttrName, setNewAttrName] = useState("");
@@ -112,6 +113,7 @@ const NuevoProductoMarketplace = ({
     setVariants([]);
     setImageFiles([null, null, null]);
     setImagePreviews([null, null, null]);
+    setEsPrivado(false);
     onClose();
   };
 
@@ -288,6 +290,7 @@ const NuevoProductoMarketplace = ({
             organizacion_id: organizacionId,
             created_by: userId,
             is_active: true,
+            es_privado: esPrivado,
           })
           .select("id")
           .single();
@@ -510,6 +513,24 @@ const NuevoProductoMarketplace = ({
               </Select>
             </div>
           </div>
+
+          {isProveedor && (
+            <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/30 p-4">
+              <div className="flex-1">
+                <label htmlFor="es-privado-switch" className="text-sm font-semibold text-foreground cursor-pointer">
+                  ¿Hacer este producto exclusivo? (Solo visible para mí)
+                </label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Si lo activas, el producto no aparecerá en el catálogo general de la Mega Bodega.
+                </p>
+              </div>
+              <Switch
+                id="es-privado-switch"
+                checked={esPrivado}
+                onCheckedChange={setEsPrivado}
+              />
+            </div>
+          )}
 
 
           <div>

@@ -92,13 +92,16 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
   };
 
   const { data: products = [], isLoading } = useQuery({
-    queryKey: ["marketplace-catalog", orgId],
+    queryKey: ["marketplace-catalog", orgId, userId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("marketplace_products")
         .select("*")
         .eq("organizacion_id", orgId)
         .eq("is_active", true)
+        // Exclusividad: ocultar productos marcados como privados,
+        // salvo que el usuario actual sea el creador (su propio inventario).
+        .or(`es_privado.eq.false,created_by.eq.${userId}`)
         .order("product_name");
       if (error) throw error;
       return data as MarketplaceProduct[];
