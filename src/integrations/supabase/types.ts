@@ -430,6 +430,7 @@ export type Database = {
           cost_price: number | null
           created_at: string
           description: string | null
+          es_privado: boolean
           especificaciones: string | null
           fulfillment_value: number | null
           garantia: string | null
@@ -455,6 +456,7 @@ export type Database = {
           cost_price?: number | null
           created_at?: string
           description?: string | null
+          es_privado?: boolean
           especificaciones?: string | null
           fulfillment_value?: number | null
           garantia?: string | null
@@ -480,6 +482,7 @@ export type Database = {
           cost_price?: number | null
           created_at?: string
           description?: string | null
+          es_privado?: boolean
           especificaciones?: string | null
           fulfillment_value?: number | null
           garantia?: string | null

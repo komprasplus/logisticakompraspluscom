@@ -24,6 +24,9 @@ import { formatCOP } from "@/lib/tarifas";
 import { useAuth } from "@/hooks/useAuth";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import NuevoProductoMarketplace from "./NuevoProductoMarketplace";
+import { CATEGORY_TREE, CATEGORY_KEYS } from "@/lib/categoryTree";
+import { compressImage } from "@/lib/imageCompression";
+import { Switch } from "@/components/ui/switch";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -37,6 +40,11 @@ interface InventoryItem {
   low_stock_threshold: number;
   fulfillment_value?: number;
   image_url?: string | null;
+  category?: string | null;
+  subcategory?: string | null;
+  description?: string | null;
+  cost_price?: number | null;
+  es_privado?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -54,6 +62,9 @@ const InventarioView = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
+  const editImageInputRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [orderPrefill, setOrderPrefill] = useState<{
@@ -119,7 +130,7 @@ const InventarioView = () => {
       const { data, error } = await supabase
         .from("inventory")
         .select(
-          "id, client_user_id, sku, product_name, stock_available, price, low_stock_threshold, fulfillment_value, image_url, created_at, updated_at",
+          "id, client_user_id, sku, product_name, stock_available, price, low_stock_threshold, fulfillment_value, image_url, category, subcategory, description, cost_price, es_privado, created_at, updated_at",
         )
         .eq("client_user_id", user.id)
         .neq("is_deleted", true)
@@ -187,15 +198,28 @@ const InventarioView = () => {
 
     setSaving(true);
     try {
-      /*
-        FIX: eliminado `(supabase as any)`.
-        FIX: `fulfillment_value` eliminado del UPDATE inline del modal de edición.
-        El comentario en el código original decía "NOTE: fulfillment_value is no
-        longer editable by clients" — sin embargo el modal de edición tenía un
-        selector de $1.900 / $2.000 / $2.200 que SÍ modificaba `editingItem.fulfillment_value`
-        y ese cambio se perdía silenciosamente. Inconsistencia: la UI mostraba controles
-        que no tenían efecto. Los botones de valor fulfillment han sido eliminados del modal.
-      */
+      // Subir nueva imagen si se seleccionó una
+      let newImageUrl = editingItem.image_url ?? null;
+      if (editImageFile && user?.id) {
+        try {
+          const compressed = await compressImage(editImageFile, 1024 * 1024);
+          const fileToUpload = new File([compressed.blob], editImageFile.name, { type: "image/jpeg" });
+          const folder = profile?.organizacion_id || user.id;
+          const path = `${folder}/${Date.now()}_${editImageFile.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+          const { error: upErr } = await supabase.storage
+            .from("marketplace-images")
+            .upload(path, fileToUpload, { upsert: true });
+          if (upErr) throw upErr;
+          const { data: pub } = supabase.storage.from("marketplace-images").getPublicUrl(path);
+          newImageUrl = pub.publicUrl;
+        } catch (uploadErr) {
+          console.error("Error subiendo imagen:", uploadErr);
+          toast.error("No se pudo subir la nueva imagen");
+          setSaving(false);
+          return;
+        }
+      }
+
       const { error } = await supabase
         .from("inventory")
         .update({
@@ -203,7 +227,13 @@ const InventarioView = () => {
           product_name: editingItem.product_name.trim(),
           stock_available: Math.max(0, editingItem.stock_available),
           price: Math.max(0, editingItem.price),
+          cost_price: editingItem.cost_price != null ? Math.max(0, editingItem.cost_price) : null,
           low_stock_threshold: Math.max(0, editingItem.low_stock_threshold),
+          category: editingItem.category || null,
+          subcategory: editingItem.subcategory || null,
+          description: editingItem.description?.trim() || null,
+          image_url: newImageUrl,
+          es_privado: !!editingItem.es_privado,
         })
         .eq("id", editingItem.id);
 
@@ -218,6 +248,8 @@ const InventarioView = () => {
 
       toast.success("Producto actualizado");
       setEditingItem(null);
+      setEditImageFile(null);
+      setEditImagePreview(null);
       fetchInventory();
     } catch (error) {
       console.error("Error updating item:", error);
@@ -225,7 +257,7 @@ const InventarioView = () => {
     } finally {
       if (!cancelRef.current) setSaving(false);
     }
-  }, [editingItem, fetchInventory]);
+  }, [editingItem, editImageFile, fetchInventory, user?.id, profile?.organizacion_id]);
 
   const handleDeleteItem = useCallback(async (itemId: string, itemName: string) => {
     /*
@@ -548,7 +580,7 @@ const InventarioView = () => {
         organizacionId={profile?.organizacion_id}
       />
 
-      {/* Modal editar producto (inline) */}
+      {/* Modal editar producto (inline) — full sync con NuevoProductoMarketplace */}
       <AnimatePresence>
         {editingItem && (
           <div
@@ -562,21 +594,30 @@ const InventarioView = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setEditingItem(null)}
+              onClick={() => {
+                setEditingItem(null);
+                setEditImageFile(null);
+                setEditImagePreview(null);
+              }}
             />
             <motion.div
-              className="relative z-10 w-full max-w-md rounded-3xl bg-card/95 backdrop-blur-xl border border-border/50 shadow-2xl p-6"
+              className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-3xl bg-card/95 backdrop-blur-xl border border-border/50 shadow-2xl p-6"
               initial={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: prefersReducedMotion ? 1 : 0.9 }}
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 id={`${uid}-edit-title`} className="text-lg font-bold">
+                <h3 id={`${uid}-edit-title`} className="text-lg font-bold flex items-center gap-2">
+                  <Package className="h-5 w-5 text-primary" />
                   Editar Producto
                 </h3>
                 <button
                   type="button"
-                  onClick={() => setEditingItem(null)}
+                  onClick={() => {
+                    setEditingItem(null);
+                    setEditImageFile(null);
+                    setEditImagePreview(null);
+                  }}
                   className="flex h-8 w-8 items-center justify-center rounded-xl hover:bg-muted"
                   aria-label="Cerrar editor"
                 >
@@ -584,58 +625,58 @@ const InventarioView = () => {
                 </button>
               </div>
 
-              <div className="space-y-4">
-                {/* FIX: htmlFor + id en todos los campos del modal */}
-                <div>
-                  <label htmlFor={idEditSku} className="text-sm font-medium text-muted-foreground">
-                    SKU
-                  </label>
-                  <input
-                    id={idEditSku}
-                    type="text"
-                    value={editingItem.sku}
-                    onChange={(e) => setEditingItem({ ...editingItem, sku: e.target.value })}
-                    className="w-full mt-1 rounded-xl border border-border bg-background py-3 px-4 text-sm focus:border-primary focus:outline-none"
-                    autoComplete="off"
-                    spellCheck="false"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor={idEditName} className="text-sm font-medium text-muted-foreground">
-                    Nombre del Producto
-                  </label>
-                  <input
-                    id={idEditName}
-                    type="text"
-                    value={editingItem.product_name}
-                    onChange={(e) => setEditingItem({ ...editingItem, product_name: e.target.value })}
-                    className="w-full mt-1 rounded-xl border border-border bg-background py-3 px-4 text-sm focus:border-primary focus:outline-none"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-5">
+                {/* SKU + Nombre */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label htmlFor={idEditStock} className="text-sm font-medium text-muted-foreground">
-                      Stock Disponible
+                    <label htmlFor={idEditSku} className="text-xs font-medium text-muted-foreground mb-1 block">
+                      SKU *
                     </label>
                     <input
-                      id={idEditStock}
-                      type="number"
-                      min="0"
-                      inputMode="numeric"
-                      value={editingItem.stock_available}
-                      onChange={(e) =>
-                        setEditingItem({
-                          ...editingItem,
-                          stock_available: Math.max(0, parseInt(e.target.value) || 0),
-                        })
-                      }
-                      className="w-full mt-1 rounded-xl border border-border bg-background py-3 px-4 text-sm focus:border-primary focus:outline-none"
+                      id={idEditSku}
+                      type="text"
+                      value={editingItem.sku}
+                      onChange={(e) => setEditingItem({ ...editingItem, sku: e.target.value })}
+                      className="w-full rounded-xl border border-border bg-background py-2.5 px-4 text-sm focus:border-primary focus:outline-none"
+                      autoComplete="off"
+                      spellCheck="false"
                     />
                   </div>
                   <div>
-                    <label htmlFor={idEditPrice} className="text-sm font-medium text-muted-foreground">
+                    <label htmlFor={idEditName} className="text-xs font-medium text-muted-foreground mb-1 block">
+                      Nombre del Producto *
+                    </label>
+                    <input
+                      id={idEditName}
+                      type="text"
+                      value={editingItem.product_name}
+                      onChange={(e) => setEditingItem({ ...editingItem, product_name: e.target.value })}
+                      className="w-full rounded-xl border border-border bg-background py-2.5 px-4 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Costo + Precio + Stock + Umbral */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Costo</label>
+                    <input
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      value={editingItem.cost_price ?? ""}
+                      onChange={(e) =>
+                        setEditingItem({
+                          ...editingItem,
+                          cost_price: e.target.value === "" ? null : Math.max(0, parseFloat(e.target.value) || 0),
+                        })
+                      }
+                      placeholder="$0"
+                      className="w-full rounded-xl border border-border bg-background py-2.5 px-3 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={idEditPrice} className="text-xs font-medium text-muted-foreground mb-1 block">
                       Precio (COP)
                     </label>
                     <input
@@ -651,40 +692,179 @@ const InventarioView = () => {
                           price: Math.max(0, parseFloat(e.target.value) || 0),
                         })
                       }
-                      className="w-full mt-1 rounded-xl border border-border bg-background py-3 px-4 text-sm focus:border-primary focus:outline-none"
+                      className="w-full rounded-xl border border-border bg-background py-2.5 px-3 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={idEditStock} className="text-xs font-medium text-muted-foreground mb-1 block">
+                      Stock
+                    </label>
+                    <input
+                      id={idEditStock}
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      value={editingItem.stock_available}
+                      onChange={(e) =>
+                        setEditingItem({
+                          ...editingItem,
+                          stock_available: Math.max(0, parseInt(e.target.value) || 0),
+                        })
+                      }
+                      className="w-full rounded-xl border border-border bg-background py-2.5 px-3 text-sm focus:border-primary focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={idEditThreshold} className="text-xs font-medium text-muted-foreground mb-1 block">
+                      Umbral
+                    </label>
+                    <input
+                      id={idEditThreshold}
+                      type="number"
+                      min="0"
+                      inputMode="numeric"
+                      value={editingItem.low_stock_threshold}
+                      onChange={(e) =>
+                        setEditingItem({
+                          ...editingItem,
+                          low_stock_threshold:
+                            parseInt(e.target.value) >= 0 ? parseInt(e.target.value) : 5,
+                        })
+                      }
+                      className="w-full rounded-xl border border-border bg-background py-2.5 px-3 text-sm focus:border-primary focus:outline-none"
                     />
                   </div>
                 </div>
 
-                {/*
-                  FIX: ELIMINADOS los botones de selección de fulfillment_value ($1.900/$2.000/$2.200).
-                  El comentario original decía "fulfillment_value is no longer editable by clients",
-                  pero el modal de edición sí los mostraba. El cambio se ignoraba silenciosamente
-                  al guardar (no estaba en el UPDATE). Controles engañosos → eliminados.
-                  La tarifa la controla el admin desde el perfil de la tienda.
-                */}
+                {/* Categoría + Subcategoría */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Categoría</label>
+                    <select
+                      value={editingItem.category ?? ""}
+                      onChange={(e) =>
+                        setEditingItem({ ...editingItem, category: e.target.value || null, subcategory: null })
+                      }
+                      className="w-full rounded-xl border border-border bg-background py-2.5 px-3 text-sm focus:border-primary focus:outline-none"
+                    >
+                      <option value="">Seleccionar categoría...</option>
+                      {CATEGORY_KEYS.map((c) => (
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Subcategoría</label>
+                    <select
+                      value={editingItem.subcategory ?? ""}
+                      disabled={!editingItem.category}
+                      onChange={(e) =>
+                        setEditingItem({ ...editingItem, subcategory: e.target.value || null })
+                      }
+                      className="w-full rounded-xl border border-border bg-background py-2.5 px-3 text-sm focus:border-primary focus:outline-none disabled:opacity-50"
+                    >
+                      <option value="">
+                        {editingItem.category ? "Seleccionar subcategoría..." : "Elige una categoría primero"}
+                      </option>
+                      {(CATEGORY_TREE[editingItem.category ?? ""] || []).map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
+                {/* Descripción */}
                 <div>
-                  <label htmlFor={idEditThreshold} className="text-sm font-medium text-muted-foreground">
-                    Umbral de Stock Bajo
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                    Descripción
                   </label>
-                  <input
-                    id={idEditThreshold}
-                    type="number"
-                    min="0"
-                    inputMode="numeric"
-                    value={editingItem.low_stock_threshold}
+                  <textarea
+                    value={editingItem.description ?? ""}
                     onChange={(e) =>
-                      setEditingItem({
-                        ...editingItem,
-                        /*
-                          FIX: `parseInt() || 5` hacía imposible setear 0.
-                          Misma corrección que en CreateProductModal.
-                        */
-                        low_stock_threshold: parseInt(e.target.value) >= 0 ? parseInt(e.target.value) : 5,
-                      })
+                      setEditingItem({ ...editingItem, description: e.target.value })
                     }
-                    className="w-full mt-1 rounded-xl border border-border bg-background py-3 px-4 text-sm focus:border-primary focus:outline-none"
+                    rows={4}
+                    placeholder="Descripción detallada del producto..."
+                    className="w-full rounded-xl border border-border bg-background py-2.5 px-4 text-sm focus:border-primary focus:outline-none resize-none"
+                  />
+                </div>
+
+                {/* Imagen */}
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                    Imagen del Producto
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <div className="h-20 w-20 rounded-xl border border-border bg-muted/30 overflow-hidden flex items-center justify-center flex-shrink-0">
+                      {editImagePreview ? (
+                        <img src={editImagePreview} alt="Nueva imagen" className="h-full w-full object-cover" />
+                      ) : editingItem.image_url ? (
+                        <img src={editingItem.image_url} alt={editingItem.product_name} className="h-full w-full object-cover" />
+                      ) : (
+                        <ImageIcon className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
+                      )}
+                    </div>
+                    <div className="flex-1 flex flex-col gap-2">
+                      <input
+                        ref={editImageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          try {
+                            const compressed = await compressImage(file, 1024 * 1024);
+                            setEditImageFile(new File([compressed.blob], file.name, { type: "image/jpeg" }));
+                            setEditImagePreview(compressed.base64);
+                          } catch {
+                            setEditImageFile(file);
+                            setEditImagePreview(URL.createObjectURL(file));
+                          }
+                          if (editImageInputRef.current) editImageInputRef.current.value = "";
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => editImageInputRef.current?.click()}
+                        className="text-xs font-semibold text-primary hover:underline self-start"
+                      >
+                        {editImagePreview || editingItem.image_url ? "Cambiar imagen" : "Subir imagen"}
+                      </button>
+                      {editImagePreview && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditImageFile(null);
+                            setEditImagePreview(null);
+                          }}
+                          className="text-xs text-destructive hover:underline self-start"
+                        >
+                          Cancelar nueva imagen
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Switch privacidad */}
+                <div className="flex items-start justify-between gap-4 rounded-xl border border-border bg-muted/30 p-4">
+                  <div className="flex-1">
+                    <label htmlFor={`${uid}-edit-priv`} className="text-sm font-semibold text-foreground cursor-pointer">
+                      ¿Hacer este producto exclusivo? (Solo visible para mí)
+                    </label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Si lo activas, el producto no aparecerá en el catálogo general de la Mega Bodega.
+                    </p>
+                  </div>
+                  <Switch
+                    id={`${uid}-edit-priv`}
+                    checked={!!editingItem.es_privado}
+                    onCheckedChange={(v) => setEditingItem({ ...editingItem, es_privado: v })}
                   />
                 </div>
 
