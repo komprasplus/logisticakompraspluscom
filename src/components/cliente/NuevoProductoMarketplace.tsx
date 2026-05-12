@@ -77,7 +77,7 @@ const NuevoProductoMarketplace = ({
   const [productType, setProductType] = useState("Simple");
   const [category, setCategory] = useState("");
   const [subcategory, setSubcategory] = useState("");
-
+  const [esPrivado, setEsPrivado] = useState(false);
   const [attributeNames, setAttributeNames] = useState<string[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string[]>>({});
   const [newAttrName, setNewAttrName] = useState("");
