@@ -1,0 +1,1 @@
+ALTER TABLE public.inventory ADD COLUMN IF NOT EXISTS es_privado BOOLEAN NOT NULL DEFAULT false;

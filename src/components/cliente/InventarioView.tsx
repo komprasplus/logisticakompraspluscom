@@ -24,6 +24,9 @@ import { formatCOP } from "@/lib/tarifas";
 import { useAuth } from "@/hooks/useAuth";
 import NuevoPedidoModal from "@/components/NuevoPedidoModal";
 import NuevoProductoMarketplace from "./NuevoProductoMarketplace";
+import { CATEGORY_TREE, CATEGORY_KEYS } from "@/lib/categoryTree";
+import { compressImage } from "@/lib/imageCompression";
+import { Switch } from "@/components/ui/switch";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
