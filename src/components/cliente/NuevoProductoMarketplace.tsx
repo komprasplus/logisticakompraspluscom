@@ -336,10 +336,18 @@ const NuevoProductoMarketplace = ({
           client_user_id: userId,
           sku: sku.trim().toUpperCase(),
           product_name: name.trim(),
+          description: description.trim() || null,
+          especificaciones: especificaciones.trim() || null,
+          garantia: garantia.trim() || null,
+          category: category || null,
+          subcategory: subcategory || null,
           stock_available: totalStock,
           price: Number(suggestedPrice) || Number(costPrice) || 0,
+          cost_price: Number(costPrice) || null,
           low_stock_threshold: 5,
           image_url: imgUrls[0] || null,
+          image_url_2: imgUrls[1] || null,
+          image_url_3: imgUrls[2] || null,
           is_public: false,
         });
         if (error) {
