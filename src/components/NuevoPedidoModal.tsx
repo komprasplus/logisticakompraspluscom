@@ -222,8 +222,12 @@ const NuevoPedidoModal = ({
 
   // ====== MULTI-PRODUCT STATE ======
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
-  // Multi-product when NOT coming from inventory AND NOT editing
-  const isMultiProductMode = !inventoryPrefill && !isEditMode;
+  // User-triggered upgrade: when entering from a simple inventory prefill, allow
+  // the dropshipper to convert the order into a multi-product cart.
+  const [upgradedToMultiProduct, setUpgradedToMultiProduct] = useState(false);
+  // Multi-product when NOT coming from inventory AND NOT editing,
+  // OR when the user explicitly upgraded a simple inventory prefill.
+  const isMultiProductMode = (!inventoryPrefill && !isEditMode) || upgradedToMultiProduct;
   
   // Schedule — Cut-off 14:00 + skip Sundays & Colombian holidays
   const computeDefaultDeliveryDate = () => getMinDeliveryDate();
@@ -1041,6 +1045,35 @@ const NuevoPedidoModal = ({
     setSelectedVariants([]);
     setVariants([]);
     setOrderItems([]);
+    setUpgradedToMultiProduct(false);
+  };
+
+  // Convert a single inventory-prefill order into a multi-product cart.
+  // Seeds the prefilled product as item #1, then adds an empty slot for the next.
+  const upgradeToMultiProduct = () => {
+    if (!inventoryPrefill || isVariableProduct || inventoryPrefill.source === "marketplace") return;
+    const seeded: OrderItem = {
+      id: crypto.randomUUID(),
+      productName: inventoryPrefill.productName,
+      sku: inventoryPrefill.sku,
+      quantity: quantity || 1,
+      unitPrice: inventoryPrefill.price ?? 0,
+      inventoryItemId: inventoryPrefill.inventoryItemId,
+      variantId: null,
+      maxStock: inventoryPrefill.maxStock,
+    };
+    const empty: OrderItem = {
+      id: crypto.randomUUID(),
+      productName: "",
+      sku: "",
+      quantity: 1,
+      unitPrice: 0,
+      inventoryItemId: null,
+      variantId: null,
+    };
+    setOrderItems([seeded, empty]);
+    setInventoryItemId(null); // release single-product binding
+    setUpgradedToMultiProduct(true);
   };
 
   if (!isOpen) return null;
@@ -1808,6 +1841,18 @@ const NuevoPedidoModal = ({
                           +
                         </button>
                       </div>
+
+                      {/* Upgrade to multi-product cart (only for simple inventory products) */}
+                      {inventoryPrefill?.source !== "marketplace" && (
+                        <button
+                          type="button"
+                          onClick={upgradeToMultiProduct}
+                          className="w-full mt-2 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/40 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Añadir otro producto a este envío
+                        </button>
+                      )}
                     </>
                   )}
 
