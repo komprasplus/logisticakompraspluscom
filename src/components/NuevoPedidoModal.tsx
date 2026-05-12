@@ -1841,6 +1841,18 @@ const NuevoPedidoModal = ({
                           +
                         </button>
                       </div>
+
+                      {/* Upgrade to multi-product cart (only for simple inventory products) */}
+                      {inventoryPrefill?.source !== "marketplace" && (
+                        <button
+                          type="button"
+                          onClick={upgradeToMultiProduct}
+                          className="w-full mt-2 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary/40 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5 transition-colors"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Añadir otro producto a este envío
+                        </button>
+                      )}
                     </>
                   )}
 
