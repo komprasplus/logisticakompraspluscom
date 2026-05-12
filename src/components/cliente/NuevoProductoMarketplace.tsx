@@ -290,7 +290,7 @@ const NuevoProductoMarketplace = ({
             organizacion_id: organizacionId,
             created_by: userId,
             is_active: true,
-          })
+            es_privado: esPrivado,
           .select("id")
           .single();
         if (mpErr) throw mpErr;
