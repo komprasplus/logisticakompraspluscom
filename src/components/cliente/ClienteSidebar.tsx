@@ -93,6 +93,13 @@ const NAV_SECTIONS: NavSection[] = [
         gradient: "from-primary to-primary/80",
         shadow: "shadow-primary/30",
       },
+      {
+        key: "por-empacar",
+        label: "Por Empacar",
+        icon: Boxes,
+        gradient: "from-amber-500 to-orange-600",
+        shadow: "shadow-amber-500/30",
+      },
     ],
   },
   {
