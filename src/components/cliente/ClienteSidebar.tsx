@@ -35,6 +35,7 @@ export type ClienteView =
   | "transferencias"
   | "catalogo"
   | "catalogo-publico"
+  | "por-empacar"
   | "docs";
 
 interface ClienteSidebarProps {
