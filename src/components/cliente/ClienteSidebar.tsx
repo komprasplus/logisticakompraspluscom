@@ -199,6 +199,7 @@ const ClienteSidebar = ({
     items: section.items.filter((item) => {
       if (isProveedor && item.key === "catalogo") return false;
       if (!isProveedor && item.key === "catalogo-publico") return false;
+      if (!isProveedor && item.key === "por-empacar") return false;
       return true;
     }),
   })).filter((section) => section.items.length > 0);
