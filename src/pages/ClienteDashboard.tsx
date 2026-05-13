@@ -367,32 +367,37 @@ const ClienteDashboard = () => {
             {/* Vistas consolidadas: "pedidos" agrupa Mis Pedidos + Novedades +
                 Devoluciones bajo pestañas; las claves legacy redirigen al
                 tab correspondiente para no romper navegación existente. */}
+            {/* Mis Pedidos: SIEMPRE muestra EnviosView (historial de guías
+                del propio usuario) — incluso para proveedores que también
+                actúan como dropshippers usando su inventario privado. La
+                vista "Por Empacar" para proveedores vive en su propio item
+                del sidebar (`por-empacar`). */}
             {(activeView === "pedidos" ||
               activeView === "novedades" ||
               activeView === "devoluciones") && (
-              isProveedor ? (
-                <ProveedorPedidosView key="proveedor-pedidos" />
-              ) : (
-                <EnviosView
-                  key="envios"
-                  pedidos={pedidos}
-                  loading={isLoading}
-                  onEdit={setEditingPedido}
-                  onPrint={setPrintingPedido}
-                  onRespond={setInstructionsPedido}
-                  onViewEvidence={setEvidencePhoto}
-                  onRefresh={refetch}
-                  error={error}
-                  hasCache={hasCache}
-                  initialTab={
-                    activeView === "novedades"
-                      ? "novedades"
-                      : activeView === "devoluciones"
-                        ? "devoluciones"
-                        : "todos"
-                  }
-                />
-              )
+              <EnviosView
+                key="envios"
+                pedidos={pedidos}
+                loading={isLoading}
+                onEdit={setEditingPedido}
+                onPrint={setPrintingPedido}
+                onRespond={setInstructionsPedido}
+                onViewEvidence={setEvidencePhoto}
+                onRefresh={refetch}
+                error={error}
+                hasCache={hasCache}
+                initialTab={
+                  activeView === "novedades"
+                    ? "novedades"
+                    : activeView === "devoluciones"
+                      ? "devoluciones"
+                      : "todos"
+                }
+              />
+            )}
+
+            {activeView === "por-empacar" && isProveedor && (
+              <ProveedorPedidosView key="proveedor-pedidos" />
             )}
 
             {activeView === "reportes" && (

@@ -122,6 +122,13 @@ interface Pedido {
   tipo_novedad: string | null;
   observaciones?: string | null;
   integration_partner?: string | null;
+  order_items?: Array<{
+    id: string;
+    product_name: string;
+    sku: string | null;
+    quantity: number;
+    unit_price: number;
+  }> | null;
 }
 
 interface PedidosViewProps {
@@ -655,17 +662,35 @@ const PedidosView = ({
                       </p>
                     </div>
 
-                    {/* Bloque de Producto */}
-                    <div className="flex items-center gap-2 bg-muted/50 dark:bg-muted/30 rounded p-1.5">
-                      <div className="w-8 h-8 rounded bg-background flex items-center justify-center flex-shrink-0 border border-border/50">
-                        <Package className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-foreground truncate" title={pedido.producto_nombre || ""}>
-                          {pedido.producto_nombre || "Sin producto"}
-                        </p>
-                      </div>
-                    </div>
+                    {/* Bloque de Producto — soporta órdenes compuestas (multi-ítem) */}
+                    {(() => {
+                      const items = pedido.order_items ?? [];
+                      const isMulti = items.length > 1;
+                      const displayName = isMulti
+                        ? `Orden compuesta · ${items.length} ítems`
+                        : items[0]?.product_name || pedido.producto_nombre || "Sin producto";
+                      const tooltip = items.length > 0
+                        ? items.map((i) => `${i.quantity}× ${i.product_name}`).join("\n")
+                        : pedido.producto_nombre || "";
+                      return (
+                        <div className="flex items-center gap-2 bg-muted/50 dark:bg-muted/30 rounded p-1.5">
+                          <div className="w-8 h-8 rounded bg-background flex items-center justify-center flex-shrink-0 border border-border/50">
+                            <Package className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium text-foreground truncate" title={tooltip}>
+                              {displayName}
+                            </p>
+                            {isMulti && (
+                              <p className="text-[10px] text-muted-foreground truncate" title={tooltip}>
+                                {items.slice(0, 2).map((i) => i.product_name).join(", ")}
+                                {items.length > 2 ? "…" : ""}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Bloque Financiero — una línea */}
                     {pedido.metodo_pago === "anticipado" ? (

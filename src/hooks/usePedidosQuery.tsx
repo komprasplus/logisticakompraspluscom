@@ -48,7 +48,14 @@ const CLIENT_PEDIDO_COLUMNS = `
   corte_horario,
   fecha_creacion,
   foto_evidencia,
-  tipo_novedad
+  tipo_novedad,
+  order_items (
+    id,
+    product_name,
+    sku,
+    quantity,
+    unit_price
+  )
 `;
 
 // Local storage key for offline fallback

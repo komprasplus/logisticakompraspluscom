@@ -35,6 +35,7 @@ export type ClienteView =
   | "transferencias"
   | "catalogo"
   | "catalogo-publico"
+  | "por-empacar"
   | "docs";
 
 interface ClienteSidebarProps {
@@ -91,6 +92,13 @@ const NAV_SECTIONS: NavSection[] = [
         icon: Package,
         gradient: "from-primary to-primary/80",
         shadow: "shadow-primary/30",
+      },
+      {
+        key: "por-empacar",
+        label: "Por Empacar",
+        icon: Boxes,
+        gradient: "from-amber-500 to-orange-600",
+        shadow: "shadow-amber-500/30",
       },
     ],
   },
@@ -191,6 +199,7 @@ const ClienteSidebar = ({
     items: section.items.filter((item) => {
       if (isProveedor && item.key === "catalogo") return false;
       if (!isProveedor && item.key === "catalogo-publico") return false;
+      if (!isProveedor && item.key === "por-empacar") return false;
       return true;
     }),
   })).filter((section) => section.items.length > 0);
