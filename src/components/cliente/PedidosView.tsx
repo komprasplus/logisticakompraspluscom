@@ -122,6 +122,13 @@ interface Pedido {
   tipo_novedad: string | null;
   observaciones?: string | null;
   integration_partner?: string | null;
+  order_items?: Array<{
+    id: string;
+    product_name: string;
+    sku: string | null;
+    quantity: number;
+    unit_price: number;
+  }> | null;
 }
 
 interface PedidosViewProps {
