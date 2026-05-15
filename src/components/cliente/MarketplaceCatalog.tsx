@@ -545,8 +545,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                     <p className="text-xs font-semibold text-foreground line-clamp-2 leading-tight">
                       {p.product_name}
                     </p>
-                    <p className="text-sm font-bold text-primary">
-                      {formatCOP(p.suggested_price)}
+                    <p className="text-sm font-bold text-foreground">
+                      {formatCOP(p.cost_price)}
                     </p>
                   </div>
                 </button>
