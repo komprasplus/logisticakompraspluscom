@@ -950,26 +950,24 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       </div>
                     </div>
 
-                    {/* Bloque de Precio destacado */}
-                    <div className="space-y-2">
+                    {/* Bloque de Precio destacado — Costo del Producto protagonista (B2B) */}
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Costo del Producto
+                      </p>
                       <div className="flex items-end gap-3 flex-wrap">
                         <span className="text-3xl sm:text-4xl font-extrabold text-foreground leading-none">
-                          {formatCOP(detailProduct.suggested_price)}
+                          {formatCOP(detailProduct.cost_price)}
                         </span>
-                        {detailProduct.suggested_price > detailProduct.cost_price && (
-                          <span className="text-sm text-muted-foreground line-through pb-1">
-                            {formatCOP(Math.round(detailProduct.suggested_price * 1.25))}
-                          </span>
-                        )}
                         {detailProduct.suggested_price - detailProduct.cost_price > 0 && (
                           <Badge className="bg-emerald-500 hover:bg-emerald-500/90 text-white">
-                            +{formatCOP(detailProduct.suggested_price - detailProduct.cost_price)} margen
+                            Margen sugerido +{formatCOP(detailProduct.suggested_price - detailProduct.cost_price)}
                           </Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Precio Venta Público (PVP) sugerido. Costo proveedor:{" "}
-                        <span className="font-semibold text-foreground">{formatCOP(detailProduct.cost_price)}</span>
+                        PVP sugerido:{" "}
+                        <span className="font-medium">{formatCOP(detailProduct.suggested_price)}</span>
                       </p>
                     </div>
 
