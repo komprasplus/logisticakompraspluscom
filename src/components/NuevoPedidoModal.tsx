@@ -1622,19 +1622,21 @@ const NuevoPedidoModal = ({
                       <p className="font-medium text-foreground">{inventoryPrefill.productName}</p>
                       <p className="text-xs text-muted-foreground font-mono">SKU: {inventoryPrefill.sku}</p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-sm font-medium text-primary">
-                        {formatCOP(
-                          typeof inventoryPrefill.costPrice === "number"
-                            ? inventoryPrefill.costPrice
-                            : inventoryPrefill.price
-                        )}{" "}
-                        c/u
-                      </span>
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Costo base
-                      </p>
-                    </div>
+                    {!isVariableProduct && (
+                      <div className="text-right">
+                        <span className="text-sm font-medium text-primary">
+                          {formatCOP(
+                            typeof inventoryPrefill.costPrice === "number"
+                              ? inventoryPrefill.costPrice
+                              : inventoryPrefill.price
+                          )}{" "}
+                          c/u
+                        </span>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          Costo del Producto
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Variant Selector - MULTI-VARIANT for variable products */}
