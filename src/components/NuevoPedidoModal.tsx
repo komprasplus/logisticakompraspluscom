@@ -1220,7 +1220,7 @@ const NuevoPedidoModal = ({
                   <p className="text-xs text-muted-foreground">💡 Calculado automáticamente desde los productos añadidos.</p>
                 ) : inventoryPrefill ? (
                   <p className="text-xs text-muted-foreground">
-                    ✏️ Editable. Define tu PVP final al cliente. Mínimo permitido:{" "}
+                    ✏️ Editable. Define el valor final que cobrarás al cliente. Mínimo permitido:{" "}
                     <span className="font-semibold text-foreground">
                       {formatCOP(
                         (Number(valorProducto) || 0) *
@@ -1228,7 +1228,7 @@ const NuevoPedidoModal = ({
                           (Number(tarifaInfo.valor) || 0)
                       )}
                     </span>{" "}
-                    (Costo + Flete)
+                    (Costo del Producto + Flete)
                   </p>
                 ) : null}
               </div>
