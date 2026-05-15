@@ -1858,11 +1858,11 @@ const NuevoPedidoModal = ({
                     </>
                   )}
 
-                  {/* Costo base total: cost_price * qty (NOT the PVP).
-                      The dropshipper sees their cost base before adding freight & margin. */}
+                  {/* Costo del Producto total: cost_price * qty.
+                      Solo lectura — el dropshipper no puede modificarlo. */}
                   <div className="flex items-center justify-between text-sm pt-1 border-t border-border/50">
                     <span className="text-muted-foreground">
-                      💼 Costo base
+                      💼 Costo del Producto
                       {isVariableProduct && variantsTotalQuantity > 0
                         ? ` (${variantsTotalQuantity} u.)`
                         : ""}:
