@@ -807,17 +807,22 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                     <p className="text-xs text-muted-foreground line-clamp-2">{product.description}</p>
                   )}
 
-                  {/* Pricing */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-primary">
-                      {formatCOP(product.suggested_price)}
-                    </span>
-                    {margin > 0 && (
-                      <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-0.5">
-                        <TrendingUp className="h-3 w-3" />
-                        +{formatCOP(margin)}
+                  {/* Pricing — B2B: Costo del Producto protagonista */}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                      Costo del Producto
+                    </p>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-2xl font-extrabold text-foreground leading-tight">
+                        {formatCOP(product.cost_price)}
                       </span>
-                    )}
+                      {margin > 0 && (
+                        <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-0.5">
+                          <TrendingUp className="h-3 w-3" />
+                          +{formatCOP(margin)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
