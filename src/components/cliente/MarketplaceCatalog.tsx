@@ -545,8 +545,8 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                     <p className="text-xs font-semibold text-foreground line-clamp-2 leading-tight">
                       {p.product_name}
                     </p>
-                    <p className="text-sm font-bold text-primary">
-                      {formatCOP(p.suggested_price)}
+                    <p className="text-sm font-bold text-foreground">
+                      {formatCOP(p.cost_price)}
                     </p>
                   </div>
                 </button>
@@ -807,17 +807,22 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                     <p className="text-xs text-muted-foreground line-clamp-2">{product.description}</p>
                   )}
 
-                  {/* Pricing */}
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-primary">
-                      {formatCOP(product.suggested_price)}
-                    </span>
-                    {margin > 0 && (
-                      <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-0.5">
-                        <TrendingUp className="h-3 w-3" />
-                        +{formatCOP(margin)}
+                  {/* Pricing — B2B: Costo del Producto protagonista */}
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-semibold">
+                      Costo del Producto
+                    </p>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-2xl font-extrabold text-foreground leading-tight">
+                        {formatCOP(product.cost_price)}
                       </span>
-                    )}
+                      {margin > 0 && (
+                        <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-0.5">
+                          <TrendingUp className="h-3 w-3" />
+                          +{formatCOP(margin)}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -950,26 +955,24 @@ const MarketplaceCatalog = ({ onGenerateOrder }: MarketplaceCatalogProps) => {
                       </div>
                     </div>
 
-                    {/* Bloque de Precio destacado */}
-                    <div className="space-y-2">
+                    {/* Bloque de Precio destacado — Costo del Producto protagonista (B2B) */}
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Costo del Producto
+                      </p>
                       <div className="flex items-end gap-3 flex-wrap">
                         <span className="text-3xl sm:text-4xl font-extrabold text-foreground leading-none">
-                          {formatCOP(detailProduct.suggested_price)}
+                          {formatCOP(detailProduct.cost_price)}
                         </span>
-                        {detailProduct.suggested_price > detailProduct.cost_price && (
-                          <span className="text-sm text-muted-foreground line-through pb-1">
-                            {formatCOP(Math.round(detailProduct.suggested_price * 1.25))}
-                          </span>
-                        )}
                         {detailProduct.suggested_price - detailProduct.cost_price > 0 && (
                           <Badge className="bg-emerald-500 hover:bg-emerald-500/90 text-white">
-                            +{formatCOP(detailProduct.suggested_price - detailProduct.cost_price)} margen
+                            Margen sugerido +{formatCOP(detailProduct.suggested_price - detailProduct.cost_price)}
                           </Badge>
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Precio Venta Público (PVP) sugerido. Costo proveedor:{" "}
-                        <span className="font-semibold text-foreground">{formatCOP(detailProduct.cost_price)}</span>
+                        PVP sugerido:{" "}
+                        <span className="font-medium">{formatCOP(detailProduct.suggested_price)}</span>
                       </p>
                     </div>
 

@@ -1220,7 +1220,7 @@ const NuevoPedidoModal = ({
                   <p className="text-xs text-muted-foreground">💡 Calculado automáticamente desde los productos añadidos.</p>
                 ) : inventoryPrefill ? (
                   <p className="text-xs text-muted-foreground">
-                    ✏️ Editable. Define tu PVP final al cliente. Mínimo permitido:{" "}
+                    ✏️ Editable. Define el valor final que cobrarás al cliente. Mínimo permitido:{" "}
                     <span className="font-semibold text-foreground">
                       {formatCOP(
                         (Number(valorProducto) || 0) *
@@ -1228,7 +1228,7 @@ const NuevoPedidoModal = ({
                           (Number(tarifaInfo.valor) || 0)
                       )}
                     </span>{" "}
-                    (Costo + Flete)
+                    (Costo del Producto + Flete)
                   </p>
                 ) : null}
               </div>
@@ -1622,19 +1622,21 @@ const NuevoPedidoModal = ({
                       <p className="font-medium text-foreground">{inventoryPrefill.productName}</p>
                       <p className="text-xs text-muted-foreground font-mono">SKU: {inventoryPrefill.sku}</p>
                     </div>
-                    <div className="text-right">
-                      <span className="text-sm font-medium text-primary">
-                        {formatCOP(
-                          typeof inventoryPrefill.costPrice === "number"
-                            ? inventoryPrefill.costPrice
-                            : inventoryPrefill.price
-                        )}{" "}
-                        c/u
-                      </span>
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
-                        Costo base
-                      </p>
-                    </div>
+                    {!isVariableProduct && (
+                      <div className="text-right">
+                        <span className="text-sm font-medium text-primary">
+                          {formatCOP(
+                            typeof inventoryPrefill.costPrice === "number"
+                              ? inventoryPrefill.costPrice
+                              : inventoryPrefill.price
+                          )}{" "}
+                          c/u
+                        </span>
+                        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                          Costo del Producto
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Variant Selector - MULTI-VARIANT for variable products */}
@@ -1856,11 +1858,11 @@ const NuevoPedidoModal = ({
                     </>
                   )}
 
-                  {/* Costo base total: cost_price * qty (NOT the PVP).
-                      The dropshipper sees their cost base before adding freight & margin. */}
+                  {/* Costo del Producto total: cost_price * qty.
+                      Solo lectura — el dropshipper no puede modificarlo. */}
                   <div className="flex items-center justify-between text-sm pt-1 border-t border-border/50">
                     <span className="text-muted-foreground">
-                      💼 Costo base
+                      💼 Costo del Producto
                       {isVariableProduct && variantsTotalQuantity > 0
                         ? ` (${variantsTotalQuantity} u.)`
                         : ""}:
@@ -1894,35 +1896,27 @@ const NuevoPedidoModal = ({
                 </div>
               )}
 
-              {/* Costo del producto - hide in multi-product mode and RECOGIDA.
-                  Locked (read-only) when product comes from the Marketplace:
-                  the dropshipper cannot edit the supplier's base cost. */}
+              {/* Costo del Producto — SIEMPRE solo lectura. Bloqueo financiero estricto:
+                  el dropshipper jamás puede editar el costo del proveedor. */}
               {tipoServicio === "ENVIO" && !isMultiProductMode && (() => {
-                const isFromMarketplace = inventoryPrefill?.source === "marketplace";
+                const costoUnit = Number(valorProducto) || 0;
+                const cantidadEf = isVariableProduct
+                  ? Math.max(variantsTotalQuantity, 1)
+                  : (Number(quantity) || 1);
+                const costoTotal = isVariableProduct ? variantsSubtotal : costoUnit * cantidadEf;
+                if (!costoUnit && !isVariableProduct) return null;
                 return (
-                  <div className="space-y-1">
-                    <div className="relative">
-                      <Package className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <input
-                        type="number"
-                        placeholder={isFromMarketplace ? "Costo Proveeduría (fijado por proveedor)" : "Costo Producto / Proveeduría (opcional)"}
-                        value={valorProducto}
-                        onChange={(e) => setValorProducto(e.target.value)}
-                        readOnly={isFromMarketplace}
-                        disabled={isFromMarketplace}
-                        min="0"
-                        step="100"
-                        className={cn(
-                          "w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20",
-                          isFromMarketplace && "cursor-not-allowed bg-muted/40 text-muted-foreground"
-                        )}
-                      />
+                  <div className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-primary" />
+                      <span className="text-xs font-semibold text-foreground uppercase tracking-wide">
+                        Costo del Producto
+                      </span>
                     </div>
-                    {isFromMarketplace && (
-                      <p className="text-[11px] text-muted-foreground pl-1">
-                        🔒 Costo base definido por el proveedor. No editable.
-                      </p>
-                    )}
+                    <span className="text-sm font-bold text-foreground">
+                      {formatCOP(costoTotal)}
+                      <span className="text-[10px] text-muted-foreground ml-1">🔒</span>
+                    </span>
                   </div>
                 );
               })()}
