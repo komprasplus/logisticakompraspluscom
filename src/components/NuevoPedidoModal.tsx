@@ -1217,6 +1217,24 @@ const NuevoPedidoModal = ({
                     placeholder="Valor a Recaudar (COP) *"
                     value={valorRecaudar}
                     onChange={(e) => setValorRecaudar(e.target.value)}
+                    onBlur={() => {
+                      // Only enforce the lower bound on blur. Never snap back to suggested PVP.
+                      if (isMultiProductMode) return;
+                      if (!valorRecaudar) return;
+                      const qtyEff = isVariableProduct
+                        ? Math.max(variantsTotalQuantity, 1)
+                        : (Number(quantity) || 1);
+                      const minimoPermitido =
+                        (Number(valorProducto) || 0) * qtyEff +
+                        (Number(tarifaInfo.valor) || 0);
+                      const current = Number(valorRecaudar) || 0;
+                      if (current < minimoPermitido) {
+                        toast.error(
+                          `El valor a recaudar no puede ser menor a ${formatCOP(minimoPermitido)} (Costo + Flete). Se ajustó al mínimo.`
+                        );
+                        setValorRecaudar(String(minimoPermitido));
+                      }
+                    }}
                     required={metodoPago === "efectivo"}
                     min="0"
                     step="100"
