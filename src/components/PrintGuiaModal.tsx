@@ -27,6 +27,7 @@ interface OrderItem {
   sku?: string | null;
   quantity?: number | null;
   unit_price?: number | null;
+  variant_name?: string | null;
 }
 
 interface Pedido {
