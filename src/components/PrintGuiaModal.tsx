@@ -1,26 +1,33 @@
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Printer, Download, Loader2 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { toPng } from "html-to-image";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+
 const defaultLogo = "/logo-oficial.png";
 
 type StoreCacheEntry = {
   logo_url: string | null;
   store_name: string | null;
+  store_phone: string | null;
+  store_address: string | null;
   at: number;
 };
 
-const formatTodayDate = () => {
-  return new Date().toLocaleDateString("es-CO", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-};
+const formatTodayDate = () =>
+  new Date().toLocaleDateString("es-CO", { year: "numeric", month: "2-digit", day: "2-digit" });
+
+interface OrderItem {
+  id?: number | string;
+  product_name?: string | null;
+  sku?: string | null;
+  quantity?: number | null;
+  unit_price?: number | null;
+}
 
 interface Pedido {
   id: number;
@@ -30,12 +37,15 @@ interface Pedido {
   direccion_entrega: string | null;
   barrio: string | null;
   zona: string | null;
+  municipio?: string | null;
+  departamento?: string | null;
   valor_recaudar: number | null;
   metodo_pago: string | null;
   producto_nombre: string | null;
   fecha_creacion: string | null;
   observaciones?: string | null;
   client_user_id?: string | null;
+  order_items?: OrderItem[] | null;
 }
 
 interface PrintGuiaModalProps {
@@ -45,102 +55,96 @@ interface PrintGuiaModalProps {
   remitente?: string;
 }
 
+const MAX_ITEMS_DISPLAY = 6;
+
 const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalProps) => {
   const guiaRef = useRef<HTMLDivElement>(null);
   const [storeLogo, setStoreLogo] = useState<string | null>(null);
   const [storeName, setStoreName] = useState<string | null>(null);
+  const [storePhone, setStorePhone] = useState<string | null>(null);
+  const [storeAddress, setStoreAddress] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  // Cache to avoid repeated DB queries when opening/closing the modal frequently
   const storeCacheRef = useRef<Record<string, StoreCacheEntry>>({});
 
-  // Fetch store logo if pedido has client_user_id
   useEffect(() => {
     let isMounted = true;
-
     const userId = pedido?.client_user_id ?? null;
 
-    const fetchStoreLogo = async () => {
+    const fetchStore = async () => {
       if (!userId) {
         if (isMounted) {
           setStoreLogo(null);
           setStoreName(null);
+          setStorePhone(null);
+          setStoreAddress(null);
         }
         return;
       }
 
-      // Serve from cache when possible (reduces Supabase CPU + network)
       const cached = storeCacheRef.current[userId];
-      const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+      const CACHE_TTL_MS = 10 * 60 * 1000;
       if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
         if (isMounted) {
           setStoreLogo(cached.logo_url);
           setStoreName(cached.store_name);
+          setStorePhone(cached.store_phone);
+          setStoreAddress(cached.store_address);
         }
         return;
       }
 
       try {
-        const { data: profile, error } = await supabase
+        const { data: profile } = await supabase
           .from("profiles")
-          .select("logo_url, store_name")
+          .select("logo_url, store_name, telefono, direccion")
           .eq("user_id", userId)
           .maybeSingle();
 
-        if (error) {
-          console.error("Error fetching store logo:", error);
-          if (isMounted) {
-            setStoreLogo(null);
-            setStoreName(null);
-          }
-          return;
-        }
-
-        if (isMounted) {
-          setStoreLogo(profile?.logo_url || null);
-          setStoreName(profile?.store_name || null);
-        }
-
-        storeCacheRef.current[userId] = {
+        const entry: StoreCacheEntry = {
           logo_url: profile?.logo_url || null,
           store_name: profile?.store_name || null,
+          store_phone: (profile as any)?.telefono || null,
+          store_address: (profile as any)?.direccion || null,
           at: Date.now(),
         };
-      } catch (error) {
-        console.error("Error fetching store logo:", error);
+        storeCacheRef.current[userId] = entry;
         if (isMounted) {
-          setStoreLogo(null);
-          setStoreName(null);
+          setStoreLogo(entry.logo_url);
+          setStoreName(entry.store_name);
+          setStorePhone(entry.store_phone);
+          setStoreAddress(entry.store_address);
         }
+      } catch (err) {
+        console.error("Error fetching store info:", err);
       }
     };
 
-    if (isOpen && pedido) {
-      fetchStoreLogo();
-    }
-
+    if (isOpen && pedido) fetchStore();
     return () => {
       isMounted = false;
     };
   }, [isOpen, pedido?.client_user_id]);
 
+  const items = useMemo<OrderItem[]>(() => {
+    if (!pedido) return [];
+    const raw = pedido.order_items;
+    if (Array.isArray(raw) && raw.length > 0) return raw;
+    // Fallback: synthesize one row from producto_nombre
+    return [{ product_name: pedido.producto_nombre || "Paquete estándar", quantity: 1 }];
+  }, [pedido]);
+
   const handlePrint = useCallback(async () => {
-    if (!pedido) return;
-    const printContent = guiaRef.current;
-    if (!printContent) return;
-
+    if (!pedido || !guiaRef.current) return;
     setIsPrinting(true);
-
     try {
-      // For mobile, use a more compatible approach
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
         toast.error("No se pudo abrir la ventana de impresión. Desactiva el bloqueador de pop-ups.");
         setIsPrinting(false);
         return;
       }
-
       printWindow.document.write(`
         <!DOCTYPE html>
         <html>
@@ -148,46 +152,31 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
             <title>Guía ${pedido.numero_guia || pedido.id}</title>
             <style>
               * { margin: 0; padding: 0; box-sizing: border-box; }
-              html, body {
-                width: 10cm;
-                height: 15cm;
-              }
+              html, body { width: 100mm; height: 150mm; }
               body {
-                font-family: Arial, Helvetica, sans-serif;
+                font-family: Inter, Arial, Helvetica, sans-serif;
                 background: white;
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
               }
-              @page {
-                size: 10cm 15cm;
-                margin: 0;
-              }
+              @page { size: 100mm 150mm; margin: 0; }
               @media print {
-                html, body {
-                  width: 10cm;
-                  height: 15cm;
-                  margin: 0;
-                  padding: 0;
-                  overflow: hidden;
-                }
+                html, body { width: 100mm; height: 150mm; margin: 0; padding: 0; overflow: hidden; }
                 .guia-container {
-                  border: none !important;
-                  width: 10cm !important;
-                  height: 15cm !important;
-                  max-height: 15cm !important;
+                  width: 100mm !important;
+                  height: 150mm !important;
+                  max-height: 150mm !important;
                   overflow: hidden !important;
                   page-break-inside: avoid !important;
-                  page-break-after: avoid !important;
                   break-inside: avoid !important;
-                  box-sizing: border-box !important;
                 }
                 .print-hidden { display: none !important; }
               }
+              table { border-collapse: collapse; width: 100%; }
+              td, th { border: 1px solid #000; padding: 1mm; }
             </style>
           </head>
-          <body>
-            ${printContent.innerHTML}
-          </body>
+          <body>${guiaRef.current.innerHTML}</body>
         </html>
       `);
       printWindow.document.close();
@@ -196,77 +185,52 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
         printWindow.print();
         printWindow.close();
         setIsPrinting(false);
-      }, 250);
-    } catch (error) {
-      console.error("Error printing:", error);
+      }, 300);
+    } catch (err) {
+      console.error("Print error:", err);
       toast.error("Error al imprimir la guía");
       setIsPrinting(false);
     }
   }, [pedido]);
 
-  const handleDownload = useCallback(async () => {
-    if (!pedido) return;
-    if (!guiaRef.current) return;
-
+  const handleDownloadPdf = useCallback(async () => {
+    if (!pedido || !guiaRef.current) return;
     setIsGenerating(true);
-    toast.info("Generando guía...", { duration: 2000 });
-
+    toast.info("Generando PDF...", { duration: 1500 });
     try {
-      // Use lower pixelRatio on mobile for better performance
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      const pixelRatio = isMobile ? 2 : 3;
-      
-      const dataUrl = await toPng(guiaRef.current, { 
-        quality: 0.95, 
-        pixelRatio,
+      const canvas = await html2canvas(guiaRef.current, {
+        scale: 3,
         backgroundColor: "#ffffff",
-        cacheBust: true, // Prevent caching issues
-        skipAutoScale: true, // Better mobile compatibility
+        useCORS: true,
       });
-
-      // Convert data URL to Blob for more reliable mobile download
-      const response = await fetch(dataUrl);
-      const blob = await response.blob();
-      
-      // Create a robust download using object URL
-      const blobUrl = URL.createObjectURL(blob);
-      const fileName = `guia-${pedido.numero_guia || pedido.id}.png`;
-      
-      // Create temporary anchor for download
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = fileName;
-      link.style.display = "none";
-      
-      // Required for Firefox and some mobile browsers
-      document.body.appendChild(link);
-      
-      // Trigger download
-      link.click();
-      
-      // Cleanup
-      setTimeout(() => {
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-      }, 100);
-      
-      toast.success("Guía descargada correctamente");
-    } catch (error) {
-      console.error("Error generating image:", error);
-      toast.error("No se pudo generar la guía, intenta nuevamente");
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: [100, 150],
+      });
+      pdf.addImage(imgData, "PNG", 0, 0, 100, 150);
+      pdf.save(`guia-${pedido.numero_guia || pedido.id}.pdf`);
+      toast.success("PDF descargado");
+    } catch (err) {
+      console.error("PDF error:", err);
+      toast.error("No se pudo generar el PDF");
     } finally {
       setIsGenerating(false);
     }
   }, [pedido]);
 
-  // Early return after all hooks
   if (!pedido) return null;
 
-  // Use memoized values computed above (after hooks, before render)
   const finalGuiaNumero = pedido.numero_guia || `KP-${pedido.id}`;
   const finalIsPagado = pedido.metodo_pago === "anticipado";
   const finalDisplayStoreName = storeName || remitente || "Kompras Plus";
   const finalDisplayLogo = storeLogo || defaultLogo;
+  const ciudadDepto = [pedido.municipio, pedido.departamento].filter(Boolean).join(", ") || pedido.zona || "—";
+
+  const visibleItems = items.slice(0, MAX_ITEMS_DISPLAY);
+  const hiddenItems = items.length - visibleItems.length;
+  const truncate = (s: string, n: number) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -275,257 +239,158 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
           <DialogTitle>Guía de Envío</DialogTitle>
         </DialogHeader>
 
-        {/* Preview */}
         <div className="flex justify-center bg-muted p-4 rounded-lg overflow-auto max-h-[70vh]">
           <div
             ref={guiaRef}
             className="guia-container"
             style={{
-              width: "10cm",
-              height: "15cm",
-              maxHeight: "15cm",
-              padding: "2.5mm",
+              width: "100mm",
+              height: "150mm",
+              padding: "2mm",
               backgroundColor: "#ffffff",
-              fontFamily: "Arial, Helvetica, sans-serif",
-              border: "1px solid #000",
+              fontFamily: "Inter, Arial, Helvetica, sans-serif",
+              color: "#000",
+              border: "2px solid #000",
               boxSizing: "border-box",
               display: "flex",
               flexDirection: "column",
+              gap: "1.2mm",
               overflow: "hidden",
+              fontSize: "8pt",
             }}
           >
-            {/* Fila 1: Header - Store Logo & Guía Number */}
+            {/* HEADER 3 columnas */}
             <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              borderBottom: "1.5px solid #000",
-              paddingBottom: "1.5mm",
-              marginBottom: "1.5mm"
+              display: "grid",
+              gridTemplateColumns: "30mm 1fr 28mm",
+              border: "2px solid #000",
+              alignItems: "stretch",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "1.5mm" }}>
+              <div style={{ borderRight: "2px solid #000", padding: "1mm", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <img
                   src={finalDisplayLogo}
                   alt={finalDisplayStoreName}
-                  style={{
-                    height: "9mm",
-                    maxWidth: "30mm",
-                    objectFit: "contain",
-                    filter: storeLogo ? "none" : "grayscale(100%)"
-                  }}
-                  onError={(e) => {
-                    e.currentTarget.src = defaultLogo;
-                    e.currentTarget.style.filter = "grayscale(100%)";
-                  }}
+                  style={{ maxHeight: "10mm", maxWidth: "26mm", objectFit: "contain", filter: storeLogo ? "none" : "grayscale(100%)" }}
+                  onError={(e) => { e.currentTarget.src = defaultLogo; e.currentTarget.style.filter = "grayscale(100%)"; }}
                 />
               </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{
-                  fontSize: "11pt",
-                  fontWeight: "bold",
-                  lineHeight: "1.1"
-                }}>
-                  GUÍA N°: {finalGuiaNumero}
-                </div>
-                <div style={{ fontSize: "7pt", color: "#333" }}>
-                  FECHA: {formatTodayDate()}
-                </div>
+              <div style={{ borderRight: "2px solid #000", padding: "1mm", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                <div style={{ fontSize: "6pt", fontWeight: 700, textTransform: "uppercase" }}>Zona</div>
+                <div style={{ fontSize: "11pt", fontWeight: 900, lineHeight: 1, marginBottom: "0.8mm" }}>{pedido.zona || "—"}</div>
+                <div style={{ fontSize: "6pt", fontWeight: 700, textTransform: "uppercase" }}>Barrio</div>
+                <div style={{ fontSize: "9pt", fontWeight: 700, lineHeight: 1 }}>{truncate(pedido.barrio || "—", 28)}</div>
+              </div>
+              <div style={{ padding: "1mm", textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                <div style={{ fontSize: "6pt", fontWeight: 700 }}>GUÍA N°</div>
+                <div style={{ fontSize: "9pt", fontWeight: 900, lineHeight: 1.05, wordBreak: "break-all" }}>{finalGuiaNumero}</div>
+                <div style={{ fontSize: "6pt", marginTop: "0.6mm" }}>{formatTodayDate()}</div>
               </div>
             </div>
 
-            {/* Fila 2: Store Name */}
-            <div style={{
-              backgroundColor: "#000",
-              color: "#fff",
-              padding: "1mm 2mm",
-              marginBottom: "1.5mm",
-              textAlign: "center"
-            }}>
-              <div style={{
-                fontSize: "11pt",
-                fontWeight: "bold",
-                textTransform: "uppercase",
-                letterSpacing: "0.3px",
-                lineHeight: "1.1"
-              }}>
-                {finalDisplayStoreName}
-              </div>
+            {/* QR + GUIA */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", border: "2px solid #000", padding: "1mm" }}>
+              <QRCodeSVG value={`PEDIDO:${pedido.id}`} size={70} level="H" bgColor="#ffffff" fgColor="#000000" />
+              <div style={{ fontSize: "9pt", fontWeight: 900, letterSpacing: "0.5px", marginTop: "0.8mm" }}>{finalGuiaNumero}</div>
             </div>
 
-            {/* Fila 3: Zona y Barrio */}
-            <div style={{
-              display: "flex",
-              gap: "1.5mm",
-              marginBottom: "1.5mm"
-            }}>
-              <div style={{
-                flex: 1,
-                padding: "1mm",
-                border: "1.5px solid #000",
-                textAlign: "center"
-              }}>
-                <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase" }}>
-                  ZONA
-                </div>
-                <div style={{ fontSize: "10pt", fontWeight: "bold", lineHeight: "1.1" }}>
-                  {pedido.zona || "—"}
-                </div>
+            {/* DE */}
+            <div style={{ border: "2px solid #000", padding: "1mm" }}>
+              <div style={{ fontSize: "6pt", fontWeight: 700, background: "#000", color: "#fff", padding: "0.5mm 1mm", display: "inline-block", marginBottom: "0.5mm" }}>
+                DE (REMITENTE)
               </div>
-              <div style={{
-                flex: 1,
-                padding: "1mm",
-                border: "1.5px solid #000",
-                textAlign: "center"
-              }}>
-                <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase" }}>
-                  BARRIO
-                </div>
-                <div style={{ fontSize: "9pt", fontWeight: "bold", lineHeight: "1.1" }}>
-                  {pedido.barrio || "—"}
-                </div>
+              <div style={{ fontSize: "8pt", fontWeight: 700, lineHeight: 1.15 }}>{finalDisplayStoreName}</div>
+              <div style={{ fontSize: "7pt", lineHeight: 1.2 }}>
+                Tel: {storePhone || "—"}
               </div>
+              {storeAddress && (
+                <div style={{ fontSize: "7pt", lineHeight: 1.2 }}>{truncate(storeAddress, 60)}</div>
+              )}
             </div>
 
-            {/* QR Code - Compacto */}
-            <div style={{
-              display: "flex",
-              justifyContent: "center",
-              padding: "1mm 0",
-              marginBottom: "1.5mm"
-            }}>
-              <QRCodeSVG
-                value={`PEDIDO:${pedido.id}`}
-                size={75}
-                level="H"
-                bgColor="#ffffff"
-                fgColor="#000000"
-              />
-            </div>
-
-            {/* Destinatario */}
-            <div style={{
-              marginBottom: "1.5mm",
-              padding: "1.5mm",
-              border: "1.5px solid #000"
-            }}>
-              <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "0.5mm" }}>
-                DESTINATARIO
+            {/* PARA */}
+            <div style={{ border: "2px solid #000", padding: "1mm" }}>
+              <div style={{ fontSize: "6pt", fontWeight: 700, background: "#000", color: "#fff", padding: "0.5mm 1mm", display: "inline-block", marginBottom: "0.5mm" }}>
+                PARA (DESTINATARIO)
               </div>
-              <div style={{ fontSize: "10pt", fontWeight: "bold", marginBottom: "0.5mm", lineHeight: "1.15" }}>
-                {pedido.cliente_nombre || "—"}
-              </div>
-              <div style={{ fontSize: "8pt", lineHeight: "1.2" }}>
-                {pedido.direccion_entrega || "—"}
-              </div>
-              <div style={{ fontSize: "9pt", fontWeight: "bold", marginTop: "0.5mm" }}>
-                Tel: {pedido.client_phone || "—"}
-              </div>
-            </div>
-
-            {/* Detalles - inline / wrap compacto para multi-variantes */}
-            <div style={{
-              marginBottom: "1.5mm",
-              padding: "1mm 1.5mm",
-              border: "1px solid #999"
-            }}>
-              <span style={{ fontSize: "7pt", fontWeight: "bold" }}>DETALLES: </span>
-              <span style={{
-                fontSize: "7pt",
-                lineHeight: "1.2",
-                display: "inline",
-                wordBreak: "break-word",
-              }}>
-                {pedido.producto_nombre || "Paquete estándar"}
-              </span>
-            </div>
-
-            {/* Observaciones */}
-            {pedido.observaciones && (
-              <div style={{
-                marginBottom: "1.5mm",
-                padding: "1.5mm",
-                border: "1.5px solid #000",
-                backgroundColor: "#f0f0f0"
-              }}>
-                <div style={{ fontSize: "6pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "0.5mm" }}>
-                  ⚠️ OBSERVACIONES
+              <div style={{ fontSize: "10pt", fontWeight: 900, lineHeight: 1.15 }}>{pedido.cliente_nombre || "—"}</div>
+              <div style={{ fontSize: "8pt", fontWeight: 700, lineHeight: 1.2 }}>{truncate(pedido.direccion_entrega || "—", 70)}</div>
+              <div style={{ fontSize: "7pt", lineHeight: 1.2 }}>{ciudadDepto}</div>
+              <div style={{ fontSize: "8pt", fontWeight: 700, lineHeight: 1.2 }}>Tel: {pedido.client_phone || "—"}</div>
+              {pedido.observaciones && (
+                <div style={{ fontSize: "6.5pt", marginTop: "0.5mm", fontStyle: "italic" }}>
+                  Obs: {truncate(pedido.observaciones, 90)}
                 </div>
-                <div style={{ fontSize: "8pt", fontWeight: "bold", lineHeight: "1.2" }}>
-                  {pedido.observaciones}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            {/* Valor a Recaudar */}
-            <div style={{
-              padding: "1.5mm",
-              border: "2.5px solid #000",
-              textAlign: "center",
-              marginBottom: "1.5mm",
-              flex: "0 0 auto"
-            }}>
-              <div style={{ fontSize: "7pt", fontWeight: "bold", textTransform: "uppercase", marginBottom: "0.5mm" }}>
-                TOTAL A RECAUDAR
-              </div>
-              <div style={{
-                fontSize: "16pt",
-                fontWeight: "bold",
-                letterSpacing: "0.5px",
-                lineHeight: "1.1"
-              }}>
+            {/* FINANCIERO */}
+            <div style={{ border: "2.5px solid #000", padding: "1.2mm", textAlign: "center" }}>
+              <div style={{ fontSize: "7pt", fontWeight: 700, textTransform: "uppercase" }}>Total a Recaudar</div>
+              <div style={{ fontSize: "18pt", fontWeight: 900, lineHeight: 1 }}>
                 {finalIsPagado ? "PAGADO" : `$${pedido.valor_recaudar?.toLocaleString("es-CO") || "0"}`}
               </div>
             </div>
 
-            {/* Pie de página */}
-            <div style={{
-              marginTop: "auto",
-              borderTop: "1px solid #999",
-              paddingTop: "1mm",
-              textAlign: "center"
-            }}>
-              <div style={{ fontSize: "6pt", fontWeight: "bold", color: "#333" }}>
-                Plus Envíos - Calle 14 # 19-64 Bodega 403 - Tel: 324 222 3825
-              </div>
+            {/* TABLA PRODUCTOS */}
+            <div style={{ marginTop: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "6.5pt" }}>
+                <thead>
+                  <tr style={{ background: "#000", color: "#fff" }}>
+                    <th style={{ border: "1px solid #000", padding: "0.6mm", width: "6mm" }}>#</th>
+                    <th style={{ border: "1px solid #000", padding: "0.6mm", width: "9mm" }}>CANT</th>
+                    <th style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "left" }}>PRODUCTO</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleItems.map((it, idx) => (
+                    <tr key={idx}>
+                      <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center" }}>{idx + 1}</td>
+                      <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center", fontWeight: 700 }}>{it.quantity ?? 1}</td>
+                      <td style={{ border: "1px solid #000", padding: "0.6mm" }}>
+                        {truncate((it.product_name || "Producto") + (it.sku ? ` (${it.sku})` : ""), 52)}
+                      </td>
+                    </tr>
+                  ))}
+                  {hiddenItems > 0 && (
+                    <tr>
+                      <td colSpan={3} style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center", fontStyle: "italic" }}>
+                        + {hiddenItems} ítem(s) adicional(es)
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div style={{ borderTop: "1px solid #000", paddingTop: "0.8mm", textAlign: "center", fontSize: "5.5pt", fontWeight: 700 }}>
+              Plus Envíos · Calle 14 # 19-64 Bod. 403 · Tel 324 222 3825
             </div>
           </div>
         </div>
 
-        {/* Actions - Larger touch targets for mobile (min 44px) */}
-        <div className="flex gap-3 mt-4">
-          <Button 
-            variant="outline" 
-            className="flex-1 h-12 min-h-[44px] text-base" 
-            onClick={handleDownload}
+        <div className="flex gap-3 mt-4 print-hidden print:hidden">
+          <Button
+            variant="outline"
+            className="flex-1 h-12 min-h-[44px] text-base"
+            onClick={handleDownloadPdf}
             disabled={isGenerating}
           >
             {isGenerating ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Generando...
-              </>
+              <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Generando...</>
             ) : (
-              <>
-                <Download className="h-5 w-5 mr-2" />
-                Descargar
-              </>
+              <><Download className="h-5 w-5 mr-2" />Descargar PDF</>
             )}
           </Button>
-          <Button 
-            className="flex-1 h-12 min-h-[44px] text-base" 
+          <Button
+            className="flex-1 h-12 min-h-[44px] text-base"
             onClick={handlePrint}
             disabled={isPrinting}
           >
             {isPrinting ? (
-              <>
-                <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                Imprimiendo...
-              </>
+              <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Imprimiendo...</>
             ) : (
-              <>
-                <Printer className="h-5 w-5 mr-2" />
-                Imprimir
-              </>
+              <><Printer className="h-5 w-5 mr-2" />Imprimir Guía</>
             )}
           </Button>
         </div>
