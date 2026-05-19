@@ -154,6 +154,9 @@ const NuevoPedidoModal = ({
   // Form state - Reordered: payment method first
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
   const [valorRecaudar, setValorRecaudar] = useState("");
+  // Tracks the last product whose suggested PVP we auto-filled into valorRecaudar.
+  // Prevents accidental overwrites of the user's manual margin on subsequent re-renders.
+  const lastPrefilledItemIdRef = useRef<string | null>(null);
   
   // Client data
   const [clienteNombre, setClienteNombre] = useState("");
