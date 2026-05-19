@@ -128,13 +128,48 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
     };
   }, [isOpen, pedido?.client_user_id]);
 
+  const [fetchedItems, setFetchedItems] = useState<OrderItem[] | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!isOpen || !pedido?.id) {
+      setFetchedItems(null);
+      return;
+    }
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("order_items")
+          .select("id, product_name, sku, quantity, unit_price, product_variants:variant_id(variant_name)")
+          .eq("pedido_id", pedido.id)
+          .order("id", { ascending: true });
+        if (error) throw error;
+        if (!isMounted) return;
+        const mapped: OrderItem[] = (data || []).map((r: any) => ({
+          id: r.id,
+          product_name: r.product_name,
+          sku: r.sku,
+          quantity: r.quantity,
+          unit_price: r.unit_price,
+          variant_name: r.product_variants?.variant_name ?? null,
+        }));
+        setFetchedItems(mapped);
+      } catch (err) {
+        console.error("Error fetching order_items for guia:", err);
+        if (isMounted) setFetchedItems([]);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [isOpen, pedido?.id]);
+
   const items = useMemo<OrderItem[]>(() => {
     if (!pedido) return [];
+    if (fetchedItems && fetchedItems.length > 0) return fetchedItems;
     const raw = pedido.order_items;
     if (Array.isArray(raw) && raw.length > 0) return raw;
     // Fallback: synthesize one row from producto_nombre
     return [{ product_name: pedido.producto_nombre || "Paquete estándar", quantity: 1 }];
-  }, [pedido]);
+  }, [pedido, fetchedItems]);
 
   const handlePrint = useCallback(async () => {
     if (!pedido || !guiaRef.current) return;
