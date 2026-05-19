@@ -98,15 +98,15 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
       try {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("logo_url, store_name, telefono, direccion")
+          .select("logo_url, store_name, phone, direccion")
           .eq("user_id", userId)
           .maybeSingle();
 
         const entry: StoreCacheEntry = {
           logo_url: profile?.logo_url || null,
           store_name: profile?.store_name || null,
-          store_phone: (profile as any)?.telefono || null,
-          store_address: (profile as any)?.direccion || null,
+          store_phone: profile?.phone || null,
+          store_address: profile?.direccion || null,
           at: Date.now(),
         };
         storeCacheRef.current[userId] = entry;
