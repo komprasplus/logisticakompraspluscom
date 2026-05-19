@@ -118,7 +118,7 @@ const ManifiestoModal = ({
       const manifiestoNumero = generateManifiestoNumero();
       const selectedIdsArr = selected.map((p) => p.id);
 
-      // 1a. Fetch order_items + variantes para desglose
+      // 1a. Fetch order_items + variantes para desglose (estructura multi-producto)
       const itemsByPedido = new Map<number, Array<{ product_name: string; quantity: number; variant_name?: string | null }>>();
       try {
         const { data: itemsData, error: itemsErr } = await supabase
@@ -128,7 +128,6 @@ const ManifiestoModal = ({
 
         if (itemsErr) {
           console.error("[Manifiesto] Relación o consulta order_items falló:", itemsErr.message, itemsErr);
-          toast.error(`No se pudo cargar el contenido detallado del paquete: ${itemsErr.message}`);
         } else {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ((itemsData as any[]) || []).forEach((row) => {
@@ -144,8 +143,36 @@ const ManifiestoModal = ({
       } catch (e) {
         const message = e instanceof Error ? e.message : "Error desconocido al consultar order_items";
         console.error("[Manifiesto] Fallback activado al cargar items del manifiesto:", message, e);
-        toast.error(`No se pudo cargar el detalle de productos: ${message}`);
       }
+
+      // 1a-bis. Fallback: para pedidos legacy (single-product) leer pedidos.producto_nombre + quantity + variant
+      const missingIds = selectedIdsArr.filter((id) => !itemsByPedido.has(id) || (itemsByPedido.get(id)?.length ?? 0) === 0);
+      if (missingIds.length > 0) {
+        try {
+          const { data: legacyData, error: legacyErr } = await supabase
+            .from("pedidos")
+            .select("id, producto_nombre, quantity, product_variants:variant_id(variant_name)")
+            .in("id", missingIds);
+
+          if (legacyErr) {
+            console.error("[Manifiesto] Error cargando fallback legacy:", legacyErr);
+          } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ((legacyData as any[]) || []).forEach((row) => {
+              itemsByPedido.set(row.id, [
+                {
+                  product_name: row.producto_nombre ?? "Producto",
+                  quantity: row.quantity ?? 1,
+                  variant_name: row.product_variants?.variant_name ?? null,
+                },
+              ]);
+            });
+          }
+        } catch (e) {
+          console.error("[Manifiesto] Excepción en fallback legacy:", e);
+        }
+      }
+
 
       // 1b. Generate PDF
       const manifiestoPedidos: ManifiestoPedido[] = selected.map((p) => ({
