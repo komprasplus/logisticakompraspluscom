@@ -350,19 +350,26 @@ const NuevoPedidoModal = ({
   //    but stays fully editable.
   useEffect(() => {
     if (inventoryPrefill && isOpen) {
-      setInventoryItemId(inventoryPrefill.inventoryItemId);
+      const itemId = inventoryPrefill.inventoryItemId;
+      const isNewProduct = lastPrefilledItemIdRef.current !== itemId;
+
+      setInventoryItemId(itemId);
       setProductoNombre(inventoryPrefill.productName);
       // Cost = supplier cost when available (marketplace), otherwise the inventory price
-      // (private inventory has no separate cost field, so its `price` acts as the base).
       const costBase =
         typeof inventoryPrefill.costPrice === "number"
           ? inventoryPrefill.costPrice
           : inventoryPrefill.price;
       setValorProducto(costBase.toString());
-      // Suggested PVP pre-fills the recaudo (only for cash-on-delivery)
-      if (metodoPago === "efectivo") {
+
+      // ⚠️ Only seed "Valor a Recaudar" with the suggested PVP the FIRST time we
+      // mount this product. Never overwrite a value the user has already edited
+      // (would otherwise erase their custom margin on every re-render).
+      if (isNewProduct && metodoPago === "efectivo") {
         setValorRecaudar(inventoryPrefill.price.toString());
       }
+      lastPrefilledItemIdRef.current = itemId;
+
       setQuantity(inventoryPrefill.quantity);
       const detalles = `${inventoryPrefill.productName} (SKU: ${inventoryPrefill.sku}) x${inventoryPrefill.quantity}`;
       setObservaciones(detalles);
