@@ -1803,14 +1803,6 @@ const NuevoPedidoModal = ({
                                   </div>
                                 )}
 
-                                {row.variantId && (
-                                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/50">
-                                    <span className="text-muted-foreground">Subtotal</span>
-                                    <span className="font-semibold text-foreground">
-                                      {formatCOP(row.unitPrice * row.quantity)}
-                                    </span>
-                                  </div>
-                                )}
                               </div>
                             );
                           })}
