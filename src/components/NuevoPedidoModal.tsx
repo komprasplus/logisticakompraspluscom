@@ -1056,6 +1056,7 @@ const NuevoPedidoModal = ({
     setVariants([]);
     setOrderItems([]);
     setUpgradedToMultiProduct(false);
+    lastPrefilledItemIdRef.current = null;
   };
 
   // Convert a single inventory-prefill order into a multi-product cart.
