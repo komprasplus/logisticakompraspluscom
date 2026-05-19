@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -154,6 +154,9 @@ const NuevoPedidoModal = ({
   // Form state - Reordered: payment method first
   const [metodoPago, setMetodoPago] = useState<"efectivo" | "anticipado">("efectivo");
   const [valorRecaudar, setValorRecaudar] = useState("");
+  // Tracks the last product whose suggested PVP we auto-filled into valorRecaudar.
+  // Prevents accidental overwrites of the user's manual margin on subsequent re-renders.
+  const lastPrefilledItemIdRef = useRef<string | null>(null);
   
   // Client data
   const [clienteNombre, setClienteNombre] = useState("");
@@ -347,19 +350,26 @@ const NuevoPedidoModal = ({
   //    but stays fully editable.
   useEffect(() => {
     if (inventoryPrefill && isOpen) {
-      setInventoryItemId(inventoryPrefill.inventoryItemId);
+      const itemId = inventoryPrefill.inventoryItemId;
+      const isNewProduct = lastPrefilledItemIdRef.current !== itemId;
+
+      setInventoryItemId(itemId);
       setProductoNombre(inventoryPrefill.productName);
       // Cost = supplier cost when available (marketplace), otherwise the inventory price
-      // (private inventory has no separate cost field, so its `price` acts as the base).
       const costBase =
         typeof inventoryPrefill.costPrice === "number"
           ? inventoryPrefill.costPrice
           : inventoryPrefill.price;
       setValorProducto(costBase.toString());
-      // Suggested PVP pre-fills the recaudo (only for cash-on-delivery)
-      if (metodoPago === "efectivo") {
+
+      // ⚠️ Only seed "Valor a Recaudar" with the suggested PVP the FIRST time we
+      // mount this product. Never overwrite a value the user has already edited
+      // (would otherwise erase their custom margin on every re-render).
+      if (isNewProduct && metodoPago === "efectivo") {
         setValorRecaudar(inventoryPrefill.price.toString());
       }
+      lastPrefilledItemIdRef.current = itemId;
+
       setQuantity(inventoryPrefill.quantity);
       const detalles = `${inventoryPrefill.productName} (SKU: ${inventoryPrefill.sku}) x${inventoryPrefill.quantity}`;
       setObservaciones(detalles);
@@ -1046,6 +1056,7 @@ const NuevoPedidoModal = ({
     setVariants([]);
     setOrderItems([]);
     setUpgradedToMultiProduct(false);
+    lastPrefilledItemIdRef.current = null;
   };
 
   // Convert a single inventory-prefill order into a multi-product cart.
@@ -1206,6 +1217,24 @@ const NuevoPedidoModal = ({
                     placeholder="Valor a Recaudar (COP) *"
                     value={valorRecaudar}
                     onChange={(e) => setValorRecaudar(e.target.value)}
+                    onBlur={() => {
+                      // Only enforce the lower bound on blur. Never snap back to suggested PVP.
+                      if (isMultiProductMode) return;
+                      if (!valorRecaudar) return;
+                      const qtyEff = isVariableProduct
+                        ? Math.max(variantsTotalQuantity, 1)
+                        : (Number(quantity) || 1);
+                      const minimoPermitido =
+                        (Number(valorProducto) || 0) * qtyEff +
+                        (Number(tarifaInfo.valor) || 0);
+                      const current = Number(valorRecaudar) || 0;
+                      if (current < minimoPermitido) {
+                        toast.error(
+                          `El valor a recaudar no puede ser menor a ${formatCOP(minimoPermitido)} (Costo + Flete). Se ajustó al mínimo.`
+                        );
+                        setValorRecaudar(String(minimoPermitido));
+                      }
+                    }}
                     required={metodoPago === "efectivo"}
                     min="0"
                     step="100"
