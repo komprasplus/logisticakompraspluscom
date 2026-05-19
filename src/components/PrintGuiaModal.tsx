@@ -27,6 +27,7 @@ interface OrderItem {
   sku?: string | null;
   quantity?: number | null;
   unit_price?: number | null;
+  variant_name?: string | null;
 }
 
 interface Pedido {
@@ -127,13 +128,48 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
     };
   }, [isOpen, pedido?.client_user_id]);
 
+  const [fetchedItems, setFetchedItems] = useState<OrderItem[] | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    if (!isOpen || !pedido?.id) {
+      setFetchedItems(null);
+      return;
+    }
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("order_items")
+          .select("id, product_name, sku, quantity, unit_price, product_variants:variant_id(variant_name)")
+          .eq("pedido_id", pedido.id)
+          .order("id", { ascending: true });
+        if (error) throw error;
+        if (!isMounted) return;
+        const mapped: OrderItem[] = (data || []).map((r: any) => ({
+          id: r.id,
+          product_name: r.product_name,
+          sku: r.sku,
+          quantity: r.quantity,
+          unit_price: r.unit_price,
+          variant_name: r.product_variants?.variant_name ?? null,
+        }));
+        setFetchedItems(mapped);
+      } catch (err) {
+        console.error("Error fetching order_items for guia:", err);
+        if (isMounted) setFetchedItems([]);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, [isOpen, pedido?.id]);
+
   const items = useMemo<OrderItem[]>(() => {
     if (!pedido) return [];
+    if (fetchedItems && fetchedItems.length > 0) return fetchedItems;
     const raw = pedido.order_items;
     if (Array.isArray(raw) && raw.length > 0) return raw;
     // Fallback: synthesize one row from producto_nombre
     return [{ product_name: pedido.producto_nombre || "Paquete estándar", quantity: 1 }];
-  }, [pedido]);
+  }, [pedido, fetchedItems]);
 
   const handlePrint = useCallback(async () => {
     if (!pedido || !guiaRef.current) return;
@@ -342,15 +378,20 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleItems.map((it, idx) => (
-                    <tr key={idx}>
-                      <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center" }}>{idx + 1}</td>
-                      <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center", fontWeight: 700 }}>{it.quantity ?? 1}</td>
-                      <td style={{ border: "1px solid #000", padding: "0.6mm" }}>
-                        {truncate((it.product_name || "Producto") + (it.sku ? ` (${it.sku})` : ""), 52)}
-                      </td>
-                    </tr>
-                  ))}
+                  {visibleItems.map((it, idx) => {
+                    const base = it.product_name || "Producto";
+                    const variant = it.variant_name ? ` (${it.variant_name})` : "";
+                    const skuSuffix = it.sku ? ` [${it.sku}]` : "";
+                    return (
+                      <tr key={(it.id ?? idx) + "-" + idx}>
+                        <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center" }}>{idx + 1}</td>
+                        <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center", fontWeight: 700 }}>{it.quantity ?? 1}</td>
+                        <td style={{ border: "1px solid #000", padding: "0.6mm" }}>
+                          {truncate(base + variant + skuSuffix, 60)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {hiddenItems > 0 && (
                     <tr>
                       <td colSpan={3} style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center", fontStyle: "italic" }}>
