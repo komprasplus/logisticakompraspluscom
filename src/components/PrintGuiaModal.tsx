@@ -378,15 +378,20 @@ const PrintGuiaModal = ({ pedido, isOpen, onClose, remitente }: PrintGuiaModalPr
                   </tr>
                 </thead>
                 <tbody>
-                  {visibleItems.map((it, idx) => (
-                    <tr key={idx}>
-                      <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center" }}>{idx + 1}</td>
-                      <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center", fontWeight: 700 }}>{it.quantity ?? 1}</td>
-                      <td style={{ border: "1px solid #000", padding: "0.6mm" }}>
-                        {truncate((it.product_name || "Producto") + (it.sku ? ` (${it.sku})` : ""), 52)}
-                      </td>
-                    </tr>
-                  ))}
+                  {visibleItems.map((it, idx) => {
+                    const base = it.product_name || "Producto";
+                    const variant = it.variant_name ? ` (${it.variant_name})` : "";
+                    const skuSuffix = it.sku ? ` [${it.sku}]` : "";
+                    return (
+                      <tr key={(it.id ?? idx) + "-" + idx}>
+                        <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center" }}>{idx + 1}</td>
+                        <td style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center", fontWeight: 700 }}>{it.quantity ?? 1}</td>
+                        <td style={{ border: "1px solid #000", padding: "0.6mm" }}>
+                          {truncate(base + variant + skuSuffix, 60)}
+                        </td>
+                      </tr>
+                    );
+                  })}
                   {hiddenItems > 0 && (
                     <tr>
                       <td colSpan={3} style={{ border: "1px solid #000", padding: "0.6mm", textAlign: "center", fontStyle: "italic" }}>
