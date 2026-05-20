@@ -311,7 +311,9 @@ const HistorialTransaccionesView = () => {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
+
                 </TableBody>
               </Table>
             </div>
