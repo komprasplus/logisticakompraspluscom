@@ -192,16 +192,22 @@ const BilleteraRetirosView = () => {
     queryKey: ["wallet-balance", userId, orgId],
     queryFn: async () => {
       // Source of truth: transacciones_billetera
-      // Saldo = CREDITO_ENTREGA + TRANSFER_IN + AJUSTE_CREDITO
+      // Saldo = CREDITO_ENTREGA + CREDITO_PROVEEDOR + TRANSFER_IN + AJUSTE_CREDITO
       //       − PAGO_TIENDA − TRANSFER_OUT − DEBITO_DEVOLUCION − AJUSTE_DEBITO − retiros
       // All queries include organizacion_id for multi-tenant RLS compliance
-      const [creditosRes, pagosRes, withdrawalsRes, pendingWRes, ajusteCredRes, ajusteDebRes, transfersInRes, transfersOutRes, debitosDevRes] = await Promise.all([
+      const [creditosRes, creditosProvRes, pagosRes, withdrawalsRes, pendingWRes, ajusteCredRes, ajusteDebRes, transfersInRes, transfersOutRes, debitosDevRes] = await Promise.all([
         supabase
           .from("transacciones_billetera")
           .select("monto")
           .eq("client_user_id", userId!)
           .eq("organizacion_id", orgId!)
           .eq("tipo", "CREDITO_ENTREGA"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", userId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "CREDITO_PROVEEDOR"),
         supabase
           .from("transacciones_billetera")
           .select("monto")
@@ -252,6 +258,8 @@ const BilleteraRetirosView = () => {
 
       // Total earned from deliveries (auto-created by DB trigger on estado→Entregado/Liquidado)
       const totalCreditos = (creditosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      // Supplier payouts (CREDITO_PROVEEDOR) for stores that operate as proveedor
+      const totalCreditosProv = (creditosProvRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
 
       // Payments already sent by admin to this store
       const totalPagado = (pagosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
@@ -273,9 +281,10 @@ const BilleteraRetirosView = () => {
 
       const available = Math.max(
         0,
-        totalCreditos + totalTransIn + totalAjusteCred
+        totalCreditos + totalCreditosProv + totalTransIn + totalAjusteCred
           - totalPagado - totalWithdrawn - totalPending - totalTransOut - totalDebDev - totalAjusteDeb
       );
+
       return { available, totalPending };
     },
     enabled: !!userId && !!orgId,

@@ -5,11 +5,13 @@ import {
   Loader2,
   FileText,
   ArrowDownCircle,
+  ArrowUpCircle,
   Download,
   ExternalLink,
   AlertCircle,
   RefreshCw,
 } from "lucide-react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { formatInTimeZone } from "date-fns-tz";
@@ -211,32 +213,56 @@ const HistorialTransaccionesView = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {transacciones.map((tx) => (
+                  {transacciones.map((tx) => {
+                    // FIX: el badge mostraba SIEMPRE "Pago Recibido" en verde,
+                    // sin importar si la transacción era crédito o débito.
+                    // Refactor: clasificar por `tipo` y mostrar color + signo coherente.
+                    const CREDIT_TYPES = new Set([
+                      "CREDITO_ENTREGA",
+                      "CREDITO_PROVEEDOR",
+                      "TRANSFER_IN",
+                      "AJUSTE_CREDITO",
+                    ]);
+                    const isCredit = CREDIT_TYPES.has(tx.tipo);
+                    const LABELS: Record<string, string> = {
+                      CREDITO_ENTREGA: "Crédito Entrega",
+                      CREDITO_PROVEEDOR: "Venta Proveedor",
+                      TRANSFER_IN: "Transferencia Recibida",
+                      AJUSTE_CREDITO: "Ajuste (Crédito)",
+                      PAGO_TIENDA: "Pago Recibido",
+                      TRANSFER_OUT: "Transferencia Enviada",
+                      DEBITO_DEVOLUCION: "Débito Devolución",
+                      AJUSTE_DEBITO: "Ajuste (Débito)",
+                    };
+                    const label = LABELS[tx.tipo] ?? (isCredit ? "Crédito" : "Débito");
+                    return (
                     <TableRow key={tx.id}>
                       <TableCell className="text-sm whitespace-nowrap">
-                        {/*
-                          FIX: `format(new Date(tx.created_at), ...)` sin
-                          timezone usaba la zona local del navegador — en un
-                          servidor o dispositivo en otra zona horaria el timestamp
-                          almacenado en UTC se mostraba incorrecto.
-                          Reemplazado con `formatInTimeZone` de `date-fns-tz`
-                          para mostrar siempre la hora de Colombia.
-
-                          Nota: si el proyecto ya usa `date-fns` se puede instalar
-                          `date-fns-tz` que es su complemento oficial.
-                          Alternativa: Intl.DateTimeFormat con timeZone: "America/Bogota"
-                        */}
                         {formatInTimeZone(new Date(tx.created_at), "America/Bogota", "dd MMM yyyy HH:mm", {
                           locale: es,
                         })}
                       </TableCell>
                       <TableCell>
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                          <ArrowDownCircle className="h-3 w-3" aria-hidden="true" />
-                          Pago Recibido
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                            isCredit ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {isCredit ? (
+                            <ArrowDownCircle className="h-3 w-3" aria-hidden="true" />
+                          ) : (
+                            <ArrowUpCircle className="h-3 w-3" aria-hidden="true" />
+                          )}
+                          {label}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right font-bold text-emerald-600">{formatCOP(tx.monto)}</TableCell>
+                      <TableCell
+                        className={`text-right font-bold ${isCredit ? "text-emerald-600" : "text-red-600"}`}
+                      >
+                        {isCredit ? "+" : "−"}
+                        {formatCOP(tx.monto)}
+                      </TableCell>
+
                       <TableCell className="text-right text-sm text-muted-foreground">
                         {formatCOP(tx.saldo_anterior)}
                       </TableCell>
@@ -285,7 +311,9 @@ const HistorialTransaccionesView = () => {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
+
                 </TableBody>
               </Table>
             </div>

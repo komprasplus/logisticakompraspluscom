@@ -106,16 +106,22 @@ const ClienteDashboard = () => {
   const walletQuery = useQuery({
     queryKey: ["billetera", "total", validUserId, orgId],
     queryFn: async () => {
-      // Available balance = CREDITO_ENTREGA + TRANSFER_IN + AJUSTE_CREDITO
+      // Available balance = CREDITO_ENTREGA + CREDITO_PROVEEDOR + TRANSFER_IN + AJUSTE_CREDITO
       //                   − PAGO_TIENDA − TRANSFER_OUT − DEBITO_DEVOLUCION − AJUSTE_DEBITO − withdrawals
       // All queries include organizacion_id for multi-tenant RLS compliance
-      const [creditosRes, pagosRes, withdrawalsRes, transfersInRes, transfersOutRes, debitosDevRes, ajusteCredRes, ajusteDebRes] = await Promise.all([
+      const [creditosRes, creditosProvRes, pagosRes, withdrawalsRes, transfersInRes, transfersOutRes, debitosDevRes, ajusteCredRes, ajusteDebRes] = await Promise.all([
         supabase
           .from("transacciones_billetera")
           .select("monto")
           .eq("client_user_id", validUserId!)
           .eq("organizacion_id", orgId!)
           .eq("tipo", "CREDITO_ENTREGA"),
+        supabase
+          .from("transacciones_billetera")
+          .select("monto")
+          .eq("client_user_id", validUserId!)
+          .eq("organizacion_id", orgId!)
+          .eq("tipo", "CREDITO_PROVEEDOR"),
         supabase
           .from("transacciones_billetera")
           .select("monto")
@@ -161,6 +167,7 @@ const ClienteDashboard = () => {
       if (creditosRes.error) throw creditosRes.error;
 
       const totalCreditos = (creditosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
+      const totalCreditosProv = (creditosProvRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
       const totalPagado   = (pagosRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
       const totalRetirado = (withdrawalsRes.data ?? []).reduce((sum, w) => sum + (w.amount ?? 0), 0);
       const totalTransIn  = (transfersInRes.data ?? []).reduce((sum, t) => sum + (t.monto ?? 0), 0);
@@ -171,9 +178,10 @@ const ClienteDashboard = () => {
 
       const available = Math.max(
         0,
-        totalCreditos + totalTransIn + totalAjusteCred
+        totalCreditos + totalCreditosProv + totalTransIn + totalAjusteCred
           - totalPagado - totalRetirado - totalTransOut - totalDebitosDev - totalAjusteDeb
       );
+
 
       // Egresos totales (lo que ya salió o está separado de la billetera)
       const egresos = totalPagado + totalRetirado + totalTransOut + totalDebitosDev + totalAjusteDeb;
