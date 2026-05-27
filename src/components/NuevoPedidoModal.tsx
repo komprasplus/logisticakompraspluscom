@@ -2105,7 +2105,7 @@ const NuevoPedidoModal = ({
                 const cantidadEf = isVariableProduct
                   ? Math.max(variantsTotalQuantity, 1)
                   : (Number(quantity) || 1);
-                const costoTotal = isVariableProduct ? variantsSubtotal : costoUnit * cantidadEf;
+                const costoTotal = (isVariableProduct ? variantsSubtotal : costoUnit * cantidadEf) + upsellsSubtotal;
                 if (!costoUnit && !isVariableProduct) return null;
                 return (
                   <div className="rounded-lg border border-border bg-muted/30 p-3 flex items-center justify-between">
