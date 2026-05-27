@@ -1099,6 +1099,7 @@ const NuevoPedidoModal = ({
     setVariants([]);
     setOrderItems([]);
     setUpgradedToMultiProduct(false);
+    setUpsellItems([]);
     lastPrefilledItemIdRef.current = null;
   };
 
