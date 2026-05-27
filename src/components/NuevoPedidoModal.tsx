@@ -821,7 +821,11 @@ const NuevoPedidoModal = ({
             .filter(Boolean)
             .join(", ")
         : "";
-      const productNameSummary = tipoServicio === "RECOGIDA"
+      const validUpsells = upsellItems.filter(i => i.productName.trim());
+      const upsellSummary = validUpsells
+        .map(i => i.quantity > 1 ? `${i.productName.trim()} x${i.quantity}` : i.productName.trim())
+        .join(", ");
+      const baseProductName = tipoServicio === "RECOGIDA"
         ? `RECOGIDA: ${descripcionPaqueteRecogida.trim()}`
         : isMultiProductMode
           ? (validItems.length === 1 
@@ -830,10 +834,13 @@ const NuevoPedidoModal = ({
           : (isVariableProduct && variantSummary
               ? `${productoNombre.trim()} - ${variantSummary}`
               : productoNombre.trim());
+      const productNameSummary = (!isMultiProductMode && tipoServicio === "ENVIO" && validUpsells.length > 0)
+        ? `${baseProductName} + ${validUpsells.length} upsell${validUpsells.length > 1 ? "s" : ""}`
+        : baseProductName;
 
       const totalQuantity = isMultiProductMode
         ? validItems.reduce((sum, i) => sum + i.quantity, 0)
-        : quantity;
+        : quantity + (validUpsells.reduce((s, i) => s + i.quantity, 0));
 
       const normalizedInventoryItemId =
         tipoServicio === "RECOGIDA"
