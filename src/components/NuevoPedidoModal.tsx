@@ -770,7 +770,7 @@ const NuevoPedidoModal = ({
       const cantidadEf = isVariableProduct
         ? Math.max(variantsTotalQuantity, 1)
         : (Number(quantity) || 1);
-      const minimo = costoUnit * cantidadEf + (Number(tarifaInfo.valor) || 0);
+      const minimo = costoUnit * cantidadEf + upsellsSubtotal + (Number(tarifaInfo.valor) || 0);
       if (recaudo < minimo) {
         toast.error(
           `El Valor a Recaudar debe ser ≥ ${minimo.toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })} (Costo + Flete).`
