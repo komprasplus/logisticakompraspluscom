@@ -372,6 +372,8 @@ const NuevoPedidoModal = ({
       ? Math.max(variantsTotalQuantity, 1)
       : (Number(quantity) || 1);
     const costoTotalProducto = costoUnitario * cantidadEfectiva;
+    // Upsells are sold at their unit_price; we don't know supplier cost here,
+    // so we treat them as fully-margin items added on top of the base.
     return recaudo - costoTotalProducto - flete - fulfillment;
   }, [valorRecaudar, valorProducto, tarifaInfo.valor, metodoPago, quantity, isVariableProduct, variantsTotalQuantity, fulfillmentInfo.rate]);
 
