@@ -285,6 +285,47 @@ const NuevoPedidoModal = ({
     setOrderItems(prev => prev.map(i => i.id === itemId ? { ...i, ...updates } : i));
   };
 
+  // ====== UPSELL CART (single-product mode add-ons) ======
+  // Allows the dropshipper to bundle ADDITIONAL products on top of the prefilled
+  // product (which keeps its full variant UX). Each upsell becomes its own
+  // order_items row at submit-time.
+  const [upsellItems, setUpsellItems] = useState<OrderItem[]>([]);
+
+  const addUpsellItem = () => {
+    setUpsellItems(prev => [...prev, {
+      id: crypto.randomUUID(),
+      productName: "",
+      sku: "",
+      quantity: 1,
+      unitPrice: 0,
+      inventoryItemId: null,
+      variantId: null,
+    }]);
+  };
+
+  const removeUpsellItem = (itemId: string) => {
+    setUpsellItems(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  const updateUpsellItem = (itemId: string, updates: Partial<OrderItem>) => {
+    setUpsellItems(prev => prev.map(i => i.id === itemId ? { ...i, ...updates } : i));
+  };
+
+  // Sum of upsells (price * qty) — only items with a chosen product name count.
+  const upsellsSubtotal = useMemo(
+    () => upsellItems
+      .filter(i => i.productName.trim())
+      .reduce((s, i) => s + (i.unitPrice * i.quantity), 0),
+    [upsellItems]
+  );
+
+  const upsellsQuantity = useMemo(
+    () => upsellItems
+      .filter(i => i.productName.trim())
+      .reduce((s, i) => s + i.quantity, 0),
+    [upsellItems]
+  );
+
   // Auto-totalization for multi-product
   const totalRecaudarCalculated = useMemo(() => {
     if (!isMultiProductMode) return 0;
