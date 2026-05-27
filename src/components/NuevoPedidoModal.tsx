@@ -1354,6 +1354,7 @@ const NuevoPedidoModal = ({
                       {formatCOP(
                         (Number(valorProducto) || 0) *
                           (isVariableProduct ? Math.max(variantsTotalQuantity, 1) : (Number(quantity) || 1)) +
+                          upsellsSubtotal +
                           (Number(tarifaInfo.valor) || 0)
                       )}
                     </span>{" "}
