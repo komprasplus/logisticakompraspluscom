@@ -1325,6 +1325,7 @@ const NuevoPedidoModal = ({
                         : (Number(quantity) || 1);
                       const minimoPermitido =
                         (Number(valorProducto) || 0) * qtyEff +
+                        upsellsSubtotal +
                         (Number(tarifaInfo.valor) || 0);
                       const current = Number(valorRecaudar) || 0;
                       if (current < minimoPermitido) {
