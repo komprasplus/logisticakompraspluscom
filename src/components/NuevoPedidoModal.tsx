@@ -1057,6 +1057,61 @@ const NuevoPedidoModal = ({
         }
       }
 
+      // ===== UPSELL ITEMS (single-product mode add-ons) =====
+      // Persist every upsell as its own order_items row so the manifest, the
+      // shipping label and the supplier-settlement triggers see the full cart.
+      if (
+        tipoServicio === "ENVIO" &&
+        !isMultiProductMode &&
+        newPedido?.id &&
+        upsellItems.length > 0
+      ) {
+        const validUpsells = upsellItems.filter(i => i.productName.trim());
+        if (validUpsells.length > 0) {
+          try {
+            const upsellRows = validUpsells.map(i => ({
+              pedido_id: newPedido.id,
+              product_name: i.productName.trim(),
+              sku: i.sku || null,
+              quantity: i.quantity,
+              unit_price: i.unitPrice,
+              inventory_item_id: i.inventoryItemId || null,
+              variant_id: i.variantId || null,
+              organizacion_id: orgId || 'a0000000-0000-0000-0000-000000000001',
+            }));
+            const { error: upErr } = await (supabase as any)
+              .from("order_items")
+              .insert(upsellRows);
+            if (upErr) {
+              console.warn("Error saving upsell order_items (non-blocking):", upErr);
+              toast.warning("Pedido creado, pero hubo un error guardando los productos adicionales.");
+            }
+            // Best-effort stock decrement for each upsell tied to inventory
+            for (const i of validUpsells) {
+              if (!i.inventoryItemId) continue;
+              try {
+                const { data: invItem } = await (supabase as any)
+                  .from("inventory")
+                  .select("stock_available")
+                  .eq("id", i.inventoryItemId)
+                  .maybeSingle();
+                if (invItem && typeof invItem.stock_available === "number") {
+                  const newStock = Math.max(0, invItem.stock_available - i.quantity);
+                  await (supabase as any)
+                    .from("inventory")
+                    .update({ stock_available: newStock })
+                    .eq("id", i.inventoryItemId);
+                }
+              } catch (invErr) {
+                console.warn("Upsell stock update failed (non-blocking):", invErr);
+              }
+            }
+          } catch (e) {
+            console.warn("Upsell insert error:", e);
+          }
+        }
+      }
+
       toast.success(`Pedido creado exitosamente. Guía: ${numeroGuia}`);
       resetForm();
       onSuccess();
