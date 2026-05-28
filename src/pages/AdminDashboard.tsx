@@ -64,6 +64,7 @@ import PedidoDetailModal from "@/components/PedidoDetailModal";
 import PrintGuiaModal from "@/components/PrintGuiaModal";
 import BulkPrintGuiasModal from "@/components/BulkPrintGuiasModal";
 import ManifiestoModal from "@/components/cliente/ManifiestoModal";
+import ManifiestoRutaModal from "@/components/admin/ManifiestoRutaModal";
 
 import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
  import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
