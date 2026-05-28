@@ -64,6 +64,7 @@ import PedidoDetailModal from "@/components/PedidoDetailModal";
 import PrintGuiaModal from "@/components/PrintGuiaModal";
 import BulkPrintGuiasModal from "@/components/BulkPrintGuiasModal";
 import ManifiestoModal from "@/components/cliente/ManifiestoModal";
+import ManifiestoRutaModal from "@/components/admin/ManifiestoRutaModal";
 
 import StoreLiquidacionesPanel from "@/components/StoreLiquidacionesPanel";
  import DropiLiquidacionPanel from "@/components/admin/DropiLiquidacionPanel";
@@ -273,6 +274,7 @@ const AdminDashboard = () => {
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
   const [showRecaudoPanel, setShowRecaudoPanel] = useState(false);
   const [showManifiestoModal, setShowManifiestoModal] = useState(false);
+  const [showManifiestoRutaModal, setShowManifiestoRutaModal] = useState(false);
 
   // Refs for preventing race conditions
   const isMountedRef = useRef(true);
@@ -1235,6 +1237,17 @@ const AdminDashboard = () => {
                     <FileCheck className="h-4 w-4" />
                     Generar Manifiesto
                   </Button>
+
+                  {/* Generar Manifiesto de Ruta (Motorizado) */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowManifiestoRutaModal(true)}
+                    className="gap-2 border-primary/40"
+                  >
+                    📄 Generar Manifiesto de Ruta
+                  </Button>
+
 
                   <button onClick={() => setSelectedForBulk([])} className="text-sm text-muted-foreground hover:text-foreground">
                     Cancelar selección
@@ -2217,6 +2230,29 @@ const AdminDashboard = () => {
           setSelectedForBulk([]);
         }}
       />
+
+      {/* Manifiesto de Ruta (despacho a motorizado) */}
+      <ManifiestoRutaModal
+        open={showManifiestoRutaModal}
+        onClose={() => setShowManifiestoRutaModal(false)}
+        pedidos={(displayPedidos as Pedido[])
+          .filter((p) => selectedForBulk.includes(p.id))
+          .map((p) => ({
+            id: p.id,
+            numero_guia: p.numero_guia,
+            cliente_nombre: p.cliente_nombre,
+            client_phone: p.client_phone,
+            direccion_entrega: p.direccion_entrega,
+            barrio: p.barrio,
+            municipio: p.municipio,
+            zona: p.zona,
+            valor_recaudar: p.valor_recaudar,
+            metodo_pago: p.metodo_pago,
+            producto_nombre: p.producto_nombre,
+            motorizado_asignado: p.motorizado_asignado,
+          }))}
+      />
+
 
       {/* Future Date Confirmation Dialog */}
       <FutureDateConfirmDialog
