@@ -1238,6 +1238,17 @@ const AdminDashboard = () => {
                     Generar Manifiesto
                   </Button>
 
+                  {/* Generar Manifiesto de Ruta (Motorizado) */}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowManifiestoRutaModal(true)}
+                    className="gap-2 border-primary/40"
+                  >
+                    📄 Generar Manifiesto de Ruta
+                  </Button>
+
+
                   <button onClick={() => setSelectedForBulk([])} className="text-sm text-muted-foreground hover:text-foreground">
                     Cancelar selección
                   </button>
