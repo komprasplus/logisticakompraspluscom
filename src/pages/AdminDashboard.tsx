@@ -274,6 +274,7 @@ const AdminDashboard = () => {
   const [showFiltersSheet, setShowFiltersSheet] = useState(false);
   const [showRecaudoPanel, setShowRecaudoPanel] = useState(false);
   const [showManifiestoModal, setShowManifiestoModal] = useState(false);
+  const [showManifiestoRutaModal, setShowManifiestoRutaModal] = useState(false);
 
   // Refs for preventing race conditions
   const isMountedRef = useRef(true);
