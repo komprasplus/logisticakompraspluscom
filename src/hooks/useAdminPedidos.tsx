@@ -47,6 +47,7 @@ const PEDIDO_COLUMNS = [
   "guia_impresa_at",
   "observaciones",
   "organizacion_id",
+  "aliado_logistico",
 ].join(", ");
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
