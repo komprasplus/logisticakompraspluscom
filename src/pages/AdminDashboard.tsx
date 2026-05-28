@@ -432,6 +432,25 @@ const AdminDashboard = () => {
     }
   };
 
+  // Assign carrier ally (Gomilla, Jamv Drive, Derocha)
+  const ALIADOS_LOGISTICOS = ["Gomilla", "Jamv Drive", "Derocha"] as const;
+  const assignAliadoLogistico = async (pedidoId: number, aliado: string) => {
+    const value = aliado || null;
+    // Optimistic update first
+    updatePedidoLocally(pedidoId, { aliado_logistico: value });
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ aliado_logistico: value, fecha_actualizacion: new Date().toISOString() })
+        .eq("id", pedidoId);
+      if (error) throw error;
+      toast.success(value ? `Aliado asignado: ${value}` : "Aliado removido");
+    } catch (err) {
+      console.error("Error assigning aliado:", err);
+      toast.error("Error al asignar aliado logístico");
+    }
+  };
+
   // Handle confirmation of future date assignment
   const handleFutureDateConfirm = () => {
     if (pendingAssignment) {
