@@ -1327,6 +1327,7 @@ const AdminDashboard = () => {
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">F. Entrega</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Motorizado</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Aliado</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Estado</th>
                         <th className="px-2 py-3 text-center font-semibold text-foreground text-xs sm:text-sm w-24">Acciones</th>
                       </tr>
