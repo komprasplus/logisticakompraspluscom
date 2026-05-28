@@ -1,0 +1,1 @@
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS aliado_logistico TEXT;

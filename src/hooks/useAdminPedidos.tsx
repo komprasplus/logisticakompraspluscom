@@ -47,6 +47,7 @@ const PEDIDO_COLUMNS = [
   "guia_impresa_at",
   "observaciones",
   "organizacion_id",
+  "aliado_logistico",
 ].join(", ");
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -85,6 +86,7 @@ interface Pedido {
   guia_impresa?: boolean | null;
   guia_impresa_at?: string | null;
   observaciones?: string | null;
+  aliado_logistico?: string | null;
 }
 
 interface DateRange {

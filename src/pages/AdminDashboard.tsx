@@ -151,6 +151,7 @@ interface Pedido {
   guia_impresa?: boolean | null;
   guia_impresa_at?: string | null;
   observaciones?: string | null;
+  aliado_logistico?: string | null;
 }
 
 interface Profile {
@@ -428,6 +429,25 @@ const AdminDashboard = () => {
       toast.error("Error al asignar motorizado");
     } finally {
       setAssigningPedido(null);
+    }
+  };
+
+  // Assign carrier ally (Gomilla, Jamv Drive, Derocha)
+  const ALIADOS_LOGISTICOS = ["Gomilla", "Jamv Drive", "Derocha"] as const;
+  const assignAliadoLogistico = async (pedidoId: number, aliado: string) => {
+    const value = aliado || null;
+    // Optimistic update first
+    updatePedidoLocally(pedidoId, { aliado_logistico: value });
+    try {
+      const { error } = await supabase
+        .from("pedidos")
+        .update({ aliado_logistico: value, fecha_actualizacion: new Date().toISOString() })
+        .eq("id", pedidoId);
+      if (error) throw error;
+      toast.success(value ? `Aliado asignado: ${value}` : "Aliado removido");
+    } catch (err) {
+      console.error("Error assigning aliado:", err);
+      toast.error("Error al asignar aliado logístico");
     }
   };
 
@@ -1307,6 +1327,7 @@ const AdminDashboard = () => {
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden md:table-cell">Pago</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground hidden lg:table-cell">F. Entrega</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Motorizado</th>
+                        <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Aliado</th>
                         <th className="px-3 py-3 text-left font-semibold text-foreground text-xs sm:text-sm">Estado</th>
                         <th className="px-2 py-3 text-center font-semibold text-foreground text-xs sm:text-sm w-24">Acciones</th>
                       </tr>
@@ -1431,6 +1452,19 @@ const AdminDashboard = () => {
                               ) : (
                                 <span className="text-muted-foreground">{pedido.motorizado_asignado}</span>
                               )}
+                            </td>
+                            <td className="px-3 py-3">
+                              <select
+                                value={pedido.aliado_logistico ?? ""}
+                                onChange={(e) => assignAliadoLogistico(pedido.id, e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className={`min-w-[110px] rounded-lg border px-2 py-1.5 text-xs font-medium bg-card focus:outline-none focus:ring-2 focus:ring-primary/40 ${pedido.aliado_logistico ? "border-primary/40 text-foreground" : "border-dashed border-border text-muted-foreground"}`}
+                              >
+                                <option value="">Sin asignar</option>
+                                {ALIADOS_LOGISTICOS.map((a) => (
+                                  <option key={a} value={a}>{a}</option>
+                                ))}
+                              </select>
                             </td>
                             <td className="px-3 py-3"><StatusBadge status={pedido.estado} /></td>
                             <td className="px-2 py-3 text-center">
