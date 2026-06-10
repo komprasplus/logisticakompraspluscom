@@ -34,6 +34,7 @@ import MotorizadoBottomNav, { type MotorizadoTab } from "@/components/motorizado
 import MotorizadoWalletWidget from "@/components/motorizado/MotorizadoWalletWidget";
 import PedidoActivoCard from "@/components/motorizado/PedidoActivoCard";
 import { calculateScore, formatCOPFull } from "@/lib/motorizado-score";
+import PedidoDetailView from "@/components/motorizado/PedidoDetailView";
 import { useAuth } from "@/hooks/useAuth";
 import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
 import useLocationTracking from "@/hooks/useLocationTracking";
@@ -1327,229 +1328,48 @@ const MotorizadoDashboard = () => {
       {/* Pedido Detail Modal */}
       <AnimatePresence>
         {selectedPedido && !showPhotoModal && !showNovedadModal && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setSelectedPedido(null)}
-          >
-            <motion.div
-              className="w-full max-w-lg rounded-t-3xl bg-card p-6 max-h-[80vh] overflow-y-auto"
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-muted" />
-
-              <h3 className="text-xl font-bold text-foreground">
-                {selectedPedido.numero_guia || `Pedido #${selectedPedido.id}`}
-              </h3>
-
-              {/* Distance indicator */}
-              {userLocation && selectedPedido.latitud && selectedPedido.longitud && (
-                <div className="mt-2 flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                      isWithinGeofence(
-                        userLocation.lat,
-                        userLocation.lng,
-                        selectedPedido.latitud,
-                        selectedPedido.longitud,
-                        GEOFENCE_RADIUS
-                      )
-                        ? "bg-green-100 text-green-700"
-                        : "bg-amber-100 text-amber-700"
-                    }`}
-                  >
-                    📍 A {getDistanceText(selectedPedido)} del destino
-                  </span>
-                  {isWithinGeofence(
+          <PedidoDetailView
+            pedido={selectedPedido}
+            userLocation={userLocation}
+            distanceText={getDistanceText(selectedPedido)}
+            isWithinRange={
+              userLocation &&
+              selectedPedido.latitud != null &&
+              selectedPedido.longitud != null
+                ? isWithinGeofence(
                     userLocation.lat,
                     userLocation.lng,
                     selectedPedido.latitud,
                     selectedPedido.longitud,
-                    GEOFENCE_RADIUS
-                  ) ? (
-                    <span className="text-xs text-green-600">✓ Dentro del rango</span>
-                  ) : (
-                    <span className="text-xs text-amber-600">⚠ Fuera del rango ({GEOFENCE_RADIUS}m)</span>
-                  )}
-                </div>
-              )}
-
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                    <User className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">
-                      {selectedPedido.cliente_nombre || "Cliente sin nombre"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Cliente</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => callClient(selectedPedido.client_phone)}
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-[#FF6B35] text-white transition-transform active:scale-95"
-                      aria-label="Llamar cliente"
-                    >
-                      <Phone className="h-5 w-5" />
-                    </button>
-                    <button
-                      onClick={() => openWhatsApp(selectedPedido.client_phone)}
-                      className="flex h-10 w-10 items-center justify-center rounded-full bg-[#25D366] text-white transition-transform active:scale-95"
-                      aria-label="WhatsApp"
-                    >
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                    <MapPin className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">
-                      {selectedPedido.direccion_entrega || "Sin dirección"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Dirección de entrega</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                    <Clock className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-medium text-foreground">
-                      {selectedPedido.corte_horario || "Sin corte"}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Corte horario</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Navigation Buttons - Large & touch-friendly */}
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => openGoogleMaps(selectedPedido)}
-                  className="flex flex-col items-center justify-center gap-2 rounded-xl bg-[#4285F4] py-4 font-bold text-white transition-all active:scale-95 shadow-md"
-                >
-                  <Navigation className="h-7 w-7" />
-                  <span>Google Maps</span>
-                </button>
-                <button
-                  onClick={() => openWaze(selectedPedido)}
-                  className="flex flex-col items-center justify-center gap-2 rounded-xl bg-[#33CCFF] py-4 font-bold text-white transition-all active:scale-95 shadow-md"
-                >
-                  <svg className="h-7 w-7" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.54 6.63A9.44 9.44 0 0012 2.5a9.44 9.44 0 00-8.54 4.13C1.57 9.19 2.06 12.6 4.5 15c1 1 1.5 2 1.5 3.5v1a1 1 0 001 1h2a1 1 0 001-1v-1c0-1.5.5-2.5 1.5-3.5a6.5 6.5 0 001.5-7 1 1 0 111.8.9 4.5 4.5 0 01-1 4.85c-1.32 1.32-1.8 2.75-1.8 4.75v1a1 1 0 001 1h2a1 1 0 001-1v-1c0-2 .48-3.43 1.8-4.75A7.5 7.5 0 0020.54 6.63z"/>
-                    <circle cx="9" cy="9" r="1.5"/>
-                    <circle cx="15" cy="9" r="1.5"/>
-                  </svg>
-                  <span>Waze</span>
-                </button>
-              </div>
-
-              {/* Share Route Button */}
-              <button
-                onClick={() => shareRoute(selectedPedido)}
-                className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-[#7C3AED] py-3 font-bold text-white transition-all active:scale-95 shadow-md"
-              >
-                <Share2 className="h-5 w-5" />
-                Compartir mi ubicación con cliente
-              </button>
-
-              {/* QR Payment Button - Show for COD orders */}
-              {selectedPedido.metodo_pago?.toLowerCase() === "efectivo" && selectedPedido.valor_recaudar && (
-                <button
-                  onClick={() => setShowQRPayment(true)}
-                  className="mt-3 w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-rose-500 to-purple-600 py-3 font-bold text-white transition-all active:scale-95 shadow-md"
-                >
-                  <QrCode className="h-5 w-5" />
-                  Pagar con QR (${selectedPedido.valor_recaudar?.toLocaleString("es-CO")})
-                </button>
-              )}
-
-              {/* Flex badge */}
-              {selectedPedido.canal === "FLEX" && (
-                <div className="mt-2 rounded-lg bg-amber-500/10 border border-amber-500/30 p-2 text-center">
-                  <p className="text-xs font-bold text-amber-600">⚡ PEDIDO FLEX — Foto + GPS obligatorios</p>
-                </div>
-              )}
-
-              {/* Action Buttons - Only show if order is in "En Ruta" status */}
-              {selectedPedido.estado?.toLowerCase() === "en ruta" && (
-                <div className="mt-3 grid grid-cols-2 gap-3">
-                  <button
-                    onClick={openNovedadModal}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-destructive py-3 font-bold text-destructive-foreground transition-all active:scale-95 shadow-md"
-                  >
-                    <AlertTriangle className="h-5 w-5" />
-                    Novedad
-                  </button>
-                  <button
-                    onClick={openPhotoCapture}
-                    disabled={selectedPedido.canal === "FLEX" && !userLocation}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-green-500 py-3 font-bold text-white transition-all active:scale-95 shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Camera className="h-5 w-5" />
-                    Entregar
-                  </button>
-                </div>
-              )}
-
-              {/* Show status message for non-actionable orders */}
-              {selectedPedido.estado?.toLowerCase() !== "en ruta" && (
-                <div className="mt-3 rounded-xl bg-muted p-3 text-center">
-                  <p className="text-sm text-muted-foreground">
-                    {selectedPedido.estado?.toLowerCase() === "entregado" 
-                      ? "✅ Este pedido ya fue entregado"
-                      : selectedPedido.estado?.toLowerCase() === "novedad"
-                      ? "⚠️ Este pedido tiene novedad reportada"
-                      : selectedPedido.estado?.toLowerCase() === "asignado"
-                      ? "📦 Usa el escáner QR para iniciar la entrega"
-                      : `Estado actual: ${selectedPedido.estado}`
-                    }
-                  </p>
-                </div>
-              )}
-
-              {selectedPedido.foto_evidencia && (
-                <div className="mt-4">
-                  <p className="text-sm text-muted-foreground mb-2">Foto de evidencia:</p>
-                  <img
-                    src={selectedPedido.foto_evidencia}
-                    alt="Evidencia"
-                    className="w-full h-32 object-cover rounded-xl"
-                  />
-                </div>
-              )}
-
-              {/* Chat Button */}
-              <button
-                onClick={() => setChatOpenForPedido(chatOpenForPedido === selectedPedido.id ? null : selectedPedido.id)}
-                className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl bg-muted py-3 font-medium text-foreground hover:bg-muted/80 transition-all active:scale-[0.98]"
-              >
-                <MessageCircle className="h-5 w-5 text-primary" />
-                {chatOpenForPedido === selectedPedido.id ? "Cerrar Chat" : "Chat con Tienda"}
-              </button>
-
-              {/* Inline Chat */}
+                    GEOFENCE_RADIUS,
+                  )
+                : false
+            }
+            cupoCODRestante={Math.max(0, 1500000 - motorizadoStats.codHoyUsado)}
+            tiendaNombre={null}
+            chatOpen={chatOpenForPedido === selectedPedido.id}
+            onClose={() => setSelectedPedido(null)}
+            onCall={(phone) => callClient(phone)}
+            onWhatsApp={(phone) => openWhatsApp(phone)}
+            onNavigate={() => openGoogleMaps(selectedPedido)}
+            onWaze={() => openWaze(selectedPedido)}
+            onShareLocation={() => shareRoute(selectedPedido)}
+            onPayWithQR={() => setShowQRPayment(true)}
+            onCapturePhoto={openPhotoCapture}
+            onReportNovedad={openNovedadModal}
+            onToggleChat={() =>
+              setChatOpenForPedido(
+                chatOpenForPedido === selectedPedido.id ? null : selectedPedido.id,
+              )
+            }
+            chatComponent={
               <PedidoChat
                 pedidoId={selectedPedido.id}
                 isOpen={chatOpenForPedido === selectedPedido.id}
                 onClose={() => setChatOpenForPedido(null)}
               />
-            </motion.div>
-          </motion.div>
+            }
+          />
         )}
       </AnimatePresence>
 
