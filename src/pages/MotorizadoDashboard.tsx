@@ -29,6 +29,11 @@ import {
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useMotorizadoPedidos } from "@/hooks/useMotorizadoPedidos";
+import MotorizadoStatsHeader from "@/components/motorizado/MotorizadoStatsHeader";
+import MotorizadoBottomNav, { type MotorizadoTab } from "@/components/motorizado/MotorizadoBottomNav";
+import MotorizadoWalletWidget from "@/components/motorizado/MotorizadoWalletWidget";
+import PedidoActivoCard from "@/components/motorizado/PedidoActivoCard";
+import { calculateScore, formatCOPFull } from "@/lib/motorizado-score";
 import { useAuth } from "@/hooks/useAuth";
 import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
 import useLocationTracking from "@/hooks/useLocationTracking";
@@ -134,6 +139,7 @@ const MotorizadoDashboard = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [chatOpenForPedido, setChatOpenForPedido] = useState<number | null>(null);
   const [isRouteOptimized, setIsRouteOptimized] = useState(false);
+  const [activeTab, setActiveTab] = useState<MotorizadoTab>("pedidos");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const novedadPhotoRef = useRef<HTMLInputElement>(null);
   const packagePhotoRef = useRef<HTMLInputElement>(null);
@@ -937,6 +943,62 @@ const MotorizadoDashboard = () => {
     };
   }, [pedidos]);
 
+  // Sistema de Score / Niveles / Wallet del motorizado
+  const motorizadoStats = useMemo(() => {
+    const entregados = pedidos.filter((p) => p.estado?.toLowerCase() === "entregado").length;
+    const novedades = pedidos.filter((p) => p.estado?.toLowerCase() === "novedad").length;
+    const anulados = pedidos.filter((p) => p.estado?.toLowerCase() === "anulado").length;
+
+    // Antigüedad: usar created_at del profile si está, sino estimar por registros
+    const createdAt = (profile as { created_at?: string } | null)?.created_at;
+    const diasAntiguedad = createdAt
+      ? Math.floor((Date.now() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24))
+      : 30;
+
+    const score = calculateScore({
+      pedidosEntregados: entregados,
+      pedidosConNovedad: novedades,
+      pedidosAnulados: anulados,
+      diasAntiguedad,
+      isOnline,
+    });
+
+    // Balance simulado: 8% del valor entregado COD acumulado del mes
+    // (mientras llega el sistema de wallet completo en Fase 2 del roadmap)
+    const codCollectedMonth = pedidos
+      .filter((p) => p.estado?.toLowerCase() === "entregado" && p.metodo_pago?.toLowerCase() === "efectivo")
+      .reduce((sum, p) => sum + Number(p.valor_recaudar || 0), 0);
+
+    const ganancias = Math.round(codCollectedMonth * 0.08);
+    const fondoGarantia = Math.round(codCollectedMonth * 0.05);
+
+    return {
+      score,
+      entregadosMes: entregados,
+      balanceDisponible: ganancias,
+      fondoGarantia,
+      codHoyUsado: dailyStats.collectedAmount,
+    };
+  }, [pedidos, profile, isOnline, dailyStats.collectedAmount]);
+
+  // Pedido activo (el primero "Asignado" o "En Ruta")
+  const pedidoActivo = useMemo(() => {
+    return (
+      pedidos.find((p) => {
+        const est = p.estado?.toLowerCase();
+        return est === "asignado" || est === "en ruta" || est === "en_ruta";
+      }) || null
+    );
+  }, [pedidos]);
+
+  // Conteo de pedidos pendientes (para badge del bottom nav)
+  const pedidosPendientesCount = useMemo(() => {
+    return pedidos.filter((p) => {
+      const est = p.estado?.toLowerCase();
+      return est !== "entregado" && est !== "anulado" && est !== "devolucion" && est !== "devolución";
+    }).length;
+  }, [pedidos]);
+
   // Get profile with extended data
   const extendedProfile = profile ? {
     id: user?.id || "",
@@ -974,59 +1036,19 @@ const MotorizadoDashboard = () => {
   }, [isDarkMode]);
 
   return (
-    <div className="min-h-screen bg-background transition-colors duration-300">
-      {/* Header - Glassmorphic */}
-      <header className="sticky top-0 z-40 glass-strong border-b border-white/20">
-        <div className="container flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <BrandLogo size="md" />
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Dark Mode Toggle */}
-            <DarkModeToggle 
-              isDark={isDarkMode} 
-              onToggle={() => setIsDarkMode(!isDarkMode)} 
-            />
-            
-            {/* Map Toggle - Neumorphic */}
-            <button
-              onClick={() => setShowMapView(!showMapView)}
-              className={`flex h-11 w-11 items-center justify-center rounded-2xl transition-all ${
-                showMapView ? "bg-gradient-button text-white shadow-lg" : "neu-flat hover:shadow-elevated"
-              }`}
-            >
-              <Map className="h-5 w-5" />
-            </button>
-            
-            {/* Profile Avatar Button - Neumorphic */}
-            <button
-              onClick={() => setShowProfile(true)}
-              className="relative"
-            >
-              <Avatar className="h-11 w-11 border-2 border-white/30 shadow-md">
-                <AvatarImage 
-                  src={profile?.avatar_url || undefined} 
-                  alt={profile?.full_name} 
-                />
-                <AvatarFallback className="bg-gradient-button text-white text-sm font-bold">
-                  {profile ? getInitials(profile.full_name) : "?"}
-                </AvatarFallback>
-              </Avatar>
-              {isOnline && (
-                <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-background shadow-md"></span>
-              )}
-            </button>
-            
-            {/* Logout - Red */}
-            <button
-              onClick={handleSignOut}
-              className="flex items-center gap-2 rounded-xl bg-red-50 dark:bg-red-950/30 px-3 py-2.5 text-sm font-semibold text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-950/50 transition-colors border border-red-200 dark:border-red-800"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-background transition-colors duration-300 pb-20 lg:pb-0">
+      {/* Header Premium con Score + Avatar + Acciones */}
+      <MotorizadoStatsHeader
+        avatarUrl={profile?.avatar_url}
+        fullName={profile?.full_name}
+        isOnline={isOnline}
+        score={motorizadoStats.score}
+        notificationCount={pendingSyncCount}
+        showMapView={showMapView}
+        onToggleMap={() => setShowMapView(!showMapView)}
+        onProfileClick={() => setShowProfile(true)}
+        onSignOut={handleSignOut}
+      />
 
       <main className="container px-4 py-4">
         {/* Date Header with Greeting */}
@@ -1862,6 +1884,56 @@ const MotorizadoDashboard = () => {
             fetchPedidos();
           }}
         />
+      )}
+
+      {/* Bottom Navigation - Mobile only */}
+      <MotorizadoBottomNav
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === "mapa") setShowMapView(true);
+          if (tab === "perfil") setShowProfile(true);
+        }}
+        pedidosBadge={pedidosPendientesCount}
+      />
+
+      {/* Wallet View - Bottom Sheet on Mobile */}
+      {activeTab === "wallet" && (
+        <div
+          className="fixed inset-0 z-40 lg:hidden bg-black/40 backdrop-blur-sm"
+          onClick={() => setActiveTab("pedidos")}
+        >
+          <div
+            className="absolute bottom-16 left-0 right-0 max-h-[80vh] overflow-y-auto bg-background rounded-t-3xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+          >
+            <div className="sticky top-0 bg-background border-b border-border px-4 py-3 flex items-center justify-between">
+              <div>
+                <h2 className="text-base font-bold text-foreground">Mi Wallet</h2>
+                <p className="text-xs text-muted-foreground">Balance, cupo COD y nivel</p>
+              </div>
+              <button
+                onClick={() => setActiveTab("pedidos")}
+                className="h-8 w-8 rounded-full bg-muted hover:bg-muted/70 flex items-center justify-center text-foreground"
+                aria-label="Cerrar"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4">
+              <MotorizadoWalletWidget
+                score={motorizadoStats.score}
+                balanceDisponible={motorizadoStats.balanceDisponible}
+                fondoGarantia={motorizadoStats.fondoGarantia}
+                codHoyUsado={motorizadoStats.codHoyUsado}
+                pedidosEntregadosMes={motorizadoStats.entregadosMes}
+                onRetirar={() => toast.info("Sistema de retiros próximamente")}
+                onVerDetalle={() => toast.info("Historial de movimientos próximamente")}
+              />
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
