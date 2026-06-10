@@ -285,8 +285,8 @@ const ClienteDashboard = () => {
 
       {/* Main Content */}
       <main
-        className={`pt-[104px] transition-all duration-300 ${
-          sidebarCollapsed ? "ml-16" : "ml-56"
+        className={`pt-[104px] transition-all duration-200 ${
+          sidebarCollapsed ? "lg:ml-[68px]" : "lg:ml-[240px]"
         }`}
       >
         <div className="p-4 sm:p-6 max-w-5xl mx-auto">
