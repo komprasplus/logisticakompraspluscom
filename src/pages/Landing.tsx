@@ -28,7 +28,7 @@ const Section = ({ children, className = "" }: { children: React.ReactNode; clas
     whileInView="show"
     viewport={{ once: true, amount: 0.2 }}
     variants={stagger}
-    className={`relative w-full px-6 py-24 md:py-32 ${className}`}
+    className={`relative w-full px-4 sm:px-6 py-16 sm:py-24 md:py-32 ${className}`}
   >
     {children}
   </motion.section>
@@ -59,25 +59,25 @@ const Landing = () => {
               Plus<span className="text-cyan-400"> Envíos</span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
               to="/auth"
-              className="hidden sm:inline-flex text-sm text-zinc-300 hover:text-white px-4 py-2 transition"
+              className="inline-flex text-xs sm:text-sm text-zinc-300 hover:text-white px-2 sm:px-4 py-2 transition"
             >
               Iniciar sesión
             </Link>
             <Link
               to="/registro"
-              className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-100 transition"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium px-3 sm:px-4 py-2 rounded-full bg-white text-zinc-950 hover:bg-zinc-100 transition"
             >
-              Empezar <ArrowRight className="w-3.5 h-3.5" />
+              Empezar <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </Link>
           </div>
         </div>
       </nav>
 
       {/* HERO */}
-      <Section className="pt-40 md:pt-48">
+      <Section className="pt-28 sm:pt-40 md:pt-48">
         {/* Glow background */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
           <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[800px] h-[800px] rounded-full bg-purple-600/20 blur-[150px]" />
@@ -95,7 +95,7 @@ const Landing = () => {
 
           <motion.h1
             variants={fadeUp}
-            className="mt-8 text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[0.95]"
+            className="mt-6 sm:mt-8 text-4xl sm:text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter leading-[1] sm:leading-[0.95]"
           >
             Escala tu E-commerce <br />
             <span className="bg-gradient-to-r from-purple-400 via-cyan-300 to-purple-400 bg-clip-text text-transparent">
@@ -105,16 +105,16 @@ const Landing = () => {
 
           <motion.p
             variants={fadeUp}
-            className="mt-8 text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed"
+            className="mt-6 sm:mt-8 text-base sm:text-lg md:text-xl text-zinc-400 max-w-2xl mx-auto leading-relaxed px-2"
           >
             El único ecosistema logístico en Colombia que integra proveeduría VIP, sincronización automática
             con tu tienda y recaudo contra entrega ultrarrápido.
           </motion.p>
 
-          <motion.div variants={fadeUp} className="mt-10 flex flex-col sm:flex-row gap-4 justify-center items-center">
+          <motion.div variants={fadeUp} className="mt-8 sm:mt-10 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center px-4">
             <Link
               to="/registro"
-              className="group relative inline-flex items-center gap-2 px-8 py-4 rounded-full bg-gradient-to-r from-purple-600 to-cyan-500 font-semibold text-white shadow-[0_0_40px_rgba(168,85,247,0.5)] hover:shadow-[0_0_60px_rgba(34,211,238,0.7)] transition-all duration-300 animate-pulse-glow-cta"
+              className="group relative inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 sm:px-8 py-3.5 sm:py-4 rounded-full bg-gradient-to-r from-purple-600 to-cyan-500 font-semibold text-white shadow-[0_0_40px_rgba(168,85,247,0.5)] hover:shadow-[0_0_60px_rgba(34,211,238,0.7)] transition-all duration-300 animate-pulse-glow-cta"
             >
               <span className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-600 to-cyan-500 blur-xl opacity-50 group-hover:opacity-80 transition" />
               <span className="relative flex items-center gap-2">
@@ -124,24 +124,23 @@ const Landing = () => {
             </Link>
             <a
               href="#solucion"
-              className="px-8 py-4 rounded-full border border-white/10 bg-white/5 backdrop-blur-md text-white hover:bg-white/10 transition"
+              className="w-full sm:w-auto text-center px-6 sm:px-8 py-3.5 sm:py-4 rounded-full border border-white/10 bg-white/5 backdrop-blur-md text-white hover:bg-white/10 transition"
             >
               Ver cómo funciona
             </a>
           </motion.div>
 
           {/* Mockup */}
-          <motion.div variants={fadeUp} className="mt-20 perspective-[2000px]">
+          <motion.div variants={fadeUp} className="mt-12 sm:mt-20 perspective-[2000px]">
             <div
-              className="mx-auto max-w-5xl rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 backdrop-blur-xl shadow-[0_30px_100px_-20px_rgba(168,85,247,0.5)] p-6 transition-transform duration-700"
-              style={{ transform: "rotateX(15deg) rotateY(-5deg)" }}
+              className="mx-auto max-w-5xl rounded-2xl border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-950 backdrop-blur-xl shadow-[0_30px_100px_-20px_rgba(168,85,247,0.5)] p-3 sm:p-6 transition-transform duration-700 sm:[transform:rotateX(15deg)_rotateY(-5deg)]"
             >
-              <div className="flex items-center gap-1.5 mb-4">
-                <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />
-                <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80" />
-                <div className="w-2.5 h-2.5 rounded-full bg-green-500/80" />
+              <div className="flex items-center gap-1.5 mb-3 sm:mb-4">
+                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-red-500/80" />
+                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-yellow-500/80" />
+                <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-green-500/80" />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 {[
                   { label: "Pedidos hoy", value: "1,284", glow: "purple" },
                   { label: "Recaudo COD", value: "$48.2M", glow: "cyan" },
@@ -149,12 +148,12 @@ const Landing = () => {
                 ].map((kpi, i) => (
                   <div
                     key={i}
-                    className="rounded-xl border border-white/5 bg-white/5 p-4 text-left"
+                    className="rounded-lg sm:rounded-xl border border-white/5 bg-white/5 p-2 sm:p-4 text-left"
                   >
-                    <div className="text-xs text-zinc-500">{kpi.label}</div>
-                    <div className="text-2xl font-bold mt-1">{kpi.value}</div>
+                    <div className="text-[10px] sm:text-xs text-zinc-500 truncate">{kpi.label}</div>
+                    <div className="text-base sm:text-2xl font-bold mt-0.5 sm:mt-1">{kpi.value}</div>
                     <div
-                      className={`mt-3 h-12 rounded-md bg-gradient-to-tr ${
+                      className={`mt-2 sm:mt-3 h-8 sm:h-12 rounded-md bg-gradient-to-tr ${
                         kpi.glow === "purple"
                           ? "from-purple-600/40 to-purple-400/10"
                           : "from-cyan-500/40 to-cyan-300/10"
@@ -163,7 +162,7 @@ const Landing = () => {
                   </div>
                 ))}
               </div>
-              <div className="mt-4 h-40 rounded-xl border border-white/5 bg-gradient-to-tr from-purple-600/20 via-transparent to-cyan-500/20 relative overflow-hidden">
+              <div className="mt-3 sm:mt-4 h-24 sm:h-40 rounded-lg sm:rounded-xl border border-white/5 bg-gradient-to-tr from-purple-600/20 via-transparent to-cyan-500/20 relative overflow-hidden">
                 <svg viewBox="0 0 400 100" className="absolute inset-0 w-full h-full">
                   <defs>
                     <linearGradient id="lineGrad" x1="0" x2="1">
@@ -190,12 +189,12 @@ const Landing = () => {
         <div className="max-w-6xl mx-auto">
           <motion.h2
             variants={fadeUp}
-            className="text-4xl md:text-5xl font-bold text-center max-w-3xl mx-auto leading-tight"
+            className="text-3xl sm:text-4xl md:text-5xl font-bold text-center max-w-3xl mx-auto leading-tight px-2"
           >
             ¿Estás perdiendo dinero por culpa de una <span className="text-red-400">logística tradicional</span>?
           </motion.h2>
 
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="mt-10 sm:mt-16 grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
             {[
               {
                 Icon: Clock,
@@ -239,7 +238,7 @@ const Landing = () => {
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs font-medium text-cyan-300">
               LA SOLUCIÓN
             </span>
-            <h2 className="mt-6 text-4xl md:text-5xl font-bold leading-tight">
+            <h2 className="mt-4 sm:mt-6 text-3xl sm:text-4xl md:text-5xl font-bold leading-tight px-2">
               Presentamos Plus Envíos:{" "}
               <span className="bg-gradient-to-r from-purple-400 to-cyan-300 bg-clip-text text-transparent">
                 Tu operación en piloto automático.
@@ -247,7 +246,7 @@ const Landing = () => {
             </h2>
           </motion.div>
 
-          <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="mt-10 sm:mt-16 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {[
               {
                 Icon: Zap,
@@ -306,11 +305,11 @@ const Landing = () => {
           <div className="relative overflow-hidden">
             <div className="absolute left-0 top-0 bottom-0 w-32 bg-gradient-to-r from-zinc-950 to-transparent z-10" />
             <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-zinc-950 to-transparent z-10" />
-            <div className="flex gap-12 animate-marquee whitespace-nowrap">
+            <div className="flex gap-8 sm:gap-12 animate-marquee whitespace-nowrap">
               {marqueeItems.map((name, i) => (
                 <div
                   key={i}
-                  className="text-2xl md:text-3xl font-bold text-zinc-600 hover:text-white transition shrink-0"
+                  className="text-xl sm:text-2xl md:text-3xl font-bold text-zinc-600 hover:text-white transition shrink-0"
                 >
                   {name}
                 </div>
@@ -326,27 +325,27 @@ const Landing = () => {
           <motion.div variants={fadeUp} className="relative">
             {/* Animated gradient border wrapper */}
             <div className="relative rounded-3xl p-[2px] bg-gradient-to-r from-purple-600 via-cyan-400 to-purple-600 bg-[length:200%_200%] animate-gradient-border">
-              <div className="rounded-3xl bg-zinc-950 px-8 py-16 md:p-20 text-center relative overflow-hidden">
+              <div className="rounded-3xl bg-zinc-950 px-5 sm:px-8 py-10 sm:py-16 md:p-20 text-center relative overflow-hidden">
                 <div className="absolute inset-0 -z-0">
                   <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full bg-purple-600/20 blur-[120px]" />
                   <div className="absolute bottom-0 right-1/2 translate-x-1/2 w-[600px] h-[400px] rounded-full bg-cyan-500/20 blur-[120px]" />
                 </div>
                 <div className="relative z-10">
-                  <h2 className="text-4xl md:text-6xl font-black tracking-tight leading-tight">
+                  <h2 className="text-3xl sm:text-4xl md:text-6xl font-black tracking-tight leading-tight">
                     Deja de operar. <br />
                     <span className="bg-gradient-to-r from-purple-400 to-cyan-300 bg-clip-text text-transparent">
                       Empieza a escalar.
                     </span>
                   </h2>
-                  <p className="mt-6 text-lg text-zinc-400 max-w-2xl mx-auto">
+                  <p className="mt-4 sm:mt-6 text-base sm:text-lg text-zinc-400 max-w-2xl mx-auto">
                     Únete a los dropshippers de alto rendimiento que ya están dominando el mercado con Plus Envíos.
                   </p>
                   <Link
                     to="/registro"
-                    className="mt-10 inline-flex items-center gap-3 px-10 py-5 rounded-full bg-gradient-to-r from-purple-600 to-cyan-500 font-bold text-lg text-white shadow-[0_0_60px_rgba(168,85,247,0.6)] hover:scale-105 transition-transform"
+                    className="mt-8 sm:mt-10 inline-flex items-center justify-center gap-2 sm:gap-3 w-full sm:w-auto px-6 sm:px-10 py-4 sm:py-5 rounded-full bg-gradient-to-r from-purple-600 to-cyan-500 font-bold text-base sm:text-lg text-white shadow-[0_0_60px_rgba(168,85,247,0.6)] hover:scale-105 transition-transform"
                   >
                     Ingresar al Ecosistema Ahora
-                    <ArrowRight className="w-5 h-5" />
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </Link>
                   <p className="mt-4 text-xs text-zinc-500">
                     ¿Ya tienes cuenta?{" "}
