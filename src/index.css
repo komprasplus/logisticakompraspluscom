@@ -6,84 +6,105 @@
 
 @layer base {
   :root {
-    /* Neumorphic Light Theme - Plus Envíos Brand */
-    --background: 220 20% 94%;
-    --foreground: 222 47% 15%;
+    /* ============================================================
+       PLUS ENVÍOS · PALETA PREMIUM DE MARCA
+       Navy #1B2959 · Gold #F5C518 · Pink #E8175D
+       Estética inspirada en Amazon — flat, denso, profesional
+       ============================================================ */
 
-    --card: 220 20% 96%;
-    --card-foreground: 222 47% 15%;
+    /* Superficies */
+    --background: 220 33% 98%;        /* #F8F9FC casi blanco */
+    --foreground: 222 56% 14%;        /* navy text */
 
-    --popover: 220 20% 96%;
-    --popover-foreground: 222 47% 15%;
+    --card: 0 0% 100%;                /* white cards */
+    --card-foreground: 222 56% 14%;
 
-    /* Primary Blue - Brand #00D1FF */
-    --primary: 191 100% 50%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 56% 14%;
+
+    /* Brand Navy — Primario */
+    --primary: 220 55% 23%;           /* #1B2959 navy */
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary Blue */
-    --secondary: 195 100% 40%;
-    --secondary-foreground: 0 0% 100%;
+    /* Brand Gold — Secundario / CTA */
+    --secondary: 47 92% 53%;          /* #F5C518 gold */
+    --secondary-foreground: 220 55% 18%;
 
-    /* Accent Magenta */
-    --accent: 330 75% 55%;
+    /* Brand Pink — Acento */
+    --accent: 342 82% 50%;            /* #E8175D pink */
     --accent-foreground: 0 0% 100%;
 
-    --muted: 220 15% 88%;
-    --muted-foreground: 220 10% 45%;
+    /* Brand Gold token explícito (uso intenso) */
+    --gold: 47 92% 53%;
+    --gold-foreground: 220 55% 18%;
+    --gold-dark: 47 89% 41%;
 
-    --destructive: 0 84% 60%;
+    --pink: 342 82% 50%;
+    --pink-foreground: 0 0% 100%;
+    --pink-dark: 342 82% 39%;
+
+    --muted: 220 20% 94%;
+    --muted-foreground: 220 14% 42%;
+
+    --destructive: 0 75% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 85%;
-    --input: 220 15% 88%;
-    --ring: 191 100% 50%;
+    --success: 152 70% 38%;
+    --success-foreground: 0 0% 100%;
 
-    --radius: 1.25rem;
+    --warning: 36 95% 50%;
+    --warning-foreground: 220 55% 18%;
 
-    /* Neumorphic Shadows - Light Mode */
-    --neu-shadow-light: 220 20% 100%;
-    --neu-shadow-dark: 220 20% 82%;
-    --neu-shadow-inset-light: 220 20% 100%;
-    --neu-shadow-inset-dark: 220 20% 80%;
+    --border: 220 25% 88%;
+    --input: 220 25% 92%;
+    --ring: 220 55% 23%;
 
-    /* Glass Effect */
-    --glass-bg: 220 20% 98% / 0.7;
-    --glass-border: 220 20% 100% / 0.5;
+    /* Radius — más conservador, tipo enterprise */
+    --radius: 0.625rem;
 
-    /* Gradient tokens */
-    --gradient-primary: linear-gradient(135deg, hsl(191, 100%, 50%) 0%, hsl(195, 100%, 40%) 100%);
-    --gradient-button: linear-gradient(145deg, hsl(191, 100%, 55%) 0%, hsl(195, 100%, 45%) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(330, 75%, 55%) 0%, hsl(330, 75%, 65%) 100%);
-    --gradient-hero: 220 20% 96%;
-    
-    /* Splash screen specific */
-    --splash-background: 220 20% 94%;
-    --splash-text: 222 47% 25%;
-    
-    --shadow-card: 
-      8px 8px 16px hsl(var(--neu-shadow-dark)),
-      -8px -8px 16px hsl(var(--neu-shadow-light));
+    /* Sombras sutiles tipo Amazon (no neumorphic dramático) */
+    --neu-shadow-light: 0 0% 100%;
+    --neu-shadow-dark: 220 35% 88%;
+    --neu-shadow-inset-light: 0 0% 100%;
+    --neu-shadow-inset-dark: 220 30% 86%;
+
+    --glass-bg: 0 0% 100% / 0.85;
+    --glass-border: 220 25% 88% / 0.5;
+
+    /* Gradients de marca */
+    --gradient-primary: linear-gradient(135deg, hsl(220, 55%, 23%) 0%, hsl(220, 55%, 18%) 100%);
+    --gradient-button: linear-gradient(135deg, hsl(220, 55%, 23%) 0%, hsl(220, 55%, 18%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(342, 82%, 50%) 0%, hsl(342, 82%, 39%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(47, 92%, 53%) 0%, hsl(36, 95%, 50%) 100%);
+    --gradient-brand: linear-gradient(135deg, hsl(220, 55%, 23%) 0%, hsl(342, 82%, 50%) 100%);
+    --gradient-hero: 220 33% 98%;
+
+    --splash-background: 220 33% 98%;
+    --splash-text: 222 56% 14%;
+
+    /* Box shadows tipo Amazon — sutiles, direccionales */
+    --shadow-card:
+      0 1px 3px rgba(27, 41, 89, 0.06),
+      0 1px 2px rgba(27, 41, 89, 0.04);
     --shadow-card-inset:
-      inset 4px 4px 8px hsl(var(--neu-shadow-inset-dark)),
-      inset -4px -4px 8px hsl(var(--neu-shadow-inset-light));
-    --shadow-elevated: 
-      12px 12px 24px hsl(var(--neu-shadow-dark)),
-      -12px -12px 24px hsl(var(--neu-shadow-light));
+      inset 0 1px 2px rgba(27, 41, 89, 0.08);
+    --shadow-elevated:
+      0 10px 25px -8px rgba(27, 41, 89, 0.12),
+      0 4px 10px -3px rgba(27, 41, 89, 0.06);
     --shadow-button:
-      6px 6px 12px hsl(var(--neu-shadow-dark)),
-      -6px -6px 12px hsl(var(--neu-shadow-light));
+      0 1px 2px rgba(27, 41, 89, 0.08);
     --shadow-button-pressed:
-      inset 3px 3px 6px hsl(var(--neu-shadow-inset-dark)),
-      inset -3px -3px 6px hsl(var(--neu-shadow-inset-light));
+      inset 0 1px 2px rgba(27, 41, 89, 0.12);
 
-    --sidebar-background: 220 20% 96% / 0.8;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 191 100% 50%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 220 15% 90%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 15% 85%;
-    --sidebar-ring: 191 100% 55%;
+    /* SIDEBAR — Navy oscuro tipo Amazon */
+    --sidebar-background: 222 56% 14%;     /* #111C3A navy oscuro */
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 47 92% 53%;         /* gold como accent activo */
+    --sidebar-primary-foreground: 222 56% 14%;
+    --sidebar-accent: 220 45% 22%;         /* hover navy un poco más claro */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 220 40% 22%;
+    --sidebar-ring: 47 92% 53%;
   }
 
   .dark {

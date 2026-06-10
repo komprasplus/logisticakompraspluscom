@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   MapPin,
   Package,
@@ -7,7 +8,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
   LucideIcon,
   Truck,
   LayoutDashboard,
@@ -17,8 +17,10 @@ import {
   ScanLine,
   ClipboardList,
   UserPlus,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 interface AdminSidebarProps {
   activeSection: string;
@@ -29,7 +31,6 @@ interface AdminSidebarProps {
 
 const ALIADO_ALLOWED_SECTIONS = ["despachos", "mapa", "manifiesto-scanner", "manifiestos"];
 
-// Maps legacy section IDs to the new consolidated section
 const LEGACY_TO_NEW: Record<string, string> = {
   despacho: "despachos",
   novedades: "despachos",
@@ -44,48 +45,11 @@ const LEGACY_TO_NEW: Record<string, string> = {
   "super-admin": "configuracion",
 };
 
-const Icon3D = ({
-  icon: IconComponent,
-  isActive,
-  colorClass = "from-primary to-secondary",
-  accentColor = "bg-primary/10",
-}: {
-  icon: LucideIcon;
-  isActive: boolean;
-  colorClass?: string;
-  accentColor?: string;
-}) => (
-  <div className="relative">
-    <div
-      className={cn(
-        "absolute inset-0 rounded-2xl blur-sm transition-all duration-300",
-        isActive ? "bg-primary/40 translate-y-1" : "bg-transparent",
-      )}
-    />
-    <div
-      className={cn(
-        "relative flex items-center justify-center w-11 h-11 rounded-2xl transition-all duration-300",
-        isActive ? `bg-gradient-to-br ${colorClass} shadow-lg` : `${accentColor} neu-flat`,
-      )}
-    >
-      <IconComponent
-        className={cn(
-          "h-5 w-5 transition-all duration-300",
-          isActive ? "text-white drop-shadow-sm" : "text-muted-foreground",
-        )}
-        strokeWidth={isActive ? 2.5 : 2}
-      />
-    </div>
-  </div>
-);
-
 interface MenuItem {
   id: string;
   label: string;
   icon: LucideIcon;
   description: string;
-  colorClass: string;
-  accentColor: string;
   badge?: boolean;
   aliadoOnly?: boolean;
 }
@@ -97,117 +61,167 @@ interface MenuGroup {
 
 const MENU_GROUPS: MenuGroup[] = [
   {
-    label: "🚚 Operaciones",
+    label: "Operaciones",
     items: [
-      {
-        id: "analytics",
-        label: "Control Tower",
-        icon: LayoutDashboard,
-        description: "Analíticas en tiempo real",
-        colorClass: "from-primary to-primary/70",
-        accentColor: "bg-primary/10",
-      },
-      {
-        id: "mapa",
-        label: "Mapa Real-time",
-        icon: MapPin,
-        description: "Vista en vivo de entregas",
-        colorClass: "from-primary to-secondary",
-        accentColor: "bg-primary/10",
-      },
-      {
-        id: "despachos",
-        label: "Centro de Despachos",
-        icon: Package,
-        description: "Pedidos, ruta y novedades",
-        badge: true,
-        colorClass: "from-emerald-500 to-teal-500",
-        accentColor: "bg-emerald-500/10",
-      },
-      {
-        id: "manifiesto-scanner",
-        label: "Escáner & Asignación",
-        icon: ScanLine,
-        description: "Modo metralleta para 4PL",
-        colorClass: "from-cyan-500 to-blue-500",
-        accentColor: "bg-cyan-500/10",
-        aliadoOnly: true,
-      },
-      {
-        id: "manifiestos",
-        label: "Planificador Rutas",
-        icon: ClipboardList,
-        description: "Manifiestos generados",
-        colorClass: "from-fuchsia-500 to-purple-500",
-        accentColor: "bg-fuchsia-500/10",
-        aliadoOnly: true,
-      },
-      {
-        id: "inventario",
-        label: "Inventario Bodega",
-        icon: Warehouse,
-        description: "Control de stock",
-        colorClass: "from-amber-500 to-orange-500",
-        accentColor: "bg-amber-500/10",
-      },
+      { id: "control-tower", label: "Control Tower", icon: LayoutDashboard, description: "Analíticas en tiempo real" },
+      { id: "mapa", label: "Mapa Real-time", icon: MapPin, description: "Vista en vivo de entregas" },
+      { id: "despachos", label: "Centro de Despachos", icon: Package, description: "Pedidos, ruta y novedades", badge: true },
+      { id: "inventario", label: "Inventario Bodega", icon: Warehouse, description: "Control de stock" },
     ],
   },
   {
-    label: "💰 Finanzas",
+    label: "Finanzas",
     items: [
-      {
-        id: "tesoreria",
-        label: "Tesorería",
-        icon: Wallet,
-        description: "Liquidación, pagos y rentabilidad",
-        colorClass: "from-emerald-500 to-green-600",
-        accentColor: "bg-emerald-500/10",
-      },
+      { id: "tesoreria", label: "Tesorería", icon: Wallet, description: "Liquidación, pagos y rentabilidad" },
     ],
   },
   {
-    label: "📊 Análisis y Sistema",
+    label: "Análisis y Sistema",
     items: [
-      {
-        id: "informes",
-        label: "Informes",
-        icon: FileText,
-        description: "Reportes y exportación",
-        colorClass: "from-primary/80 to-secondary",
-        accentColor: "bg-primary/10",
-      },
-      {
-        id: "monitoreo",
-        label: "Monitoreo Técnico",
-        icon: Activity,
-        description: "Webhooks, Flex y auditoría",
-        colorClass: "from-violet-500 to-purple-600",
-        accentColor: "bg-violet-500/10",
-      },
+      { id: "informes", label: "Informes", icon: FileText, description: "Reportes y exportación" },
+      { id: "monitoreo", label: "Monitoreo Técnico", icon: Activity, description: "Webhooks, Flex y auditoría" },
     ],
   },
   {
-    label: "⚙️ Ajustes",
+    label: "Ajustes",
     items: [
-      {
-        id: "solicitudes-registro",
-        label: "Solicitudes de Registro",
-        icon: UserPlus,
-        description: "Aprueba nuevos usuarios",
-        colorClass: "from-emerald-500 to-teal-500",
-        accentColor: "bg-emerald-500/10",
-      },
-      {
-        id: "configuracion",
-        label: "Configuración General",
-        icon: Settings,
-        description: "Usuarios, API y sistema",
-        colorClass: "from-slate-500 to-gray-500",
-        accentColor: "bg-slate-500/10",
-      },
+      { id: "solicitudes-registro", label: "Solicitudes de Registro", icon: UserPlus, description: "Aprueba nuevos usuarios" },
+      { id: "configuracion", label: "Configuración General", icon: Settings, description: "Usuarios, API y sistema" },
+    ],
+  },
+  {
+    label: "Aliado Logístico",
+    items: [
+      { id: "manifiesto-scanner", label: "Escanear Manifiesto", icon: ScanLine, description: "Recibe pedidos asignados", aliadoOnly: true },
+      { id: "manifiestos", label: "Mis Manifiestos", icon: ClipboardList, description: "Historial de recepciones", aliadoOnly: true },
     ],
   },
 ];
+
+interface SidebarContentProps {
+  collapsed: boolean;
+  setCollapsed: (v: boolean) => void;
+  groups: MenuGroup[];
+  currentParent: string;
+  onSectionChange: (section: string) => void;
+  novedadesCount: number;
+  branding: { logo_url?: string | null; nombre: string };
+  showCollapseToggle: boolean;
+}
+
+const SidebarInner = ({
+  collapsed,
+  setCollapsed,
+  groups,
+  currentParent,
+  onSectionChange,
+  novedadesCount,
+  branding,
+  showCollapseToggle,
+}: SidebarContentProps) => (
+  <div className="flex flex-col h-full">
+    <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
+      {!collapsed && (
+        <div className="flex items-center gap-2.5 min-w-0">
+          {branding.logo_url ? (
+            <img
+              src={branding.logo_url}
+              alt={branding.nombre}
+              className="h-9 w-9 rounded-lg object-contain"
+            />
+          ) : (
+            <div className="w-9 h-9 rounded-lg bg-gold flex items-center justify-center flex-shrink-0">
+              <Truck className="h-5 w-5 text-gold-foreground" />
+            </div>
+          )}
+          <span className="font-bold text-base tracking-tight truncate text-sidebar-foreground">
+            {branding.nombre}
+          </span>
+        </div>
+      )}
+      {showCollapseToggle && (
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="p-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+          aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
+        >
+          {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+        </button>
+      )}
+    </div>
+
+    <nav className="flex-1 px-2 py-3 overflow-y-auto">
+      {groups.map((group) => (
+        <div key={group.label} className="mb-4 last:mb-0">
+          {!collapsed && (
+            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+              {group.label}
+            </p>
+          )}
+          <div className="space-y-0.5">
+            {group.items.map((item) => {
+              const isActive = currentParent === item.id;
+              const Icon = item.icon;
+
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onSectionChange(item.id)}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-150 group relative",
+                    "border-l-2 border-transparent",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-foreground border-l-gold"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                  )}
+                >
+                  <div className="relative flex-shrink-0">
+                    <Icon
+                      className={cn(
+                        "h-[18px] w-[18px] transition-colors",
+                        isActive ? "text-gold" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground",
+                      )}
+                      strokeWidth={isActive ? 2.25 : 2}
+                    />
+                    {item.badge && novedadesCount > 0 && (
+                      <span className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-pink px-1 text-[9px] font-bold text-pink-foreground">
+                        {novedadesCount > 9 ? "9+" : novedadesCount}
+                      </span>
+                    )}
+                  </div>
+                  {!collapsed && (
+                    <div className="flex-1 text-left min-w-0">
+                      <p
+                        className={cn(
+                          "text-[13px] font-medium leading-tight truncate",
+                          isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/85",
+                        )}
+                      >
+                        {item.label}
+                      </p>
+                      <p className="text-[11px] text-sidebar-foreground/45 truncate mt-0.5">
+                        {item.description}
+                      </p>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </nav>
+
+    {!collapsed && (
+      <div className="p-3 border-t border-sidebar-border">
+        <p className="text-[10px] text-sidebar-foreground/40 text-center">
+          Sistema de Logística v2.1
+        </p>
+      </div>
+    )}
+  </div>
+);
 
 const AdminSidebar = ({
   activeSection,
@@ -216,10 +230,11 @@ const AdminSidebar = ({
   userRole,
 }: AdminSidebarProps) => {
   const { branding } = useTheme();
+  const isMobile = useIsMobile();
   const isAliado = userRole === "aliado_logistico";
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Resolve current parent section (handles legacy IDs)
   const currentParent = LEGACY_TO_NEW[activeSection] ?? activeSection;
 
   const groups = isAliado
@@ -232,110 +247,58 @@ const AdminSidebar = ({
         items: g.items.filter((it) => !it.aliadoOnly),
       })).filter((g) => g.items.length > 0);
 
+  const handleSectionChange = (section: string) => {
+    onSectionChange(section);
+    if (isMobile) setMobileOpen(false);
+  };
+
+  if (isMobile) {
+    return (
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetTrigger asChild>
+          <button
+            className="fixed top-3 left-3 z-40 lg:hidden p-2.5 rounded-lg bg-card border border-border shadow-sm text-foreground hover:bg-muted transition-colors"
+            aria-label="Abrir menú"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </SheetTrigger>
+        <SheetContent
+          side="left"
+          className="p-0 w-[280px] bg-sidebar border-sidebar-border"
+        >
+          <SidebarInner
+            collapsed={false}
+            setCollapsed={() => {}}
+            groups={groups}
+            currentParent={currentParent}
+            onSectionChange={handleSectionChange}
+            novedadesCount={novedadesCount}
+            branding={branding}
+            showCollapseToggle={false}
+          />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <aside
       className={cn(
-        "flex flex-col glass-strong transition-all duration-300 h-full border-r border-white/20",
-        collapsed ? "w-24" : "w-80",
+        "hidden lg:flex flex-col bg-sidebar transition-all duration-200 h-full border-r border-sidebar-border flex-shrink-0",
+        collapsed ? "w-[68px]" : "w-[240px]",
       )}
     >
-      {/* Logo */}
-      <div className="flex items-center justify-between p-5 border-b border-white/10">
-        {!collapsed && (
-          <div className="flex items-center gap-2 min-w-0">
-            {branding.logo_url ? (
-              <img
-                src={branding.logo_url}
-                alt={branding.nombre}
-                className="h-10 w-10 rounded-xl object-contain shadow-md"
-              />
-            ) : (
-              <div className="w-10 h-10 rounded-xl bg-gradient-button flex items-center justify-center shadow-md flex-shrink-0">
-                <Truck className="h-5 w-5 text-white" />
-              </div>
-            )}
-            <span className="font-black text-lg tracking-tight truncate">
-              <span className="text-gradient-brand">{branding.nombre}</span>
-            </span>
-          </div>
-        )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-3 rounded-2xl neu-flat hover:shadow-elevated transition-all duration-200"
-          aria-label={collapsed ? "Expandir menú" : "Colapsar menú"}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
-          ) : (
-            <ChevronLeft className="h-5 w-5 text-muted-foreground" />
-          )}
-        </button>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 p-4 overflow-y-auto space-y-5">
-        {groups.map((group) => (
-          <div key={group.label} className="space-y-2">
-            {!collapsed && (
-              <p className="px-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
-                {group.label}
-              </p>
-            )}
-            <div className="space-y-2">
-              {group.items.map((item) => {
-                const isActive = currentParent === item.id;
-
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onSectionChange(item.id)}
-                    className={cn(
-                      "w-full flex items-center gap-4 px-4 py-3 rounded-2xl transition-all duration-300",
-                      isActive ? "neu-pressed" : "neu-flat hover:shadow-elevated",
-                    )}
-                  >
-                    <div className="relative">
-                      <Icon3D
-                        icon={item.icon}
-                        isActive={isActive}
-                        colorClass={item.colorClass}
-                        accentColor={item.accentColor}
-                      />
-                      {item.badge && novedadesCount > 0 && (
-                        <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-red-500 text-[10px] font-bold text-white shadow-lg animate-pulse">
-                          {novedadesCount > 9 ? "9+" : novedadesCount}
-                        </span>
-                      )}
-                    </div>
-                    {!collapsed && (
-                      <div className="flex-1 text-left">
-                        <p
-                          className={cn(
-                            "text-sm font-bold transition-colors duration-200",
-                            isActive ? "text-foreground" : "text-muted-foreground",
-                          )}
-                        >
-                          {item.label}
-                        </p>
-                        <p className="text-xs text-muted-foreground">{item.description}</p>
-                      </div>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </nav>
-
-      {/* Footer */}
-      {!collapsed && (
-        <div className="p-5 border-t border-white/10">
-          <p className="text-xs text-muted-foreground text-center font-medium">
-            Sistema de Logística v2.0
-          </p>
-        </div>
-      )}
+      <SidebarInner
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+        groups={groups}
+        currentParent={currentParent}
+        onSectionChange={handleSectionChange}
+        novedadesCount={novedadesCount}
+        branding={branding}
+        showCollapseToggle={true}
+      />
     </aside>
   );
 };
