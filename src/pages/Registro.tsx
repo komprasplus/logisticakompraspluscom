@@ -175,26 +175,26 @@ const Registro = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-8">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-8 sm:py-10">
       <motion.div
         className="w-full max-w-2xl"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="neu-flat p-6 mx-auto w-fit mb-4">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="neu-flat p-4 sm:p-6 mx-auto w-fit mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-button flex items-center justify-center">
-                <Truck className="h-7 w-7 text-white" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-button flex items-center justify-center">
+                <Truck className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
               </div>
-              <h1 className="text-2xl font-black tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight">
                 <span className="text-gradient-brand">Plus</span>
                 <span className="text-foreground"> Envíos</span>
               </h1>
             </div>
           </div>
-          <h2 className="text-xl font-bold">Crear cuenta</h2>
+          <h2 className="text-lg sm:text-xl font-bold">Crear cuenta</h2>
           <p className="text-sm text-muted-foreground mt-1">
             Únete al marketplace y empieza a operar hoy
           </p>
@@ -202,7 +202,7 @@ const Registro = () => {
 
         <motion.form
           onSubmit={handleSubmit}
-          className="neu-flat p-6 sm:p-8 space-y-6"
+          className="neu-flat p-5 sm:p-8 space-y-5 sm:space-y-6"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
@@ -299,7 +299,7 @@ const Registro = () => {
               <select
                 value={form.countryCode}
                 onChange={(e) => set("countryCode", e.target.value)}
-                className="neu-pressed py-3 px-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 font-medium"
+                className="neu-pressed py-3 px-2 sm:px-3 text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 font-medium min-w-[80px] sm:min-w-[100px]"
               >
                 {COUNTRY_CODES.map((c) => (
                   <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
@@ -337,7 +337,7 @@ const Registro = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full neu-button py-4 font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50"
+            className="w-full neu-button py-4 min-h-[52px] font-bold text-white flex items-center justify-center gap-2 disabled:opacity-50 text-base"
           >
             {loading ? (
               <>

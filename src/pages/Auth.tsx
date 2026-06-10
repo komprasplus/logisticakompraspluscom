@@ -117,10 +117,10 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
   };
 
   return (
-    <div ref={ref} className="h-screen w-full flex bg-white overflow-hidden">
+    <div ref={ref} className="min-h-screen h-[100dvh] w-full flex bg-white overflow-hidden">
       {/* ============ COLUMNA IZQUIERDA — FORMULARIO ============ */}
       <div className="w-full lg:w-1/2 flex flex-col bg-white overflow-y-auto">
-        <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-16 py-10">
+        <div className="flex-1 flex flex-col justify-center items-center px-5 sm:px-12 lg:px-16 py-8 sm:py-10">
           <motion.div
             className="w-full max-w-md"
             initial={{ opacity: 0, y: 20 }}
@@ -153,8 +153,8 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
               )}
             </motion.div>
 
-            <div className="mb-8">
-              <h2 className="text-3xl font-bold text-foreground tracking-tight">Bienvenido de nuevo</h2>
+            <div className="mb-6 sm:mb-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Bienvenido de nuevo</h2>
               <p className="text-muted-foreground text-sm mt-2">
                 Ingresa tus credenciales para acceder a tu panel.
               </p>
@@ -335,7 +335,7 @@ const Auth = forwardRef<HTMLDivElement>((_, ref) => {
               <p className="text-sm text-muted-foreground">¿Solo quieres rastrear tu pedido?</p>
               <a
                 href="/rastreo"
-                className="inline-block px-5 py-2 rounded-xl border border-border text-primary font-semibold hover:bg-accent transition-all text-sm"
+                className="inline-block px-5 py-3 rounded-xl border border-border text-primary font-semibold hover:bg-accent transition-all text-sm"
               >
                 Rastrear sin iniciar sesión
               </a>
