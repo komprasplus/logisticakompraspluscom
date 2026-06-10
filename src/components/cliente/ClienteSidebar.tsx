@@ -1,4 +1,4 @@
-import { motion, useReducedMotion } from "framer-motion";
+import { useState } from "react";
 import {
   LayoutDashboard,
   Package,
@@ -12,15 +12,12 @@ import {
   Book,
   ShoppingBag,
   Sparkles,
+  Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
-// ─── Tipos ────────────────────────────────────────────────────────────────────
-
-// NOTE: mantenemos las claves antiguas (novedades, devoluciones, retiros,
-// transferencias) en el tipo para que las redirecciones lógicas en el
-// dashboard sigan compilando, aunque ya no se rendericen como ítems
-// independientes en el sidebar.
 export type ClienteView =
   | "dashboard"
   | "pedidos"
@@ -47,30 +44,21 @@ interface ClienteSidebarProps {
   tipoCuenta?: string | null;
 }
 
-// ─── Constantes ───────────────────────────────────────────────────────────────
-
 const HEADER_HEIGHT_PX = 104;
 const MAX_BADGE_COUNT = 99;
 const formatBadge = (count: number): string =>
   count > MAX_BADGE_COUNT ? `${MAX_BADGE_COUNT}+` : String(count);
 
-// ─── Estructura de navegación agrupada ────────────────────────────────────────
-// Refactor IA: el sidebar pasa de una lista plana de 13 ítems a 4 secciones
-// temáticas con 8-9 ítems en total (Novedades/Devoluciones se consolidan en
-// pestañas dentro de "Mis Pedidos"; Retiros/Transferir se consolidan en
-// "Billetera"). Esto reduce fatiga visual y mejora la jerarquía.
-
 interface NavItem {
   key: ClienteView;
   label: string;
+  description: string;
   icon: typeof LayoutDashboard;
-  gradient: string;
-  shadow: string;
 }
 
 interface NavSection {
   id: string;
-  title: string; // Encabezado de sección (mayúscula pequeña, gris sutil)
+  title: string;
   items: NavItem[];
 }
 
@@ -79,106 +67,149 @@ const NAV_SECTIONS: NavSection[] = [
     id: "principal",
     title: "Principal",
     items: [
-      {
-        key: "dashboard",
-        label: "Dashboard",
-        icon: LayoutDashboard,
-        gradient: "from-primary to-primary/80",
-        shadow: "shadow-primary/30",
-      },
-      {
-        key: "pedidos",
-        label: "Mis Pedidos",
-        icon: Package,
-        gradient: "from-primary to-primary/80",
-        shadow: "shadow-primary/30",
-      },
-      {
-        key: "por-empacar",
-        label: "Por Empacar",
-        icon: Boxes,
-        gradient: "from-amber-500 to-orange-600",
-        shadow: "shadow-amber-500/30",
-      },
+      { key: "dashboard", label: "Dashboard", description: "Resumen de tu operación", icon: LayoutDashboard },
+      { key: "pedidos", label: "Mis Pedidos", description: "Gestión y novedades", icon: Package },
+      { key: "por-empacar", label: "Por Empacar", description: "Pendientes de despacho", icon: Boxes },
     ],
   },
   {
     id: "productos",
     title: "Productos",
     items: [
-      {
-        key: "catalogo",
-        label: "Catálogo Mega Bodega",
-        icon: ShoppingBag,
-        gradient: "from-pink-500 to-rose-600",
-        shadow: "shadow-pink-500/30",
-      },
-      {
-        key: "inventario",
-        label: "Mi Inventario Propio",
-        icon: Boxes,
-        gradient: "from-indigo-500 to-indigo-600",
-        shadow: "shadow-indigo-500/30",
-      },
-      {
-        key: "catalogo-publico",
-        label: "Mis Catálogos",
-        icon: Sparkles,
-        gradient: "from-fuchsia-500 to-purple-600",
-        shadow: "shadow-fuchsia-500/30",
-      },
+      { key: "catalogo", label: "Catálogo Mega Bodega", description: "Productos de proveedores", icon: ShoppingBag },
+      { key: "inventario", label: "Mi Inventario Propio", description: "Stock que manejas", icon: Boxes },
+      { key: "catalogo-publico", label: "Mis Catálogos", description: "Tiendas B2B públicas", icon: Sparkles },
     ],
   },
   {
     id: "finanzas",
     title: "Finanzas",
     items: [
-      {
-        key: "billetera",
-        label: "Billetera",
-        icon: Wallet,
-        gradient: "from-teal-500 to-teal-600",
-        shadow: "shadow-teal-500/30",
-      },
-      {
-        key: "reportes",
-        label: "Reportes",
-        icon: FileSpreadsheet,
-        gradient: "from-emerald-500 to-emerald-600",
-        shadow: "shadow-emerald-500/30",
-      },
+      { key: "billetera", label: "Billetera", description: "Saldo, retiros y transferencias", icon: Wallet },
+      { key: "reportes", label: "Reportes", description: "Exportación financiera", icon: FileSpreadsheet },
     ],
   },
   {
     id: "configuracion",
     title: "Configuración",
     items: [
-      {
-        key: "tienda",
-        label: "Mi Tienda",
-        icon: Store,
-        gradient: "from-purple-500 to-purple-600",
-        shadow: "shadow-purple-500/30",
-      },
-      {
-        key: "integraciones",
-        label: "Integraciones",
-        icon: Plug,
-        gradient: "from-cyan-500 to-cyan-600",
-        shadow: "shadow-cyan-500/30",
-      },
-      {
-        key: "docs",
-        label: "Documentación",
-        icon: Book,
-        gradient: "from-gray-500 to-gray-600",
-        shadow: "shadow-gray-500/30",
-      },
+      { key: "tienda", label: "Mi Tienda", description: "Branding y configuración", icon: Store },
+      { key: "integraciones", label: "Integraciones", description: "Shopify, Woo, Meli", icon: Plug },
+      { key: "docs", label: "Documentación", description: "Guías y API", icon: Book },
     ],
   },
 ];
 
-// ─── Componente ───────────────────────────────────────────────────────────────
+const isItemActive = (itemKey: ClienteView, activeView: ClienteView): boolean => {
+  if (activeView === itemKey) return true;
+  if (itemKey === "pedidos" && (activeView === "novedades" || activeView === "devoluciones")) return true;
+  if (itemKey === "billetera" && (activeView === "retiros" || activeView === "transferencias")) return true;
+  return false;
+};
+
+interface SidebarInnerProps {
+  collapsed: boolean;
+  onToggleCollapse: () => void;
+  visibleSections: NavSection[];
+  activeView: ClienteView;
+  onViewChange: (view: ClienteView) => void;
+  novedadesCount: number;
+  showCollapseToggle: boolean;
+}
+
+const SidebarInner = ({
+  collapsed,
+  onToggleCollapse,
+  visibleSections,
+  activeView,
+  onViewChange,
+  novedadesCount,
+  showCollapseToggle,
+}: SidebarInnerProps) => (
+  <div className="flex flex-col h-full">
+    <nav className="flex-1 px-2 py-3 overflow-y-auto" aria-label="Secciones del panel">
+      {visibleSections.map((section) => (
+        <div key={section.id} className="mb-4 last:mb-0">
+          {!collapsed && (
+            <p className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40">
+              {section.title}
+            </p>
+          )}
+          <div className="space-y-0.5">
+            {section.items.map((item) => {
+              const Icon = item.icon;
+              const isActive = isItemActive(item.key, activeView);
+              const showBadge = item.key === "pedidos" && novedadesCount > 0;
+
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => onViewChange(item.key)}
+                  aria-current={isActive ? "page" : undefined}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-150 group relative",
+                    "border-l-2 border-transparent",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-foreground border-l-gold"
+                      : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground",
+                  )}
+                >
+                  <div className="relative flex-shrink-0">
+                    <Icon
+                      className={cn(
+                        "h-[18px] w-[18px] transition-colors",
+                        isActive ? "text-gold" : "text-sidebar-foreground/60 group-hover:text-sidebar-foreground",
+                      )}
+                      strokeWidth={isActive ? 2.25 : 2}
+                      aria-hidden="true"
+                    />
+                    {showBadge && (
+                      <span
+                        className="absolute -top-1.5 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-pink px-1 text-[9px] font-bold text-pink-foreground"
+                        aria-hidden="true"
+                      >
+                        {formatBadge(novedadesCount)}
+                      </span>
+                    )}
+                  </div>
+                  {!collapsed && (
+                    <div className="flex-1 text-left min-w-0">
+                      <p
+                        className={cn(
+                          "text-[13px] font-medium leading-tight truncate",
+                          isActive ? "text-sidebar-foreground" : "text-sidebar-foreground/85",
+                        )}
+                      >
+                        {item.label}
+                      </p>
+                      <p className="text-[11px] text-sidebar-foreground/45 truncate mt-0.5">
+                        {item.description}
+                      </p>
+                    </div>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+    </nav>
+
+    {showCollapseToggle && (
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        className="m-2 flex items-center justify-center rounded-md p-2 text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+        aria-label={collapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
+        aria-expanded={!collapsed}
+      >
+        {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+      </button>
+    )}
+  </div>
+);
 
 const ClienteSidebar = ({
   activeView,
@@ -188,12 +219,10 @@ const ClienteSidebar = ({
   onToggleCollapse,
   tipoCuenta,
 }: ClienteSidebarProps) => {
+  const isMobile = useIsMobile();
   const isProveedor = tipoCuenta === "proveedor";
-  const prefersReducedMotion = useReducedMotion();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Filtrado por tipo de cuenta:
-  // - Proveedores no ven "Catálogo Suministro" (ellos son la fuente).
-  // - Solo proveedores ven "Mis Catálogos" (catalogo público B2B).
   const visibleSections: NavSection[] = NAV_SECTIONS.map((section) => ({
     ...section,
     items: section.items.filter((item) => {
@@ -204,122 +233,62 @@ const ClienteSidebar = ({
     }),
   })).filter((section) => section.items.length > 0);
 
+  const handleViewChange = (view: ClienteView) => {
+    onViewChange(view);
+    if (isMobile) setMobileOpen(false);
+  };
+
+  if (isMobile) {
+    return (
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetTrigger asChild>
+          <button
+            className="fixed top-3 left-3 z-40 lg:hidden p-2.5 rounded-lg bg-card border border-border shadow-sm text-foreground hover:bg-muted transition-colors"
+            aria-label="Abrir menú"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </SheetTrigger>
+        <SheetContent
+          side="left"
+          className="p-0 w-[280px] bg-sidebar border-sidebar-border"
+        >
+          <SidebarInner
+            collapsed={false}
+            onToggleCollapse={() => {}}
+            visibleSections={visibleSections}
+            activeView={activeView}
+            onViewChange={handleViewChange}
+            novedadesCount={novedadesCount}
+            showCollapseToggle={false}
+          />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
-    <motion.aside
+    <aside
       className={cn(
-        "fixed left-0 bg-white border-r border-border z-30 flex flex-col transition-all duration-300",
-        collapsed ? "w-16" : "w-56",
+        "fixed left-0 bg-sidebar border-r border-sidebar-border z-30 hidden lg:flex flex-col transition-all duration-200",
+        collapsed ? "w-[68px]" : "w-[240px]",
       )}
       style={{
         top: HEADER_HEIGHT_PX,
         height: `calc(100vh - ${HEADER_HEIGHT_PX}px)`,
       }}
-      initial={{ x: -100 }}
-      animate={{ x: 0 }}
-      transition={{ duration: 0.3 }}
       aria-label="Navegación principal"
     >
-      <nav className="flex-1 p-2 space-y-4 overflow-y-auto" aria-label="Secciones del panel">
-        {visibleSections.map((section) => (
-          <div key={section.id} className="space-y-1">
-            {/* Encabezado de sección — oculto cuando colapsado */}
-            {!collapsed && (
-              <p
-                className="px-3 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70"
-                aria-hidden="true"
-              >
-                {section.title}
-              </p>
-            )}
-
-            {section.items.map((item) => {
-              const Icon = item.icon;
-              const isActive =
-                activeView === item.key ||
-                // "Mis Pedidos" se mantiene activo cuando el usuario está en
-                // las pestañas de Novedades/Devoluciones (consolidadas).
-                (item.key === "pedidos" &&
-                  (activeView === "novedades" || activeView === "devoluciones")) ||
-                // "Billetera" se mantiene activo en las sub-vistas de
-                // Retiros/Transferencias (consolidadas).
-                (item.key === "billetera" &&
-                  (activeView === "retiros" || activeView === "transferencias"));
-
-              const showBadge = item.key === "pedidos" && novedadesCount > 0;
-
-              return (
-                <motion.button
-                  key={item.key}
-                  type="button"
-                  onClick={() => onViewChange(item.key)}
-                  aria-current={isActive ? "page" : undefined}
-                  aria-label={
-                    showBadge
-                      ? `${item.label} — ${novedadesCount} novedad${novedadesCount !== 1 ? "es" : ""}`
-                      : item.label
-                  }
-                  className={cn(
-                    "relative w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition-all overflow-hidden group",
-                    isActive ? "text-white" : "text-muted-foreground hover:bg-muted/50",
-                  )}
-                  whileHover={prefersReducedMotion ? undefined : { scale: 1.02 }}
-                  whileTap={prefersReducedMotion ? undefined : { scale: 0.98 }}
-                >
-                  {isActive && (
-                    <>
-                      <motion.div
-                        className={cn("absolute inset-0 bg-gradient-to-br rounded-xl", item.gradient)}
-                        layoutId="activeNav"
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent rounded-xl" />
-                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20 rounded-b-xl" />
-                    </>
-                  )}
-
-                  <div
-                    className={cn(
-                      "relative flex items-center justify-center rounded-lg p-1.5 flex-shrink-0 transition-colors",
-                      isActive ? "bg-white/20" : "bg-muted",
-                    )}
-                  >
-                    <Icon className="h-5 w-5" aria-hidden="true" />
-                  </div>
-
-                  {!collapsed && <span className="relative flex-1 text-left">{item.label}</span>}
-
-                  {showBadge && (
-                    <span
-                      className={cn(
-                        "relative flex h-5 min-w-5 items-center justify-center rounded-full text-xs font-bold px-1",
-                        isActive ? "bg-white/20 text-white" : "bg-orange-500 text-white",
-                      )}
-                      aria-hidden="true"
-                    >
-                      {formatBadge(novedadesCount)}
-                    </span>
-                  )}
-                </motion.button>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
-
-      <button
-        type="button"
-        onClick={onToggleCollapse}
-        className="m-2 flex items-center justify-center rounded-lg p-2 text-muted-foreground hover:bg-muted transition-colors"
-        aria-label={collapsed ? "Expandir barra lateral" : "Colapsar barra lateral"}
-        aria-expanded={!collapsed}
-      >
-        {collapsed ? (
-          <ChevronRight className="h-5 w-5" aria-hidden="true" />
-        ) : (
-          <ChevronLeft className="h-5 w-5" aria-hidden="true" />
-        )}
-      </button>
-    </motion.aside>
+      <SidebarInner
+        collapsed={collapsed}
+        onToggleCollapse={onToggleCollapse}
+        visibleSections={visibleSections}
+        activeView={activeView}
+        onViewChange={handleViewChange}
+        novedadesCount={novedadesCount}
+        showCollapseToggle={true}
+      />
+    </aside>
   );
 };
 
