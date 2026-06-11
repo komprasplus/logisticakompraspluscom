@@ -33,8 +33,14 @@ import MotorizadoStatsHeader from "@/components/motorizado/MotorizadoStatsHeader
 import MotorizadoBottomNav, { type MotorizadoTab } from "@/components/motorizado/MotorizadoBottomNav";
 import MotorizadoWalletWidget from "@/components/motorizado/MotorizadoWalletWidget";
 import PedidoActivoCard from "@/components/motorizado/PedidoActivoCard";
-import { calculateScore, formatCOPFull } from "@/lib/motorizado-score";
+import { calculateScore, calculateWeeklyEarnings, formatCOPFull } from "@/lib/motorizado-score";
 import PedidoDetailView from "@/components/motorizado/PedidoDetailView";
+import MotorizadoHomeHero from "@/components/motorizado/MotorizadoHomeHero";
+import MotorizadoDailyStats from "@/components/motorizado/MotorizadoDailyStats";
+import QuickActionsGrid from "@/components/motorizado/QuickActionsGrid";
+import HotZoneCard from "@/components/motorizado/HotZoneCard";
+import TeamNoteCard from "@/components/motorizado/TeamNoteCard";
+import MotorizadoWalletInline from "@/components/motorizado/MotorizadoWalletInline";
 import { useAuth } from "@/hooks/useAuth";
 import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
 import useLocationTracking from "@/hooks/useLocationTracking";
@@ -1000,6 +1006,53 @@ const MotorizadoDashboard = () => {
     }).length;
   }, [pedidos]);
 
+  // Ganancias semanales (últimos 7 días)
+  const weeklyEarnings = useMemo(
+    () => calculateWeeklyEarnings(pedidos, 0.08),
+    [pedidos],
+  );
+
+  // Active admin note
+  const [activeNote, setActiveNote] = useState<{ message: string; created_at: string } | null>(null);
+  useEffect(() => {
+    let active = true;
+    const loadNote = async () => {
+      try {
+        const { data } = await supabase
+          .from("admin_notes")
+          .select("message, created_at")
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (!active || !data || data.length === 0) return;
+        setActiveNote({
+          message: data[0].message as string,
+          created_at: data[0].created_at as string,
+        });
+      } catch (e) {
+        // silent
+      }
+    };
+    loadNote();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const callWarehouse = useCallback(() => {
+    window.location.href = `tel:${SUPPORT_PHONE.replace(/\s/g, "")}`;
+  }, []);
+
+  const timeAgoLabel = (iso: string): string => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `Hace ${mins} min`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `Hace ${hours} h`;
+    const days = Math.floor(hours / 24);
+    return `Hace ${days} d`;
+  };
+
   // Get profile with extended data
   const extendedProfile = profile ? {
     id: user?.id || "",
@@ -1055,146 +1108,53 @@ const MotorizadoDashboard = () => {
         {/* Date Header with Greeting */}
         <DateHeader userName={profile?.full_name} />
 
-        {/* Weather Widget */}
-        <div className="mb-4">
-          <WeatherWidget />
-        </div>
+        {/* ========== HERO Premium del Motorizado ========== */}
+        <div className="space-y-3 mb-4">
 
-        {/* Admin Notes / Bulletin Board */}
-        <AdminNotesDisplay />
+          {/* Hero: ganancias + chart + nivel */}
+          <MotorizadoHomeHero
+            score={motorizadoStats.score}
+            isOnline={isOnline}
+            weeklyEarnings={weeklyEarnings}
+          />
 
-        {/* Connection Toggle */}
-        {user?.id && (
-          <motion.div
-            className="mb-4"
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
+          {/* Connection Toggle (cuando esté offline lo mostramos para activar) */}
+          {!isOnline && user?.id && (
             <ConnectionToggle
               userId={user.id}
               isOnline={isOnline}
               onStatusChange={setIsOnline}
               userLocation={userLocation}
             />
-          </motion.div>
-        )}
-
-        {/* GPS Status - Only show when online */}
-        {isOnline && (
-          <motion.div
-            className={`mb-4 flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${
-              geoError
-                ? "bg-red-50 text-red-600 border border-red-200"
-                : userLocation
-                ? "bg-green-50 text-green-600 border border-green-200"
-                : "bg-amber-50 text-amber-600 border border-amber-200"
-            }`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            {geoLoading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Obteniendo ubicación GPS...</span>
-              </>
-            ) : geoError ? (
-              <>
-                <AlertTriangle className="h-4 w-4" />
-                <span className="flex-1">{geoError}</span>
-                <button onClick={refreshLocation} className="p-1 hover:bg-red-100 rounded">
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-              </>
-            ) : (
-              <>
-                <MapPin className="h-4 w-4" />
-                <span className="flex-1">GPS activo - Lista ordenada por cercanía</span>
-                <button onClick={refreshLocation} className="p-1 hover:bg-green-100 rounded">
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-              </>
-            )}
-          </motion.div>
-        )}
-
-        {/* Warehouse Address */}
-        <motion.div
-          className="mb-4 flex items-center gap-2 text-sm text-muted-foreground"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <MapPin className="h-4 w-4" />
-          <span>Bodega: {BODEGA_ADDRESS.split(",")[0]}, Bogotá</span>
-        </motion.div>
-
-        {/* Quick Support Button */}
-        <motion.div
-          className="mb-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.1 }}
-        >
-          <BodegaSupportButton />
-        </motion.div>
-
-        {/* Map View Toggle */}
-        <AnimatePresence mode="wait">
-          {showMapView && (
-            <motion.div
-              className="mb-6"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              <div className="rounded-2xl overflow-hidden shadow-card border border-border">
-              <div className="h-[300px]">
-                <MapErrorBoundary fallbackMessage="Error al cargar el mapa. Verifica tu conexión y permisos de GPS.">
-                  <MotorizadoMapGoogle
-                    pedidos={pedidos}
-                    userLocation={userLocation}
-                    onPedidoClick={(pedido) => setSelectedPedido(pedido as Pedido)}
-                  />
-                </MapErrorBoundary>
-              </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                🏭 = Bodega | 📦 = Pedidos (ordenados por cercanía) | 📍 = Tu ubicación
-              </p>
-            </motion.div>
           )}
-        </AnimatePresence>
 
-        {/* Stats */}
-        <motion.div
-          className="mb-6 grid grid-cols-3 gap-3"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="rounded-xl bg-secondary/20 p-4 text-center">
-            <p className="text-2xl font-bold text-secondary-foreground">
-              {pendingCount}
-            </p>
-            <p className="text-xs text-muted-foreground">Pendientes</p>
-          </div>
-          <div className="rounded-xl bg-primary/20 p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{inTransitCount}</p>
-            <p className="text-xs text-muted-foreground">En camino</p>
-          </div>
-          <div className="rounded-xl bg-green-500/20 p-4 text-center">
-            <p className="text-2xl font-bold text-green-600">{deliveredCount}</p>
-            <p className="text-xs text-muted-foreground">Entregados</p>
-          </div>
-        </motion.div>
+          {/* Wallet inline: cupo COD + fondo garantía */}
+          <MotorizadoWalletInline
+            score={motorizadoStats.score}
+            codHoyUsado={motorizadoStats.codHoyUsado}
+            fondoGarantia={motorizadoStats.fondoGarantia}
+          />
 
-        {/* Optimize Route Button */}
-        <motion.div
-          className="mb-4"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.15 }}
-        >
-          <button
-            onClick={() => {
+          {/* Stats del día */}
+          <MotorizadoDailyStats
+            pendientes={pendingCount}
+            enCamino={inTransitCount}
+            entregados={deliveredCount}
+          />
+
+          {/* Hot Zone (mock por ahora, se conecta al motor de asignación en Fase 2 del roadmap) */}
+          {isOnline && pendingCount === 0 && (
+            <HotZoneCard
+              zoneName="Suba Norte"
+              pedidosDisponibles={8}
+              bonusPerDelivery={3000}
+              onAcceptZone={() => toast.info("Marketplace de zonas: próximamente")}
+            />
+          )}
+
+          {/* Quick Actions */}
+          <QuickActionsGrid
+            onOptimizeRoute={() => {
               if (isRouteOptimized) {
                 setIsRouteOptimized(false);
                 toast.info("Orden por defecto restaurado");
@@ -1202,16 +1162,70 @@ const MotorizadoDashboard = () => {
                 handleOptimizeRoute();
               }
             }}
-            className={`flex items-center justify-center gap-2 w-full rounded-xl py-3 px-4 font-bold transition-all active:scale-[0.98] shadow-card ${
-              isRouteOptimized
-                ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                : "bg-primary/10 text-primary hover:bg-primary/20 border border-primary/30"
-            }`}
-          >
-            <Route className="h-5 w-5" />
-            <span>{isRouteOptimized ? "✓ Ruta Optimizada — Toca para restablecer" : "Optimizar Mi Ruta"}</span>
-          </button>
-        </motion.div>
+            onScanQR={() => setShowLoadManifest(true)}
+            onCallWarehouse={callWarehouse}
+            pendientesCount={pendingCount}
+            isRouteOptimized={isRouteOptimized}
+          />
+
+          {/* Team Note (si hay nota activa del admin) */}
+          {activeNote && (
+            <TeamNoteCard
+              text={activeNote.message}
+              timeAgo={timeAgoLabel(activeNote.created_at)}
+            />
+          )}
+
+          {/* GPS Status - solo si online y hay error/loading */}
+          {isOnline && (geoError || geoLoading) && (
+            <div
+              className={`flex items-center gap-2 text-xs rounded-lg px-3 py-2 ${
+                geoError
+                  ? "bg-destructive/10 text-destructive border border-destructive/30"
+                  : "bg-warning/10 text-warning border border-warning/30"
+              }`}
+            >
+              {geoLoading ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span>Obteniendo ubicación GPS...</span>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span className="flex-1">{geoError}</span>
+                  <button onClick={refreshLocation} className="p-1 hover:bg-destructive/20 rounded">
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Map View Toggle (cuando está activo) */}
+          <AnimatePresence mode="wait">
+            {showMapView && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+              >
+                <div className="rounded-2xl overflow-hidden border border-border">
+                  <div className="h-[280px]">
+                    <MapErrorBoundary fallbackMessage="Error al cargar el mapa. Verifica tu conexión y permisos de GPS.">
+                      <MotorizadoMapGoogle
+                        pedidos={pedidos}
+                        userLocation={userLocation}
+                        onPedidoClick={(pedido) => setSelectedPedido(pedido as Pedido)}
+                      />
+                    </MapErrorBoundary>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+        </div>
 
         {/* Loading State */}
         {loading ? (
