@@ -200,3 +200,67 @@ export const formatCOPFull = (amount: number): string => {
     maximumFractionDigits: 0,
   }).format(amount);
 };
+
+/**
+ * Calcula ganancias estimadas por día de la semana basado en pedidos entregados.
+ * Devuelve los últimos 7 días con el más reciente al final.
+ */
+export interface WeeklyEarningsDay {
+  date: Date;
+  label: string;
+  amount: number;
+  isToday: boolean;
+}
+
+export const calculateWeeklyEarnings = (
+  pedidos: Array<{
+    estado?: string | null;
+    metodo_pago?: string | null;
+    valor_recaudar?: number | null;
+    fecha_entrega?: string | null;
+    updated_at?: string | null;
+  }>,
+  commissionRate = 0.08,
+): WeeklyEarningsDay[] => {
+  const days: WeeklyEarningsDay[] = [];
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dayLabels = ["D", "L", "M", "X", "J", "V", "S"];
+
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    days.push({
+      date,
+      label: dayLabels[date.getDay()],
+      amount: 0,
+      isToday: i === 0,
+    });
+  }
+
+  pedidos.forEach((p) => {
+    if (p.estado?.toLowerCase() !== "entregado" && p.estado?.toLowerCase() !== "pagado") return;
+    const dateStr = p.fecha_entrega || p.updated_at;
+    if (!dateStr) return;
+    const date = new Date(dateStr);
+    date.setHours(0, 0, 0, 0);
+    const day = days.find((d) => d.date.getTime() === date.getTime());
+    if (day && p.metodo_pago?.toLowerCase() === "efectivo" && p.valor_recaudar) {
+      day.amount += Number(p.valor_recaudar) * commissionRate;
+    }
+  });
+
+  return days;
+};
+
+/**
+ * Comparación porcentual entre hoy y ayer
+ */
+export const compareToYesterday = (week: WeeklyEarningsDay[]): { pct: number; trend: "up" | "down" | "same" } => {
+  if (week.length < 2) return { pct: 0, trend: "same" };
+  const today = week[week.length - 1].amount;
+  const yesterday = week[week.length - 2].amount;
+  if (yesterday === 0) return { pct: today > 0 ? 100 : 0, trend: today > 0 ? "up" : "same" };
+  const pct = Math.round(((today - yesterday) / yesterday) * 100);
+  return { pct: Math.abs(pct), trend: pct > 0 ? "up" : pct < 0 ? "down" : "same" };
+};
