@@ -32,6 +32,7 @@ import { useMotorizadoPedidos } from "@/hooks/useMotorizadoPedidos";
 import MotorizadoStatsHeader from "@/components/motorizado/MotorizadoStatsHeader";
 import MotorizadoBottomNav, { type MotorizadoTab } from "@/components/motorizado/MotorizadoBottomNav";
 import MotorizadoWalletWidget from "@/components/motorizado/MotorizadoWalletWidget";
+import MotorizadoWalletSheet from "@/components/motorizado/MotorizadoWalletSheet";
 import PedidoActivoCard from "@/components/motorizado/PedidoActivoCard";
 import { calculateScore, calculateWeeklyEarnings, formatCOPFull } from "@/lib/motorizado-score";
 import PedidoDetailView from "@/components/motorizado/PedidoDetailView";
@@ -1731,43 +1732,14 @@ const MotorizadoDashboard = () => {
         pedidosBadge={pedidosPendientesCount}
       />
 
-      {/* Wallet View - Bottom Sheet on Mobile */}
-      {activeTab === "wallet" && (
-        <div
-          className="fixed inset-0 z-40 lg:hidden bg-black/40 backdrop-blur-sm"
-          onClick={() => setActiveTab("pedidos")}
-        >
-          <div
-            className="absolute bottom-16 left-0 right-0 max-h-[80vh] overflow-y-auto bg-background rounded-t-3xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-            style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-          >
-            <div className="sticky top-0 bg-background border-b border-border px-4 py-3 flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-bold text-foreground">Mi Wallet</h2>
-                <p className="text-xs text-muted-foreground">Balance, cupo COD y nivel</p>
-              </div>
-              <button
-                onClick={() => setActiveTab("pedidos")}
-                className="h-8 w-8 rounded-full bg-muted hover:bg-muted/70 flex items-center justify-center text-foreground"
-                aria-label="Cerrar"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-4">
-              <MotorizadoWalletWidget
-                score={motorizadoStats.score}
-                balanceDisponible={motorizadoStats.balanceDisponible}
-                fondoGarantia={motorizadoStats.fondoGarantia}
-                codHoyUsado={motorizadoStats.codHoyUsado}
-                pedidosEntregadosMes={motorizadoStats.entregadosMes}
-                onRetirar={() => toast.info("Sistema de retiros próximamente")}
-                onVerDetalle={() => toast.info("Historial de movimientos próximamente")}
-              />
-            </div>
-          </div>
-        </div>
+      {/* Wallet Sheet - Premium con Tabs (Resumen / Movimientos / Cuenta) */}
+      {user?.id && (
+        <MotorizadoWalletSheet
+          motorizadoId={user.id}
+          score={motorizadoStats.score}
+          open={activeTab === "wallet"}
+          onClose={() => setActiveTab("pedidos")}
+        />
       )}
     </div>
   );
