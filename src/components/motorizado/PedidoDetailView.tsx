@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { formatCOP, formatCOPFull } from "@/lib/motorizado-score";
+import PedidoMiniMap from "./PedidoMiniMap";
 
 export interface PedidoDetailViewPedido {
   id: number;
@@ -245,50 +246,16 @@ const PedidoDetailView = ({
         {/* Scroll body */}
         <div className="flex-1 overflow-y-auto">
 
-          {/* ============ MAP PREVIEW ============ */}
-          <div className="relative h-24 bg-gradient-to-br from-blue-100 to-blue-200 overflow-hidden">
-            {/* SVG decorativo de calles */}
-            <svg viewBox="0 0 380 96" className="absolute inset-0 w-full h-full" preserveAspectRatio="xMidYMid slice">
-              <path d="M 0 60 Q 80 40, 130 50 T 240 45 T 380 20" stroke="rgba(27,41,89,0.15)" strokeWidth="1" fill="none" strokeDasharray="3,3" />
-              <path d="M 0 75 Q 100 85, 180 75 T 380 55" stroke="rgba(27,41,89,0.1)" strokeWidth="1" fill="none" />
-              <rect x="40" y="30" width="32" height="18" rx="2" fill="rgba(27,41,89,0.12)" />
-              <rect x="170" y="18" width="40" height="16" rx="2" fill="rgba(27,41,89,0.1)" />
-              <rect x="240" y="38" width="36" height="20" rx="2" fill="rgba(27,41,89,0.12)" />
-              <rect x="100" y="72" width="48" height="12" rx="2" fill="rgba(27,41,89,0.1)" />
-            </svg>
-
-            {/* Tú (origen) */}
-            {userLocation && (
-              <div className="absolute left-[18%] top-[35%] flex flex-col items-center">
-                <div className="bg-primary text-gold px-1.5 py-0.5 rounded text-[8px] font-bold">Tú</div>
-                <div className="w-2.5 h-2.5 rounded-full bg-primary border-2 border-white shadow-sm -mt-0.5" />
-              </div>
-            )}
-            {/* Destino */}
-            <div className="absolute right-[18%] top-[45%] flex flex-col items-center">
-              <MapPin className="h-5 w-5 text-pink fill-pink" strokeWidth={0} />
-              <div className="bg-pink text-pink-foreground px-1.5 py-0.5 rounded text-[8px] font-bold -mt-1">Destino</div>
-            </div>
-            {/* Línea punteada entre puntos */}
-            {userLocation && (
-              <div className="absolute left-[28%] right-[26%] top-1/2 h-[1.5px]" style={{
-                backgroundImage: "repeating-linear-gradient(90deg, hsl(var(--primary)) 0px, hsl(var(--primary)) 4px, transparent 4px, transparent 8px)"
-              }} />
-            )}
-            {/* ETA badge */}
-            {distanceText && (
-              <div className="absolute bottom-1.5 right-1.5 bg-white/95 px-2 py-1 rounded-md flex items-center gap-1 shadow-sm">
-                <Clock className="h-3 w-3 text-primary" />
-                <span className="text-[10px] font-semibold text-primary">{distanceText}</span>
-              </div>
-            )}
-            {/* In-range badge */}
-            {isWithinRange && (
-              <div className="absolute top-1.5 right-1.5 bg-success text-success-foreground px-2 py-0.5 rounded-md text-[10px] font-bold flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> En rango
-              </div>
-            )}
-          </div>
+          {/* ============ MAP PREVIEW (Google Maps real) ============ */}
+          <PedidoMiniMap
+            userLat={userLocation?.lat ?? null}
+            userLng={userLocation?.lng ?? null}
+            destLat={pedido.latitud}
+            destLng={pedido.longitud}
+            distanceText={distanceText}
+            isWithinRange={isWithinRange}
+            height={120}
+          />
 
           {/* ============ CONTENIDO ============ */}
           <div className="p-4 space-y-4">
