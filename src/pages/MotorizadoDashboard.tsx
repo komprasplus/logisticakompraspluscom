@@ -34,6 +34,7 @@ import MotorizadoBottomNav, { type MotorizadoTab } from "@/components/motorizado
 import MotorizadoWalletWidget from "@/components/motorizado/MotorizadoWalletWidget";
 import MotorizadoWalletSheet from "@/components/motorizado/MotorizadoWalletSheet";
 import PedidoActivoCard from "@/components/motorizado/PedidoActivoCard";
+import EntregaDelDiaCard from "@/components/motorizado/EntregaDelDiaCard";
 import { calculateScore, calculateWeeklyEarnings, formatCOPFull } from "@/lib/motorizado-score";
 import PedidoDetailView from "@/components/motorizado/PedidoDetailView";
 import MotorizadoHomeHero from "@/components/motorizado/MotorizadoHomeHero";
@@ -79,6 +80,7 @@ import {
 
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
 import { getStartOfTodayBogotaMs } from "@/lib/dateUtils";
+import { isCashPayment } from "@/lib/payments";
 
 interface Pedido {
   id: number;
@@ -104,20 +106,6 @@ interface Pedido {
   canal?: string | null;
   fecha_actualizacion?: string | null;
 }
-
-const CASH_PAYMENT_METHODS = new Set([
-  "efectivo",
-  "cod",
-  "contra entrega",
-  "contraentrega",
-  "contra_entrega",
-  "contra-entrega",
-]);
-
-const isCashPayment = (metodoPago: string | null | undefined): boolean => {
-  if (!metodoPago) return false;
-  return CASH_PAYMENT_METHODS.has(metodoPago.toLowerCase().trim());
-};
 
 // Warehouse coordinates for sorting
 const BODEGA_LAT = 4.6066;
@@ -1131,6 +1119,11 @@ const MotorizadoDashboard = () => {
         onToggleMap={() => setShowMapView(!showMapView)}
         onProfileClick={() => setShowProfile(true)}
         onSignOut={handleSignOut}
+        dailyStats={{
+          deliveries: dailyStats.deliveredCount,
+          cashCollected: dailyStats.collectedAmount,
+          earnings: motorizadoStats.ganancias,
+        }}
       />
 
       <main className="container px-4 py-4">
@@ -1358,7 +1351,34 @@ const MotorizadoDashboard = () => {
                     {renderList(enCamino, "No tienes pedidos en camino")}
                   </TabsContent>
                   <TabsContent value="entregados">
-                    {renderList(entregados, "Aún no has entregado pedidos hoy")}
+                    {entregados.length === 0 ? (
+                      <div className="rounded-2xl bg-card p-8 text-center shadow-card">
+                        <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+                        <p className="mt-4 text-muted-foreground">
+                          Aún no has entregado pedidos hoy
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2.5">
+                        {[...entregados]
+                          .sort((a, b) => {
+                            const ta = a.fecha_actualizacion
+                              ? new Date(a.fecha_actualizacion).getTime()
+                              : 0;
+                            const tb = b.fecha_actualizacion
+                              ? new Date(b.fecha_actualizacion).getTime()
+                              : 0;
+                            return tb - ta;
+                          })
+                          .map((pedido) => (
+                            <EntregaDelDiaCard
+                              key={pedido.id}
+                              pedido={pedido}
+                              onClick={(p) => setSelectedPedido(p as Pedido)}
+                            />
+                          ))}
+                      </div>
+                    )}
                   </TabsContent>
                 </Tabs>
               </motion.div>

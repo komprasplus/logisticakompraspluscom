@@ -1,7 +1,14 @@
 import { Bell, LogOut, Map } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import ScoreBadge from "./ScoreBadge";
+import MotorizadoDailyStatsStrip from "./MotorizadoDailyStatsStrip";
 import { cn } from "@/lib/utils";
+
+interface DailyStats {
+  deliveries: number;
+  cashCollected: number;
+  earnings: number;
+}
 
 interface MotorizadoStatsHeaderProps {
   avatarUrl?: string | null;
@@ -13,6 +20,7 @@ interface MotorizadoStatsHeaderProps {
   onToggleMap: () => void;
   onProfileClick: () => void;
   onSignOut: () => void;
+  dailyStats?: DailyStats;
 }
 
 const getInitials = (name?: string | null): string => {
@@ -31,6 +39,7 @@ const MotorizadoStatsHeader = ({
   onToggleMap,
   onProfileClick,
   onSignOut,
+  dailyStats,
 }: MotorizadoStatsHeaderProps) => {
   return (
     <header className="sticky top-0 z-30 bg-primary text-primary-foreground border-b border-primary/40 shadow-sm">
@@ -105,6 +114,14 @@ const MotorizadoStatsHeader = ({
           </button>
         </div>
       </div>
+
+      {dailyStats && (
+        <MotorizadoDailyStatsStrip
+          deliveries={dailyStats.deliveries}
+          cashCollected={dailyStats.cashCollected}
+          earnings={dailyStats.earnings}
+        />
+      )}
     </header>
   );
 };

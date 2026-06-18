@@ -1,5 +1,6 @@
 import { ArrowRight, Clock, MapPin, Navigation, Phone } from "lucide-react";
 import { formatCOP } from "@/lib/motorizado-score";
+import { isCashPayment } from "@/lib/payments";
 import { cn } from "@/lib/utils";
 
 interface PedidoMinimo {
@@ -40,7 +41,7 @@ const PedidoActivoCard = ({
   }
 
   const valor = pedido.valor_recaudar ?? 0;
-  const esCOD = pedido.metodo_pago === "efectivo" || pedido.metodo_pago === "contraentrega";
+  const esCOD = isCashPayment(pedido.metodo_pago);
 
   return (
     <div className="bg-gradient-to-br from-card to-card/95 border border-primary/20 rounded-2xl shadow-md overflow-hidden">
