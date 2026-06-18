@@ -64,6 +64,10 @@ interface Props {
   userLocation: { lat: number; lng: number } | null;
   distanceText?: string | null;
   borderColor?: string;
+  /** 1-based posición en la ruta (ej. 1 = próxima parada). */
+  routeIndex?: number;
+  /** Total de paradas activas en la ruta. */
+  routeTotal?: number;
   onSelect?: () => void;
   onDeliver: (
     pedido: MotorizadoOrderCardPedido,
@@ -83,6 +87,8 @@ const MotorizadoOrderCard = ({
   userLocation,
   distanceText,
   borderColor,
+  routeIndex,
+  routeTotal,
   onSelect,
   onDeliver,
   onNovedad,
@@ -243,6 +249,19 @@ const MotorizadoOrderCard = ({
             onClick={onSelect}
           >
             <div className="flex items-center gap-1.5 flex-wrap">
+              {routeIndex && routeTotal && routeTotal > 1 && (
+                <span
+                  className={cn(
+                    "inline-flex items-center justify-center rounded-full px-2 py-0.5 text-[10px] font-bold tabular-nums",
+                    routeIndex === 1
+                      ? "bg-gold text-gold-foreground"
+                      : "bg-primary/10 text-primary",
+                  )}
+                  aria-label={`Parada ${routeIndex} de ${routeTotal}`}
+                >
+                  {routeIndex === 1 ? "PRÓXIMA" : `${routeIndex}/${routeTotal}`}
+                </span>
+              )}
               <span className="font-bold text-sm text-foreground truncate">
                 {pedido.numero_guia || `#${pedido.id}`}
               </span>

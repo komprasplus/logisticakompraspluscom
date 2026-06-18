@@ -29,6 +29,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useMotorizadoPedidos } from "@/hooks/useMotorizadoPedidos";
+import { useHotZones } from "@/hooks/useHotZones";
 import MotorizadoStatsHeader from "@/components/motorizado/MotorizadoStatsHeader";
 import MotorizadoBottomNav, { type MotorizadoTab } from "@/components/motorizado/MotorizadoBottomNav";
 import MotorizadoWalletWidget from "@/components/motorizado/MotorizadoWalletWidget";
@@ -117,13 +118,14 @@ const GEOFENCE_RADIUS = 200; // 200 meters
 const MotorizadoDashboard = () => {
   // React Query for orders - cached, no refetch loops
   const { signOut, profile, refreshProfile, user } = useAuth();
-  const { 
-    pedidos: queryPedidos, 
-    isLoading: queryLoading, 
+  const {
+    pedidos: queryPedidos,
+    isLoading: queryLoading,
     refetch: refetchPedidos,
     updatePedidoLocally,
-    removePedidoLocally 
+    removePedidoLocally
   } = useMotorizadoPedidos(user?.id);
+  const { zones: hotZones } = useHotZones(3);
 
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
@@ -1164,13 +1166,20 @@ const MotorizadoDashboard = () => {
             entregados={deliveredCount}
           />
 
-          {/* Hot Zone (mock por ahora, se conecta al motor de asignación en Fase 2 del roadmap) */}
-          {isOnline && pendingCount === 0 && (
+          {/* Hot Zone — datos reales desde RPC motorizado_hot_zones */}
+          {isOnline && pendingCount === 0 && hotZones.length > 0 && (
             <HotZoneCard
-              zoneName="Suba Norte"
-              pedidosDisponibles={8}
-              bonusPerDelivery={3000}
-              onAcceptZone={() => toast.info("Marketplace de zonas: próximamente")}
+              zoneName={
+                ZONAS[hotZones[0].zona as ZonaCodigo]?.nombre ?? hotZones[0].zona
+              }
+              pedidosDisponibles={Number(hotZones[0].pedidos_disponibles)}
+              bonusPerDelivery={Number(hotZones[0].bono_estimado)}
+              onAcceptZone={() =>
+                toast.info(
+                  `Zona ${ZONAS[hotZones[0].zona as ZonaCodigo]?.nombre ?? hotZones[0].zona}: ${hotZones[0].pedidos_disponibles} pedidos sin asignar. Contacta a admin para que te los asigne.`,
+                  { duration: 5000 },
+                )
+              }
             />
           )}
 
@@ -1299,13 +1308,15 @@ const MotorizadoDashboard = () => {
                             {zonaConfig ? `${zonaConfig.codigo} - ${zonaConfig.nombre}` : "Sin Zona"} ({zonaPedidos.length})
                           </span>
                         </div>
-                        {zonaPedidos.map((pedido) => (
+                        {zonaPedidos.map((pedido, idx) => (
                           <MotorizadoOrderCard
                             key={pedido.id}
                             pedido={pedido}
                             userLocation={userLocation}
                             distanceText={getDistanceText(pedido)}
                             borderColor={zonaConfig?.color}
+                            routeIndex={idx + 1}
+                            routeTotal={zonaPedidos.length}
                             onSelect={() => setSelectedPedido(pedido)}
                             onDeliver={(p, photo, signature) =>
                               handleCardDeliver(p as Pedido, photo, signature)
