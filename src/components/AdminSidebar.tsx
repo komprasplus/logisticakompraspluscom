@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -18,6 +19,7 @@ import {
   ClipboardList,
   UserPlus,
   Menu,
+  HandCoins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -52,6 +54,7 @@ interface MenuItem {
   description: string;
   badge?: boolean;
   aliadoOnly?: boolean;
+  href?: string;
 }
 
 interface MenuGroup {
@@ -90,6 +93,18 @@ const MENU_GROUPS: MenuGroup[] = [
     ],
   },
   {
+    label: "Configuración",
+    items: [
+      {
+        id: "acuerdos-fletes",
+        label: "Acuerdos de Tarifa",
+        icon: HandCoins,
+        description: "Tarifas especiales por cliente",
+        href: "/admin/acuerdos-fletes",
+      },
+    ],
+  },
+  {
     label: "Aliado Logístico",
     items: [
       { id: "manifiesto-scanner", label: "Escanear Manifiesto", icon: ScanLine, description: "Recibe pedidos asignados", aliadoOnly: true },
@@ -103,7 +118,8 @@ interface SidebarContentProps {
   setCollapsed: (v: boolean) => void;
   groups: MenuGroup[];
   currentParent: string;
-  onSectionChange: (section: string) => void;
+  currentPath: string;
+  onItemClick: (item: MenuItem) => void;
   novedadesCount: number;
   branding: { logo_url?: string | null; nombre: string };
   showCollapseToggle: boolean;
@@ -114,7 +130,8 @@ const SidebarInner = ({
   setCollapsed,
   groups,
   currentParent,
-  onSectionChange,
+  currentPath,
+  onItemClick,
   novedadesCount,
   branding,
   showCollapseToggle,
@@ -160,13 +177,15 @@ const SidebarInner = ({
           )}
           <div className="space-y-0.5">
             {group.items.map((item) => {
-              const isActive = currentParent === item.id;
+              const isActive = item.href
+                ? currentPath === item.href || currentPath.startsWith(item.href + "/")
+                : currentParent === item.id;
               const Icon = item.icon;
 
               return (
                 <button
                   key={item.id}
-                  onClick={() => onSectionChange(item.id)}
+                  onClick={() => onItemClick(item)}
                   title={collapsed ? item.label : undefined}
                   className={cn(
                     "w-full flex items-center gap-3 px-3 py-2.5 rounded-md transition-all duration-150 group relative",
@@ -231,6 +250,8 @@ const AdminSidebar = ({
 }: AdminSidebarProps) => {
   const { branding } = useTheme();
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const location = useLocation();
   const isAliado = userRole === "aliado_logistico";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -247,8 +268,12 @@ const AdminSidebar = ({
         items: g.items.filter((it) => !it.aliadoOnly),
       })).filter((g) => g.items.length > 0);
 
-  const handleSectionChange = (section: string) => {
-    onSectionChange(section);
+  const handleItemClick = (item: MenuItem) => {
+    if (item.href) {
+      navigate(item.href);
+    } else {
+      onSectionChange(item.id);
+    }
     if (isMobile) setMobileOpen(false);
   };
 
@@ -272,7 +297,8 @@ const AdminSidebar = ({
             setCollapsed={() => {}}
             groups={groups}
             currentParent={currentParent}
-            onSectionChange={handleSectionChange}
+            onItemClick={handleItemClick}
+            currentPath={location.pathname}
             novedadesCount={novedadesCount}
             branding={branding}
             showCollapseToggle={false}
@@ -285,7 +311,7 @@ const AdminSidebar = ({
   return (
     <aside
       className={cn(
-        "hidden lg:flex flex-col bg-sidebar transition-all duration-200 h-full border-r border-sidebar-border flex-shrink-0",
+        "hidden lg:flex flex-col bg-sidebar transition-all duration-200 lg:sticky lg:top-0 lg:h-screen border-r border-sidebar-border flex-shrink-0",
         collapsed ? "w-[68px]" : "w-[240px]",
       )}
     >
@@ -294,7 +320,8 @@ const AdminSidebar = ({
         setCollapsed={setCollapsed}
         groups={groups}
         currentParent={currentParent}
-        onSectionChange={handleSectionChange}
+        onItemClick={handleItemClick}
+        currentPath={location.pathname}
         novedadesCount={novedadesCount}
         branding={branding}
         showCollapseToggle={true}
