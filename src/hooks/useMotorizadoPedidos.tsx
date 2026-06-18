@@ -1,7 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { isOperationalStatus } from "@/lib/orderStatuses";
+import { getStartOfTodayBogotaISO } from "@/lib/dateUtils";
 
 interface Pedido {
   id: number;
@@ -24,6 +26,7 @@ interface Pedido {
   inventory_item_id?: string | null;
   quantity?: number | null;
   canal?: string | null;
+  fecha_actualizacion?: string | null;
 }
 
 // Minimal columns for motorizado performance
@@ -48,26 +51,45 @@ const MOTORIZADO_PEDIDO_COLUMNS = `
   inventory_item_id,
   quantity,
   client_user_id,
-  canal
+  canal,
+  fecha_actualizacion
 `;
 
 /**
  * Optimized fetcher for motorizado orders.
- * Only fetches active orders (Asignado, En Ruta, Novedad).
+ * Trae pedidos activos (Asignado, En Ruta, Novedad) + Entregados de hoy en TZ Bogotá,
+ * para que el motorizado vea sus métricas del día y los pedidos completados.
  */
 const fetchMotorizadoPedidos = async (userId: string): Promise<Pedido[]> => {
-  const { data, error } = await supabase
-    .from("pedidos")
-    .select(MOTORIZADO_PEDIDO_COLUMNS)
-    .eq("motorizado_id", userId)
-    .in("estado", ["Asignado", "En Ruta", "Novedad"])
-    .order("id", { ascending: true })
-    .limit(30);
+  const todayStartIso = getStartOfTodayBogotaISO();
 
-  if (error) throw error;
-  
-  // Filter out cancelled orders
-  return (data || []).filter(p => isOperationalStatus(p.estado));
+  const [activeResp, deliveredTodayResp] = await Promise.all([
+    supabase
+      .from("pedidos")
+      .select(MOTORIZADO_PEDIDO_COLUMNS)
+      .eq("motorizado_id", userId)
+      .in("estado", ["Asignado", "En Ruta", "Novedad"])
+      .order("id", { ascending: true })
+      .limit(50),
+    supabase
+      .from("pedidos")
+      .select(MOTORIZADO_PEDIDO_COLUMNS)
+      .eq("motorizado_id", userId)
+      .eq("estado", "Entregado")
+      .gte("fecha_actualizacion", todayStartIso)
+      .order("fecha_actualizacion", { ascending: false })
+      .limit(50),
+  ]);
+
+  if (activeResp.error) throw activeResp.error;
+  if (deliveredTodayResp.error) throw deliveredTodayResp.error;
+
+  const active = (activeResp.data || []).filter((p) =>
+    isOperationalStatus(p.estado),
+  );
+  const deliveredToday = deliveredTodayResp.data || [];
+
+  return [...active, ...deliveredToday];
 };
 
 /**
@@ -90,6 +112,18 @@ export const useMotorizadoPedidos = (userId: string | undefined) => {
     placeholderData: (prev) => prev,
     structuralSharing: true,
   });
+
+  // Avisar al motorizado si la query falla — antes era silenciosa.
+  const lastErrorRef = useRef<unknown>(null);
+  useEffect(() => {
+    if (query.error && query.error !== lastErrorRef.current) {
+      lastErrorRef.current = query.error;
+      toast.error(
+        "No se pudieron cargar tus pedidos. Revisa tu conexión y vuelve a intentar.",
+      );
+    }
+    if (!query.error) lastErrorRef.current = null;
+  }, [query.error]);
 
   // Optimistic update for local state changes
   const updatePedidoLocally = useCallback(

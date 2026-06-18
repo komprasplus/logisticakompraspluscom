@@ -6,6 +6,36 @@ import { es } from "date-fns/locale";
  * All functions use local timezone to avoid UTC conversion issues.
  */
 
+// Bogotá no observa horario de verano: siempre UTC-5.
+const BOGOTA_OFFSET_MS = 5 * 60 * 60 * 1000;
+
+/**
+ * Returns the start of "today" in Bogotá (00:00 hora local) as a UTC Date.
+ * Útil para comparar contra columnas `timestamptz` de Supabase.
+ */
+export function getStartOfTodayBogota(): Date {
+  const now = new Date();
+  const bogotaNow = new Date(now.getTime() - BOGOTA_OFFSET_MS);
+  return new Date(
+    Date.UTC(
+      bogotaNow.getUTCFullYear(),
+      bogotaNow.getUTCMonth(),
+      bogotaNow.getUTCDate(),
+      5, // 05:00 UTC = 00:00 Bogotá (UTC-5)
+      0,
+      0,
+    ),
+  );
+}
+
+export function getStartOfTodayBogotaISO(): string {
+  return getStartOfTodayBogota().toISOString();
+}
+
+export function getStartOfTodayBogotaMs(): number {
+  return getStartOfTodayBogota().getTime();
+}
+
 /**
  * Parse a YYYY-MM-DD date string into a Date object in local timezone.
  * This prevents timezone shifts that occur with toISOString() or new Date(string).
