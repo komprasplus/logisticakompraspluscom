@@ -22,6 +22,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NOVEDAD_OPTIONS, type NovedadType } from "@/lib/orderStatuses";
+import { isCashPayment } from "@/lib/payments";
+import {
+  getNavPreference,
+  openNavigation,
+  type NavDestination,
+} from "@/lib/navigation";
+import NavigationChoiceDialog from "./NavigationChoiceDialog";
 import { cn } from "@/lib/utils";
 import SignatureCanvas from "@/components/SignatureCanvas";
 import { Eraser } from "lucide-react";
@@ -90,6 +97,7 @@ const MotorizadoOrderCard = ({
   const [signature, setSignature] = useState<string | null>(null);
   const [showSigPad, setShowSigPad] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showNavChoice, setShowNavChoice] = useState(false);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
   const novedadPhotoInputRef = useRef<HTMLInputElement>(null);
@@ -98,14 +106,10 @@ const MotorizadoOrderCard = ({
   const phoneE164 = normalizePhone(pedido.client_phone);
   const hasPhone = phoneE164 !== null;
   const isCOD =
-    pedido.metodo_pago?.toLowerCase() === "efectivo" &&
+    isCashPayment(pedido.metodo_pago) &&
     !!pedido.valor_recaudar &&
     Number(pedido.valor_recaudar) > 0;
-  const isPaid =
-    !!pedido.metodo_pago &&
-    !["efectivo", "contraentrega", "cod"].includes(
-      pedido.metodo_pago.toLowerCase(),
-    );
+  const isPaid = !!pedido.metodo_pago && !isCashPayment(pedido.metodo_pago);
 
   const stop = (e: React.MouseEvent) => e.stopPropagation();
 
@@ -125,28 +129,24 @@ const MotorizadoOrderCard = ({
     [phoneE164, pedido.cliente_nombre],
   );
 
+  const navDestination: NavDestination = {
+    lat: pedido.latitud,
+    lng: pedido.longitud,
+    address: pedido.direccion_entrega,
+  };
+
   const openNavigate = useCallback(
     (e: React.MouseEvent) => {
       stop(e);
-      const params = new URLSearchParams({ api: "1", travelmode: "driving" });
-      if (userLocation) {
-        params.set("origin", `${userLocation.lat},${userLocation.lng}`);
-      }
-      if (pedido.latitud != null && pedido.longitud != null) {
-        params.set("destination", `${pedido.latitud},${pedido.longitud}`);
+      const pref = getNavPreference();
+      if (pref) {
+        openNavigation(pref, navDestination, userLocation);
       } else {
-        params.set(
-          "destination",
-          `${pedido.direccion_entrega ?? ""}, Bogotá, Colombia`,
-        );
+        setShowNavChoice(true);
       }
-      window.open(
-        `https://www.google.com/maps/dir/?${params.toString()}`,
-        "_blank",
-        "noopener,noreferrer",
-      );
     },
-    [pedido, userLocation],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pedido.id, pedido.latitud, pedido.longitud, pedido.direccion_entrega, userLocation],
   );
 
   const callClient = useCallback(
@@ -666,6 +666,13 @@ const MotorizadoOrderCard = ({
           </div>
         </DrawerContent>
       </Drawer>
+
+      <NavigationChoiceDialog
+        open={showNavChoice}
+        onOpenChange={setShowNavChoice}
+        destination={navDestination}
+        origin={userLocation}
+      />
     </>
   );
 };
