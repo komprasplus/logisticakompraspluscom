@@ -78,6 +78,7 @@ import {
 } from "@/lib/offlineSync";
 
 import { ZONAS, type ZonaCodigo } from "@/lib/zonas";
+import { getStartOfTodayBogotaMs } from "@/lib/dateUtils";
 
 interface Pedido {
   id: number;
@@ -101,7 +102,22 @@ interface Pedido {
   quantity?: number | null;
   client_user_id?: string | null;
   canal?: string | null;
+  fecha_actualizacion?: string | null;
 }
+
+const CASH_PAYMENT_METHODS = new Set([
+  "efectivo",
+  "cod",
+  "contra entrega",
+  "contraentrega",
+  "contra_entrega",
+  "contra-entrega",
+]);
+
+const isCashPayment = (metodoPago: string | null | undefined): boolean => {
+  if (!metodoPago) return false;
+  return CASH_PAYMENT_METHODS.has(metodoPago.toLowerCase().trim());
+};
 
 // Warehouse coordinates for sorting
 const BODEGA_LAT = 4.6066;
@@ -468,13 +484,20 @@ const MotorizadoDashboard = () => {
           }).catch((err) => console.warn("Webhook notification failed:", err));
         }
 
-      // Update local state via React Query optimistic update
-      updatePedidoLocally(selectedPedido.id, { 
-        estado: "Entregado", 
+      // Update local state via React Query optimistic update.
+      // Importante: incluye fecha_actualizacion para que dailyStats lo cuente
+      // como entrega de hoy aun antes de que llegue el refetch del backend.
+      updatePedidoLocally(selectedPedido.id, {
+        estado: "Entregado",
         foto_evidencia: capturedPhoto,
         foto_paquete: packagePhoto,
         firma_cliente: signature,
+        fecha_actualizacion: new Date().toISOString(),
       });
+
+      // Refrescar desde Supabase para mantener consistencia con la tab "Entregados"
+      // (el hook trae Entregados de hoy con fecha_actualizacion autoritativa).
+      refetchPedidos();
 
       setSelectedPedido(null);
       setShowPhotoModal(false);
@@ -933,14 +956,18 @@ const MotorizadoDashboard = () => {
 
   const cortes = ["Corte 1", "Corte 2", "Corte 3"];
 
-  // Calculate daily stats
+  // Stats del día: solo cuenta entregas con fecha_actualizacion >= inicio de hoy en Bogotá.
+  // metodo_pago normaliza variantes: efectivo, contra entrega, COD, etc.
   const dailyStats = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    const todayDelivered = pedidos.filter(
-      (p) => p.estado?.toLowerCase() === "entregado"
-    );
+    const startOfTodayMs = getStartOfTodayBogotaMs();
+    const todayDelivered = pedidos.filter((p) => {
+      if (p.estado?.toLowerCase() !== "entregado") return false;
+      if (!p.fecha_actualizacion) return false;
+      const t = new Date(p.fecha_actualizacion).getTime();
+      return Number.isFinite(t) && t >= startOfTodayMs;
+    });
     const collectedAmount = todayDelivered.reduce((sum, p) => {
-      if (p.metodo_pago?.toLowerCase() === "efectivo" && p.valor_recaudar) {
+      if (isCashPayment(p.metodo_pago) && p.valor_recaudar) {
         return sum + Number(p.valor_recaudar);
       }
       return sum;
@@ -971,10 +998,11 @@ const MotorizadoDashboard = () => {
       isOnline,
     });
 
-    // Balance simulado: 8% del valor entregado COD acumulado del mes
-    // (mientras llega el sistema de wallet completo en Fase 2 del roadmap)
+    // Balance simulado del día: 8% del valor entregado COD.
+    // El hook solo trae entregados de hoy en TZ Bogotá, así que aquí ya están filtrados.
+    // El acumulado mes/histórico llegará con el sistema de wallet real (Fase 4 del roadmap).
     const codCollectedMonth = pedidos
-      .filter((p) => p.estado?.toLowerCase() === "entregado" && p.metodo_pago?.toLowerCase() === "efectivo")
+      .filter((p) => p.estado?.toLowerCase() === "entregado" && isCashPayment(p.metodo_pago))
       .reduce((sum, p) => sum + Number(p.valor_recaudar || 0), 0);
 
     const ganancias = Math.round(codCollectedMonth * 0.08);
