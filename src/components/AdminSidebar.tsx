@@ -311,7 +311,7 @@ const AdminSidebar = ({
   return (
     <aside
       className={cn(
-        "hidden lg:flex flex-col bg-sidebar transition-all duration-200 h-full border-r border-sidebar-border flex-shrink-0",
+        "hidden lg:flex flex-col bg-sidebar transition-all duration-200 lg:sticky lg:top-0 lg:h-screen border-r border-sidebar-border flex-shrink-0",
         collapsed ? "w-[68px]" : "w-[240px]",
       )}
     >
