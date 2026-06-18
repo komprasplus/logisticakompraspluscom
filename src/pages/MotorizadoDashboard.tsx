@@ -30,6 +30,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useMotorizadoPedidos } from "@/hooks/useMotorizadoPedidos";
 import { useHotZones } from "@/hooks/useHotZones";
+import { useMotorizadoWallet } from "@/hooks/useMotorizadoWallet";
 import MotorizadoStatsHeader from "@/components/motorizado/MotorizadoStatsHeader";
 import MotorizadoBottomNav, { type MotorizadoTab } from "@/components/motorizado/MotorizadoBottomNav";
 import MotorizadoWalletWidget from "@/components/motorizado/MotorizadoWalletWidget";
@@ -44,6 +45,7 @@ import QuickActionsGrid from "@/components/motorizado/QuickActionsGrid";
 import HotZoneCard from "@/components/motorizado/HotZoneCard";
 import TeamNoteCard from "@/components/motorizado/TeamNoteCard";
 import MotorizadoWalletInline from "@/components/motorizado/MotorizadoWalletInline";
+import MotorizadoStreakBadge from "@/components/motorizado/MotorizadoStreakBadge";
 import { useAuth } from "@/hooks/useAuth";
 import useGeolocation, { calculateDistance, isWithinGeofence } from "@/hooks/useGeolocation";
 import useLocationTracking from "@/hooks/useLocationTracking";
@@ -126,6 +128,7 @@ const MotorizadoDashboard = () => {
     removePedidoLocally
   } = useMotorizadoPedidos(user?.id);
   const { zones: hotZones } = useHotZones(3);
+  const { balance: walletBalance } = useMotorizadoWallet(user?.id);
 
   const [filteredPedidos, setFilteredPedidos] = useState<Pedido[]>([]);
   const [selectedPedido, setSelectedPedido] = useState<Pedido | null>(null);
@@ -1152,12 +1155,21 @@ const MotorizadoDashboard = () => {
             />
           )}
 
-          {/* Wallet inline: cupo COD + fondo garantía */}
+          {/* Wallet inline: saldo retirable + cupo COD + fondo garantía */}
           <MotorizadoWalletInline
             score={motorizadoStats.score}
             codHoyUsado={motorizadoStats.codHoyUsado}
             fondoGarantia={motorizadoStats.fondoGarantia}
+            balanceDisponible={walletBalance?.balance_disponible}
+            onRetirar={() => setActiveTab("wallet")}
           />
+
+          {/* Badge motivacional con entregas del día — solo se muestra con 3+ */}
+          {dailyStats.deliveredCount >= 3 && (
+            <div className="flex justify-center">
+              <MotorizadoStreakBadge deliveries={dailyStats.deliveredCount} />
+            </div>
+          )}
 
           {/* Stats del día */}
           <MotorizadoDailyStats
