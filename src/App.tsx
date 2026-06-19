@@ -211,6 +211,7 @@ const AppRoutes = () => {
       {/* Public B2B catalog (no auth required) */}
       <Route path="/catalogo/:proveedorId" element={<Suspense fallback={<PageLoader />}><PublicCatalog /></Suspense>} />
       <Route path="/:slug/catalogo" element={<Suspense fallback={<PageLoader />}><PublicCatalog /></Suspense>} />
+      <Route path="/:slug/catalogo/lista/:listaSlug" element={<Suspense fallback={<PageLoader />}><PublicCatalog /></Suspense>} />
       <Route path="/:slug/catalogo/:productId" element={<Suspense fallback={<PageLoader />}><PublicCatalog /></Suspense>} />
       
       {/* Protected Routes - wrapped in Suspense for lazy loading */}

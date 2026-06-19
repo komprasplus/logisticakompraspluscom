@@ -16,6 +16,8 @@ import {
   List,
   ShieldCheck,
   SlidersHorizontal,
+  Lock,
+  Tag,
   X,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -81,6 +83,26 @@ interface CatalogProduct {
   description?: string | null;
   especificaciones?: string | null;
   garantia?: string | null;
+  min_quantity?: number | null;
+}
+
+interface PriceListSummary {
+  slug: string;
+  nombre: string;
+  descripcion: string | null;
+  es_default: boolean;
+  requires_code: boolean;
+  moq_lista: number;
+}
+
+interface ActiveList {
+  id: string;
+  slug: string;
+  nombre: string;
+  descripcion: string | null;
+  moq_lista: number;
+  es_default: boolean;
+  es_publica: boolean;
 }
 
 const ALL_CATEGORIES = "__all__";
@@ -110,7 +132,12 @@ const buildWhatsAppLink = (
 
 // ── Page (router) ─────────────────────────────────────────────────────
 const PublicCatalog = () => {
-  const params = useParams<{ slug?: string; proveedorId?: string; productId?: string }>();
+  const params = useParams<{
+    slug?: string;
+    proveedorId?: string;
+    productId?: string;
+    listaSlug?: string;
+  }>();
   const isLegacy = !!params.proveedorId;
   const isDetail = !!params.productId;
 
@@ -118,7 +145,13 @@ const PublicCatalog = () => {
     return <ProductDetailView slug={params.slug} productId={params.productId!} />;
   }
 
-  return <CatalogListView slug={params.slug} legacyId={isLegacy ? params.proveedorId : undefined} />;
+  return (
+    <CatalogListView
+      slug={params.slug}
+      listaSlug={params.listaSlug}
+      legacyId={isLegacy ? params.proveedorId : undefined}
+    />
+  );
 };
 
 // ── List View ─────────────────────────────────────────────────────────
@@ -126,9 +159,11 @@ type SortKey = "recent" | "price_asc" | "price_desc" | "stock_desc" | "best_sell
 
 const CatalogListView = ({
   slug,
+  listaSlug,
   legacyId,
 }: {
   slug?: string;
+  listaSlug?: string;
   legacyId?: string;
 }) => {
   const navigate = useNavigate();
@@ -136,6 +171,14 @@ const CatalogListView = ({
   const [provider, setProvider] = useState<Provider | null>(null);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Listas de precios (multi-lista) ─────────────────────────────────
+  const [priceLists, setPriceLists] = useState<PriceListSummary[]>([]);
+  const [activeList, setActiveList] = useState<ActiveList | null>(null);
+  const [requiresCode, setRequiresCode] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
+  const [appliedCode, setAppliedCode] = useState<string | null>(null);
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   // ── Filter & Sort state ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -158,9 +201,13 @@ const CatalogListView = ({
       try {
         let payload: any = null;
         if (slug) {
-          const { data, error } = await supabase.rpc(
-            "get_public_provider_catalog_by_slug",
-            { slug },
+          const { data, error } = await (supabase.rpc as any)(
+            "get_public_provider_catalog_v2",
+            {
+              p_slug: slug,
+              p_lista_slug: listaSlug ?? null,
+              p_codigo_acceso: appliedCode ?? null,
+            },
           );
           if (error) throw error;
           payload = data;
@@ -177,8 +224,24 @@ const CatalogListView = ({
           setError("Este catálogo no está disponible o el proveedor lo desactivó.");
           return;
         }
+        // Gate de código de acceso para listas privadas.
+        if (payload.requires_code) {
+          setRequiresCode(true);
+          if (appliedCode) {
+            setCodeError("Código incorrecto. Verifica con el proveedor.");
+          }
+          setProvider(null);
+          setProducts([]);
+          setPriceLists([]);
+          setActiveList(null);
+          return;
+        }
+        setRequiresCode(false);
+        setCodeError(null);
         setProvider(payload.provider ?? null);
         setProducts(payload.products ?? []);
+        setPriceLists(payload.price_lists ?? []);
+        setActiveList(payload.active_list ?? null);
       } catch (e) {
         if (cancelled) return;
         console.error(e);
@@ -191,7 +254,7 @@ const CatalogListView = ({
     return () => {
       cancelled = true;
     };
-  }, [slug, legacyId]);
+  }, [slug, listaSlug, appliedCode, legacyId]);
 
   useEffect(() => {
     if (provider?.store_name) {
@@ -305,6 +368,48 @@ const CatalogListView = ({
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (requiresCode) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+        <div className="bg-white rounded-2xl shadow-lg max-w-sm w-full p-6 sm:p-8 text-center">
+          <div className="mx-auto h-14 w-14 rounded-full bg-pink/10 text-pink flex items-center justify-center mb-4">
+            <Lock className="h-7 w-7" />
+          </div>
+          <h1 className="text-lg font-bold text-slate-900">Catálogo privado</h1>
+          <p className="mt-1 text-sm text-slate-600">
+            Esta lista de precios requiere un código de acceso. Pídelo al
+            proveedor.
+          </p>
+          <form
+            className="mt-5 space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (codeInput.trim()) setAppliedCode(codeInput.trim());
+            }}
+          >
+            <Input
+              autoFocus
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value)}
+              placeholder="Código de acceso"
+              className="text-center font-mono tracking-wider"
+            />
+            {codeError && (
+              <p className="text-xs text-pink font-medium">{codeError}</p>
+            )}
+            <Button
+              type="submit"
+              disabled={!codeInput.trim()}
+              className="w-full"
+            >
+              Acceder al catálogo
+            </Button>
+          </form>
+        </div>
       </div>
     );
   }
@@ -474,6 +579,17 @@ const CatalogListView = ({
                   <Phone className="h-3 w-3" /> {provider.phone}
                 </p>
               )}
+              {activeList && (
+                <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur px-2 py-0.5 text-[11px] font-semibold text-white">
+                  <Tag className="h-3 w-3" />
+                  {activeList.nombre}
+                  {activeList.moq_lista > 1 && (
+                    <span className="text-white/70 font-normal">
+                      · MOQ {activeList.moq_lista}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -553,18 +669,50 @@ const CatalogListView = ({
                 </p>
               </div>
 
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
-                <SelectTrigger className="w-[200px] rounded-xl bg-white text-sm">
-                  <SelectValue placeholder="Ordenar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="recent">Más Recientes</SelectItem>
-                  <SelectItem value="price_asc">Precio: Menor a Mayor</SelectItem>
-                  <SelectItem value="price_desc">Precio: Mayor a Menor</SelectItem>
-                  <SelectItem value="stock_desc">Mayor Stock</SelectItem>
-                  <SelectItem value="best_sellers">Más Vendidos</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2 flex-wrap">
+                {priceLists.length > 1 && (
+                  <Select
+                    value={activeList?.slug ?? ""}
+                    onValueChange={(v) => {
+                      if (!slug || !v) return;
+                      const target = priceLists.find((l) => l.slug === v);
+                      // Reset código si cambias a otra lista
+                      if (target && target.requires_code) {
+                        setAppliedCode(null);
+                        setCodeInput("");
+                      }
+                      navigate(`/${slug}/catalogo/lista/${v}`);
+                    }}
+                  >
+                    <SelectTrigger className="w-[200px] rounded-xl bg-white text-sm">
+                      <Tag className="h-3.5 w-3.5 text-slate-500 mr-1" />
+                      <SelectValue placeholder="Ver precios..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {priceLists.map((l) => (
+                        <SelectItem key={l.slug} value={l.slug}>
+                          {l.nombre}
+                          {l.es_default && " · Default"}
+                          {l.requires_code && " · 🔒"}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+
+                <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortKey)}>
+                  <SelectTrigger className="w-[200px] rounded-xl bg-white text-sm">
+                    <SelectValue placeholder="Ordenar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="recent">Más Recientes</SelectItem>
+                    <SelectItem value="price_asc">Precio: Menor a Mayor</SelectItem>
+                    <SelectItem value="price_desc">Precio: Mayor a Menor</SelectItem>
+                    <SelectItem value="stock_desc">Mayor Stock</SelectItem>
+                    <SelectItem value="best_sellers">Más Vendidos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Grid */}
