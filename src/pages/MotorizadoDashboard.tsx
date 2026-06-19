@@ -31,6 +31,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMotorizadoPedidos } from "@/hooks/useMotorizadoPedidos";
 import { useHotZones } from "@/hooks/useHotZones";
 import { useMotorizadoWallet } from "@/hooks/useMotorizadoWallet";
+import {
+  clearStoredTheme,
+  getAutoTheme,
+  isUsingAutoTheme,
+  resolveInitialTheme,
+  setStoredTheme,
+} from "@/lib/theme";
 import MotorizadoStatsHeader from "@/components/motorizado/MotorizadoStatsHeader";
 import MotorizadoBottomNav, { type MotorizadoTab } from "@/components/motorizado/MotorizadoBottomNav";
 import MotorizadoWalletWidget from "@/components/motorizado/MotorizadoWalletWidget";
@@ -153,7 +160,7 @@ const MotorizadoDashboard = () => {
   const [isDeviationDelivery, setIsDeviationDelivery] = useState(false);
   const [networkOnline, setNetworkOnline] = useState(navigator.onLine);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
-  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => resolveInitialTheme() === "dark");
   const [chatOpenForPedido, setChatOpenForPedido] = useState<number | null>(null);
   const [isRouteOptimized, setIsRouteOptimized] = useState(false);
   const [activeTab, setActiveTab] = useState<MotorizadoTab>("pedidos");
@@ -1110,6 +1117,34 @@ const MotorizadoDashboard = () => {
       document.documentElement.classList.remove("dark");
     }
   }, [isDarkMode]);
+
+  // Modo automático: si el usuario no eligió manualmente, el tema sigue la
+  // hora Bogotá y se re-evalúa cada 5 min para captar el cambio 18:00/06:00.
+  useEffect(() => {
+    if (!isUsingAutoTheme()) return;
+    const interval = window.setInterval(() => {
+      if (!isUsingAutoTheme()) return;
+      const next = getAutoTheme();
+      setIsDarkMode((prev) => (prev === (next === "dark") ? prev : next === "dark"));
+    }, 5 * 60 * 1000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  // Toggle manual: persiste preferencia y saca del modo automático.
+  const toggleDarkMode = useCallback(() => {
+    setIsDarkMode((prev) => {
+      const next = !prev;
+      setStoredTheme(next ? "dark" : "light");
+      return next;
+    });
+  }, []);
+
+  // Volver al modo automático (limpia preferencia y aplica según hora actual).
+  const resetToAutoTheme = useCallback(() => {
+    clearStoredTheme();
+    const next = getAutoTheme();
+    setIsDarkMode(next === "dark");
+  }, []);
 
   return (
     <div className="min-h-screen bg-background transition-colors duration-300 pb-20 lg:pb-0">
