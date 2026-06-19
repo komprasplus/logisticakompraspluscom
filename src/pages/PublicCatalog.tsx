@@ -84,6 +84,13 @@ interface CatalogProduct {
   especificaciones?: string | null;
   garantia?: string | null;
   min_quantity?: number | null;
+  unidades_vendidas?: number | null;
+  created_at?: string | null;
+}
+
+interface CategoryWithCount {
+  category: string;
+  count: number;
 }
 
 interface PriceListSummary {
@@ -180,6 +187,9 @@ const CatalogListView = ({
   const [appliedCode, setAppliedCode] = useState<string | null>(null);
   const [codeError, setCodeError] = useState<string | null>(null);
 
+  // Categorías con count autoritativo del backend (todo el catálogo, no filtrado).
+  const [serverCategories, setServerCategories] = useState<CategoryWithCount[]>([]);
+
   // ── Filter & Sort state ─────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -242,6 +252,17 @@ const CatalogListView = ({
         setProducts(payload.products ?? []);
         setPriceLists(payload.price_lists ?? []);
         setActiveList(payload.active_list ?? null);
+        // Categorías con count (RPC v2 los devuelve como objetos; legacy = strings).
+        const rawCats: any = payload.categories ?? [];
+        if (Array.isArray(rawCats) && rawCats.length > 0 && typeof rawCats[0] === "object") {
+          setServerCategories(rawCats as CategoryWithCount[]);
+        } else if (Array.isArray(rawCats)) {
+          setServerCategories(
+            (rawCats as string[]).map((c) => ({ category: c, count: 0 })),
+          );
+        } else {
+          setServerCategories([]);
+        }
       } catch (e) {
         if (cancelled) return;
         console.error(e);
@@ -265,14 +286,41 @@ const CatalogListView = ({
     };
   }, [provider?.store_name]);
 
-  // ── Derived: dynamic categories from loaded products ─────────────────
-  const availableCategories = useMemo(() => {
-    const set = new Set<string>();
+  // ── Derived: categorías para el panel (server autoritativo, fallback a derivado) ─
+  const availableCategories = useMemo((): CategoryWithCount[] => {
+    if (serverCategories.length > 0) return serverCategories;
+    const map = new Map<string, number>();
     products.forEach((p) => {
-      if (p.category && p.category.trim()) set.add(p.category.trim());
+      const cat = p.category?.trim();
+      if (cat) map.set(cat, (map.get(cat) ?? 0) + 1);
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(map.entries())
+      .map(([category, count]) => ({ category, count }))
+      .sort((a, b) => b.count - a.count || a.category.localeCompare(b.category));
+  }, [serverCategories, products]);
+
+  // Top 5 productos más vendidos del catálogo (con unidades_vendidas > 0).
+  const topSellerIds = useMemo(() => {
+    return new Set(
+      [...products]
+        .filter((p) => Number(p.unidades_vendidas ?? 0) > 0)
+        .sort(
+          (a, b) =>
+            Number(b.unidades_vendidas ?? 0) - Number(a.unidades_vendidas ?? 0),
+        )
+        .slice(0, 5)
+        .map((p) => p.id),
+    );
   }, [products]);
+
+  const NEW_PRODUCT_DAYS = 30;
+  const isNewProduct = useCallback((p: CatalogProduct): boolean => {
+    if (!p.created_at) return false;
+    const created = new Date(p.created_at).getTime();
+    if (!Number.isFinite(created)) return false;
+    const days = (Date.now() - created) / (1000 * 60 * 60 * 24);
+    return days <= NEW_PRODUCT_DAYS;
+  }, []);
 
   // ── Derived: filtered + sorted products ──────────────────────────────
   const filteredAndSortedProducts = useMemo(() => {
@@ -454,7 +502,7 @@ const CatalogListView = ({
             Categorías
           </Label>
           <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-            {availableCategories.map((cat) => {
+            {availableCategories.map(({ category: cat, count }) => {
               const checked = selectedCategories.includes(cat);
               return (
                 <label
@@ -465,7 +513,12 @@ const CatalogListView = ({
                     checked={checked}
                     onCheckedChange={() => toggleCategory(cat)}
                   />
-                  <span className="flex-1">{cat}</span>
+                  <span className="flex-1 truncate">{cat}</span>
+                  {count > 0 && (
+                    <span className="text-[11px] tabular-nums text-slate-400">
+                      {count}
+                    </span>
+                  )}
                 </label>
               );
             })}
@@ -667,6 +720,19 @@ const CatalogListView = ({
                   Mostrando <strong className="text-slate-900">{filteredAndSortedProducts.length}</strong>{" "}
                   <span className="hidden sm:inline">de {products.length} </span>productos
                 </p>
+
+                <button
+                  type="button"
+                  onClick={() => setInStockOnly((v) => !v)}
+                  className={cn(
+                    "no-print hidden sm:inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold border transition-colors",
+                    inStockOnly
+                      ? "bg-emerald-500 text-white border-emerald-500"
+                      : "bg-white text-slate-600 border-slate-300 hover:border-emerald-400 hover:text-emerald-600",
+                  )}
+                >
+                  ✅ Disponibles ahora
+                </button>
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
@@ -715,6 +781,49 @@ const CatalogListView = ({
               </div>
             </div>
 
+            {/* Chips de filtros activos */}
+            {activeFilterCount > 0 && (
+              <div className="no-print flex flex-wrap items-center gap-1.5 mb-4">
+                <span className="text-[11px] text-slate-500 mr-1">Filtros:</span>
+                {searchQuery && (
+                  <FilterChip
+                    label={`"${searchQuery}"`}
+                    onRemove={() => setSearchQuery("")}
+                  />
+                )}
+                {selectedCategories.map((cat) => (
+                  <FilterChip
+                    key={cat}
+                    label={cat}
+                    onRemove={() => toggleCategory(cat)}
+                  />
+                ))}
+                {(priceRange.min !== null || priceRange.max !== null) && (
+                  <FilterChip
+                    label={`${priceRange.min !== null ? formatCOP(priceRange.min) : "$0"} – ${priceRange.max !== null ? formatCOP(priceRange.max) : "∞"}`}
+                    onRemove={() => {
+                      setPriceMinInput("");
+                      setPriceMaxInput("");
+                      setPriceRange({ min: null, max: null });
+                    }}
+                  />
+                )}
+                {inStockOnly && (
+                  <FilterChip
+                    label="Disponibles ahora"
+                    onRemove={() => setInStockOnly(false)}
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="text-[11px] font-medium text-slate-500 hover:text-slate-900 underline underline-offset-2 ml-1"
+                >
+                  Limpiar todo
+                </button>
+              </div>
+            )}
+
             {/* Grid */}
             {filteredAndSortedProducts.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
@@ -739,6 +848,8 @@ const CatalogListView = ({
                     key={product.id}
                     product={product}
                     provider={provider}
+                    isNew={isNewProduct(product)}
+                    isTopSeller={topSellerIds.has(product.id)}
                     onClick={() => goToProduct(product.id)}
                   />
                 ))}
@@ -756,15 +867,40 @@ const CatalogListView = ({
 };
 
 
+// ── Filter Chip ───────────────────────────────────────────────────────
+const FilterChip = ({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) => (
+  <span className="inline-flex items-center gap-1 rounded-full bg-slate-200/80 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-200 transition-colors">
+    <span className="max-w-[180px] truncate">{label}</span>
+    <button
+      type="button"
+      onClick={onRemove}
+      className="rounded-full p-0.5 hover:bg-slate-300/70"
+      aria-label={`Quitar filtro ${label}`}
+    >
+      <X className="h-2.5 w-2.5" />
+    </button>
+  </span>
+);
+
 // ── Product Card (mobile-first) ───────────────────────────────────────
 const ProductCard = ({
   product,
   provider,
   onClick,
+  isNew = false,
+  isTopSeller = false,
 }: {
   product: CatalogProduct;
   provider: Provider;
   onClick: () => void;
+  isNew?: boolean;
+  isTopSeller?: boolean;
 }) => {
   const lowStock = product.stock_available > 0 && product.stock_available < 5;
 
@@ -801,11 +937,23 @@ const ProductCard = ({
           <Hash className="h-2.5 w-2.5" />
           {product.short_id}
         </Badge>
-        {lowStock && (
-          <Badge variant="destructive" className="absolute top-1.5 right-1.5 text-[9px] px-1.5 py-0.5">
-            ¡{product.stock_available}!
-          </Badge>
-        )}
+        <div className="absolute top-1.5 right-1.5 flex flex-col items-end gap-1">
+          {isTopSeller && (
+            <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-0 text-[9px] px-1.5 py-0.5 font-bold gap-0.5">
+              🔥 Más vendido
+            </Badge>
+          )}
+          {isNew && !isTopSeller && (
+            <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-0 text-[9px] px-1.5 py-0.5 font-bold">
+              Nuevo
+            </Badge>
+          )}
+          {lowStock && (
+            <Badge variant="destructive" className="text-[9px] px-1.5 py-0.5">
+              ¡{product.stock_available}!
+            </Badge>
+          )}
+        </div>
       </div>
 
       <div className="p-2.5 flex flex-col flex-1 gap-1.5">
