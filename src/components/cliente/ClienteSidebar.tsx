@@ -12,6 +12,7 @@ import {
   Book,
   ShoppingBag,
   Sparkles,
+  Tag,
   Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ export type ClienteView =
   | "transferencias"
   | "catalogo"
   | "catalogo-publico"
+  | "listas-precios"
   | "por-empacar"
   | "docs";
 
@@ -79,6 +81,7 @@ const NAV_SECTIONS: NavSection[] = [
       { key: "catalogo", label: "Catálogo Mega Bodega", description: "Productos de proveedores", icon: ShoppingBag },
       { key: "inventario", label: "Mi Inventario Propio", description: "Stock que manejas", icon: Boxes },
       { key: "catalogo-publico", label: "Mis Catálogos", description: "Tiendas B2B públicas", icon: Sparkles },
+      { key: "listas-precios", label: "Listas de Precios", description: "Mayorista, dropshipper, retail…", icon: Tag },
     ],
   },
   {
@@ -228,6 +231,7 @@ const ClienteSidebar = ({
     items: section.items.filter((item) => {
       if (isProveedor && item.key === "catalogo") return false;
       if (!isProveedor && item.key === "catalogo-publico") return false;
+      if (!isProveedor && item.key === "listas-precios") return false;
       if (!isProveedor && item.key === "por-empacar") return false;
       return true;
     }),
