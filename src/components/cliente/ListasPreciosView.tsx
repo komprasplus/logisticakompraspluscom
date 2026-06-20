@@ -23,9 +23,11 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { formatCOPShort } from "@/lib/payments";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   canCreateMore,
   planLabel,
+  PROVEEDOR_PLAN_QK,
   useProveedorPlan,
 } from "@/hooks/useProveedorPlan";
 import UpgradePlanDialog from "./UpgradePlanDialog";
@@ -104,7 +106,62 @@ const slugify = (s: string): string =>
 const ListasPreciosView = () => {
   const { data: listas = [], isLoading, refetch, isFetching } = useListasPrecios();
   const { data: planInfo } = useProveedorPlan();
+  const qc = useQueryClient();
   const [proveedorSlug, setProveedorSlug] = useState<string | null>(null);
+
+  // Detectar callback de Bold (?upgrade=success) y refrescar plan con polling
+  // hasta detectar el cambio del catalog_plan (el webhook procesa async).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgrade") !== "success") return;
+    // Limpiar el query param para que no se vuelva a disparar al refrescar.
+    params.delete("upgrade");
+    const search = params.toString();
+    const clean =
+      window.location.pathname + (search ? `?${search}` : "") + window.location.hash;
+    window.history.replaceState(null, "", clean);
+
+    const initialPlan = planInfo?.plan ?? "free";
+    const toastId = toast.loading(
+      "Procesando tu pago… esto puede tardar unos segundos.",
+    );
+    let stopped = false;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 12; // 12 × 3s = 36s
+    const interval = window.setInterval(async () => {
+      if (stopped) return;
+      attempts += 1;
+      try {
+        await qc.invalidateQueries({ queryKey: PROVEEDOR_PLAN_QK });
+        const updated = qc.getQueryData(PROVEEDOR_PLAN_QK) as any;
+        if (updated?.plan && updated.plan !== initialPlan) {
+          stopped = true;
+          window.clearInterval(interval);
+          toast.success(
+            `¡Listo! Tu plan se actualizó a ${String(updated.plan).toUpperCase()}.`,
+            { id: toastId, duration: 6000 },
+          );
+        }
+      } catch {
+        // ignorar y reintentar
+      }
+      if (!stopped && attempts >= MAX_ATTEMPTS) {
+        window.clearInterval(interval);
+        toast.info(
+          "El pago aún no se ha confirmado. Si ya pagaste, refresca la página en un par de minutos o contáctanos.",
+          { id: toastId, duration: 10000 },
+        );
+      }
+    }, 3000);
+
+    return () => {
+      stopped = true;
+      window.clearInterval(interval);
+    };
+    // Solo correr una vez al montar; usamos planInfo lazily.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ListaPrecio | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
