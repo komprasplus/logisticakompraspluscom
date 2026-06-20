@@ -24,6 +24,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { formatCOPShort } from "@/lib/payments";
 import {
+  canCreateMore,
+  planLabel,
+  useProveedorPlan,
+} from "@/hooks/useProveedorPlan";
+import UpgradePlanDialog from "./UpgradePlanDialog";
+import {
   useActualizarListaPrecio,
   useArchivarListaPrecio,
   useCrearListaPrecio,
@@ -97,6 +103,7 @@ const slugify = (s: string): string =>
 
 const ListasPreciosView = () => {
   const { data: listas = [], isLoading, refetch, isFetching } = useListasPrecios();
+  const { data: planInfo } = useProveedorPlan();
   const [proveedorSlug, setProveedorSlug] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<ListaPrecio | null>(null);
@@ -105,6 +112,21 @@ const ListasPreciosView = () => {
 
   const [archivarTarget, setArchivarTarget] = useState<ListaPrecio | null>(null);
   const [editorListaId, setEditorListaId] = useState<string | null>(null);
+
+  // Paywall state
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<string | undefined>();
+
+  const canCreate = planInfo ? canCreateMore(planInfo) : true;
+  const canPrivate = planInfo?.limits.allow_private ?? true;
+  const planMax = planInfo?.limits.max_price_lists ?? null;
+  const planUsage = planInfo?.usage.price_lists_activas ?? 0;
+  const planMaxLabel = planMax === -1 || planMax === null ? "∞" : String(planMax);
+
+  const openUpgrade = (reason?: string) => {
+    setUpgradeReason(reason);
+    setUpgradeOpen(true);
+  };
 
   const crearMut = useCrearListaPrecio();
   const actualizarMut = useActualizarListaPrecio();
@@ -134,6 +156,12 @@ const ListasPreciosView = () => {
   }, [listas]);
 
   const abrirNueva = () => {
+    if (!canCreate) {
+      openUpgrade(
+        `Tu plan ${planInfo ? planLabel(planInfo.plan).toUpperCase() : "FREE"} permite máximo ${planMaxLabel} lista${planMax === 1 ? "" : "s"} de precios.`,
+      );
+      return;
+    }
     setEditing(null);
     setForm(EMPTY_FORM);
     setSlugTouched(false);
@@ -266,6 +294,28 @@ const ListasPreciosView = () => {
             <Plus className="h-4 w-4" />
             Nueva lista
           </Button>
+          {planInfo && (
+            <button
+              type="button"
+              onClick={() => openUpgrade()}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors hover:opacity-90",
+                planInfo.plan === "free" &&
+                  "bg-muted text-muted-foreground border-border",
+                planInfo.plan === "pro" &&
+                  "bg-primary/10 text-primary border-primary/30",
+                (planInfo.plan === "premium" || planInfo.plan === "business") &&
+                  "bg-gold/15 text-gold-dark border-gold/40",
+              )}
+              title="Tu plan actual · click para ver opciones"
+            >
+              <Tag className="h-3 w-3" />
+              Plan {planLabel(planInfo.plan)}
+              <span className="text-muted-foreground font-normal">
+                · {planUsage}/{planMaxLabel}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -418,9 +468,16 @@ const ListasPreciosView = () => {
                 </div>
                 <Switch
                   checked={form.es_publica}
-                  onCheckedChange={(v) =>
-                    setForm((f) => ({ ...f, es_publica: v }))
-                  }
+                  disabled={!canPrivate && form.es_publica}
+                  onCheckedChange={(v) => {
+                    if (!v && !canPrivate) {
+                      openUpgrade(
+                        "Las listas privadas con código de acceso requieren plan Premium o superior.",
+                      );
+                      return;
+                    }
+                    setForm((f) => ({ ...f, es_publica: v }));
+                  }}
                 />
               </div>
               {!form.es_publica && (
@@ -487,6 +544,14 @@ const ListasPreciosView = () => {
         listaId={editorListaId}
         lista={listas.find((l) => l.id === editorListaId) ?? null}
         onClose={() => setEditorListaId(null)}
+      />
+
+      {/* Upgrade dialog (paywall) */}
+      <UpgradePlanDialog
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        currentPlan={planInfo?.plan ?? "free"}
+        reason={upgradeReason}
       />
     </div>
   );
