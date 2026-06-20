@@ -30,9 +30,11 @@ export const planLabel = (p: CatalogPlan): string => PLAN_LABELS[p] ?? p;
 
 const rpc = supabase.rpc as any;
 
+export const PROVEEDOR_PLAN_QK = ["proveedor-plan"] as const;
+
 export const useProveedorPlan = () => {
   return useQuery({
-    queryKey: ["proveedor-plan"],
+    queryKey: PROVEEDOR_PLAN_QK,
     queryFn: async (): Promise<ProveedorPlanInfo> => {
       const { data, error } = await rpc("proveedor_get_plan");
       if (error) throw error;
