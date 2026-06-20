@@ -49,7 +49,11 @@ export interface ActualizarListaPrecioInput
 const QK_LISTAS = ["listas-precios"] as const;
 const QK_ITEMS = (listaId: string) => ["listas-precios", listaId, "items"];
 
-const rpc = supabase.rpc as any;
+// IMPORTANTE: `bind(supabase)` preserva el `this` interno del cliente.
+// Sin esto, supabase-js intenta acceder a `this.rest` y truena con
+// "Cannot read properties of undefined (reading 'rest')".
+const rpc = (...args: Parameters<typeof supabase.rpc>) =>
+  (supabase.rpc as any).apply(supabase, args);
 
 export const useListasPrecios = () => {
   return useQuery({

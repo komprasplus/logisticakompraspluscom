@@ -28,7 +28,9 @@ const PLAN_LABELS: Record<CatalogPlan, string> = {
 
 export const planLabel = (p: CatalogPlan): string => PLAN_LABELS[p] ?? p;
 
-const rpc = supabase.rpc as any;
+// Ver useListasPrecios: bind del this para evitar el bug "reading 'rest'".
+const rpc = (...args: Parameters<typeof supabase.rpc>) =>
+  (supabase.rpc as any).apply(supabase, args);
 
 export const PROVEEDOR_PLAN_QK = ["proveedor-plan"] as const;
 
