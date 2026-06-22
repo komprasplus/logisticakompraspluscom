@@ -19,8 +19,20 @@ interface OrderPayload {
   latitud?: number;
   longitud?: number;
   fecha_entrega?: string;
-   indicador_trayecto?: string;
+  indicador_trayecto?: string;
+  /** ID externo del partner (ej. order_id de Zokuno). Se guarda en pedidos.id_externo. */
+  referencia_externa?: string;
+  /** Alias aceptado. */
+  id_externo?: string;
 }
+
+// Tracking config
+const TRACKING_DEFAULT_DOMAIN = "logistica.komprasplus.com";
+const buildTrackingUrl = (numeroGuia: string, customDomain?: string | null) => {
+  const domain = (customDomain && customDomain.trim()) || TRACKING_DEFAULT_DOMAIN;
+  const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  return `https://${cleanDomain}/rastreo/${numeroGuia}`;
+};
 
 // Tariff configuration
 const TARIFAS: Record<string, number> = {
@@ -74,7 +86,16 @@ Deno.serve(async (req) => {
 
     // ── Auth path 1: Shopify webhook (resolved via connected_stores) ──
     const shopDomain = req.headers.get("x-shopify-shop-domain");
-    let credential: { id: string | null; client_user_id: string; is_active: boolean; label: string } | null = null;
+    let credential: {
+      id: string | null;
+      client_user_id: string;
+      is_active: boolean;
+      label: string;
+      is_test_mode?: boolean;
+      rate_limit_per_min?: number | null;
+      partner_name?: string | null;
+      tracking_white_label_domain?: string | null;
+    } | null = null;
     let isShopifyWebhook = false;
 
     if (shopDomain) {
@@ -120,7 +141,7 @@ Deno.serve(async (req) => {
 
       const { data: credData, error: credError } = await supabase
         .from("api_credentials")
-        .select("id, client_user_id, is_active, label")
+        .select("id, client_user_id, is_active, label, is_test_mode, rate_limit_per_min, partner_name, tracking_white_label_domain")
         .eq("api_key_hash", keyHash)
         .maybeSingle();
 
@@ -162,12 +183,14 @@ Deno.serve(async (req) => {
         .maybeSingle();
 
       const currentCount = rateData?.request_count || 0;
-      if (currentCount >= 60) {
-        console.warn("Rate limit exceeded for credential:", credential.id);
+      const limit = credential.rate_limit_per_min ?? 60;
+      if (currentCount >= limit) {
+        console.warn(`Rate limit exceeded for credential ${credential.id}: ${currentCount}/${limit}`);
         return new Response(
           JSON.stringify({
-            error: "Rate limit exceeded. Max 60 requests per minute.",
+            error: `Rate limit exceeded. Max ${limit} requests per minute.`,
             code: "RATE_LIMIT",
+            limit,
             retry_after_seconds: 60 - now.getSeconds()
           }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -398,9 +421,15 @@ Deno.serve(async (req) => {
         devolucion_cobrada: false,
         guia_impresa: false,
         fulfillment_cost: fulfillmentCost, // Admin-controlled rate from store profile
-         indicador_trayecto: orderPayload.indicador_trayecto || "Local",
-         dropi_sync_status: "synced",
-         integration_partner: isShopifyWebhook ? "shopify" : null,
+        indicador_trayecto: orderPayload.indicador_trayecto || "Local",
+        dropi_sync_status: "synced",
+        integration_partner: isShopifyWebhook ? "shopify" : (credential.partner_name || null),
+        // Marca el pedido como test si la API key es de modo prueba.
+        // Pedidos test no se enrutan a motorizado ni se cuentan en facturación.
+        is_test: !!credential.is_test_mode,
+        // ID externo del partner (Zokuno, etc.) para conciliación bidireccional
+        id_externo: orderPayload.id_externo || orderPayload.referencia_externa || null,
+        api_credential_id: credential.id,
       })
       .select()
       .single();
@@ -515,7 +544,9 @@ Deno.serve(async (req) => {
           valor_flete: valorFlete,
           valor_recaudar: valorRecaudar,
           fecha_entrega: newOrder.fecha_entrega,
-          tracking_url: `https://logisticakompraspluscom.lovable.app/rastreo/${newOrder.numero_guia}`
+          is_test: !!credential.is_test_mode,
+          referencia_externa: newOrder.id_externo ?? null,
+          tracking_url: buildTrackingUrl(newOrder.numero_guia, credential.tracking_white_label_domain),
         },
         message: "Pedido creado exitosamente"
       }),

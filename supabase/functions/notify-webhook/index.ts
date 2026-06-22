@@ -73,15 +73,43 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Resolver dominio white-label si la credencial del pedido lo tiene configurado
+    let trackingDomain = "logistica.komprasplus.com";
+    let referenciaExterna: string | null = null;
+    try {
+      const { data: pedidoData } = await supabase
+        .from("pedidos")
+        .select("api_credential_id, id_externo")
+        .eq("id", pedido_id)
+        .maybeSingle();
+      referenciaExterna = (pedidoData?.id_externo as string) || null;
+      if (pedidoData?.api_credential_id) {
+        const { data: credData } = await supabase
+          .from("api_credentials")
+          .select("tracking_white_label_domain")
+          .eq("id", pedidoData.api_credential_id)
+          .maybeSingle();
+        if (credData?.tracking_white_label_domain && credData.tracking_white_label_domain.trim()) {
+          trackingDomain = credData.tracking_white_label_domain
+            .trim()
+            .replace(/^https?:\/\//, "")
+            .replace(/\/+$/, "");
+        }
+      }
+    } catch (e) {
+      console.warn("[Webhook-Out] No pude resolver white-label domain:", e);
+    }
+
     const payload = {
       event: "status_change",
       timestamp: new Date().toISOString(),
       data: {
         pedido_id,
         numero_guia: numero_guia || null,
+        referencia_externa: referenciaExterna,
         estado_anterior: estado_anterior || null,
         estado_nuevo,
-        tracking_url: `https://logisticakompraspluscom.lovable.app/rastreo/${numero_guia || pedido_id}`,
+        tracking_url: `https://${trackingDomain}/rastreo/${numero_guia || pedido_id}`,
       },
     };
 
