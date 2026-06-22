@@ -10,6 +10,8 @@ import {
   Package,
   ArrowLeft,
   AlertTriangle,
+  Tag,
+  Check,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -33,6 +35,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { formatCOP } from "@/lib/tarifas";
 import type { CartItem } from "@/hooks/useCart";
+import {
+  trackInitiateCheckout,
+  trackPurchase,
+} from "@/components/catalog/TrackingPixels";
 
 type Step = "cart" | "checkout" | "success";
 
@@ -56,7 +62,18 @@ interface PublicCartUIProps {
 interface SuccessInfo {
   numero_guia: string;
   total: number;
+  subtotal: number;
+  discount: number;
   items_count: number;
+  pedido_id: number;
+  coupon_code: string | null;
+}
+
+interface CouponApplied {
+  code: string;
+  tipo: "percent" | "fixed";
+  valor: number;
+  descuento: number;
 }
 
 const PublicCartUI = ({
@@ -87,6 +104,54 @@ const PublicCartUI = ({
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState<SuccessInfo | null>(null);
 
+  // Cupón
+  const [couponInput, setCouponInput] = useState("");
+  const [couponApplied, setCouponApplied] = useState<CouponApplied | null>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
+  const discount = couponApplied?.descuento ?? 0;
+  const finalTotal = Math.max(0, total - discount);
+
+  const applyCoupon = async () => {
+    const code = couponInput.trim();
+    if (!code) return;
+    setValidatingCoupon(true);
+    setCouponError(null);
+    try {
+      const { data, error } = await (supabase.rpc as any)("validate_coupon", {
+        p_slug: slug,
+        p_code: code,
+        p_subtotal: total,
+      });
+      if (error) throw error;
+      const r = data as { ok: boolean; error?: string; code?: string; tipo?: "percent" | "fixed"; valor?: number; descuento?: number };
+      if (!r?.ok) {
+        setCouponApplied(null);
+        setCouponError(r?.error || "Cupón inválido");
+        return;
+      }
+      setCouponApplied({
+        code: r.code!,
+        tipo: r.tipo!,
+        valor: r.valor!,
+        descuento: Number(r.descuento ?? 0),
+      });
+      setCouponError(null);
+      toast.success(`Cupón ${r.code} aplicado · -${formatCOP(Number(r.descuento ?? 0))}`);
+    } catch (e: any) {
+      setCouponError(e?.message || "Error validando cupón");
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCouponApplied(null);
+    setCouponInput("");
+    setCouponError(null);
+  };
+
   const openCart = () => {
     setStep(items.length > 0 ? "cart" : "cart");
     setOpen(true);
@@ -94,13 +159,14 @@ const PublicCartUI = ({
 
   const goCheckout = () => {
     if (items.length === 0) return;
+    trackInitiateCheckout(finalTotal, count);
     setStep("checkout");
   };
 
   const submit = async () => {
     setSubmitting(true);
     try {
-      const payload = {
+      const payload: Record<string, unknown> = {
         p_slug: slug,
         p_lista_slug: listaSlug ?? null,
         p_codigo_acceso: codigoAcceso ?? null,
@@ -120,24 +186,47 @@ const PublicCartUI = ({
           unit_price: it.unitPrice,
         })),
       };
+      if (couponApplied) payload.p_coupon_code = couponApplied.code;
       const { data, error } = await (supabase.rpc as any)(
         "public_create_order_from_cart",
         payload,
       );
       if (error) throw error;
-      const result = data as { ok: boolean; error?: string; numero_guia?: string; total?: number; items_count?: number };
+      const result = data as {
+        ok: boolean;
+        error?: string;
+        pedido_id?: number;
+        numero_guia?: string;
+        subtotal?: number;
+        discount?: number;
+        total?: number;
+        items_count?: number;
+        coupon_code?: string | null;
+      };
       if (!result?.ok) {
         toast.error(result?.error || "No se pudo crear el pedido");
         setSubmitting(false);
         return;
       }
-      setSuccess({
+      const successInfo: SuccessInfo = {
         numero_guia: result.numero_guia!,
-        total: Number(result.total ?? total),
+        subtotal: Number(result.subtotal ?? total),
+        discount: Number(result.discount ?? 0),
+        total: Number(result.total ?? finalTotal),
         items_count: Number(result.items_count ?? items.length),
+        pedido_id: Number(result.pedido_id ?? 0),
+        coupon_code: result.coupon_code ?? null,
+      };
+      setSuccess(successInfo);
+      trackPurchase({
+        orderId: successInfo.pedido_id || successInfo.numero_guia,
+        total: successInfo.total,
+        itemsCount: successInfo.items_count,
+        coupon: successInfo.coupon_code,
       });
       setStep("success");
       clear();
+      removeCoupon();
     } catch (e: any) {
       toast.error(e?.message || "Error al crear el pedido. Intenta de nuevo.");
     } finally {
@@ -177,7 +266,7 @@ const PublicCartUI = ({
               {count}
             </span>
           </span>
-          <span className="text-sm tabular-nums">{formatCOP(total)}</span>
+          <span className="text-sm tabular-nums">{formatCOP(finalTotal)}</span>
         </button>
       )}
 
@@ -391,6 +480,18 @@ const PublicCartUI = ({
                     <span className="text-muted-foreground">Productos</span>
                     <span className="font-semibold">{success.items_count}</span>
                   </div>
+                  {success.discount > 0 && (
+                    <>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Subtotal</span>
+                        <span className="tabular-nums">{formatCOP(success.subtotal)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs text-emerald-600">
+                        <span>Cupón {success.coupon_code}</span>
+                        <span className="tabular-nums">-{formatCOP(success.discount)}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between text-sm pt-2 border-t border-border">
                     <span className="font-semibold">Total</span>
                     <span className="font-bold" style={{ color: colorPrimary }}>{formatCOP(success.total)}</span>
@@ -405,13 +506,78 @@ const PublicCartUI = ({
 
           {/* Footer */}
           {step === "cart" && items.length > 0 && (
-            <div className="border-t border-border p-5 space-y-3">
-              <div className="flex justify-between items-baseline">
-                <span className="text-sm font-semibold text-muted-foreground">Total</span>
-                <span className="text-2xl font-bold tabular-nums" style={{ color: colorPrimary }}>
-                  {formatCOP(total)}
-                </span>
+            <div className="border-t border-border p-4 space-y-3">
+              {/* Cupón */}
+              {!couponApplied ? (
+                <div>
+                  <div className="flex gap-2">
+                    <Input
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                      placeholder="Código de descuento"
+                      className="font-mono uppercase h-9 text-sm"
+                      maxLength={32}
+                      onKeyDown={(e) => e.key === "Enter" && applyCoupon()}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={applyCoupon}
+                      disabled={validatingCoupon || !couponInput.trim()}
+                      className="h-9 gap-1"
+                    >
+                      {validatingCoupon ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Tag className="h-3.5 w-3.5" />
+                      )}
+                      Aplicar
+                    </Button>
+                  </div>
+                  {couponError && (
+                    <p className="text-[11px] text-destructive mt-1">{couponError}</p>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2 flex items-center justify-between">
+                  <div className="text-xs flex items-center gap-1.5 text-emerald-700">
+                    <Check className="h-3.5 w-3.5" />
+                    <span>
+                      Cupón <strong className="font-mono">{couponApplied.code}</strong>:{" "}
+                      <strong>-{formatCOP(couponApplied.descuento)}</strong>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={removeCoupon}
+                    className="text-[11px] text-emerald-700/70 hover:text-destructive font-medium"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              )}
+
+              {/* Totales */}
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span className="tabular-nums">{formatCOP(total)}</span>
+                </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Descuento</span>
+                    <span className="tabular-nums">-{formatCOP(discount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-baseline pt-1 border-t border-border">
+                  <span className="text-sm font-semibold text-foreground">Total</span>
+                  <span className="text-2xl font-bold tabular-nums" style={{ color: colorPrimary }}>
+                    {formatCOP(finalTotal)}
+                  </span>
+                </div>
               </div>
+
               <Button
                 onClick={goCheckout}
                 className="w-full h-12 text-base font-bold"
@@ -421,7 +587,7 @@ const PublicCartUI = ({
               </Button>
               <button
                 type="button"
-                onClick={clear}
+                onClick={() => { clear(); removeCoupon(); }}
                 className="text-xs text-muted-foreground hover:text-destructive w-full"
               >
                 Vaciar carrito
@@ -433,11 +599,19 @@ const PublicCartUI = ({
             <div className="border-t border-border p-5 space-y-3">
               <div className="flex justify-between items-baseline">
                 <span className="text-xs text-muted-foreground">
-                  {count} producto{count !== 1 ? "s" : ""} · Total
+                  {count} producto{count !== 1 ? "s" : ""}
+                  {couponApplied && ` · cupón ${couponApplied.code}`}
                 </span>
-                <span className="text-xl font-bold tabular-nums" style={{ color: colorPrimary }}>
-                  {formatCOP(total)}
-                </span>
+                <div className="text-right">
+                  {discount > 0 && (
+                    <p className="text-[11px] text-muted-foreground line-through tabular-nums">
+                      {formatCOP(total)}
+                    </p>
+                  )}
+                  <span className="text-xl font-bold tabular-nums" style={{ color: colorPrimary }}>
+                    {formatCOP(finalTotal)}
+                  </span>
+                </div>
               </div>
               <Button
                 onClick={submit}

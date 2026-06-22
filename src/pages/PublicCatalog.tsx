@@ -57,6 +57,10 @@ import { cn } from "@/lib/utils";
 import { formatCOP } from "@/lib/tarifas";
 import { useCart } from "@/hooks/useCart";
 import PublicCartUI from "@/components/catalog/PublicCartUI";
+import TrackingPixels, {
+  trackAddToCart,
+  trackViewContent,
+} from "@/components/catalog/TrackingPixels";
 
 // ── Types ─────────────────────────────────────────────────────────────
 type Template = "minimal" | "professional" | "premium";
@@ -74,6 +78,9 @@ interface Provider {
   color_primary: string;
   color_secondary: string;
   mostrar_precios_catalogo?: boolean;
+  meta_pixel_id?: string | null;
+  tiktok_pixel_id?: string | null;
+  ga4_id?: string | null;
 }
 
 interface ProductVariant {
@@ -240,6 +247,14 @@ const CatalogListView = ({
         imageUrl: p.image_url ?? null,
         stockAtAdd: p.stock_available,
         minQuantity: p.min_quantity ?? 1,
+      });
+      trackAddToCart({
+        productId: p.id,
+        productName: p.product_name,
+        sku: p.sku,
+        price: p.price,
+        category: p.category ?? null,
+        qty: 1,
       });
       toast.success(`${p.product_name} agregado al carrito`, { duration: 1500 });
     },
@@ -921,6 +936,12 @@ const CatalogListView = ({
         colorSecondary={colorSecondary}
         storeName={provider.store_name}
       />
+
+      <TrackingPixels
+        metaPixelId={provider.meta_pixel_id ?? null}
+        tiktokPixelId={provider.tiktok_pixel_id ?? null}
+        ga4Id={provider.ga4_id ?? null}
+      />
     </div>
   );
 };
@@ -1128,6 +1149,22 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
       document.title = "Logística";
     };
   }, [product?.product_name, provider?.store_name]);
+
+  // Track ViewContent una vez cuando el producto + pixels están listos
+  useEffect(() => {
+    if (!product || !provider) return;
+    // Pequeño delay para que los pixels alcancen a inyectarse
+    const t = setTimeout(() => {
+      trackViewContent({
+        productId: product.id,
+        productName: product.product_name,
+        sku: product.sku,
+        price: product.price ?? null,
+        category: product.category ?? null,
+      });
+    }, 600);
+    return () => clearTimeout(t);
+  }, [product?.id, provider?.user_id]);
 
   if (loading) {
     return (
@@ -1664,6 +1701,14 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
                   stockAtAdd: effectiveStock,
                   minQuantity: product.min_quantity ?? 1,
                 });
+                trackAddToCart({
+                  productId: product.id,
+                  productName: product.product_name,
+                  sku: selectedVariant?.sku ?? product.sku,
+                  price: effectivePrice,
+                  category: product.category ?? null,
+                  qty: 1,
+                });
                 toast.success(`${product.product_name} agregado al carrito`, { duration: 1500 });
               }}
               className="flex-1 py-4 rounded-xl font-bold text-white shadow-lg text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
@@ -1716,6 +1761,12 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
         colorPrimary={colorPrimary}
         colorSecondary={colorSecondary}
         storeName={provider.store_name}
+      />
+
+      <TrackingPixels
+        metaPixelId={provider.meta_pixel_id ?? null}
+        tiktokPixelId={provider.tiktok_pixel_id ?? null}
+        ga4Id={provider.ga4_id ?? null}
       />
     </div>
   );

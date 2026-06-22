@@ -23,6 +23,8 @@ import ApiDocsView from "@/components/cliente/ApiDocsView";
 import InventarioView from "@/components/cliente/InventarioView";
 import CatalogoConfigView from "@/components/cliente/CatalogoConfigView";
 import ListasPreciosView from "@/components/cliente/ListasPreciosView";
+import CuponesView from "@/components/cliente/CuponesView";
+import MarketingConfigView from "@/components/cliente/MarketingConfigView";
 import MarketplaceCatalog from "@/components/cliente/MarketplaceCatalog";
 import BilleteraCombinedView from "@/components/cliente/BilleteraCombinedView";
 import LedgerDrawer from "@/components/cliente/LedgerDrawer";
@@ -445,6 +447,14 @@ const ClienteDashboard = () => {
 
             {activeView === "listas-precios" && (
               <ListasPreciosView key="listas-precios" />
+            )}
+
+            {activeView === "cupones" && (
+              <CuponesView key="cupones" />
+            )}
+
+            {activeView === "marketing" && (
+              <MarketingConfigView key="marketing" />
             )}
 
             {/* Vista consolidada Billetera: agrupa Retiros + Transferir +
