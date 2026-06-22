@@ -38,6 +38,7 @@ const RecepcionFlex = lazyRetry(() => import("./pages/RecepcionFlex"));
 const SuperAdminMaster = lazyRetry(() => import("./pages/SuperAdminMaster"));
 const AdminControlTower = lazyRetry(() => import("./pages/AdminControlTower"));
 const AdminAcuerdosFletes = lazyRetry(() => import("./pages/AdminAcuerdosFletes"));
+const AdminTarifasMotorizadosPage = lazyRetry(() => import("./pages/AdminTarifasMotorizadosPage"));
 const PublicCatalog = lazyRetry(() => import("./pages/PublicCatalog"));
 const AILandingStudio = lazyRetry(() => import("./pages/AILandingStudio"));
 const AccountReview = lazyRetry(() => import("./pages/AccountReview"));
@@ -252,6 +253,16 @@ const AppRoutes = () => {
           <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
             <Suspense fallback={<PageLoader />}>
               <AdminAcuerdosFletes />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/tarifas-motorizados"
+        element={
+          <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+            <Suspense fallback={<PageLoader />}>
+              <AdminTarifasMotorizadosPage />
             </Suspense>
           </ProtectedRoute>
         }
