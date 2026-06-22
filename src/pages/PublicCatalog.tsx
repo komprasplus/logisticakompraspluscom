@@ -23,6 +23,7 @@ import {
   X,
   ZoomIn,
   Check,
+  Sparkles,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -61,6 +62,7 @@ import TrackingPixels, {
   trackAddToCart,
   trackViewContent,
 } from "@/components/catalog/TrackingPixels";
+import AIChatPanel from "@/components/catalog/AIChatPanel";
 
 // ── Types ─────────────────────────────────────────────────────────────
 type Template = "minimal" | "professional" | "premium";
@@ -141,6 +143,22 @@ interface ActiveList {
 }
 
 const ALL_CATEGORIES = "__all__";
+
+// ── Session ID estable por visitante (para tracking de views) ─────────
+const SESSION_KEY = "pls-catalog-session";
+const getOrCreateSessionId = (): string => {
+  if (typeof window === "undefined") return "ssr";
+  try {
+    let id = window.localStorage.getItem(SESSION_KEY);
+    if (!id) {
+      id = "sess_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      window.localStorage.setItem(SESSION_KEY, id);
+    }
+    return id;
+  } catch {
+    return "anon";
+  }
+};
 
 // ── Helpers ───────────────────────────────────────────────────────────
 const buildWhatsAppLink = (
@@ -942,6 +960,15 @@ const CatalogListView = ({
         tiktokPixelId={provider.tiktok_pixel_id ?? null}
         ga4Id={provider.ga4_id ?? null}
       />
+
+      <AIChatPanel
+        slug={slug ?? ""}
+        listaSlug={listaSlug ?? null}
+        codigoAcceso={appliedCode}
+        colorPrimary={colorPrimary}
+        colorSecondary={colorSecondary}
+        storeName={provider.store_name}
+      />
     </div>
   );
 };
@@ -1100,6 +1127,7 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
   const [provider, setProvider] = useState<Provider | null>(null);
   const [product, setProduct] = useState<CatalogProduct | null>(null);
   const [related, setRelated] = useState<CatalogProduct[]>([]);
+  const [recommendations, setRecommendations] = useState<CatalogProduct[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [imgIdx, setImgIdx] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -1165,6 +1193,37 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
     }, 600);
     return () => clearTimeout(t);
   }, [product?.id, provider?.user_id]);
+
+  // Track product view (analytics interno para recomendaciones) + cargar recomendaciones
+  useEffect(() => {
+    if (!product?.id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await (supabase.rpc as any)("track_product_view", {
+          p_slug: slug,
+          p_product_id: product.id,
+          p_session_id: getOrCreateSessionId(),
+        });
+      } catch {
+        /* ignore */
+      }
+      try {
+        const { data } = await (supabase.rpc as any)("get_product_recommendations", {
+          p_slug: slug,
+          p_product_id: product.id,
+          p_limit: 6,
+        });
+        if (cancelled) return;
+        setRecommendations(Array.isArray(data) ? (data as CatalogProduct[]) : []);
+      } catch {
+        if (!cancelled) setRecommendations([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.id, slug]);
 
   if (loading) {
     return (
@@ -1665,6 +1724,25 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
           })()}
         </section>
 
+        {/* ── Recomendaciones IA ───────────────────────────── */}
+        {recommendations.length > 0 && (
+          <section className="px-3 pt-6 pb-2">
+            <h3 className="text-sm font-bold text-gray-700 px-1 mb-3 flex items-center gap-1.5">
+              <Sparkles className="h-4 w-4" style={{ color: colorPrimary }} /> Te puede interesar
+            </h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {recommendations.map((p) => (
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  provider={provider}
+                  onClick={() => navigate(`/${slug}/catalogo/${p.id}`)}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ── Related products ───────────────────────────── */}
         {related.length > 0 && (
           <section className="px-3 pt-6 pb-6">
@@ -1767,6 +1845,15 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
         metaPixelId={provider.meta_pixel_id ?? null}
         tiktokPixelId={provider.tiktok_pixel_id ?? null}
         ga4Id={provider.ga4_id ?? null}
+      />
+
+      <AIChatPanel
+        slug={slug}
+        listaSlug={null}
+        codigoAcceso={null}
+        colorPrimary={colorPrimary}
+        colorSecondary={colorSecondary}
+        storeName={provider.store_name}
       />
     </div>
   );
