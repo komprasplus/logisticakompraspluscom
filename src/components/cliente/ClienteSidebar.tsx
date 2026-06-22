@@ -13,6 +13,8 @@ import {
   ShoppingBag,
   Sparkles,
   Tag,
+  TicketPercent,
+  Megaphone,
   Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -34,6 +36,8 @@ export type ClienteView =
   | "catalogo"
   | "catalogo-publico"
   | "listas-precios"
+  | "cupones"
+  | "marketing"
   | "por-empacar"
   | "docs";
 
@@ -82,6 +86,7 @@ const NAV_SECTIONS: NavSection[] = [
       { key: "inventario", label: "Mi Inventario Propio", description: "Stock que manejas", icon: Boxes },
       { key: "catalogo-publico", label: "Mis Catálogos", description: "Tiendas B2B públicas", icon: Sparkles },
       { key: "listas-precios", label: "Listas de Precios", description: "Mayorista, dropshipper, retail…", icon: Tag },
+      { key: "cupones", label: "Cupones de descuento", description: "Códigos promocionales", icon: TicketPercent },
     ],
   },
   {
@@ -97,6 +102,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: "Configuración",
     items: [
       { key: "tienda", label: "Mi Tienda", description: "Branding y configuración", icon: Store },
+      { key: "marketing", label: "Marketing y Tracking", description: "Pixel FB, TikTok, GA4", icon: Megaphone },
       { key: "integraciones", label: "Integraciones", description: "Shopify, Woo, Meli", icon: Plug },
       { key: "docs", label: "Documentación", description: "Guías y API", icon: Book },
     ],
@@ -232,6 +238,8 @@ const ClienteSidebar = ({
       if (isProveedor && item.key === "catalogo") return false;
       if (!isProveedor && item.key === "catalogo-publico") return false;
       if (!isProveedor && item.key === "listas-precios") return false;
+      if (!isProveedor && item.key === "cupones") return false;
+      if (!isProveedor && item.key === "marketing") return false;
       if (!isProveedor && item.key === "por-empacar") return false;
       return true;
     }),
