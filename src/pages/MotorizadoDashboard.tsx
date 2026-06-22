@@ -156,13 +156,6 @@ const MotorizadoDashboard = () => {
   const [showMapView, setShowMapView] = useState(false);
   const [optimizedRoute, setOptimizedRoute] = useState<OptimizedRoute | null>(null);
   const { optimize: computeOptimizedRoute, loading: routeLoading } = useOptimizedRoute();
-
-  // Geocodifica pedidos sin coords usando Google Geocoder (escribe en BD).
-  useGeocodePedidos(
-    pedidos,
-    true,
-    () => refetchPedidos(), // tras geocodificar, refrescamos para tener las nuevas coords
-  );
   const [showProfile, setShowProfile] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -196,6 +189,14 @@ const MotorizadoDashboard = () => {
   // Alias queryPedidos to pedidos for backward compatibility
   const pedidos = queryPedidos;
   const loading = queryLoading;
+
+  // Geocodifica pedidos sin coords usando Google Geocoder (escribe en BD).
+  // Importante: se llama DESPUÉS de declarar `pedidos` para evitar TDZ.
+  useGeocodePedidos(
+    pedidos,
+    true,
+    () => refetchPedidos(), // tras geocodificar, refrescamos para tener las nuevas coords
+  );
 
   // Track location every 30 seconds when online and has active orders
   const hasActiveOrders = pedidos.some(p => 
