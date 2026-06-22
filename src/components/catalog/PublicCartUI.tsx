@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ShoppingCart,
   X,
@@ -54,9 +54,20 @@ interface PublicCartUIProps {
   updateQty: (productId: string, variantId: string | null, qty: number) => void;
   remove: (productId: string, variantId: string | null) => void;
   clear: () => void;
+  add: (item: Omit<CartItem, "qty"> & { qty?: number }) => void;
   colorPrimary: string;
   colorSecondary: string;
   storeName: string;
+}
+
+interface CrossSellProduct {
+  id: string;
+  sku: string;
+  product_name: string;
+  image_url: string | null;
+  stock_available: number;
+  price: number | null;
+  short_id: string;
 }
 
 interface SuccessInfo {
@@ -86,6 +97,7 @@ const PublicCartUI = ({
   updateQty,
   remove,
   clear,
+  add,
   colorPrimary,
   colorSecondary,
   storeName,
@@ -109,6 +121,39 @@ const PublicCartUI = ({
   const [couponApplied, setCouponApplied] = useState<CouponApplied | null>(null);
   const [validatingCoupon, setValidatingCoupon] = useState(false);
   const [couponError, setCouponError] = useState<string | null>(null);
+
+  // Cross-sell
+  const [crossSell, setCrossSell] = useState<CrossSellProduct[]>([]);
+  useEffect(() => {
+    if (!open || step !== "cart" || items.length === 0 || !slug) {
+      setCrossSell([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const productIds = items.map((it) => it.productId);
+        const { data, error } = await (supabase.rpc as any)("get_cross_sell_for_cart", {
+          p_slug: slug,
+          p_product_ids: productIds,
+          p_limit: 4,
+        });
+        if (error) throw error;
+        if (cancelled) return;
+        // Excluir los que ya están en el carrito (safety)
+        const inCart = new Set(productIds);
+        const filtered = (Array.isArray(data) ? (data as CrossSellProduct[]) : []).filter(
+          (p) => !inCart.has(p.id),
+        );
+        setCrossSell(filtered);
+      } catch {
+        if (!cancelled) setCrossSell([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, step, items, slug]);
 
   const discount = couponApplied?.descuento ?? 0;
   const finalTotal = Math.max(0, total - discount);
@@ -377,6 +422,66 @@ const PublicCartUI = ({
                       </div>
                     </div>
                   ))}
+
+                  {/* Cross-sell */}
+                  {crossSell.length > 0 && (
+                    <div className="pt-4 mt-2 border-t border-dashed border-border">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                        También te puede interesar
+                      </p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {crossSell.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            disabled={p.price === null || p.stock_available <= 0}
+                            onClick={() => {
+                              if (p.price === null) return;
+                              add({
+                                productId: p.id,
+                                variantId: null,
+                                productName: p.product_name,
+                                variantName: null,
+                                sku: p.sku,
+                                unitPrice: p.price,
+                                imageUrl: p.image_url ?? null,
+                                stockAtAdd: p.stock_available,
+                                minQuantity: 1,
+                              });
+                              toast.success(p.product_name + " agregado");
+                            }}
+                            className="relative bg-card border border-border rounded-lg overflow-hidden text-left hover:border-primary/40 hover:shadow-sm transition-all group disabled:opacity-50"
+                          >
+                            <div className="aspect-square bg-muted overflow-hidden">
+                              {p.image_url ? (
+                                <img src={p.image_url} alt={p.product_name} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="h-full w-full flex items-center justify-center">
+                                  <Package className="h-8 w-8 text-muted-foreground/40" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-1.5">
+                              <p className="text-[10px] font-semibold text-foreground line-clamp-2 leading-tight min-h-[24px]">
+                                {p.product_name}
+                              </p>
+                              {p.price !== null && (
+                                <p className="text-xs font-bold mt-0.5" style={{ color: colorPrimary }}>
+                                  {formatCOP(p.price)}
+                                </p>
+                              )}
+                            </div>
+                            <span
+                              className="absolute top-1 right-1 h-6 w-6 rounded-full text-white flex items-center justify-center text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                              style={{ backgroundColor: colorPrimary }}
+                            >
+                              +
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )
             )}
