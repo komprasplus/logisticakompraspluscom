@@ -51,9 +51,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { formatCOP } from "@/lib/tarifas";
+import { useCart } from "@/hooks/useCart";
+import PublicCartUI from "@/components/catalog/PublicCartUI";
 
 // ── Types ─────────────────────────────────────────────────────────────
 type Template = "minimal" | "professional" | "premium";
@@ -220,6 +223,28 @@ const CatalogListView = ({
   const [inStockOnly, setInStockOnly] = useState(false);
   const [sortBy, setSortBy] = useState<SortKey>("recent");
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  // ── Cart ──────────────────────────────────────────────────────────────
+  const cart = useCart(slug, listaSlug ?? null);
+
+  const handleQuickAdd = useCallback(
+    (p: CatalogProduct) => {
+      if (p.price === null || p.stock_available <= 0) return;
+      cart.add({
+        productId: p.id,
+        variantId: null,
+        productName: p.product_name,
+        variantName: null,
+        sku: p.sku,
+        unitPrice: p.price,
+        imageUrl: p.image_url ?? null,
+        stockAtAdd: p.stock_available,
+        minQuantity: p.min_quantity ?? 1,
+      });
+      toast.success(`${p.product_name} agregado al carrito`, { duration: 1500 });
+    },
+    [cart],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -869,6 +894,7 @@ const CatalogListView = ({
                     isNew={isNewProduct(product)}
                     isTopSeller={topSellerIds.has(product.id)}
                     onClick={() => goToProduct(product.id)}
+                    onQuickAdd={() => handleQuickAdd(product)}
                   />
                 ))}
               </div>
@@ -880,6 +906,21 @@ const CatalogListView = ({
       <footer className="border-t border-slate-200 bg-white py-4 text-center text-[11px] text-slate-500">
         Catálogo generado con <strong>Plus Envíos</strong>
       </footer>
+
+      <PublicCartUI
+        slug={slug ?? ""}
+        listaSlug={listaSlug ?? null}
+        codigoAcceso={appliedCode}
+        items={cart.items}
+        total={cart.total}
+        count={cart.count}
+        updateQty={cart.updateQty}
+        remove={cart.remove}
+        clear={cart.clear}
+        colorPrimary={colorPrimary}
+        colorSecondary={colorSecondary}
+        storeName={provider.store_name}
+      />
     </div>
   );
 };
@@ -911,16 +952,20 @@ const ProductCard = ({
   product,
   provider,
   onClick,
+  onQuickAdd,
   isNew = false,
   isTopSeller = false,
 }: {
   product: CatalogProduct;
   provider: Provider;
   onClick: () => void;
+  onQuickAdd?: () => void;
   isNew?: boolean;
   isTopSeller?: boolean;
 }) => {
   const lowStock = product.stock_available > 0 && product.stock_available < 5;
+  const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+  const canQuickAdd = !!onQuickAdd && !hasVariants && product.stock_available > 0 && product.price !== null;
 
   return (
     <article
@@ -990,17 +1035,38 @@ const ProductCard = ({
 
         <p className="text-[10px] text-slate-500 truncate">SKU: {product.sku}</p>
 
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick();
-          }}
-          className="mt-auto w-full no-print py-2 rounded-xl font-bold text-xs text-white shadow-sm hover:opacity-90 transition-opacity"
-          style={{ backgroundColor: "var(--catalog-primary)" }}
-        >
-          Ver detalle
-        </button>
+        <div className="mt-auto no-print flex gap-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick();
+            }}
+            className={cn(
+              "py-2 rounded-xl font-bold text-xs shadow-sm transition-opacity",
+              canQuickAdd
+                ? "flex-1 border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                : "w-full text-white hover:opacity-90",
+            )}
+            style={!canQuickAdd ? { backgroundColor: "var(--catalog-primary)" } : undefined}
+          >
+            {hasVariants ? "Elegir opciones →" : "Ver detalle"}
+          </button>
+          {canQuickAdd && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuickAdd!();
+              }}
+              className="px-3 py-2 rounded-xl font-bold text-xs text-white shadow-sm hover:opacity-90 transition-opacity flex items-center gap-1"
+              style={{ backgroundColor: "var(--catalog-primary)" }}
+              aria-label="Agregar al carrito"
+            >
+              <span className="text-base leading-none">+</span> Agregar
+            </button>
+          )}
+        </div>
       </div>
     </article>
   );
@@ -1017,6 +1083,7 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
   const [imgIdx, setImgIdx] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+  const cart = useCart(slug, null);
 
   useEffect(() => {
     let cancelled = false;
@@ -1579,35 +1646,77 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
         )}
       </main>
 
-      {/* ── Sticky CTA ─────────────────────────────────────── */}
-      {waLinkFinal ? (
-        <a
-          href={waLinkFinal}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="no-print fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-4 py-3 shadow-2xl"
-        >
-          <div className="max-w-3xl mx-auto">
-            <div
-              className="flex items-center justify-center gap-2 py-4 rounded-xl font-bold text-white shadow-lg text-lg"
+      {/* ── Sticky CTA: Agregar al carrito + WhatsApp ─────────────── */}
+      <div className="no-print fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-4 py-3 shadow-2xl">
+        <div className="max-w-3xl mx-auto flex items-center gap-2">
+          {effectivePrice !== null && effectiveStock > 0 && (hasVariants ? selectedVariant : true) && (
+            <button
+              type="button"
+              onClick={() => {
+                cart.add({
+                  productId: product.id,
+                  variantId: selectedVariant?.id ?? null,
+                  productName: product.product_name,
+                  variantName: selectedVariant?.variant_name ?? null,
+                  sku: selectedVariant?.sku ?? product.sku,
+                  unitPrice: effectivePrice!,
+                  imageUrl: currentImg ?? product.image_url ?? null,
+                  stockAtAdd: effectiveStock,
+                  minQuantity: product.min_quantity ?? 1,
+                });
+                toast.success(`${product.product_name} agregado al carrito`, { duration: 1500 });
+              }}
+              className="flex-1 py-4 rounded-xl font-bold text-white shadow-lg text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+              style={{ background: `linear-gradient(135deg, ${colorPrimary}, ${colorSecondary})` }}
+            >
+              + Agregar al carrito
+            </button>
+          )}
+          {waLinkFinal ? (
+            <a
+              href={waLinkFinal}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(
+                "py-4 rounded-xl font-bold text-white shadow-lg text-base flex items-center justify-center gap-2 hover:opacity-90 transition-opacity",
+                effectivePrice !== null && effectiveStock > 0 && (hasVariants ? selectedVariant : true)
+                  ? "px-4"
+                  : "flex-1",
+              )}
               style={{ backgroundColor: "#25D366" }}
+              aria-label="Pedir por WhatsApp"
             >
               <MessageCircle className="h-5 w-5" />
-              {hasVariants && !selectedVariant
-                ? "Elige una opción para pedir"
-                : showPrices
-                  ? "Hacer pedido mayorista"
-                  : "Cotizar este producto"}
-            </div>
-          </div>
-        </a>
-      ) : (
-        <div className="no-print fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 px-4 py-3">
-          <p className="text-[11px] text-amber-600 text-center bg-amber-50 rounded-lg py-2">
-            ⚠️ Proveedor sin teléfono configurado
-          </p>
+              {effectivePrice !== null && effectiveStock > 0 && (hasVariants ? selectedVariant : true)
+                ? null
+                : hasVariants && !selectedVariant
+                  ? "Elige una opción"
+                  : showPrices
+                    ? "Hacer pedido mayorista"
+                    : "Cotizar"}
+            </a>
+          ) : (
+            <p className="flex-1 text-[11px] text-amber-600 text-center bg-amber-50 rounded-lg py-2">
+              ⚠️ Sin teléfono configurado
+            </p>
+          )}
         </div>
-      )}
+      </div>
+
+      <PublicCartUI
+        slug={slug}
+        listaSlug={null}
+        codigoAcceso={null}
+        items={cart.items}
+        total={cart.total}
+        count={cart.count}
+        updateQty={cart.updateQty}
+        remove={cart.remove}
+        clear={cart.clear}
+        colorPrimary={colorPrimary}
+        colorSecondary={colorSecondary}
+        storeName={provider.store_name}
+      />
     </div>
   );
 };
