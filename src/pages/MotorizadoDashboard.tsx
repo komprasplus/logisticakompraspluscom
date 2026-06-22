@@ -79,6 +79,8 @@ import { NOVEDAD_OPTIONS, NOVEDADES_REQUIRE_PHOTO, type NovedadType, getStatusCo
 import { deductInventoryOnDelivery } from "@/lib/inventoryService";
 import PedidoChat from "@/components/PedidoChat";
 import { optimizeRouteNearestNeighbor, calculateTotalRouteDistance } from "@/lib/routeOptimizer";
+import { useGeocodePedidos } from "@/hooks/useGeocodePedidos";
+import { useOptimizedRoute, type OptimizedRoute } from "@/hooks/useOptimizedRoute";
 import { 
   savePendingDeliveryOffline, 
   savePendingNovedadOffline, 
@@ -152,6 +154,15 @@ const MotorizadoDashboard = () => {
   const [novedadReason, setNovedadReason] = useState("");
   const [novedadPhoto, setNovedadPhoto] = useState<string | null>(null);
   const [showMapView, setShowMapView] = useState(false);
+  const [optimizedRoute, setOptimizedRoute] = useState<OptimizedRoute | null>(null);
+  const { optimize: computeOptimizedRoute, loading: routeLoading } = useOptimizedRoute();
+
+  // Geocodifica pedidos sin coords usando Google Geocoder (escribe en BD).
+  useGeocodePedidos(
+    pedidos,
+    true,
+    () => refetchPedidos(), // tras geocodificar, refrescamos para tener las nuevas coords
+  );
   const [showProfile, setShowProfile] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [showQRScanner, setShowQRScanner] = useState(false);
@@ -271,29 +282,65 @@ const MotorizadoDashboard = () => {
     }
   }, [activeFilter, pedidos, userLocation, isRouteOptimized]);
 
-  // Route optimization handler
-  const handleOptimizeRoute = useCallback(() => {
-    if (!userLocation) {
-      toast.error("Se necesita tu ubicación GPS para optimizar la ruta");
-      return;
-    }
-    const activePedidos = pedidos.filter(p => 
+  // Route optimization handler — usa Google Directions API real
+  const handleOptimizeRoute = useCallback(async () => {
+    const activePedidos = pedidos.filter(p =>
       p.estado?.toLowerCase() !== "entregado" && !p.estado?.toLowerCase().includes("novedad")
     );
-    if (activePedidos.length < 2) {
-      toast.info("Necesitas al menos 2 pedidos activos para optimizar");
+    if (activePedidos.length === 0) {
+      toast.info("No hay pedidos activos para optimizar");
       return;
     }
 
-    setIsRouteOptimized(true);
-    
-    const beforeDist = calculateTotalRouteDistance(activePedidos, userLocation.lat, userLocation.lng);
-    const optimized = optimizeRouteNearestNeighbor(activePedidos, userLocation.lat, userLocation.lng);
-    const afterDist = calculateTotalRouteDistance(optimized, userLocation.lat, userLocation.lng);
-    const savedKm = ((beforeDist - afterDist) / 1000).toFixed(1);
-    
-    toast.success(`🗺️ Ruta optimizada — ${savedKm}km ahorrados`, { duration: 4000 });
-  }, [pedidos, userLocation]);
+    // Origen: la bodega Calle 14 #19-64. La ubicación GPS del motorizado es
+    // opcional y solo se usa para el orden inicial de la lista (no para la
+    // ruta optimizada, que siempre arranca desde la bodega).
+    const origin = { lat: BODEGA_LAT, lng: BODEGA_LNG };
+
+    const withCoords = activePedidos.filter((p) => p.latitud != null && p.longitud != null);
+    const missing = activePedidos.length - withCoords.length;
+    if (withCoords.length === 0) {
+      toast.error("Ningún pedido tiene coordenadas todavía. Espera unos segundos a que se geocodifiquen.");
+      return;
+    }
+
+    const loadingToast = toast.loading("Calculando la mejor ruta con Google Maps...");
+    try {
+      const route = await computeOptimizedRoute(origin, withCoords);
+      toast.dismiss(loadingToast);
+      if (!route) {
+        toast.error("No se pudo calcular la ruta. Intenta de nuevo.");
+        return;
+      }
+      setOptimizedRoute(route);
+      setIsRouteOptimized(true);
+      setShowMapView(true);
+      const msg = missing > 0
+        ? `Ruta lista · ${route.distanceKm.toFixed(1)}km · ${Math.round(route.durationMin)}min (${missing} sin coords aún)`
+        : `Ruta lista · ${route.distanceKm.toFixed(1)}km · ${Math.round(route.durationMin)}min`;
+      toast.success(msg, { duration: 5000 });
+    } catch (e: any) {
+      toast.dismiss(loadingToast);
+      toast.error(e?.message || "Error optimizando ruta");
+    }
+  }, [pedidos, computeOptimizedRoute]);
+
+  // Refrescar la ruta optimizada cuando cambia el conjunto de pedidos activos
+  // (ej. tras geocodificar uno que faltaba, o al entregar un pedido).
+  useEffect(() => {
+    if (!isRouteOptimized || !optimizedRoute) return;
+    const activeIds = new Set(
+      pedidos
+        .filter((p) =>
+          p.estado?.toLowerCase() !== "entregado" &&
+          !p.estado?.toLowerCase().includes("novedad")
+        )
+        .map((p) => p.id),
+    );
+    // Si la ruta tiene IDs que ya no están activos, invalidamos
+    const stillValid = optimizedRoute.orderedIds.every((id) => activeIds.has(id));
+    if (!stillValid) setOptimizedRoute(null);
+  }, [pedidos, isRouteOptimized, optimizedRoute]);
 
   // fetchPedidos is now handled by useMotorizadoPedidos React Query hook
   // Legacy function kept as alias for backward compatibility
@@ -1289,12 +1336,37 @@ const MotorizadoDashboard = () => {
                 exit={{ opacity: 0, height: 0 }}
               >
                 <div className="rounded-2xl overflow-hidden border border-border">
-                  <div className="h-[280px]">
+                  {optimizedRoute && (
+                    <div className="bg-gradient-to-r from-primary/10 to-gold/10 border-b border-border px-3 py-2 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 text-xs">
+                        <Route className="h-3.5 w-3.5 text-primary" />
+                        <span className="font-bold text-foreground">
+                          Ruta óptima
+                        </span>
+                        <span className="text-muted-foreground">
+                          · {optimizedRoute.distanceKm.toFixed(1)}km · {Math.round(optimizedRoute.durationMin)}min · {optimizedRoute.orderedIds.length} paradas
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOptimizedRoute(null);
+                          setIsRouteOptimized(false);
+                        }}
+                        className="text-[10px] text-muted-foreground hover:text-destructive font-medium"
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  )}
+                  <div className="h-[320px]">
                     <MapErrorBoundary fallbackMessage="Error al cargar el mapa. Verifica tu conexión y permisos de GPS.">
                       <MotorizadoMapGoogle
                         pedidos={pedidos}
                         userLocation={userLocation}
                         onPedidoClick={(pedido) => setSelectedPedido(pedido as Pedido)}
+                        routePolyline={optimizedRoute?.polyline ?? null}
+                        routeOrderedIds={optimizedRoute?.orderedIds ?? null}
                       />
                     </MapErrorBoundary>
                   </div>

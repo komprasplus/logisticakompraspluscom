@@ -4,13 +4,15 @@ import {
   useJsApiLoader,
   MarkerF,
   InfoWindowF,
+  PolylineF,
 } from "@react-google-maps/api";
-import { Loader2, Navigation, ExternalLink } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 const GOOGLE_MAPS_API_KEY = "AIzaSyDvV2fL5jv0OIp45Si4m4-gaWSt9gIXznA";
+const GOOGLE_MAPS_LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
 
-// Warehouse coordinates - Carrera 20 # 14-30, Bogotá
-const BODEGA_COORDS = { lat: 4.60922, lng: -74.08463 };
+// Warehouse coordinates - Calle 14 # 19-64, Bogotá (Plus Envíos)
+const BODEGA_COORDS = { lat: 4.6066, lng: -74.0747 };
 
 // Map styling - clean professional look (Light Mode)
 const lightMapStyles = [
@@ -71,12 +73,18 @@ interface MotorizadoMapGoogleProps {
   pedidos: Pedido[];
   userLocation?: { lat: number; lng: number } | null;
   onPedidoClick?: (pedido: Pedido) => void;
+  /** Encoded polyline de la ruta optimizada (Google Directions). */
+  routePolyline?: string | null;
+  /** Orden óptimo de pedidos (IDs). Si está, los markers se numeran según este orden. */
+  routeOrderedIds?: number[] | null;
 }
 
-const MotorizadoMapGoogle = ({ 
-  pedidos, 
-  userLocation, 
-  onPedidoClick 
+const MotorizadoMapGoogle = ({
+  pedidos,
+  userLocation,
+  onPedidoClick,
+  routePolyline,
+  routeOrderedIds,
 }: MotorizadoMapGoogleProps) => {
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [selectedMarker, setSelectedMarker] = useState<{
@@ -110,8 +118,33 @@ const MotorizadoMapGoogle = ({
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: ["places"],
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
+
+  // Decodificar la polyline cuando llegue
+  const decodedPath = useMemo(() => {
+    if (!isLoaded || !routePolyline) return null;
+    try {
+      const geometry = (window as any).google?.maps?.geometry?.encoding;
+      if (!geometry?.decodePath) return null;
+      const path = geometry.decodePath(routePolyline) as Array<{
+        lat: () => number;
+        lng: () => number;
+      }>;
+      return path.map((p) => ({ lat: p.lat(), lng: p.lng() }));
+    } catch {
+      return null;
+    }
+  }, [isLoaded, routePolyline]);
+
+  // Auto-fit del mapa cuando hay ruta
+  useEffect(() => {
+    if (!map || !decodedPath || decodedPath.length === 0) return;
+    const bounds = new (window as any).google.maps.LatLngBounds();
+    bounds.extend(BODEGA_COORDS);
+    decodedPath.forEach((p) => bounds.extend(p));
+    map.fitBounds(bounds, 60);
+  }, [map, decodedPath]);
 
   const onMapLoad = useCallback((mapInstance: google.maps.Map) => {
     setMap(mapInstance);
@@ -119,14 +152,29 @@ const MotorizadoMapGoogle = ({
 
   // Filter valid pedidos
   const validPedidos = useMemo(() => {
-    return pedidos.filter(
+    const valid = pedidos.filter(
       (p) =>
         p.latitud != null &&
         p.longitud != null &&
         !isNaN(Number(p.latitud)) &&
         !isNaN(Number(p.longitud))
     );
-  }, [pedidos]);
+    // Si hay orden optimizado, reordenar los validos según ese orden
+    if (routeOrderedIds && routeOrderedIds.length > 0) {
+      const map = new Map(valid.map((p) => [p.id, p]));
+      const ordered: Pedido[] = [];
+      for (const id of routeOrderedIds) {
+        const p = map.get(id);
+        if (p) {
+          ordered.push(p);
+          map.delete(id);
+        }
+      }
+      // Append los que no estaban en el orden (por si hay desfase)
+      return [...ordered, ...map.values()];
+    }
+    return valid;
+  }, [pedidos, routeOrderedIds]);
 
   // Calculate center based on pedidos
   const center = useMemo(() => {
@@ -235,6 +283,26 @@ const MotorizadoMapGoogle = ({
           fullscreenControl: false,
         }}
       >
+        {/* Polyline de ruta optimizada */}
+        {decodedPath && decodedPath.length > 0 && (
+          <PolylineF
+            path={decodedPath}
+            options={{
+              strokeColor: "#1B2959",
+              strokeOpacity: 0.85,
+              strokeWeight: 5,
+              geodesic: true,
+              icons: [
+                {
+                  icon: { path: "M 0,-1 0,1", strokeOpacity: 1, scale: 3 },
+                  offset: "0",
+                  repeat: "16px",
+                },
+              ],
+            }}
+          />
+        )}
+
         {/* Warehouse Marker */}
         <MarkerF
           position={BODEGA_COORDS}
