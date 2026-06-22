@@ -63,19 +63,24 @@ const MOTORIZADO_PEDIDO_COLUMNS = `
 const fetchMotorizadoPedidos = async (userId: string): Promise<Pedido[]> => {
   const todayStartIso = getStartOfTodayBogotaISO();
 
+  // Estados ya normalizados a lowercase canónico en BD (ver migración Zokuno).
+  // Aceptamos variantes Title Case por compatibilidad con pedidos legacy no migrados.
   const [activeResp, deliveredTodayResp] = await Promise.all([
     supabase
       .from("pedidos")
       .select(MOTORIZADO_PEDIDO_COLUMNS)
       .eq("motorizado_id", userId)
-      .in("estado", ["Asignado", "En Ruta", "Novedad"])
+      .in("estado", [
+        "asignado", "en_ruta", "novedad",
+        "Asignado", "En Ruta", "Novedad", // legacy fallback
+      ])
       .order("id", { ascending: true })
       .limit(50),
     supabase
       .from("pedidos")
       .select(MOTORIZADO_PEDIDO_COLUMNS)
       .eq("motorizado_id", userId)
-      .eq("estado", "Entregado")
+      .in("estado", ["entregado", "Entregado"])
       .gte("fecha_actualizacion", todayStartIso)
       .order("fecha_actualizacion", { ascending: false })
       .limit(50),
