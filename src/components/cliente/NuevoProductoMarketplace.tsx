@@ -15,8 +15,23 @@
  */
 
 import { useState, useRef, useCallback } from "react";
-import { motion } from "framer-motion";
-import { Package, Loader2, Save, X, Plus, Tag, Upload, Trash2 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import {
+  Package,
+  Loader2,
+  Save,
+  X,
+  Plus,
+  Tag,
+  Upload,
+  Trash2,
+  Eye,
+  Pencil,
+  ChevronLeft,
+  ChevronRight,
+  ImagePlus,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -41,8 +56,14 @@ import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/imageCompression";
 import { CATEGORY_TREE, CATEGORY_KEYS } from "@/lib/categoryTree";
 
-const MAX_DESCRIPTION = 5000;
+const MAX_DESCRIPTION = 10000;
 const MAX_IMAGE_BYTES = 1024 * 1024;
+const MAX_IMAGES = 20;
+
+interface ImageSlot {
+  file: File;
+  preview: string;
+}
 
 interface Props {
   isOpen: boolean;
@@ -92,8 +113,8 @@ const NuevoProductoMarketplace = ({
     }>
   >([]);
 
-  const [imageFiles, setImageFiles] = useState<(File | null)[]>([null, null, null]);
-  const [imagePreviews, setImagePreviews] = useState<(string | null)[]>([null, null, null]);
+  const [images, setImages] = useState<ImageSlot[]>([]);
+  const [descriptionMode, setDescriptionMode] = useState<"edit" | "preview">("edit");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetAndClose = () => {
@@ -111,8 +132,8 @@ const NuevoProductoMarketplace = ({
     setAttributeValues({});
     setNewAttrName("");
     setVariants([]);
-    setImageFiles([null, null, null]);
-    setImagePreviews([null, null, null]);
+    setImages([]);
+    setDescriptionMode("edit");
     setEsPrivado(false);
     onClose();
   };
@@ -122,55 +143,63 @@ const NuevoProductoMarketplace = ({
       const files = Array.from(e.target.files || []);
       if (!files.length) return;
 
-      const newFiles = [...imageFiles];
-      const newPreviews = [...imagePreviews];
+      const room = MAX_IMAGES - images.length;
+      if (room <= 0) {
+        toast.error(`Máximo ${MAX_IMAGES} imágenes`);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+      const toProcess = files.slice(0, room);
+      if (files.length > room) {
+        toast.warning(`Solo se agregaron las primeras ${room} (límite ${MAX_IMAGES})`);
+      }
 
-      for (const file of files) {
-        const slot = newFiles.findIndex((f) => !f);
-        if (slot < 0) {
-          toast.error("Máximo 3 imágenes");
-          break;
-        }
+      const added: ImageSlot[] = [];
+      for (const file of toProcess) {
         try {
           const compressed = await compressImage(file, MAX_IMAGE_BYTES);
-          newFiles[slot] = new File([compressed.blob], file.name, { type: "image/jpeg" });
-          newPreviews[slot] = compressed.base64;
+          added.push({
+            file: new File([compressed.blob], file.name, { type: "image/jpeg" }),
+            preview: compressed.base64,
+          });
         } catch {
-          newFiles[slot] = file;
-          newPreviews[slot] = URL.createObjectURL(file);
+          added.push({ file, preview: URL.createObjectURL(file) });
         }
       }
-      setImageFiles(newFiles);
-      setImagePreviews(newPreviews);
+      setImages((prev) => [...prev, ...added]);
       if (fileInputRef.current) fileInputRef.current.value = "";
     },
-    [imageFiles, imagePreviews],
+    [images.length],
   );
 
   const removeImage = (i: number) => {
-    const nf = [...imageFiles];
-    nf[i] = null;
-    setImageFiles(nf);
-    const np = [...imagePreviews];
-    np[i] = null;
-    setImagePreviews(np);
+    setImages((prev) => prev.filter((_, idx) => idx !== i));
   };
 
-  const uploadImages = async (): Promise<(string | null)[]> => {
-    const urls: (string | null)[] = [null, null, null];
+  const moveImage = (i: number, dir: -1 | 1) => {
+    setImages((prev) => {
+      const next = [...prev];
+      const target = i + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[i], next[target]] = [next[target], next[i]];
+      return next;
+    });
+  };
+
+  const uploadImages = async (): Promise<string[]> => {
+    const urls: string[] = [];
     setUploadingImages(true);
     try {
       const folder = organizacionId || userId;
-      for (let i = 0; i < 3; i++) {
-        const file = imageFiles[i];
-        if (!file) continue;
+      for (let i = 0; i < images.length; i++) {
+        const { file } = images[i];
         const path = `${folder}/${Date.now()}_${i}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
         const { error } = await supabase.storage
           .from("marketplace-images")
           .upload(path, file, { upsert: true });
         if (error) throw error;
         const { data: pub } = supabase.storage.from("marketplace-images").getPublicUrl(path);
-        urls[i] = pub.publicUrl;
+        urls.push(pub.publicUrl);
       }
     } finally {
       setUploadingImages(false);
@@ -275,6 +304,7 @@ const NuevoProductoMarketplace = ({
           .insert({
             product_name: name.trim(),
             description: description.trim() || null,
+            description_md: description.trim() || null,
             especificaciones: especificaciones.trim() || null,
             garantia: garantia.trim() || null,
             sku: sku.trim(),
@@ -284,6 +314,7 @@ const NuevoProductoMarketplace = ({
             image_url: imgUrls[0] || null,
             image_url_2: imgUrls[1] || null,
             image_url_3: imgUrls[2] || null,
+            image_urls: imgUrls,
             product_type: productType,
             category: category || null,
             subcategory: subcategory || null,
@@ -321,13 +352,19 @@ const NuevoProductoMarketplace = ({
           sku: sku.trim().toUpperCase(),
           product_name: name.trim(),
           description: description.trim() || null,
+          description_md: description.trim() || null,
           especificaciones: especificaciones.trim() || null,
           garantia: garantia.trim() || null,
+          category: category || null,
+          subcategory: subcategory || null,
           stock_available: totalStock,
           price: Number(suggestedPrice) || 0,
           cost_price: Number(costPrice) || 0,
           low_stock_threshold: 5,
           image_url: imgUrls[0] || null,
+          image_url_2: imgUrls[1] || null,
+          image_url_3: imgUrls[2] || null,
+          image_urls: imgUrls,
           is_public: true,
         });
         if (invErr) console.error("Error reflejando en inventario:", invErr);
@@ -340,6 +377,7 @@ const NuevoProductoMarketplace = ({
           sku: sku.trim().toUpperCase(),
           product_name: name.trim(),
           description: description.trim() || null,
+          description_md: description.trim() || null,
           especificaciones: especificaciones.trim() || null,
           garantia: garantia.trim() || null,
           category: category || null,
@@ -351,6 +389,7 @@ const NuevoProductoMarketplace = ({
           image_url: imgUrls[0] || null,
           image_url_2: imgUrls[1] || null,
           image_url_3: imgUrls[2] || null,
+          image_urls: imgUrls,
           is_public: false,
         });
         if (error) {
@@ -372,8 +411,6 @@ const NuevoProductoMarketplace = ({
       setSaving(false);
     }
   };
-
-  const activeSlots = imagePreviews.filter(Boolean).length;
 
   return (
     <Dialog open={isOpen} onOpenChange={(v) => !v && !saving && resetAndClose()}>
@@ -534,18 +571,56 @@ const NuevoProductoMarketplace = ({
 
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1 block">
-              Descripción
-            </label>
-            <Textarea
-              value={description}
-              onChange={(e) => {
-                if (e.target.value.length <= MAX_DESCRIPTION) setDescription(e.target.value);
-              }}
-              placeholder="Descripción detallada del producto..."
-              rows={4}
-              className="resize-none"
-            />
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-muted-foreground">
+                Descripción <span className="text-muted-foreground/60">(soporta Markdown · **negrita**, *cursiva*, listas, links)</span>
+              </label>
+              <div className="inline-flex rounded-md border border-border overflow-hidden text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setDescriptionMode("edit")}
+                  className={cn(
+                    "px-2 py-0.5 flex items-center gap-1 transition-colors",
+                    descriptionMode === "edit"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Pencil className="h-3 w-3" /> Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDescriptionMode("preview")}
+                  className={cn(
+                    "px-2 py-0.5 flex items-center gap-1 border-l border-border transition-colors",
+                    descriptionMode === "preview"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-background text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Eye className="h-3 w-3" /> Vista previa
+                </button>
+              </div>
+            </div>
+            {descriptionMode === "edit" ? (
+              <Textarea
+                value={description}
+                onChange={(e) => {
+                  if (e.target.value.length <= MAX_DESCRIPTION) setDescription(e.target.value);
+                }}
+                placeholder={"Ej:\n## Características\n- Material 100% algodón\n- Tallas S/M/L\n\n**Ideal para** uso diario."}
+                rows={8}
+                className="resize-none font-mono text-xs"
+              />
+            ) : (
+              <div className="rounded-md border border-border bg-background px-3 py-2 min-h-[200px] prose prose-sm prose-neutral dark:prose-invert max-w-none">
+                {description.trim() ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{description}</ReactMarkdown>
+                ) : (
+                  <p className="text-muted-foreground text-xs italic m-0">Sin descripción aún.</p>
+                )}
+              </div>
+            )}
             <p
               className={cn(
                 "text-xs mt-1 text-right",
@@ -734,50 +809,80 @@ const NuevoProductoMarketplace = ({
           )}
 
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-2 block">
-              Imágenes del Producto (máx. 3)
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {[0, 1, 2].map((i) => {
-                const src = imagePreviews[i];
-                return (
-                  <div
-                    key={i}
-                    className={cn(
-                      "relative aspect-square rounded-xl border-2 border-dashed flex items-center justify-center overflow-hidden transition-all",
-                      src
-                        ? "border-primary/40 bg-primary/5"
-                        : "border-border bg-muted/50 hover:border-primary/30 hover:bg-muted",
-                    )}
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Imágenes del Producto (hasta {MAX_IMAGES})
+              </label>
+              <span className="text-[10px] text-muted-foreground">
+                {images.length}/{MAX_IMAGES} · arrastra con flechas para reordenar · la 1ra es la principal
+              </span>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+              {images.map((img, i) => (
+                <div
+                  key={i}
+                  className={cn(
+                    "relative aspect-square rounded-lg overflow-hidden border-2 group transition-all",
+                    i === 0
+                      ? "border-primary shadow-sm"
+                      : "border-border hover:border-primary/40",
+                  )}
+                >
+                  <img
+                    src={img.preview}
+                    alt={`Imagen ${i + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                  {i === 0 && (
+                    <span className="absolute top-1 left-1 bg-primary text-primary-foreground text-[9px] px-1.5 py-0.5 rounded-full font-bold">
+                      Principal
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeImage(i)}
+                    className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Eliminar"
                   >
-                    {src ? (
-                      <>
-                        <img
-                          src={src}
-                          alt={`Imagen ${i + 1}`}
-                          className="h-full w-full object-cover rounded-lg"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeImage(i)}
-                          className="absolute top-1.5 right-1.5 bg-destructive text-destructive-foreground rounded-full p-1 shadow-md hover:scale-110 transition-transform"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="flex flex-col items-center gap-1.5 text-muted-foreground hover:text-primary transition-colors p-4"
-                      >
-                        <Upload className="h-6 w-6" />
-                        <span className="text-[10px] font-medium">Subir imagen</span>
-                      </button>
-                    )}
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                  <div className="absolute bottom-1 left-1 right-1 flex items-center justify-between gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => moveImage(i, -1)}
+                      disabled={i === 0}
+                      className="bg-black/60 text-white rounded p-0.5 disabled:opacity-30"
+                      title="Mover izquierda"
+                    >
+                      <ChevronLeft className="h-3 w-3" />
+                    </button>
+                    <span className="bg-black/60 text-white text-[9px] font-mono rounded px-1">
+                      {i + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => moveImage(i, 1)}
+                      disabled={i === images.length - 1}
+                      className="bg-black/60 text-white rounded p-0.5 disabled:opacity-30"
+                      title="Mover derecha"
+                    >
+                      <ChevronRight className="h-3 w-3" />
+                    </button>
                   </div>
-                );
-              })}
+                </div>
+              ))}
+              {images.length < MAX_IMAGES && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="aspect-square rounded-lg border-2 border-dashed border-border bg-muted/40 hover:bg-muted hover:border-primary/40 flex flex-col items-center justify-center gap-1 text-muted-foreground hover:text-primary transition-all p-2"
+                >
+                  <ImagePlus className="h-5 w-5" />
+                  <span className="text-[9px] font-medium text-center leading-tight">
+                    {images.length === 0 ? "Subir fotos" : "Añadir más"}
+                  </span>
+                </button>
+              )}
             </div>
             <input
               ref={fileInputRef}
@@ -787,8 +892,8 @@ const NuevoProductoMarketplace = ({
               className="hidden"
               onChange={handleImageSelect}
             />
-            <p className="text-xs text-muted-foreground mt-1.5">
-              Las imágenes se comprimen automáticamente a máx. 1MB. {activeSlots}/3 subidas.
+            <p className="text-[10px] text-muted-foreground mt-1.5">
+              Las imágenes se comprimen automáticamente a máx. 1MB c/u.
             </p>
           </div>
         </div>
