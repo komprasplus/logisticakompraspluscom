@@ -39,6 +39,16 @@ interface CatalogConfig {
   phone: string | null;
   store_name: string | null;
   logo_url: string | null;
+  // ── Branding pro ──
+  catalog_hero_image_url: string | null;
+  catalog_hero_title: string | null;
+  catalog_hero_subtitle: string | null;
+  catalog_instagram: string | null;
+  catalog_facebook: string | null;
+  catalog_tiktok: string | null;
+  catalog_website: string | null;
+  catalog_whatsapp: string | null;
+  catalog_grid_columns: number;
 }
 
 const TEMPLATES: {
@@ -87,6 +97,15 @@ const CatalogoConfigView = () => {
     phone: null,
     store_name: null,
     logo_url: null,
+    catalog_hero_image_url: null,
+    catalog_hero_title: null,
+    catalog_hero_subtitle: null,
+    catalog_instagram: null,
+    catalog_facebook: null,
+    catalog_tiktok: null,
+    catalog_website: null,
+    catalog_whatsapp: null,
+    catalog_grid_columns: 4,
   });
 
   const publicUrl =
@@ -100,10 +119,10 @@ const CatalogoConfigView = () => {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("profiles")
         .select(
-          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, catalog_slug, mostrar_precios_catalogo, phone, store_name, logo_url",
+          "catalog_template, catalog_color_primary, catalog_color_secondary, catalog_description, catalog_public_enabled, catalog_slug, mostrar_precios_catalogo, phone, store_name, logo_url, catalog_hero_image_url, catalog_hero_title, catalog_hero_subtitle, catalog_instagram, catalog_facebook, catalog_tiktok, catalog_website, catalog_whatsapp, catalog_grid_columns",
         )
         .eq("user_id", user.id)
         .single();
@@ -122,6 +141,15 @@ const CatalogoConfigView = () => {
           catalog_public_enabled: data.catalog_public_enabled ?? false,
           catalog_slug: d.catalog_slug ?? null,
           mostrar_precios_catalogo: d.mostrar_precios_catalogo ?? true,
+          catalog_hero_image_url: (d as any).catalog_hero_image_url ?? null,
+          catalog_hero_title: (d as any).catalog_hero_title ?? null,
+          catalog_hero_subtitle: (d as any).catalog_hero_subtitle ?? null,
+          catalog_instagram: (d as any).catalog_instagram ?? null,
+          catalog_facebook: (d as any).catalog_facebook ?? null,
+          catalog_tiktok: (d as any).catalog_tiktok ?? null,
+          catalog_website: (d as any).catalog_website ?? null,
+          catalog_whatsapp: (d as any).catalog_whatsapp ?? null,
+          catalog_grid_columns: (d as any).catalog_grid_columns ?? 4,
           phone: data.phone,
           store_name: data.store_name,
           logo_url: data.logo_url,
@@ -143,7 +171,7 @@ const CatalogoConfigView = () => {
     if (!user?.id) return;
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("profiles")
         .update({
           catalog_template: config.catalog_template,
@@ -152,7 +180,16 @@ const CatalogoConfigView = () => {
           catalog_description: config.catalog_description?.trim() || null,
           catalog_public_enabled: config.catalog_public_enabled,
           mostrar_precios_catalogo: config.mostrar_precios_catalogo,
-        } as never)
+          catalog_hero_image_url: config.catalog_hero_image_url?.trim() || null,
+          catalog_hero_title: config.catalog_hero_title?.trim() || null,
+          catalog_hero_subtitle: config.catalog_hero_subtitle?.trim() || null,
+          catalog_instagram: config.catalog_instagram?.trim() || null,
+          catalog_facebook: config.catalog_facebook?.trim() || null,
+          catalog_tiktok: config.catalog_tiktok?.trim() || null,
+          catalog_website: config.catalog_website?.trim() || null,
+          catalog_whatsapp: config.catalog_whatsapp?.trim() || null,
+          catalog_grid_columns: config.catalog_grid_columns,
+        })
         .eq("user_id", user.id);
 
       if (error) throw error;
@@ -421,6 +458,160 @@ const CatalogoConfigView = () => {
                   <div className="mt-2 flex items-center gap-1 text-xs text-primary font-semibold">
                     <Check className="h-3 w-3" /> Seleccionada
                   </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </Card>
+
+      {/* ── Hero Banner ───────────────────────────────────── */}
+      <Card className="p-4 sm:p-6">
+        <div className="mb-4">
+          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+            🖼️ Banner Principal (Hero)
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Imagen grande en la parte superior de tu catálogo. Recomendado 1600×640px.
+          </p>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">URL de la imagen</label>
+            <Input
+              value={config.catalog_hero_image_url ?? ""}
+              onChange={(e) => setConfig((c) => ({ ...c, catalog_hero_image_url: e.target.value }))}
+              placeholder="https://images.unsplash.com/..."
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Título sobre el banner (opc.)</label>
+              <Input
+                value={config.catalog_hero_title ?? ""}
+                onChange={(e) => setConfig((c) => ({ ...c, catalog_hero_title: e.target.value }))}
+                placeholder="Tu mayorista de confianza"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">Subtítulo (opc.)</label>
+              <Input
+                value={config.catalog_hero_subtitle ?? ""}
+                onChange={(e) => setConfig((c) => ({ ...c, catalog_hero_subtitle: e.target.value }))}
+                placeholder="Envíos a toda Colombia · Pago contra entrega"
+              />
+            </div>
+          </div>
+          {config.catalog_hero_image_url && (
+            <div className="rounded-lg overflow-hidden border border-border aspect-[5/2] bg-slate-100 relative">
+              <img src={config.catalog_hero_image_url} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
+              {(config.catalog_hero_title || config.catalog_hero_subtitle) && (
+                <>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+                    {config.catalog_hero_title && <h4 className="font-black text-xl">{config.catalog_hero_title}</h4>}
+                    {config.catalog_hero_subtitle && <p className="text-sm">{config.catalog_hero_subtitle}</p>}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* ── Redes sociales ────────────────────────────────── */}
+      <Card className="p-4 sm:p-6">
+        <div className="mb-4">
+          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+            🌐 Redes sociales y contacto
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Aparecen como iconos en el footer de tu catálogo público.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">Instagram (usuario o URL)</label>
+            <Input
+              value={config.catalog_instagram ?? ""}
+              onChange={(e) => setConfig((c) => ({ ...c, catalog_instagram: e.target.value }))}
+              placeholder="@mitienda"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">Facebook (usuario o URL)</label>
+            <Input
+              value={config.catalog_facebook ?? ""}
+              onChange={(e) => setConfig((c) => ({ ...c, catalog_facebook: e.target.value }))}
+              placeholder="mitiendafb"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">TikTok (usuario o URL)</label>
+            <Input
+              value={config.catalog_tiktok ?? ""}
+              onChange={(e) => setConfig((c) => ({ ...c, catalog_tiktok: e.target.value }))}
+              placeholder="@mitienda"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">Sitio web (URL)</label>
+            <Input
+              value={config.catalog_website ?? ""}
+              onChange={(e) => setConfig((c) => ({ ...c, catalog_website: e.target.value }))}
+              placeholder="https://mitienda.com"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">WhatsApp (número con código país)</label>
+            <Input
+              value={config.catalog_whatsapp ?? ""}
+              onChange={(e) => setConfig((c) => ({ ...c, catalog_whatsapp: e.target.value }))}
+              placeholder="573001234567"
+              inputMode="tel"
+            />
+          </div>
+        </div>
+      </Card>
+
+      {/* ── Layout (columnas del grid) ────────────────────── */}
+      <Card className="p-4 sm:p-6">
+        <div className="mb-4">
+          <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+            📐 Layout del catálogo
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Cuántas columnas de productos mostrar en pantalla grande (móvil siempre es 2).
+          </p>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          {[2, 3, 4].map((cols) => {
+            const active = config.catalog_grid_columns === cols;
+            return (
+              <button
+                key={cols}
+                type="button"
+                onClick={() => setConfig((c) => ({ ...c, catalog_grid_columns: cols }))}
+                className={cn(
+                  "p-4 rounded-xl border-2 text-center transition-all",
+                  active ? "border-primary bg-primary/5" : "border-border hover:border-primary/30",
+                )}
+              >
+                <div className={cn(
+                  "grid gap-1 mb-2 mx-auto",
+                  cols === 2 && "grid-cols-2 max-w-[60px]",
+                  cols === 3 && "grid-cols-3 max-w-[80px]",
+                  cols === 4 && "grid-cols-4 max-w-[100px]",
+                )}>
+                  {Array.from({ length: cols * 2 }).map((_, i) => (
+                    <div key={i} className="aspect-square rounded bg-muted-foreground/30" />
+                  ))}
+                </div>
+                <p className="text-sm font-bold text-foreground">{cols} columnas</p>
+                {active && (
+                  <p className="text-[10px] text-primary font-semibold mt-1 flex items-center justify-center gap-1">
+                    <Check className="h-3 w-3" /> Activa
+                  </p>
                 )}
               </button>
             );

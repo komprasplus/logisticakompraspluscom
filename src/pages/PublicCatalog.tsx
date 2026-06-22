@@ -84,6 +84,17 @@ interface Provider {
   meta_pixel_id?: string | null;
   tiktok_pixel_id?: string | null;
   ga4_id?: string | null;
+  hero_image_url?: string | null;
+  hero_title?: string | null;
+  hero_subtitle?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
+  tiktok?: string | null;
+  website?: string | null;
+  whatsapp?: string | null;
+  grid_columns?: number | null;
+  about_md?: string | null;
+  shipping_md?: string | null;
 }
 
 interface ProductVariant {
@@ -119,6 +130,8 @@ interface CatalogProduct {
   variants?: ProductVariant[] | null;
   drop_start_at?: string | null;
   drop_end_at?: string | null;
+  catalog_slug?: string | null;
+  is_featured?: boolean | null;
 }
 
 interface CategoryWithCount {
@@ -451,14 +464,20 @@ const CatalogListView = ({
   }, [products, searchQuery, selectedCategories, priceRange, inStockOnly, sortBy]);
 
   const goToProduct = useCallback(
-    (productId: string) => {
+    (productIdOrSlug: string) => {
       if (!provider) return;
       const useSlug = provider.slug ?? slug;
       if (useSlug) {
-        navigate(`/${useSlug}/catalogo/${productId}`);
+        // Preferir slug del producto si está disponible para URLs amigables
+        navigate(`/${useSlug}/catalogo/${productIdOrSlug}`);
       }
     },
     [navigate, provider, slug],
+  );
+
+  const productLinkId = useCallback(
+    (p: CatalogProduct) => p.catalog_slug || p.id,
+    [],
   );
 
   const toggleCategory = (cat: string) => {
@@ -736,6 +755,37 @@ const CatalogListView = ({
         </div>
       </header>
 
+      {/* ── Hero Banner (cuando el proveedor lo configuró) ────────── */}
+      {provider.hero_image_url && (
+        <section className="relative w-full overflow-hidden border-b border-slate-200">
+          <div className="relative aspect-[5/2] sm:aspect-[6/2] w-full bg-slate-200">
+            <img
+              src={provider.hero_image_url}
+              alt={provider.hero_title || provider.store_name}
+              className="absolute inset-0 w-full h-full object-cover"
+              loading="eager"
+            />
+            {(provider.hero_title || provider.hero_subtitle) && (
+              <>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
+                <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8 max-w-screen-2xl mx-auto">
+                  {provider.hero_title && (
+                    <h2 className="text-2xl sm:text-4xl font-black text-white drop-shadow leading-tight">
+                      {provider.hero_title}
+                    </h2>
+                  )}
+                  {provider.hero_subtitle && (
+                    <p className="text-sm sm:text-base text-white/90 mt-1 drop-shadow max-w-2xl">
+                      {provider.hero_subtitle}
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
+
       {/* ── Main Layout: Sidebar + Grid ───────────────────── */}
       <div className="max-w-screen-2xl mx-auto px-3 md:px-6 py-6">
         <div className="flex gap-6">
@@ -910,6 +960,38 @@ const CatalogListView = ({
               addToCart={cart.add}
             />
 
+            {/* Productos destacados (arriba del grid normal) */}
+            {(() => {
+              const destacados = filteredAndSortedProducts.filter((p) => p.is_featured);
+              const normales = filteredAndSortedProducts.filter((p) => !p.is_featured);
+              if (destacados.length === 0) return null;
+              return (
+                <section className="mb-5">
+                  <h2 className="text-sm font-black uppercase tracking-wider mb-2 flex items-center gap-1.5" style={{ color: colorPrimary }}>
+                    <Sparkles className="h-3.5 w-3.5" /> Destacados
+                  </h2>
+                  <div className={cn(
+                    "grid gap-3 md:gap-4",
+                    (provider.grid_columns ?? 4) === 2 && "grid-cols-2",
+                    (provider.grid_columns ?? 4) === 3 && "grid-cols-2 sm:grid-cols-3",
+                    (provider.grid_columns ?? 4) === 4 && "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4",
+                  )}>
+                    {destacados.map((p) => (
+                      <ProductCard
+                        key={p.id}
+                        product={p}
+                        provider={provider}
+                        isNew={isNewProduct(p)}
+                        isTopSeller={topSellerIds.has(p.id)}
+                        onClick={() => goToProduct(productLinkId(p))}
+                        onQuickAdd={() => handleQuickAdd(p)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              );
+            })()}
+
             {/* Grid */}
             {filteredAndSortedProducts.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
@@ -928,15 +1010,20 @@ const CatalogListView = ({
                 )}
               </div>
             ) : (
-              <div className="catalog-grid grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 content-start">
-                {filteredAndSortedProducts.map((product) => (
+              <div className={cn(
+                "catalog-grid grid gap-3 md:gap-4 content-start",
+                (provider.grid_columns ?? 4) === 2 && "grid-cols-2",
+                (provider.grid_columns ?? 4) === 3 && "grid-cols-2 sm:grid-cols-3",
+                (provider.grid_columns ?? 4) === 4 && "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4",
+              )}>
+                {filteredAndSortedProducts.filter((p) => !p.is_featured).map((product) => (
                   <ProductCard
                     key={product.id}
                     product={product}
                     provider={provider}
                     isNew={isNewProduct(product)}
                     isTopSeller={topSellerIds.has(product.id)}
-                    onClick={() => goToProduct(product.id)}
+                    onClick={() => goToProduct(productLinkId(product))}
                     onQuickAdd={() => handleQuickAdd(product)}
                   />
                 ))}
@@ -946,8 +1033,72 @@ const CatalogListView = ({
         </div>
       </div>
 
-      <footer className="border-t border-slate-200 bg-white py-4 text-center text-[11px] text-slate-500">
-        Catálogo generado con <strong>Plus Envíos</strong>
+      <footer className="border-t border-slate-200 bg-white py-6">
+        <div className="max-w-screen-2xl mx-auto px-4 flex flex-col items-center gap-3">
+          {/* Iconos de redes sociales */}
+          {(provider.instagram || provider.facebook || provider.tiktok || provider.website || provider.whatsapp) && (
+            <div className="flex items-center gap-2">
+              {provider.instagram && (
+                <a
+                  href={provider.instagram.startsWith("http") ? provider.instagram : `https://instagram.com/${provider.instagram.replace(/^@/, "")}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="h-10 w-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 text-white flex items-center justify-center hover:scale-105 transition-transform shadow"
+                  aria-label="Instagram"
+                  title="Instagram"
+                >
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.41.56.22.96.48 1.38.9.42.42.68.82.9 1.38.16.42.36 1.06.41 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.41 2.23-.22.56-.48.96-.9 1.38-.42.42-.82.68-1.38.9-.42.16-1.06.36-2.23.41-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.41-.56-.22-.96-.48-1.38-.9-.42-.42-.68-.82-.9-1.38-.16-.42-.36-1.06-.41-2.23C2.17 15.58 2.16 15.2 2.16 12s.01-3.58.07-4.85c.05-1.17.25-1.8.41-2.23.22-.56.48-.96.9-1.38.42-.42.82-.68 1.38-.9.42-.16 1.06-.36 2.23-.41C8.42 2.17 8.8 2.16 12 2.16M12 0C8.74 0 8.33.01 7.05.07 5.78.13 4.9.33 4.14.63a5.9 5.9 0 0 0-2.13 1.38A5.9 5.9 0 0 0 .63 4.14C.33 4.9.13 5.78.07 7.05.01 8.33 0 8.74 0 12s.01 3.67.07 4.95c.06 1.27.26 2.15.56 2.91.31.79.73 1.46 1.38 2.13a5.9 5.9 0 0 0 2.13 1.38c.76.3 1.64.5 2.91.56C8.33 23.99 8.74 24 12 24s3.67-.01 4.95-.07c1.27-.06 2.15-.26 2.91-.56a5.9 5.9 0 0 0 2.13-1.38 5.9 5.9 0 0 0 1.38-2.13c.3-.76.5-1.64.56-2.91.06-1.28.07-1.69.07-4.95s-.01-3.67-.07-4.95c-.06-1.27-.26-2.15-.56-2.91a5.9 5.9 0 0 0-1.38-2.13A5.9 5.9 0 0 0 19.86.63c-.76-.3-1.64-.5-2.91-.56C15.67.01 15.26 0 12 0zm0 5.84A6.16 6.16 0 1 0 12 18.16 6.16 6.16 0 0 0 12 5.84zm0 10.16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.41-11.85a1.44 1.44 0 1 0 0 2.88 1.44 1.44 0 0 0 0-2.88z"/></svg>
+                </a>
+              )}
+              {provider.facebook && (
+                <a
+                  href={provider.facebook.startsWith("http") ? provider.facebook : `https://facebook.com/${provider.facebook}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="h-10 w-10 rounded-full bg-[#1877F2] text-white flex items-center justify-center hover:scale-105 transition-transform shadow"
+                  aria-label="Facebook"
+                  title="Facebook"
+                >
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.07C24 5.41 18.63 0 12 0S0 5.41 0 12.07c0 6.02 4.39 11.01 10.13 11.93v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.69.24 2.69.24v2.97h-1.52c-1.49 0-1.95.93-1.95 1.89v2.26h3.33l-.53 3.49h-2.8V24C19.61 23.08 24 18.09 24 12.07z"/></svg>
+                </a>
+              )}
+              {provider.tiktok && (
+                <a
+                  href={provider.tiktok.startsWith("http") ? provider.tiktok : `https://tiktok.com/@${provider.tiktok.replace(/^@/, "")}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="h-10 w-10 rounded-full bg-black text-white flex items-center justify-center hover:scale-105 transition-transform shadow"
+                  aria-label="TikTok"
+                  title="TikTok"
+                >
+                  <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V9.01a8.16 8.16 0 0 0 4.77 1.52V7.06a4.84 4.84 0 0 1-1.84-.37z"/></svg>
+                </a>
+              )}
+              {provider.whatsapp && (
+                <a
+                  href={`https://wa.me/${provider.whatsapp.replace(/\D/g, "")}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="h-10 w-10 rounded-full bg-[#25D366] text-white flex items-center justify-center hover:scale-105 transition-transform shadow"
+                  aria-label="WhatsApp"
+                  title="WhatsApp"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </a>
+              )}
+              {provider.website && (
+                <a
+                  href={provider.website.startsWith("http") ? provider.website : `https://${provider.website}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="h-10 w-10 rounded-full bg-slate-700 text-white flex items-center justify-center hover:scale-105 transition-transform shadow"
+                  aria-label="Sitio web"
+                  title="Sitio web"
+                >
+                  <ExternalLink className="h-5 w-5" />
+                </a>
+              )}
+            </div>
+          )}
+          <p className="text-[11px] text-slate-500 text-center">
+            Catálogo generado con <strong>Plus Envíos</strong>
+          </p>
+        </div>
       </footer>
 
       <PublicCartUI
@@ -1795,7 +1946,7 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
                   key={p.id}
                   product={p}
                   provider={provider}
-                  onClick={() => navigate(`/${slug}/catalogo/${p.id}`)}
+                  onClick={() => navigate(`/${slug}/catalogo/${p.catalog_slug || p.id}`)}
                 />
               ))}
             </div>
@@ -1812,7 +1963,7 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
                   key={p.id}
                   product={p}
                   provider={provider}
-                  onClick={() => navigate(`/${slug}/catalogo/${p.id}`)}
+                  onClick={() => navigate(`/${slug}/catalogo/${p.catalog_slug || p.id}`)}
                 />
               ))}
             </div>
