@@ -20,6 +20,7 @@ import {
   UserPlus,
   Menu,
   HandCoins,
+  Bike,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -101,6 +102,13 @@ const MENU_GROUPS: MenuGroup[] = [
         icon: HandCoins,
         description: "Tarifas especiales por cliente",
         href: "/admin/acuerdos-fletes",
+      },
+      {
+        id: "tarifas-motorizados",
+        label: "Tarifas Motorizados",
+        icon: Bike,
+        description: "Cuánto gana cada motorizado por entrega",
+        href: "/admin/tarifas-motorizados",
       },
     ],
   },

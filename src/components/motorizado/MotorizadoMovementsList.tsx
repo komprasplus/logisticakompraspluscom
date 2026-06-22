@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -7,23 +6,11 @@ import {
   Loader2,
   PackageCheck,
   Receipt,
-  Shield,
   type LucideIcon,
 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { useMotorizadoMovimientos } from "@/hooks/useMotorizadoTarifas";
 import { formatCOPFull } from "@/lib/motorizado-score";
 import { cn } from "@/lib/utils";
-
-interface Movement {
-  id: string;
-  tipo: string;
-  monto: number;
-  pedido_id: number | null;
-  pedido_guia: string | null;
-  concepto: string | null;
-  created_at: string;
-  is_virtual: boolean;
-}
 
 interface MotorizadoMovementsListProps {
   motorizadoId: string;
@@ -38,71 +25,29 @@ interface TypeConfig {
 }
 
 const TYPE_CONFIG: Record<string, TypeConfig> = {
-  COMISION_ENTREGA: {
+  ENTREGA: {
     icon: PackageCheck,
     color: "text-success",
     bg: "bg-success/10",
-    label: "Comisión entrega",
+    label: "Entrega",
   },
-  FONDO_GARANTIA_RETENIDO: {
-    icon: Shield,
-    color: "text-gold-dark",
-    bg: "bg-gold/15",
-    label: "Fondo retenido",
-  },
-  FONDO_GARANTIA_LIBERADO: {
-    icon: Shield,
-    color: "text-success",
-    bg: "bg-success/10",
-    label: "Fondo liberado",
-  },
-  BONIFICACION_ZONA: {
+  BONIFICACION: {
     icon: Gift,
     color: "text-pink-dark",
     bg: "bg-pink/10",
-    label: "Bono zona",
+    label: "Bonificación",
   },
-  BONIFICACION_NIVEL: {
+  AJUSTE: {
     icon: Award,
-    color: "text-pink-dark",
-    bg: "bg-pink/10",
-    label: "Bono nivel",
-  },
-  BONIFICACION_REFERIDO: {
-    icon: Gift,
-    color: "text-pink-dark",
-    bg: "bg-pink/10",
-    label: "Bono referido",
-  },
-  RETIRO_SOLICITADO: {
-    icon: ArrowUpRight,
     color: "text-blue-600",
     bg: "bg-blue-500/10",
-    label: "Retiro solicitado",
+    label: "Ajuste admin",
   },
-  RETIRO_COMPLETADO: {
+  RETIRO: {
     icon: ArrowUpRight,
-    color: "text-success",
-    bg: "bg-success/10",
-    label: "Retiro completado",
-  },
-  RETIRO_RECHAZADO: {
-    icon: ArrowDownLeft,
-    color: "text-destructive",
-    bg: "bg-destructive/10",
-    label: "Retiro rechazado",
-  },
-  AJUSTE_CREDITO: {
-    icon: ArrowDownLeft,
-    color: "text-success",
-    bg: "bg-success/10",
-    label: "Ajuste crédito",
-  },
-  AJUSTE_DEBITO: {
-    icon: ArrowUpRight,
-    color: "text-destructive",
-    bg: "bg-destructive/10",
-    label: "Ajuste débito",
+    color: "text-foreground",
+    bg: "bg-muted",
+    label: "Retiro",
   },
 };
 
@@ -110,53 +55,16 @@ const formatDate = (iso: string): string => {
   const date = new Date(iso);
   const now = new Date();
   const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diffDays === 0) {
-    return `Hoy, ${date.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })}`;
-  }
-  if (diffDays === 1) {
-    return `Ayer, ${date.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })}`;
-  }
+  if (diffDays === 0) return `Hoy, ${date.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })}`;
+  if (diffDays === 1) return `Ayer, ${date.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" })}`;
   return date.toLocaleDateString("es-CO", { day: "numeric", month: "short", year: diffDays > 365 ? "numeric" : undefined });
 };
 
 const MotorizadoMovementsList = ({ motorizadoId, limit = 100 }: MotorizadoMovementsListProps) => {
-  const [movements, setMovements] = useState<Movement[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: movements, isLoading, error } = useMotorizadoMovimientos(motorizadoId);
+  const lista = (movements ?? []).slice(0, limit);
 
-  useEffect(() => {
-    let active = true;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const rpcFn = supabase.rpc as unknown as (
-          fn: string,
-          params: Record<string, unknown>,
-        ) => Promise<{ data: Movement[] | null; error: { message: string } | null }>;
-        const { data, error: rpcError } = await rpcFn("get_motorizado_wallet_movements", {
-          p_motorizado_id: motorizadoId,
-          p_limit: limit,
-        });
-        if (!active) return;
-        if (rpcError) throw rpcError;
-        setMovements((data || []) as Movement[]);
-      } catch (e) {
-        if (!active) return;
-        console.error("Error loading movements:", e);
-        setError("No se pudieron cargar los movimientos");
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      active = false;
-    };
-  }, [motorizadoId, limit]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 gap-2">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -168,12 +76,12 @@ const MotorizadoMovementsList = ({ motorizadoId, limit = 100 }: MotorizadoMoveme
   if (error) {
     return (
       <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 text-xs text-destructive">
-        {error}
+        No se pudieron cargar los movimientos
       </div>
     );
   }
 
-  if (movements.length === 0) {
+  if (lista.length === 0) {
     return (
       <div className="text-center py-12">
         <Receipt className="h-10 w-10 text-muted-foreground/40 mx-auto mb-2" />
@@ -186,8 +94,8 @@ const MotorizadoMovementsList = ({ motorizadoId, limit = 100 }: MotorizadoMoveme
   }
 
   // Agrupar por día
-  const grouped = movements.reduce<Record<string, Movement[]>>((acc, m) => {
-    const dateKey = new Date(m.created_at).toLocaleDateString("es-CO", {
+  const grouped = lista.reduce<Record<string, typeof lista>>((acc, m) => {
+    const dateKey = new Date(m.fecha_ts).toLocaleDateString("es-CO", {
       day: "numeric",
       month: "long",
       year: "numeric",
@@ -200,7 +108,10 @@ const MotorizadoMovementsList = ({ motorizadoId, limit = 100 }: MotorizadoMoveme
   return (
     <div className="space-y-4">
       {Object.entries(grouped).map(([dateKey, items]) => {
-        const dayTotal = items.reduce((sum, m) => sum + m.monto, 0);
+        const dayTotal = items.reduce(
+          (sum, m) => sum + (m.direccion === "debito" ? -Number(m.monto) : Number(m.monto)),
+          0,
+        );
         return (
           <div key={dateKey}>
             <div className="flex items-center justify-between mb-2 pb-1 border-b border-border">
@@ -226,28 +137,25 @@ const MotorizadoMovementsList = ({ motorizadoId, limit = 100 }: MotorizadoMoveme
                   label: mov.tipo,
                 };
                 const Icon = config.icon;
-                const isCredit = mov.monto >= 0;
+                const isCredit = mov.direccion !== "debito";
+                const signed = isCredit ? Number(mov.monto) : -Number(mov.monto);
 
                 return (
                   <div
-                    key={mov.id}
+                    key={`${mov.tipo}-${mov.ref}`}
                     className="flex items-center gap-3 py-2 px-1 hover:bg-muted/40 rounded-lg transition-colors"
                   >
-                    <div
-                      className={cn(
-                        "w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0",
-                        config.bg,
-                      )}
-                    >
+                    <div className={cn("w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0", config.bg)}>
                       <Icon className={cn("h-4 w-4", config.color)} strokeWidth={2.25} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-semibold text-foreground leading-tight">
-                        {config.label}
+                        {mov.descripcion}
                       </div>
                       <div className="text-[11px] text-muted-foreground truncate mt-0.5">
-                        {mov.concepto || (mov.pedido_guia ? `Guía ${mov.pedido_guia}` : "")}
-                        <span className="ml-1">· {formatDate(mov.created_at)}</span>
+                        {mov.municipio && <span>{mov.municipio}</span>}
+                        {mov.cliente_nombre && <span> · {mov.cliente_nombre}</span>}
+                        <span className="ml-1">· {formatDate(mov.fecha_ts)}</span>
                       </div>
                     </div>
                     <div
@@ -257,7 +165,7 @@ const MotorizadoMovementsList = ({ motorizadoId, limit = 100 }: MotorizadoMoveme
                       )}
                     >
                       {isCredit ? "+" : ""}
-                      {formatCOPFull(mov.monto)}
+                      {formatCOPFull(signed)}
                     </div>
                   </div>
                 );
