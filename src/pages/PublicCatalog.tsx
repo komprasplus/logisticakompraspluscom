@@ -63,6 +63,7 @@ import TrackingPixels, {
   trackViewContent,
 } from "@/components/catalog/TrackingPixels";
 import AIChatPanel from "@/components/catalog/AIChatPanel";
+import BundlesSection from "@/components/catalog/BundlesSection";
 
 // ── Types ─────────────────────────────────────────────────────────────
 type Template = "minimal" | "professional" | "premium";
@@ -116,6 +117,8 @@ interface CatalogProduct {
   unidades_vendidas?: number | null;
   created_at?: string | null;
   variants?: ProductVariant[] | null;
+  drop_start_at?: string | null;
+  drop_end_at?: string | null;
 }
 
 interface CategoryWithCount {
@@ -900,6 +903,13 @@ const CatalogListView = ({
               </div>
             )}
 
+            <BundlesSection
+              slug={slug ?? ""}
+              colorPrimary={colorPrimary}
+              colorSecondary={colorSecondary}
+              addToCart={cart.add}
+            />
+
             {/* Grid */}
             {filteredAndSortedProducts.length === 0 ? (
               <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-300">
@@ -950,6 +960,7 @@ const CatalogListView = ({
         updateQty={cart.updateQty}
         remove={cart.remove}
         clear={cart.clear}
+        add={cart.add}
         colorPrimary={colorPrimary}
         colorSecondary={colorSecondary}
         storeName={provider.store_name}
@@ -996,6 +1007,35 @@ const FilterChip = ({
 );
 
 // ── Product Card (mobile-first) ───────────────────────────────────────
+const CountdownDigit = ({ value, label }: { value: number; label: string }) => (
+  <div className="flex flex-col items-center bg-white/15 backdrop-blur-sm rounded px-1.5 py-0.5 min-w-[26px]">
+    <span className="font-bold text-[11px] leading-none tabular-nums">{String(value).padStart(2, "0")}</span>
+    <span className="text-[7px] uppercase opacity-75 leading-tight">{label}</span>
+  </div>
+);
+
+// Helper para formatear el countdown de un drop futuro
+const useDropCountdown = (dropStartAt?: string | null) => {
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!dropStartAt) return;
+    const i = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(i);
+  }, [dropStartAt]);
+  if (!dropStartAt) return null;
+  const target = new Date(dropStartAt).getTime();
+  const now = Date.now();
+  const diff = target - now;
+  if (diff <= 0) return null;
+  const d = Math.floor(diff / 86400000);
+  const h = Math.floor((diff % 86400000) / 3600000);
+  const m = Math.floor((diff % 3600000) / 60000);
+  const s = Math.floor((diff % 60000) / 1000);
+  // suppress unused warning
+  void tick;
+  return { d, h, m, s };
+};
+
 const ProductCard = ({
   product,
   provider,
@@ -1013,7 +1053,10 @@ const ProductCard = ({
 }) => {
   const lowStock = product.stock_available > 0 && product.stock_available < 5;
   const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-  const canQuickAdd = !!onQuickAdd && !hasVariants && product.stock_available > 0 && product.price !== null;
+  const countdown = useDropCountdown(product.drop_start_at);
+  const isUpcoming = !!countdown;
+  const canQuickAdd =
+    !!onQuickAdd && !hasVariants && product.stock_available > 0 && product.price !== null && !isUpcoming;
 
   return (
     <article
@@ -1049,22 +1092,38 @@ const ProductCard = ({
           {product.short_id}
         </Badge>
         <div className="absolute top-1.5 right-1.5 flex flex-col items-end gap-1">
-          {isTopSeller && (
+          {isUpcoming && (
+            <Badge className="bg-violet-500 hover:bg-violet-500 text-white border-0 text-[9px] px-1.5 py-0.5 font-bold">
+              Próximamente
+            </Badge>
+          )}
+          {!isUpcoming && isTopSeller && (
             <Badge className="bg-amber-500 hover:bg-amber-500 text-white border-0 text-[9px] px-1.5 py-0.5 font-bold gap-0.5">
               🔥 Más vendido
             </Badge>
           )}
-          {isNew && !isTopSeller && (
+          {!isUpcoming && isNew && !isTopSeller && (
             <Badge className="bg-emerald-500 hover:bg-emerald-500 text-white border-0 text-[9px] px-1.5 py-0.5 font-bold">
               Nuevo
             </Badge>
           )}
-          {lowStock && (
+          {!isUpcoming && lowStock && (
             <Badge variant="destructive" className="text-[9px] px-1.5 py-0.5">
               ¡{product.stock_available}!
             </Badge>
           )}
         </div>
+
+        {isUpcoming && countdown && (
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent p-2">
+            <div className="flex items-center justify-center gap-1 text-white font-mono text-[10px]">
+              <CountdownDigit value={countdown.d} label="d" />
+              <CountdownDigit value={countdown.h} label="h" />
+              <CountdownDigit value={countdown.m} label="m" />
+              <CountdownDigit value={countdown.s} label="s" />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="p-2.5 flex flex-col flex-1 gap-1.5">
@@ -1098,7 +1157,7 @@ const ProductCard = ({
             )}
             style={!canQuickAdd ? { backgroundColor: "var(--catalog-primary)" } : undefined}
           >
-            {hasVariants ? "Elegir opciones →" : "Ver detalle"}
+            {isUpcoming ? "Ver detalles del drop" : hasVariants ? "Elegir opciones →" : "Ver detalle"}
           </button>
           {canQuickAdd && (
             <button
@@ -1836,6 +1895,7 @@ const ProductDetailView = ({ slug, productId }: { slug: string; productId: strin
         updateQty={cart.updateQty}
         remove={cart.remove}
         clear={cart.clear}
+        add={cart.add}
         colorPrimary={colorPrimary}
         colorSecondary={colorSecondary}
         storeName={provider.store_name}

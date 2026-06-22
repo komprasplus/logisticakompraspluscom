@@ -100,6 +100,8 @@ const NuevoProductoMarketplace = ({
   const [category, setCategory] = useState("");
   const [subcategory, setSubcategory] = useState("");
   const [esPrivado, setEsPrivado] = useState(false);
+  const [dropStartAt, setDropStartAt] = useState("");
+  const [dropEndAt, setDropEndAt] = useState("");
   const [attributeNames, setAttributeNames] = useState<string[]>([]);
   const [attributeValues, setAttributeValues] = useState<Record<string, string[]>>({});
   const [newAttrName, setNewAttrName] = useState("");
@@ -197,6 +199,8 @@ const NuevoProductoMarketplace = ({
     setImages([]);
     setDescriptionMode("edit");
     setEsPrivado(false);
+    setDropStartAt("");
+    setDropEndAt("");
     onClose();
   };
 
@@ -384,6 +388,8 @@ const NuevoProductoMarketplace = ({
             created_by: userId,
             is_active: true,
             es_privado: esPrivado,
+            drop_start_at: dropStartAt ? new Date(dropStartAt).toISOString() : null,
+            drop_end_at: dropEndAt ? new Date(dropEndAt).toISOString() : null,
           })
           .select("id")
           .single();
@@ -428,6 +434,8 @@ const NuevoProductoMarketplace = ({
           image_url_3: imgUrls[2] || null,
           image_urls: imgUrls,
           is_public: true,
+          drop_start_at: dropStartAt ? new Date(dropStartAt).toISOString() : null,
+          drop_end_at: dropEndAt ? new Date(dropEndAt).toISOString() : null,
         });
         if (invErr) console.error("Error reflejando en inventario:", invErr);
 
@@ -453,6 +461,8 @@ const NuevoProductoMarketplace = ({
           image_url_3: imgUrls[2] || null,
           image_urls: imgUrls,
           is_public: false,
+          drop_start_at: dropStartAt ? new Date(dropStartAt).toISOString() : null,
+          drop_end_at: dropEndAt ? new Date(dropEndAt).toISOString() : null,
         });
         if (error) {
           if (error.code === "23505") {
@@ -630,6 +640,40 @@ const NuevoProductoMarketplace = ({
               />
             </div>
           )}
+
+          <div className="rounded-xl border border-border bg-muted/30 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Drop programado (opcional)</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Programa el lanzamiento o cierre del producto. El catálogo mostrará un countdown.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Lanzamiento (drop_start_at)
+                </label>
+                <Input
+                  type="datetime-local"
+                  value={dropStartAt}
+                  onChange={(e) => setDropStartAt(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">
+                  Cierre (drop_end_at)
+                </label>
+                <Input
+                  type="datetime-local"
+                  value={dropEndAt}
+                  onChange={(e) => setDropEndAt(e.target.value)}
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground">
+              Antes del lanzamiento: badge "Próximamente" + countdown · sin botón Agregar. Después del cierre: el producto se oculta del catálogo.
+            </p>
+          </div>
 
 
           <div>

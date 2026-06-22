@@ -24,6 +24,7 @@ import InventarioView from "@/components/cliente/InventarioView";
 import CatalogoConfigView from "@/components/cliente/CatalogoConfigView";
 import ListasPreciosView from "@/components/cliente/ListasPreciosView";
 import CuponesView from "@/components/cliente/CuponesView";
+import BundlesView from "@/components/cliente/BundlesView";
 import MarketingConfigView from "@/components/cliente/MarketingConfigView";
 import MarketplaceCatalog from "@/components/cliente/MarketplaceCatalog";
 import BilleteraCombinedView from "@/components/cliente/BilleteraCombinedView";
@@ -451,6 +452,10 @@ const ClienteDashboard = () => {
 
             {activeView === "cupones" && (
               <CuponesView key="cupones" />
+            )}
+
+            {activeView === "bundles" && (
+              <BundlesView key="bundles" />
             )}
 
             {activeView === "marketing" && (

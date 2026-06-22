@@ -15,6 +15,7 @@ import {
   Tag,
   TicketPercent,
   Megaphone,
+  Layers,
   Menu,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ export type ClienteView =
   | "catalogo-publico"
   | "listas-precios"
   | "cupones"
+  | "bundles"
   | "marketing"
   | "por-empacar"
   | "docs";
@@ -87,6 +89,7 @@ const NAV_SECTIONS: NavSection[] = [
       { key: "catalogo-publico", label: "Mis Catálogos", description: "Tiendas B2B públicas", icon: Sparkles },
       { key: "listas-precios", label: "Listas de Precios", description: "Mayorista, dropshipper, retail…", icon: Tag },
       { key: "cupones", label: "Cupones de descuento", description: "Códigos promocionales", icon: TicketPercent },
+      { key: "bundles", label: "Combos (Bundles)", description: "Agrupa productos con descuento", icon: Layers },
     ],
   },
   {
@@ -239,6 +242,7 @@ const ClienteSidebar = ({
       if (!isProveedor && item.key === "catalogo-publico") return false;
       if (!isProveedor && item.key === "listas-precios") return false;
       if (!isProveedor && item.key === "cupones") return false;
+      if (!isProveedor && item.key === "bundles") return false;
       if (!isProveedor && item.key === "marketing") return false;
       if (!isProveedor && item.key === "por-empacar") return false;
       return true;
