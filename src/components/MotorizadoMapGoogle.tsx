@@ -8,8 +8,7 @@ import {
 } from "@react-google-maps/api";
 import { Loader2 } from "lucide-react";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyDvV2fL5jv0OIp45Si4m4-gaWSt9gIXznA";
-const GOOGLE_MAPS_LIBRARIES: ("places" | "geometry")[] = ["places", "geometry"];
+import { GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_LIBRARIES } from "@/lib/googleMapsConfig";
 
 // Warehouse coordinates - Calle 14 # 19-64, Bogotá (Plus Envíos)
 const BODEGA_COORDS = { lat: 4.6066, lng: -74.0747 };

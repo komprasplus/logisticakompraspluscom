@@ -7,7 +7,7 @@ import {
   MarkerF,
 } from "@react-google-maps/api";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyDvV2fL5jv0OIp45Si4m4-gaWSt9gIXznA";
+import { GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_LIBRARIES } from "@/lib/googleMapsConfig";
 
 // Default fallback location: Kompras Plus office
 const DEFAULT_LOCATION = { lat: 4.6097, lng: -74.0817 }; // Bogotá center
@@ -50,7 +50,7 @@ const LocationPreviewMapGoogle = ({
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: ["places", "geocoding"],
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   // Build complete search query

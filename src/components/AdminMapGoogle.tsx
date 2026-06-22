@@ -14,7 +14,7 @@ import { Loader2, AlertTriangle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
-const GOOGLE_MAPS_API_KEY = "AIzaSyDvV2fL5jv0OIp45Si4m4-gaWSt9gIXznA";
+import { GOOGLE_MAPS_API_KEY, GOOGLE_MAPS_LIBRARIES } from "@/lib/googleMapsConfig";
 
 // Warehouse coordinates - Bogotá
 const BODEGA_COORDS = { lat: 4.60922, lng: -74.08463 };
@@ -117,7 +117,7 @@ const AdminMapGoogle = ({
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: GOOGLE_MAPS_API_KEY,
-    libraries: ["places"],
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   // Fetch motorizados with phone numbers
