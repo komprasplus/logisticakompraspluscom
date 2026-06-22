@@ -23,17 +23,14 @@ export interface MotorizadoOption {
 const rpc = (...args: Parameters<typeof supabase.rpc>) =>
   (supabase.rpc as any).apply(supabase, args);
 
-// Lista todos los motorizados (admin only)
+// Lista todos los motorizados (admin only).
+// Los motorizados se identifican por user_roles.role='motorizado', NO por
+// profiles.tipo_cuenta (que se usa para clientes/dropshippers/proveedores).
 export const useMotorizadosList = () =>
   useQuery({
     queryKey: ["admin-motorizados-list"],
     queryFn: async (): Promise<MotorizadoOption[]> => {
-      const { data, error } = await (supabase as any)
-        .from("profiles")
-        .select("user_id, full_name, email, phone")
-        .eq("tipo_cuenta", "motorizado")
-        .eq("status", "activo")
-        .order("full_name", { ascending: true });
+      const { data, error } = await rpc("admin_listar_motorizados");
       if (error) throw error;
       return (data ?? []) as MotorizadoOption[];
     },
