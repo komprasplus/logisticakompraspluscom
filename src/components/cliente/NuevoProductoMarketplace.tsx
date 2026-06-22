@@ -31,6 +31,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ImagePlus,
+  Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -115,7 +116,68 @@ const NuevoProductoMarketplace = ({
 
   const [images, setImages] = useState<ImageSlot[]>([]);
   const [descriptionMode, setDescriptionMode] = useState<"edit" | "preview">("edit");
+  const [generatingAI, setGeneratingAI] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload temporal de las imágenes ya en el form para que el modelo de visión las pueda leer
+  // (si todavía no se han persistido). Si el user ya tiene URLs en images.preview que son
+  // base64, las pasamos como data URLs y Anthropic las acepta vía source.type='base64'.
+  // Para simplificar el MVP: solo pasamos URLs http(s) ya subidas — pero como en el create flow
+  // las imágenes están solo en memoria, primero hago un upload provisional al storage.
+  const generateDescription = async () => {
+    if (!name.trim()) {
+      toast.error("Primero escribe el nombre del producto");
+      return;
+    }
+    setGeneratingAI(true);
+    try {
+      // Subir las primeras 4 imágenes a storage (si hay) para que el modelo las "vea".
+      // Si el upload falla, igual generamos con solo texto.
+      let imageUrls: string[] = [];
+      if (images.length > 0) {
+        try {
+          const folder = (organizacionId || userId) + "/ai-tmp";
+          for (let i = 0; i < Math.min(4, images.length); i++) {
+            const file = images[i].file;
+            const path = folder + "/" + Date.now() + "_" + i + "_" + file.name.replace(/[^a-zA-Z0-9.]/g, "_");
+            const { error } = await supabase.storage
+              .from("marketplace-images")
+              .upload(path, file, { upsert: true });
+            if (error) throw error;
+            const { data: pub } = supabase.storage.from("marketplace-images").getPublicUrl(path);
+            imageUrls.push(pub.publicUrl);
+          }
+        } catch (e) {
+          console.warn("AI: no pude subir imágenes provisional, sigo solo con texto", e);
+          imageUrls = [];
+        }
+      }
+
+      const { data, error } = await supabase.functions.invoke("ai-generate-description", {
+        body: {
+          product_name: name.trim(),
+          category: category || null,
+          subcategory: subcategory || null,
+          image_urls: imageUrls,
+          hints: description.trim() || null,
+        },
+      });
+      if (error) throw error;
+      const result = data as { ok: boolean; error?: string; markdown?: string };
+      if (!result?.ok || !result.markdown) {
+        toast.error(result?.error || "El modelo no devolvió texto");
+        return;
+      }
+      setDescription(result.markdown);
+      setDescriptionMode("preview");
+      toast.success("Descripción generada con IA");
+    } catch (e: any) {
+      const msg = e?.context?.body?.error ?? e?.message ?? "Error generando descripción";
+      toast.error(msg);
+    } finally {
+      setGeneratingAI(false);
+    }
+  };
 
   const resetAndClose = () => {
     setName("");
@@ -571,35 +633,51 @@ const NuevoProductoMarketplace = ({
 
 
           <div>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-1 gap-2 flex-wrap">
               <label className="text-xs font-medium text-muted-foreground">
                 Descripción <span className="text-muted-foreground/60">(soporta Markdown · **negrita**, *cursiva*, listas, links)</span>
               </label>
-              <div className="inline-flex rounded-md border border-border overflow-hidden text-[10px]">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => setDescriptionMode("edit")}
-                  className={cn(
-                    "px-2 py-0.5 flex items-center gap-1 transition-colors",
-                    descriptionMode === "edit"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background text-muted-foreground hover:text-foreground",
-                  )}
+                  onClick={generateDescription}
+                  disabled={generatingAI || !name.trim()}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white shadow-sm hover:opacity-90 disabled:opacity-40 transition-opacity"
+                  title="Generar descripción con IA (usa el nombre, categoría y fotos)"
                 >
-                  <Pencil className="h-3 w-3" /> Editar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDescriptionMode("preview")}
-                  className={cn(
-                    "px-2 py-0.5 flex items-center gap-1 border-l border-border transition-colors",
-                    descriptionMode === "preview"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background text-muted-foreground hover:text-foreground",
+                  {generatingAI ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
                   )}
-                >
-                  <Eye className="h-3 w-3" /> Vista previa
+                  Generar con IA
                 </button>
+                <div className="inline-flex rounded-md border border-border overflow-hidden text-[10px]">
+                  <button
+                    type="button"
+                    onClick={() => setDescriptionMode("edit")}
+                    className={cn(
+                      "px-2 py-0.5 flex items-center gap-1 transition-colors",
+                      descriptionMode === "edit"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Pencil className="h-3 w-3" /> Editar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDescriptionMode("preview")}
+                    className={cn(
+                      "px-2 py-0.5 flex items-center gap-1 border-l border-border transition-colors",
+                      descriptionMode === "preview"
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-background text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    <Eye className="h-3 w-3" /> Vista previa
+                  </button>
+                </div>
               </div>
             </div>
             {descriptionMode === "edit" ? (
