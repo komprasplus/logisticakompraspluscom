@@ -9,6 +9,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Package, Truck, CheckCircle2, Inbox, BarChart3, PieChart as PieChartIcon, Search, Download, Plus, Banknote, MessageCircle, Volume2, VolumeX } from "lucide-react";
+import MotorizadosLiveGrid, { type MotorizadoLive } from "@/components/admin/MotorizadosLiveGrid";
+import ActivityFeed, { type ActivityItem } from "@/components/admin/ActivityFeed";
 import { getStatusConfig } from "@/lib/orderStatuses";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -101,6 +103,38 @@ const AdminControlTower = () => {
 
   /* ── Sound mute ── */
   const [isMuted, setIsMuted] = useState(false);
+
+  /* ── Snapshot: motorizados en vivo + activity feed ── */
+  const [motorizados, setMotorizados] = useState<MotorizadoLive[]>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
+  const [snapshotKpis, setSnapshotKpis] = useState<Record<string, number> | null>(null);
+
+  useEffect(() => {
+    if (!orgId) return;
+    let cancelled = false;
+    const fetchSnapshot = async () => {
+      try {
+        const { data, error } = await (supabase.rpc as any)("admin_control_tower_snapshot");
+        if (cancelled) return;
+        if (error) {
+          console.warn("snapshot error:", error);
+          return;
+        }
+        const payload = (data ?? {}) as Record<string, unknown>;
+        setMotorizados((payload.motorizados as MotorizadoLive[]) ?? []);
+        setActivity((payload.actividad_reciente as ActivityItem[]) ?? []);
+        setSnapshotKpis((payload.kpis as Record<string, number>) ?? null);
+      } catch (e) {
+        console.warn("snapshot fetch failed:", e);
+      }
+    };
+    void fetchSnapshot();
+    const iv = setInterval(fetchSnapshot, 15000); // refrescar cada 15s para feel live
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [orgId]);
 
   useEffect(() => {
     if (!orgId) return;
@@ -344,6 +378,21 @@ const AdminControlTower = () => {
           })}
         </div>
 
+        {/* ── KPIs extendidos del snapshot ── */}
+        {snapshotKpis && (
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-4 lg:grid-cols-6">
+            <KPIMini label="En ruta" value={snapshotKpis.en_ruta ?? 0} accent="bg-blue-500/15 text-blue-700" />
+            <KPIMini label="Asignados" value={snapshotKpis.asignados ?? 0} accent="bg-amber-500/15 text-amber-700" />
+            <KPIMini label="En bodega" value={snapshotKpis.recibidos_bodega ?? 0} accent="bg-violet-500/15 text-violet-700" />
+            <KPIMini label="Entregados hoy" value={snapshotKpis.entregados_hoy ?? 0} delta={snapshotKpis.entregados_hoy - snapshotKpis.entregados_ayer} accent="bg-emerald-500/15 text-emerald-700" />
+            <KPIMini label="Novedades" value={snapshotKpis.novedades_abiertas ?? 0} accent="bg-pink-500/15 text-pink-700" />
+            <KPIMini label="Cobrado hoy (COD)" value={snapshotKpis.recaudo_hoy ?? 0} isCurrency delta={snapshotKpis.recaudo_hoy - snapshotKpis.recaudo_ayer} accent="bg-success/15 text-success-foreground" />
+          </div>
+        )}
+
+        {/* ── Motorizados en vivo ── */}
+        <MotorizadosLiveGrid motorizados={motorizados} />
+
         {/* ── 3-Column Grid ── */}
         <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
 
@@ -480,6 +529,9 @@ const AdminControlTower = () => {
           {/* RIGHT: Analytics panels (REAL DATA) */}
           <div className="order-3 flex flex-col gap-4">
 
+            {/* Activity Feed live */}
+            <ActivityFeed items={activity} />
+
             {/* Panel 1: Volume bar chart */}
             <div className="rounded-3xl border border-border bg-card p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
@@ -560,6 +612,34 @@ const AdminControlTower = () => {
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+// ── Mini KPI card para el strip extendido ──────────────────────
+interface KPIMiniProps {
+  label: string;
+  value: number;
+  delta?: number;
+  isCurrency?: boolean;
+  accent: string;
+}
+
+const KPIMini = ({ label, value, delta, isCurrency, accent }: KPIMiniProps) => {
+  const formatted = isCurrency ? formatCOP(value) : value.toLocaleString("es-CO");
+  const trend = delta !== undefined ? (delta > 0 ? "up" : delta < 0 ? "down" : "neutral") : null;
+  return (
+    <div className="rounded-2xl bg-card border border-border p-3 shadow-sm">
+      <div className="flex items-center gap-2">
+        <div className={`h-2 w-2 rounded-full ${accent.split(" ")[0]}`} />
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">{label}</p>
+      </div>
+      <p className="text-lg sm:text-xl font-black tracking-tight text-foreground tabular-nums mt-1">{formatted}</p>
+      {trend && delta !== undefined && delta !== 0 && (
+        <p className={`text-[10px] font-semibold mt-0.5 ${trend === "up" ? "text-emerald-600" : "text-rose-600"}`}>
+          {trend === "up" ? "▲" : "▼"} {isCurrency ? formatCOP(Math.abs(delta)) : Math.abs(delta).toLocaleString("es-CO")} vs ayer
+        </p>
+      )}
     </div>
   );
 };
