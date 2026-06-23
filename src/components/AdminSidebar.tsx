@@ -77,6 +77,7 @@ const MENU_GROUPS: MenuGroup[] = [
     label: "Finanzas",
     items: [
       { id: "tesoreria", label: "Tesorería", icon: Wallet, description: "Liquidación, pagos y rentabilidad" },
+      { id: "historico-motorizados", label: "Histórico Motorizados", icon: Bike, description: "Pedidos y COD por fecha y motorizado", href: "/admin/historico-motorizados" },
     ],
   },
   {
