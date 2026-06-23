@@ -40,6 +40,7 @@ const AdminControlTower = lazyRetry(() => import("./pages/AdminControlTower"));
 const AdminAcuerdosFletes = lazyRetry(() => import("./pages/AdminAcuerdosFletes"));
 const AdminTarifasMotorizadosPage = lazyRetry(() => import("./pages/AdminTarifasMotorizadosPage"));
 const CatalogShortRedirect = lazyRetry(() => import("./pages/CatalogShortRedirect"));
+const AdminHistoricoMotorizados = lazyRetry(() => import("./pages/AdminHistoricoMotorizados"));
 const PublicCatalog = lazyRetry(() => import("./pages/PublicCatalog"));
 const AILandingStudio = lazyRetry(() => import("./pages/AILandingStudio"));
 const AccountReview = lazyRetry(() => import("./pages/AccountReview"));
@@ -264,6 +265,16 @@ const AppRoutes = () => {
           <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
             <Suspense fallback={<PageLoader />}>
               <AdminTarifasMotorizadosPage />
+            </Suspense>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/historico-motorizados"
+        element={
+          <ProtectedRoute allowedRoles={["admin", "super_admin"]}>
+            <Suspense fallback={<PageLoader />}>
+              <AdminHistoricoMotorizados />
             </Suspense>
           </ProtectedRoute>
         }
