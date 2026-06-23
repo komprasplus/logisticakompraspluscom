@@ -2,14 +2,35 @@
   "rewrites": [
     {
       "source": "/:slug/catalogo",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|whatsapp|pinterest|skypeuripreview|embedly|vkshare|w3c_validator|redditbot|applebot|yandex|googlebot|bingbot|duckduckbot|msnbot|petalbot).*"
+        }
+      ],
       "destination": "/api/catalog-handler"
     },
     {
       "source": "/:slug/catalogo/lista/:listaSlug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|whatsapp|pinterest|skypeuripreview|embedly|vkshare|w3c_validator|redditbot|applebot|yandex|googlebot|bingbot|duckduckbot|msnbot|petalbot).*"
+        }
+      ],
       "destination": "/api/catalog-handler"
     },
     {
       "source": "/:slug/catalogo/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|facebot|twitterbot|linkedinbot|slackbot|discordbot|telegrambot|whatsapp|pinterest|skypeuripreview|embedly|vkshare|w3c_validator|redditbot|applebot|yandex|googlebot|bingbot|duckduckbot|msnbot|petalbot).*"
+        }
+      ],
       "destination": "/api/catalog-handler"
     },
     {

@@ -1,19 +1,16 @@
 /**
  * Vercel Serverless Function: catalog-handler
  *
- * Intercepta visitas a /:slug/catalogo y /:slug/catalogo/:product, consulta
- * Supabase, y devuelve el index.html del SPA pero con meta tags Open Graph
- * (og:title, og:description, og:image) rellenados con la data real.
+ * SOLO se llama cuando Vercel detecta que el visitante es un crawler
+ * (WhatsApp, FB, Twitter, etc.) via header has-rule en vercel.json.
  *
- * Esto hace que cuando alguien comparte el link por WhatsApp / Facebook /
- * Telegram / etc, la preview muestre el logo + nombre + foto del producto,
- * en vez de una preview genérica de "Plus Envíos".
+ * Para crawlers: devuelve HTML con meta tags Open Graph correctos para
+ * que la preview muestre el logo + nombre + foto del producto.
  *
- * Para usuarios normales: el SPA se monta encima sin cambio visible.
+ * Usuarios normales NUNCA tocan este endpoint — Vercel les sirve el SPA
+ * directo y el path se preserva.
  */
 
-import { readFile } from "fs/promises";
-import path from "path";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const SUPABASE_URL = "https://hhjygradtikonvfzarrn.supabase.co";
@@ -23,26 +20,7 @@ const SUPABASE_ANON_KEY =
 const PROD_DOMAIN = "https://logistica.komprasplus.com";
 const FALLBACK_IMG = `${PROD_DOMAIN}/og-default.jpg`;
 
-interface ProviderShape {
-  store_name?: string;
-  description?: string | null;
-  logo_url?: string | null;
-  avatar_url?: string | null;
-  hero_image_url?: string | null;
-  hero_title?: string | null;
-  hero_subtitle?: string | null;
-}
-
-interface ProductShape {
-  product_name?: string;
-  description?: string | null;
-  description_md?: string | null;
-  image_url?: string | null;
-  image_urls?: string[] | null;
-  price?: number | null;
-}
-
-const escapeHtml = (s: string): string =>
+const escapeHtml = (s: unknown): string =>
   String(s ?? "")
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
@@ -50,38 +28,46 @@ const escapeHtml = (s: string): string =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-const trimDescription = (raw?: string | null, max = 200): string => {
+const trimDescription = (raw: unknown, max = 200): string => {
   if (!raw) return "";
   const plain = String(raw).replace(/[#*`>_~]/g, "").replace(/\s+/g, " ").trim();
   return plain.length > max ? plain.slice(0, max - 1) + "…" : plain;
 };
 
 const fetchProvider = async (slug: string) => {
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_public_provider_catalog_v2`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ p_slug: slug, p_lista_slug: null, p_codigo_acceso: null }),
-  });
-  if (!resp.ok) return null;
-  return await resp.json();
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_public_provider_catalog_v2`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ p_slug: slug, p_lista_slug: null, p_codigo_acceso: null }),
+    });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch {
+    return null;
+  }
 };
 
 const fetchProduct = async (slug: string, productId: string) => {
-  const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_public_product_detail`, {
-    method: "POST",
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ slug, product_id: productId }),
-  });
-  if (!resp.ok) return null;
-  return await resp.json();
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_public_product_detail`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ slug, product_id: productId }),
+    });
+    if (!resp.ok) return null;
+    return await resp.json();
+  } catch {
+    return null;
+  }
 };
 
 interface MetaPayload {
@@ -92,123 +78,111 @@ interface MetaPayload {
   url: string;
 }
 
-const buildMetaTags = (m: MetaPayload): string => {
-  const t = escapeHtml(m.title);
-  const d = escapeHtml(m.description);
-  const i = escapeHtml(m.image || FALLBACK_IMG);
-  const u = escapeHtml(m.url);
-  return `
-    <title>${t}</title>
-    <meta name="description" content="${d}" />
-    <link rel="canonical" href="${u}" />
-
-    <!-- Open Graph (Facebook, WhatsApp, LinkedIn, etc.) -->
-    <meta property="og:title" content="${t}" />
-    <meta property="og:description" content="${d}" />
-    <meta property="og:image" content="${i}" />
-    <meta property="og:image:secure_url" content="${i}" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:url" content="${u}" />
-    <meta property="og:type" content="${m.type}" />
-    <meta property="og:locale" content="es_CO" />
-    <meta property="og:site_name" content="Plus Envíos" />
-
-    <!-- Twitter -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="${t}" />
-    <meta name="twitter:description" content="${d}" />
-    <meta name="twitter:image" content="${i}" />`;
+const renderHtml = (meta: MetaPayload): string => {
+  const t = escapeHtml(meta.title);
+  const d = escapeHtml(meta.description);
+  const i = escapeHtml(meta.image || FALLBACK_IMG);
+  const u = escapeHtml(meta.url);
+  return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${t}</title>
+<meta name="description" content="${d}" />
+<link rel="canonical" href="${u}" />
+<meta property="og:title" content="${t}" />
+<meta property="og:description" content="${d}" />
+<meta property="og:image" content="${i}" />
+<meta property="og:image:secure_url" content="${i}" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta property="og:url" content="${u}" />
+<meta property="og:type" content="${meta.type}" />
+<meta property="og:locale" content="es_CO" />
+<meta property="og:site_name" content="Plus Envíos" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${t}" />
+<meta name="twitter:description" content="${d}" />
+<meta name="twitter:image" content="${i}" />
+</head>
+<body>
+<h1>${t}</h1>
+<p>${d}</p>
+<img src="${i}" alt="${t}" style="max-width:600px;" />
+<p><a href="${u}">Abrir catálogo</a></p>
+</body>
+</html>`;
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const url = req.url || "/";
-    // Parsear /{provider}/catalogo o /{provider}/catalogo/{product_id_or_slug}
-    const match = url.match(/^\/([^/?#]+)\/catalogo(?:\/(?:lista\/[^/?#]+|([^/?#]+)))?/);
-
-    // Leer el SPA shell (build de Vite)
-    const htmlPath = path.join(process.cwd(), "dist", "index.html");
-    let shell: string;
-    try {
-      shell = await readFile(htmlPath, "utf-8");
-    } catch {
-      // Fallback: si dist no existe (preview de dev), entregar HTML mínimo
-      shell = "<!doctype html><html lang=\"es\"><head><meta charset=\"utf-8\"></head><body><div id=\"root\"></div></body></html>";
-    }
+    const rawUrl = req.url || "/";
+    const pathOnly = rawUrl.split("?")[0];
+    const match = pathOnly.match(/^\/([^/]+)\/catalogo(?:\/(?:lista\/[^/]+|([^/]+)))?\/?$/);
 
     let meta: MetaPayload = {
       title: "Plus Envíos · Catálogos B2B",
       description: "Plataforma de logística y catálogos B2B para Colombia.",
       image: FALLBACK_IMG,
       type: "website",
-      url: PROD_DOMAIN + url,
+      url: PROD_DOMAIN + pathOnly,
     };
 
     if (match) {
-      const [, providerSlug, productKey] = match;
-      const fullUrl = PROD_DOMAIN + url;
+      const providerSlug = decodeURIComponent(match[1]);
+      const productKey = match[2] ? decodeURIComponent(match[2]) : null;
+      const fullUrl = PROD_DOMAIN + pathOnly;
 
-      try {
-        const catalog = await fetchProvider(providerSlug);
-        const provider: ProviderShape | null = catalog?.provider ?? null;
+      const catalog = await fetchProvider(providerSlug);
+      const provider = catalog?.provider ?? null;
 
-        if (productKey && provider) {
-          const detail = await fetchProduct(providerSlug, productKey);
-          const p: ProductShape | null = detail?.found ? detail.product : null;
-          if (p) {
-            const price = p.price ? ` · $${Number(p.price).toLocaleString("es-CO")} COP` : "";
-            meta = {
-              title: `${p.product_name}${price} | ${provider.store_name ?? "Catálogo"}`,
-              description: trimDescription(p.description_md || p.description) ||
-                `${p.product_name} disponible en ${provider.store_name}.`,
-              image: (p.image_urls && p.image_urls[0]) || p.image_url || provider.logo_url || provider.avatar_url || FALLBACK_IMG,
-              type: "product",
-              url: fullUrl,
-            };
-          } else if (provider) {
-            meta = {
-              title: `${provider.store_name ?? "Catálogo"} | Plus Envíos`,
-              description: trimDescription(provider.description) || "Conoce nuestros productos.",
-              image: provider.hero_image_url || provider.logo_url || provider.avatar_url || FALLBACK_IMG,
-              type: "website",
-              url: fullUrl,
-            };
-          }
-        } else if (provider) {
+      if (productKey && provider) {
+        const detail = await fetchProduct(providerSlug, productKey);
+        const p = detail?.found ? detail.product : null;
+        if (p) {
+          const price = p.price ? ` · $${Number(p.price).toLocaleString("es-CO")} COP` : "";
           meta = {
-            title: provider.hero_title
-              ? `${provider.hero_title} | ${provider.store_name}`
-              : `${provider.store_name} | Catálogo B2B`,
-            description: provider.hero_subtitle ||
-              trimDescription(provider.description) ||
-              `Conoce los productos de ${provider.store_name}.`,
-            image: provider.hero_image_url || provider.logo_url || provider.avatar_url || FALLBACK_IMG,
-            type: "website",
+            title: `${p.product_name}${price} | ${provider.store_name ?? "Catálogo"}`,
+            description:
+              trimDescription(p.description_md || p.description) ||
+              `${p.product_name} disponible en ${provider.store_name}.`,
+            image:
+              (Array.isArray(p.image_urls) && p.image_urls[0]) ||
+              p.image_url ||
+              provider.logo_url ||
+              provider.avatar_url ||
+              FALLBACK_IMG,
+            type: "product",
             url: fullUrl,
           };
         }
-      } catch (e) {
-        console.warn("catalog-handler: error obteniendo meta", e);
+      } else if (provider) {
+        meta = {
+          title: provider.hero_title
+            ? `${provider.hero_title} | ${provider.store_name}`
+            : `${provider.store_name} | Catálogo B2B`,
+          description:
+            provider.hero_subtitle ||
+            trimDescription(provider.description) ||
+            `Conoce los productos de ${provider.store_name}.`,
+          image:
+            provider.hero_image_url ||
+            provider.logo_url ||
+            provider.avatar_url ||
+            FALLBACK_IMG,
+          type: "website",
+          url: fullUrl,
+        };
       }
     }
 
-    // Inyectar meta tags antes de </head>, removiendo los tags previos que choquen
-    const newMeta = buildMetaTags(meta);
-    let finalHtml = shell;
-    // Quitar title y description existentes del shell para que los nuestros tomen prioridad
-    finalHtml = finalHtml.replace(/<title>[^<]*<\/title>/i, "");
-    finalHtml = finalHtml.replace(/<meta\s+name="description"[^>]*>/gi, "");
-    finalHtml = finalHtml.replace(/<meta\s+property="og:[^"]+"[^>]*>/gi, "");
-    finalHtml = finalHtml.replace(/<meta\s+name="twitter:[^"]+"[^>]*>/gi, "");
-    finalHtml = finalHtml.replace("</head>", `${newMeta}\n  </head>`);
-
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    // Cache 5 min para evitar pegarle a Supabase cada visita
     res.setHeader("Cache-Control", "public, s-maxage=300, stale-while-revalidate=600");
-    res.status(200).send(finalHtml);
+    res.status(200).send(renderHtml(meta));
   } catch (e) {
     console.error("catalog-handler error:", e);
-    res.status(500).send("Internal error");
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.status(200).send(`<!doctype html><html><head><title>Plus Envíos</title></head><body>Plus Envíos</body></html>`);
   }
 }
