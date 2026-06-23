@@ -39,6 +39,7 @@ const SuperAdminMaster = lazyRetry(() => import("./pages/SuperAdminMaster"));
 const AdminControlTower = lazyRetry(() => import("./pages/AdminControlTower"));
 const AdminAcuerdosFletes = lazyRetry(() => import("./pages/AdminAcuerdosFletes"));
 const AdminTarifasMotorizadosPage = lazyRetry(() => import("./pages/AdminTarifasMotorizadosPage"));
+const CatalogShortRedirect = lazyRetry(() => import("./pages/CatalogShortRedirect"));
 const PublicCatalog = lazyRetry(() => import("./pages/PublicCatalog"));
 const AILandingStudio = lazyRetry(() => import("./pages/AILandingStudio"));
 const AccountReview = lazyRetry(() => import("./pages/AccountReview"));
@@ -321,7 +322,17 @@ const AppRoutes = () => {
       
       {/* Legacy route redirect */}
       <Route path="/repartidor" element={<Navigate to="/motorizado" replace />} />
-      
+
+      {/* Ruta corta del catálogo público: /{tienda} → /{tienda}/catalogo */}
+      <Route
+        path="/:slug"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <CatalogShortRedirect />
+          </Suspense>
+        }
+      />
+
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
